@@ -19,6 +19,7 @@ import { auth } from '@/lib/firebase';
 import {
   getProfileRef,
   getGamificationRef,
+  getUserRef,
   getDocument,
   setDocument,
 } from '@/lib/firestore';
@@ -56,6 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const friendCode = Math.random().toString(36).substring(2, 8).toUpperCase();
         updatedProfile = { ...updatedProfile, friendCode };
         await setDocument(profileRef, { lastSeen: Date.now(), friendCode });
+        // Write friendCode to top-level user doc for lookup queries
+        await setDocument(getUserRef(firebaseUser.uid), { friendCode, uid: firebaseUser.uid });
       } else {
         await setDocument(profileRef, { lastSeen: Date.now() });
       }
@@ -91,6 +94,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       await setDocument(profileRef, newProfile);
       await setDocument(getGamificationRef(firebaseUser.uid), newGamification);
+      // Write friendCode to top-level user doc for lookup queries
+      await setDocument(getUserRef(firebaseUser.uid), { friendCode, uid: firebaseUser.uid });
 
       setProfile({ uid: firebaseUser.uid, ...newProfile });
     }

@@ -87,21 +87,35 @@ export function useFriends(): UseFriendsReturn {
       return { success: false, error: "You can't add yourself!" };
     }
 
-    // Find user by friendCode — query all user profiles
+    // Find user by friendCode — query top-level users docs
     const usersRef = collection(db, 'users');
-    const usersSnap = await getDocs(usersRef);
+    const codeQuery = query(usersRef, where('friendCode', '==', code));
+    const codeSnap = await getDocs(codeQuery);
 
     let targetUid: string | null = null;
     let targetProfile: UserProfile | null = null;
 
-    for (const userDoc of usersSnap.docs) {
-      const profRef = doc(db, 'users', userDoc.id, 'data', 'profile');
-      const profSnap = await getDocument<UserProfile>(profRef);
-      if (profSnap && profSnap.friendCode === code) {
-        targetUid = userDoc.id;
-        targetProfile = profSnap;
-        break;
+    if (codeSnap.empty) {
+      // Fallback: scan profile subcollections (for users created before the top-level write)
+      const allUsersSnap = await getDocs(usersRef);
+      for (const userDoc of allUsersSnap.docs) {
+        const profRef = doc(db, 'users', userDoc.id, 'data', 'profile');
+        const profSnap = await getDocument<UserProfile>(profRef);
+        if (profSnap && profSnap.friendCode === code) {
+          targetUid = userDoc.id;
+          targetProfile = profSnap;
+          // Backfill top-level doc so future lookups are fast
+          await setDocument(doc(db, 'users', userDoc.id), { friendCode: code, uid: userDoc.id });
+          break;
+        }
       }
+    } else {
+      // Found via direct query
+      const foundDoc = codeSnap.docs[0];
+      targetUid = foundDoc.id;
+      // Now fetch their full profile
+      const profRef = doc(db, 'users', targetUid, 'data', 'profile');
+      targetProfile = await getDocument<UserProfile>(profRef);
     }
 
     if (!targetUid || !targetProfile) {
