@@ -8,7 +8,7 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import PageTransition from '@/components/layout/PageTransition';
-
+import CodeEditor from '@/components/ui/CodeEditor';
 import { executeCode } from '@/lib/codeRunner';
 
 const LANGUAGES = [
@@ -105,22 +105,12 @@ export default function CodePage() {
                 </Button>
               </div>
             </div>
-            <textarea
+            <CodeEditor
               value={code}
-              onChange={(e) => setCode(e.target.value)}
-              className="w-full min-h-[400px] p-4 bg-transparent resize-none outline-none text-sm leading-relaxed"
-              style={{ fontFamily: 'var(--font-mono)' }}
-              spellCheck={false}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); runCode(); }
-                if (e.key === 'Tab') {
-                  e.preventDefault();
-                  const start = e.currentTarget.selectionStart;
-                  const end = e.currentTarget.selectionEnd;
-                  setCode(code.substring(0, start) + '  ' + code.substring(end));
-                  setTimeout(() => { e.currentTarget.selectionStart = e.currentTarget.selectionEnd = start + 2; }, 0);
-                }
-              }}
+              onChange={setCode}
+              onRun={runCode}
+              minHeight="400px"
+              placeholder="Write your code here..."
             />
           </Card>
 
@@ -133,9 +123,15 @@ export default function CodePage() {
                 {running && <motion.div className="w-2 h-2 rounded-full bg-amber" animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 0.8, repeat: Infinity }} />}
               </div>
             </div>
-            <pre className="p-4 text-sm min-h-[400px] whitespace-pre-wrap" style={{ fontFamily: 'var(--font-mono)' }}>
-              {output || 'Click "Run" or press Ctrl+Enter to execute...'}
-            </pre>
+            <div className="p-4 text-sm min-h-[400px]" style={{ fontFamily: 'var(--font-mono)' }}>
+              {!output ? (
+                <span className="text-[var(--muted-foreground)]">Click &quot;Run&quot; or press Ctrl+Enter to execute...</span>
+              ) : (
+                <pre className="whitespace-pre-wrap">{output.split('\n').map((line, i) => (
+                  <div key={i} className="flex gap-2"><span className="select-none text-[var(--muted-foreground)] opacity-40 w-6 text-right flex-shrink-0">{i + 1}</span><span>{line}</span></div>
+                ))}</pre>
+              )}
+            </div>
           </Card>
         </div>
       </div>

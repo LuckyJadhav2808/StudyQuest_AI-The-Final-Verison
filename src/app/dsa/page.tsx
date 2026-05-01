@@ -8,6 +8,7 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import PageTransition from '@/components/layout/PageTransition';
+import CodeEditor from '@/components/ui/CodeEditor';
 import { useAuthContext } from '@/context/AuthContext';
 import { doc, setDoc } from 'firebase/firestore';
 import { db as fireDb } from '@/lib/firebase';
@@ -174,13 +175,26 @@ export default function DsaPage() {
                   <div className="px-4 py-2 border-b-2 border-[var(--card-border)]">
                     <div className="flex items-center gap-2"><HiCode className="text-primary" size={14} /><span className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Free Code Editor</span></div>
                   </div>
-                  <textarea value={freeCode} onChange={(e) => setFreeCode(e.target.value)} className="w-full min-h-[350px] p-4 bg-transparent resize-none outline-none text-sm leading-relaxed" style={{ fontFamily: 'var(--font-mono)' }} spellCheck={false} onKeyDown={(e) => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); runFreeCode(); } if (e.key === 'Tab') { e.preventDefault(); const start = e.currentTarget.selectionStart; const end = e.currentTarget.selectionEnd; setFreeCode(freeCode.substring(0, start) + '  ' + freeCode.substring(end)); setTimeout(() => { e.currentTarget.selectionStart = e.currentTarget.selectionEnd = start + 2; }, 0); } }} />
+                  <CodeEditor
+                    value={freeCode}
+                    onChange={setFreeCode}
+                    onRun={runFreeCode}
+                    minHeight="350px"
+                  />
                 </Card>
                 <DSVisualizer code={freeCode} />
               </div>
               <Card padding="none" hover={false}>
                 <div className="px-4 py-2 border-b-2 border-[var(--card-border)]"><span className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Output</span></div>
-                <pre className="p-4 text-sm min-h-[350px] whitespace-pre-wrap" style={{ fontFamily: 'var(--font-mono)' }}>{freeOutput || 'Write any code and press Ctrl+Enter to run...'}</pre>
+                <div className="p-4 text-sm min-h-[350px]" style={{ fontFamily: 'var(--font-mono)' }}>
+                  {!freeOutput ? (
+                    <span className="text-[var(--muted-foreground)]">Write any code and press Ctrl+Enter to run...</span>
+                  ) : (
+                    <pre className="whitespace-pre-wrap">{freeOutput.split('\n').map((line, i) => (
+                      <div key={i} className="flex gap-2"><span className="select-none text-[var(--muted-foreground)] opacity-40 w-6 text-right flex-shrink-0">{i + 1}</span><span>{line}</span></div>
+                    ))}</pre>
+                  )}
+                </div>
               </Card>
             </div>
           </div>
@@ -233,12 +247,25 @@ export default function DsaPage() {
                       <Button variant="primary" size="sm" icon={<HiPlay size={14} />} onClick={runCode} loading={running}>{running ? '...' : 'Run'}</Button>
                     </div>
                   </div>
-                  <textarea value={code} onChange={(e) => setCode(e.target.value)} className="w-full min-h-[250px] p-4 bg-transparent resize-none outline-none text-sm leading-relaxed" style={{ fontFamily: 'var(--font-mono)' }} spellCheck={false} onKeyDown={(e) => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); runCode(); } }} />
+                  <CodeEditor
+                    value={code}
+                    onChange={setCode}
+                    onRun={runCode}
+                    minHeight="250px"
+                  />
                 </Card>
 
                 <Card padding="none" hover={false}>
                   <div className="px-4 py-2 border-b-2 border-[var(--card-border)]"><span className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Output</span></div>
-                  <pre className="p-4 text-sm min-h-[100px] whitespace-pre-wrap" style={{ fontFamily: 'var(--font-mono)' }}>{output || 'Run your code to see output...'}</pre>
+                  <div className="p-4 text-sm min-h-[100px]" style={{ fontFamily: 'var(--font-mono)' }}>
+                    {!output ? (
+                      <span className="text-[var(--muted-foreground)]">Run your code to see output...</span>
+                    ) : (
+                      <pre className="whitespace-pre-wrap">{output.split('\n').map((line, i) => (
+                        <div key={i} className="flex gap-2"><span className="select-none text-[var(--muted-foreground)] opacity-40 w-6 text-right flex-shrink-0">{i + 1}</span><span>{line}</span></div>
+                      ))}</pre>
+                    )}
+                  </div>
                 </Card>
               </div>
             </div>

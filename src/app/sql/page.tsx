@@ -10,6 +10,7 @@ import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import PageTransition from '@/components/layout/PageTransition';
+import CodeEditor from '@/components/ui/CodeEditor';
 
 interface DBEntry { name: string; data: number[] | null; }
 interface QueryResult { columns: string[]; values: (string | number | null)[][]; }
@@ -85,7 +86,19 @@ export default function SqlPage() {
       if (res.length === 0) toast.success('Query executed (no results returned)');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      setError(msg);
+      // Try to extract line number from SQL error
+      const lines = query.split('\n');
+      let errorDetail = `❌ ${msg}`;
+      // sql.js errors often mention the problematic token; find which line it's on
+      const tokenMatch = msg.match(/near "([^"]+)"/i);
+      if (tokenMatch) {
+        const token = tokenMatch[1];
+        const lineIdx = lines.findIndex(l => l.includes(token));
+        if (lineIdx >= 0) {
+          errorDetail += `\n\n→ Error at line ${lineIdx + 1}: ${lines[lineIdx].trim()}`;
+        }
+      }
+      setError(errorDetail);
       toast.error(msg);
     }
   };
@@ -225,13 +238,12 @@ export default function SqlPage() {
                     <Button variant="primary" size="sm" onClick={runQuery} icon={<HiPlay size={14} />}>Run (Ctrl+Enter)</Button>
                   </div>
                 </div>
-                <textarea
+                <CodeEditor
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="w-full min-h-[200px] p-4 bg-transparent resize-none outline-none text-sm leading-relaxed"
-                  style={{ fontFamily: 'var(--font-mono)' }}
+                  onChange={setQuery}
+                  onRun={runQuery}
+                  minHeight="200px"
                   placeholder="Write your SQL query..."
-                  onKeyDown={(e) => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); runQuery(); } }}
                 />
               </Card>
 
@@ -242,7 +254,7 @@ export default function SqlPage() {
                 </div>
                 <div className="p-4 overflow-x-auto min-h-[120px]">
                   {error ? (
-                    <p className="text-sm text-coral font-semibold">❌ {error}</p>
+                    <pre className="text-sm text-coral font-semibold whitespace-pre-wrap" style={{ fontFamily: 'var(--font-mono)' }}>{error}</pre>
                   ) : results.length === 0 ? (
                     <p className="text-xs text-[var(--muted-foreground)]" style={{ fontFamily: 'var(--font-mono)' }}>Run a query to see results...</p>
                   ) : (
