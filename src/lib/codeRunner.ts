@@ -1,6 +1,7 @@
 /**
  * StudyQuest Code Execution Engine
- * Browser-based execution for JS/TS, Wandbox API for compiled languages
+ * Browser-based execution for JS/TS
+ * Wandbox API (with -head compilers) + Rextester fallback for compiled languages
  */
 
 interface ExecutionResult {
@@ -34,7 +35,6 @@ function executeJavaScript(code: string): ExecutionResult {
 
 /** Execute TypeScript by stripping types and running as JS */
 function executeTypeScript(code: string): ExecutionResult {
-  // Simple TS → JS transform: strip type annotations
   const jsCode = code
     .replace(/:\s*(string|number|boolean|any|void|never|unknown|object|undefined|null)\b(\[\])?/g, '')
     .replace(/:\s*\{[^}]*\}/g, '')
@@ -47,54 +47,110 @@ function executeTypeScript(code: string): ExecutionResult {
   return executeJavaScript(jsCode);
 }
 
-/** Execute Python via Pyodide-like approach or Wandbox */
-async function executePython(code: string): Promise<ExecutionResult> {
-  try {
-    const res = await fetch('https://wandbox.org/api/compile.json', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, compiler: 'cpython-3.10.2' }),
-    });
-    const data = await res.json();
-    return {
-      stdout: data.program_output || '',
-      stderr: data.compiler_error || data.program_error || '',
-    };
-  } catch {
-    return { stdout: '', stderr: '❌ Failed to connect to Python execution server. Check your network.' };
-  }
-}
+// =================== Remote Execution APIs ===================
 
-/** Execute compiled languages via Wandbox API (free, no key needed) */
-async function executeWandbox(code: string, compiler: string): Promise<ExecutionResult> {
+/** Wandbox API — use `-head` compilers that always exist */
+async function tryWandbox(code: string, compiler: string): Promise<ExecutionResult | null> {
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
     const res = await fetch('https://wandbox.org/api/compile.json', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, compiler }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeout);
+
+    if (!res.ok) return null; // fallback on HTTP errors (500, etc.)
+
     const data = await res.json();
     return {
       stdout: data.program_output || '',
       stderr: data.compiler_error || data.program_error || '',
     };
   } catch {
-    return { stdout: '', stderr: '❌ Failed to connect to execution server. Check your network.' };
+    return null; // network error or timeout → try fallback
   }
 }
 
-const WANDBOX_COMPILERS: Record<string, string> = {
-  python: 'cpython-3.10.2',
-  java: 'openjdk-jdk-15.0.3+2',
-  cpp: 'gcc-12.1.0',
-  c: 'gcc-12.1.0-c',
-  rust: 'rust-1.64.0',
-  go: 'go-1.19.1',
+/** Rextester API — free fallback, no key needed */
+async function tryRextester(code: string, langId: number): Promise<ExecutionResult | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
+    const formData = new URLSearchParams();
+    formData.append('LanguageChoice', String(langId));
+    formData.append('Program', code);
+    formData.append('Input', '');
+    formData.append('CompilerArgs', '');
+
+    const res = await fetch('https://rextester.com/rundotnet/api', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData.toString(),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    return {
+      stdout: data.Result || '',
+      stderr: data.Errors || data.Warnings || '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Language configurations with primary (Wandbox) and fallback (Rextester) compilers
+interface LangConfig {
+  wandbox: string;       // Wandbox compiler name (use -head for latest)
+  rextesterId: number;   // Rextester language ID
+}
+
+const LANG_CONFIG: Record<string, LangConfig> = {
+  python:  { wandbox: 'cpython-head',  rextesterId: 24 },
+  java:    { wandbox: 'openjdk-head',  rextesterId: 4 },
+  cpp:     { wandbox: 'gcc-head',      rextesterId: 7 },
+  c:       { wandbox: 'gcc-head-c',    rextesterId: 6 },
+  rust:    { wandbox: 'rust-head',     rextesterId: 46 },
+  go:      { wandbox: 'go-head',       rextesterId: 20 },
 };
 
 /**
+ * Execute code with fallback chain: Wandbox → Rextester
+ */
+async function executeRemote(code: string, language: string): Promise<ExecutionResult> {
+  const config = LANG_CONFIG[language];
+  if (!config) {
+    return { stdout: '', stderr: `Language "${language}" is not supported for remote execution.` };
+  }
+
+  // Try Wandbox first (generally faster, better output)
+  const wandboxResult = await tryWandbox(code, config.wandbox);
+  if (wandboxResult) return wandboxResult;
+
+  // Fallback to Rextester
+  const rextesterResult = await tryRextester(code, config.rextesterId);
+  if (rextesterResult) return rextesterResult;
+
+  // Both failed
+  return {
+    stdout: '',
+    stderr: '❌ Code execution servers are temporarily unavailable. JavaScript and TypeScript run instantly in-browser — try switching languages!',
+  };
+}
+
+/**
  * Main execution entry point
- * JS/TS run in-browser (instant), all others use Wandbox API (free)
+ * JS/TS run in-browser (instant, always works), others use remote APIs with fallback
  */
 export async function executeCode(code: string, language: string): Promise<ExecutionResult> {
   if (language === 'javascript') {
@@ -104,10 +160,5 @@ export async function executeCode(code: string, language: string): Promise<Execu
     return executeTypeScript(code);
   }
 
-  const compiler = WANDBOX_COMPILERS[language];
-  if (!compiler) {
-    return { stdout: '', stderr: `Language "${language}" is not supported for remote execution.` };
-  }
-
-  return executeWandbox(code, compiler);
+  return executeRemote(code, language);
 }
