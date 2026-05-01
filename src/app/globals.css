@@ -1,0 +1,582 @@
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+/* ============================================================
+   StudyQuest AI — Design System (Tailwind v4 @theme)
+   "Tactile / High-Contrast" — Candy-colored, gamified, dopamine-driven
+   Based on Stitch StudyQuest Gamified Design System
+   ============================================================ */
+
+@theme inline {
+  /* ---- Primary Palette (from Stitch design) ---- */
+  --color-primary: #7C3AED;
+  --color-primary-light: #A78BFA;
+  --color-primary-dark: #581C87;
+  --color-primary-container: #EDE0FF;
+  --color-primary-glow: rgba(124, 58, 237, 0.3);
+
+  /* ---- Secondary (Hot Pink) ---- */
+  --color-secondary: #EC4899;
+  --color-secondary-dark: #BE185D;
+  --color-secondary-container: #FD56A7;
+
+  /* ---- Tertiary (Emerald Green — "Success") ---- */
+  --color-tertiary: #10B981;
+  --color-tertiary-dark: #059669;
+  --color-tertiary-container: #007650;
+
+  /* ---- Accent Colors (Candy Palette) ---- */
+  --color-coral: #FF6B6B;
+  --color-coral-dark: #E05252;
+  --color-teal: #06D6A0;
+  --color-teal-dark: #05B384;
+  --color-amber: #FFD166;
+  --color-amber-dark: #E6B84D;
+  --color-sky: #4CC9F0;
+  --color-sky-dark: #38A3C6;
+  --color-pink: #FF85A1;
+  --color-pink-dark: #E06E88;
+  --color-lime: #B5E48C;
+  --color-lime-dark: #95C96E;
+
+  /* ---- Surfaces (Light Mode — Warm off-white from Stitch) ---- */
+  --color-surface-50: #FEF7FF;
+  --color-surface-100: #F9F1FF;
+  --color-surface-200: #F3EBFA;
+  --color-surface-300: #EDE5F4;
+  --color-surface-400: #E8DFEE;
+
+  /* ---- Surfaces (Dark Mode) ---- */
+  --color-surface-900: #0B0D17;
+  --color-surface-800: #111328;
+  --color-surface-700: #1A1D35;
+  --color-surface-600: #242842;
+  --color-surface-500: #2E3350;
+
+  /* ---- Typography (Lexend from Stitch design) ---- */
+  --font-heading: 'Lexend', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'Lexend', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Space Grotesk', ui-monospace, monospace;
+
+  /* ---- Spacing & Radius (from Stitch design: 20px cards, 16px buttons) ---- */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+  --radius-full: 9999px;
+
+  /* ---- Layout ---- */
+  --sidebar-width: 272px;
+  --sidebar-collapsed: 72px;
+  --header-height: 64px;
+
+  /* ---- Shadows ---- */
+  --shadow-glow: 0 0 20px var(--color-primary-glow);
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.08);
+  --shadow-card-hover: 0 8px 32px rgba(0, 0, 0, 0.14);
+  --shadow-btn-3d: 0 4px 0 var(--color-primary-dark);
+  --shadow-btn-3d-pressed: 0 2px 0 var(--color-primary-dark);
+}
+
+/* ============================================================
+   Base Styles
+   ============================================================ */
+
+:root {
+  --background: var(--color-surface-50);
+  --foreground: #1D1A24;
+  --card-bg: #ffffff;
+  --card-border: #E8DFEE;
+  --muted: #CCC3D8;
+  --muted-foreground: #4A4455;
+  --outline: #7B7487;
+}
+
+.dark {
+  --background: var(--color-surface-900);
+  --foreground: #f1f1f7;
+  --card-bg: var(--color-surface-800);
+  --card-border: var(--color-surface-600);
+  --muted: var(--color-surface-600);
+  --muted-foreground: #9ca3af;
+  --outline: #7B7487;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+html[data-scroll-behavior="smooth"] {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+  font-weight: 400;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Typography — Lexend ExtraBold headlines per Stitch spec */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+h1 { font-size: 2rem; }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.25rem; }
+h4 { font-size: 1.125rem; }
+
+/* ============================================================
+   3D Tactile Button System
+   "Push-Button Effect" from Stitch design spec:
+   - 4px solid bottom border in darker shade
+   - Hover: scale 1.05x, border stays
+   - Active: translate 2px down, border shrinks to 2px
+   ============================================================ */
+
+.btn-3d {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  border: none;
+  outline: none;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.btn-3d-primary {
+  background: var(--color-primary);
+  color: white;
+  box-shadow: 0 4px 0 var(--color-primary-dark), 0 6px 20px rgba(124, 58, 237, 0.25);
+}
+
+.btn-3d-primary:hover {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 5px 0 var(--color-primary-dark), 0 8px 25px rgba(124, 58, 237, 0.35);
+}
+
+.btn-3d-primary:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 var(--color-primary-dark), 0 3px 10px rgba(124, 58, 237, 0.2);
+}
+
+.btn-3d-coral {
+  background: var(--color-coral);
+  color: white;
+  box-shadow: 0 4px 0 var(--color-coral-dark), 0 6px 20px rgba(255, 107, 107, 0.25);
+}
+
+.btn-3d-coral:hover {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 5px 0 var(--color-coral-dark), 0 8px 25px rgba(255, 107, 107, 0.35);
+}
+
+.btn-3d-coral:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 var(--color-coral-dark), 0 3px 10px rgba(255, 107, 107, 0.2);
+}
+
+.btn-3d-teal {
+  background: var(--color-teal);
+  color: #0B0D17;
+  box-shadow: 0 4px 0 var(--color-teal-dark), 0 6px 20px rgba(6, 214, 160, 0.25);
+}
+
+.btn-3d-teal:hover {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 5px 0 var(--color-teal-dark), 0 8px 25px rgba(6, 214, 160, 0.35);
+}
+
+.btn-3d-teal:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 var(--color-teal-dark), 0 3px 10px rgba(6, 214, 160, 0.2);
+}
+
+.btn-3d-amber {
+  background: var(--color-amber);
+  color: #0B0D17;
+  box-shadow: 0 4px 0 var(--color-amber-dark), 0 6px 20px rgba(255, 209, 102, 0.25);
+}
+
+.btn-3d-amber:hover {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 5px 0 var(--color-amber-dark), 0 8px 25px rgba(255, 209, 102, 0.35);
+}
+
+.btn-3d-amber:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 var(--color-amber-dark), 0 3px 10px rgba(255, 209, 102, 0.2);
+}
+
+/* ============================================================
+   Quest Cards (from Stitch spec)
+   White surfaces with 2px border in #E8DFEE
+   On hover: border changes to Primary Purple + 4px bottom shadow
+   ============================================================ */
+
+.card-glass {
+  background: var(--card-bg);
+  border: 2px solid var(--card-border);
+  border-radius: 1.25rem; /* 20px from Stitch */
+  transition: all 0.25s ease;
+  box-shadow: var(--shadow-card);
+}
+
+.dark .card-glass {
+  background: rgba(17, 19, 40, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.card-glass:hover {
+  border-color: var(--color-primary-light);
+  box-shadow: 0 4px 0 rgba(124, 58, 237, 0.15), 0 8px 32px rgba(124, 58, 237, 0.08);
+}
+
+/* ============================================================
+   Glowing Ring Effect (Achievement Stickers)
+   ============================================================ */
+
+.glow-ring {
+  position: relative;
+}
+
+.glow-ring::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  padding: 2px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary), var(--color-tertiary));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.glow-ring:hover::before {
+  opacity: 1;
+}
+
+/* Achievement stickers glow */
+.achievement-sticker {
+  position: relative;
+  border: 4px solid white;
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 12px rgba(124, 58, 237, 0.3);
+}
+
+/* ============================================================
+   Scrollbar Styling
+   ============================================================ */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+/* ============================================================
+   Animations
+   ============================================================ */
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 5px var(--color-primary-glow); }
+  50% { box-shadow: 0 0 20px var(--color-primary-glow), 0 0 40px rgba(124, 58, 237, 0.15); }
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes bounce-in {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.05); }
+  70% { transform: scale(0.95); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes confetti-pop {
+  0% { transform: scale(0) rotate(0deg); opacity: 0; }
+  50% { transform: scale(1.2) rotate(180deg); opacity: 1; }
+  100% { transform: scale(1) rotate(360deg); opacity: 1; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 4s ease infinite;
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* ============================================================
+   XP Progress Bar
+   Fully rounded ends, "liquid" XP container per Stitch spec
+   Glossy "shine" overlay for candy-like finish
+   ============================================================ */
+
+.xp-bar-track {
+  background: var(--muted);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  height: 10px;
+  position: relative;
+}
+
+.dark .xp-bar-track {
+  background: rgba(124, 58, 237, 0.15);
+}
+
+.xp-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary), var(--color-amber));
+  background-size: 200% 100%;
+  animation: gradient-shift 3s ease infinite;
+  transition: width 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  position: relative;
+}
+
+/* Glossy shine overlay */
+.xp-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 33%;
+  height: 50%;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.35), transparent);
+  border-radius: inherit;
+}
+
+/* ============================================================
+   Utility classes
+   ============================================================ */
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.bg-gradient-primary {
+  background: linear-gradient(135deg, var(--color-primary), #9F67FF);
+}
+
+.bg-gradient-candy {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary), var(--color-amber));
+}
+
+.bg-warm {
+  background: #FEFCE8; /* Warm off-white from Stitch design */
+}
+
+.border-gradient {
+  border-image: linear-gradient(135deg, var(--color-primary), var(--color-secondary)) 1;
+}
+
+/* Focus ring for accessibility */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   Mascot Speech Bubble (Questie)
+   Sky blue accent for tips and dialogue
+   ============================================================ */
+
+.speech-bubble {
+  position: relative;
+  background: var(--color-sky);
+  color: #0B0D17;
+  border-radius: var(--radius-2xl);
+  padding: 1rem 1.25rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.speech-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 24px;
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 10px solid var(--color-sky);
+}
+
+/* ============================================================
+   Responsive hiding
+   ============================================================ */
+
+@media (max-width: 768px) {
+  .hide-mobile { display: none !important; }
+}
+
+@media (min-width: 769px) {
+  .hide-desktop { display: none !important; }
+}
+
+/* ============================================================
+   Quill Editor — Stitch Design Overrides
+   ============================================================ */
+
+.quill-wrapper .ql-toolbar.ql-snow {
+  border: none;
+  border-bottom: 2px solid var(--card-border);
+  background: var(--card-bg);
+  border-radius: 16px 16px 0 0;
+  padding: 10px 14px;
+}
+
+.quill-wrapper .ql-container.ql-snow {
+  border: none;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  min-height: 400px;
+}
+
+.quill-wrapper .ql-editor {
+  padding: 24px;
+  line-height: 1.8;
+  min-height: 400px;
+  color: var(--foreground);
+}
+
+.quill-wrapper .ql-editor.ql-blank::before {
+  color: var(--muted-foreground);
+  font-style: normal;
+  left: 24px;
+  right: 24px;
+}
+
+.quill-wrapper .ql-snow .ql-stroke {
+  stroke: var(--foreground);
+}
+
+.quill-wrapper .ql-snow .ql-fill,
+.quill-wrapper .ql-snow .ql-stroke.ql-fill {
+  fill: var(--foreground);
+}
+
+.quill-wrapper .ql-snow .ql-picker-label {
+  color: var(--foreground);
+}
+
+.quill-wrapper .ql-snow .ql-picker-options {
+  background: var(--card-bg);
+  border: 2px solid var(--card-border);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+}
+
+.quill-wrapper .ql-toolbar .ql-formats button:hover,
+.quill-wrapper .ql-toolbar .ql-formats button.ql-active {
+  color: #7C3AED;
+}
+
+.quill-wrapper .ql-toolbar .ql-formats button:hover .ql-stroke,
+.quill-wrapper .ql-toolbar .ql-formats button.ql-active .ql-stroke {
+  stroke: #7C3AED;
+}
+
+.quill-wrapper .ql-toolbar .ql-formats button:hover .ql-fill,
+.quill-wrapper .ql-toolbar .ql-formats button.ql-active .ql-fill {
+  fill: #7C3AED;
+}
+
+.quill-wrapper .ql-editor blockquote {
+  border-left: 4px solid #7C3AED;
+  padding-left: 16px;
+  margin: 12px 0;
+  color: var(--muted-foreground);
+}
+
+.quill-wrapper .ql-editor pre.ql-syntax {
+  background: #1e1e2e;
+  color: #cdd6f4;
+  border-radius: 12px;
+  padding: 16px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  overflow-x: auto;
+}
+
+.quill-wrapper .ql-editor code {
+  background: rgba(124, 58, 237, 0.1);
+  color: #7C3AED;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.quill-wrapper .ql-editor img {
+  border-radius: 12px;
+  max-width: 100%;
+  margin: 12px 0;
+}
