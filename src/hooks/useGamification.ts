@@ -5,7 +5,7 @@
 // ============================================================
 
 import { useState, useEffect, useCallback } from 'react';
-import { doc } from 'firebase/firestore';
+import { doc, collection, onSnapshot, increment } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   getGamificationRef,
@@ -24,6 +24,7 @@ import { useAuthContext } from '@/context/AuthContext';
 interface UseGamificationReturn {
   gamification: GamificationData | null;
   loading: boolean;
+  xpHistory: Record<string, number>; // date → XP earned that day
   awardXP: (amount: number, reason: string) => Promise<{ leveledUp: boolean; newAchievements: string[] }>;
   checkStreak: () => Promise<void>;
 }
@@ -32,6 +33,7 @@ export function useGamification(): UseGamificationReturn {
   const { user } = useAuthContext();
   const [gamification, setGamification] = useState<GamificationData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [xpHistory, setXpHistory] = useState<Record<string, number>>({});
 
   // Subscribe to gamification data
   useEffect(() => {
@@ -45,6 +47,22 @@ export function useGamification(): UseGamificationReturn {
     const unsub = subscribeToDocument<GamificationData>(ref, (data) => {
       setGamification(data);
       setLoading(false);
+    });
+
+    return () => unsub();
+  }, [user]);
+
+  // Subscribe to XP history (daily log)
+  useEffect(() => {
+    if (!user) { setXpHistory({}); return; }
+
+    const xpLogRef = collection(db, 'users', user.uid, 'xpLog');
+    const unsub = onSnapshot(xpLogRef, (snap) => {
+      const history: Record<string, number> = {};
+      snap.docs.forEach((d) => {
+        history[d.id] = (d.data().totalXp as number) || 0;
+      });
+      setXpHistory(history);
     });
 
     return () => unsub();
@@ -92,6 +110,16 @@ export function useGamification(): UseGamificationReturn {
         achievements: [...gamification.achievements, ...newAchievements],
       });
 
+      // Log daily XP for heatmap
+      const today = new Date().toISOString().split('T')[0];
+      const dayLogRef = doc(db, 'users', user.uid, 'xpLog', today);
+      try {
+        await setDocument(dayLogRef, { totalXp: increment(amount), lastUpdated: Date.now() });
+      } catch {
+        // If doc doesn't exist yet, create it
+        await setDocument(dayLogRef, { totalXp: amount, lastUpdated: Date.now() }, false);
+      }
+
       return { leveledUp, newAchievements };
     },
     [user, gamification],
@@ -125,5 +153,6 @@ export function useGamification(): UseGamificationReturn {
     });
   }, [user, gamification]);
 
-  return { gamification, loading, awardXP, checkStreak };
+  return { gamification, loading, xpHistory, awardXP, checkStreak };
 }
+

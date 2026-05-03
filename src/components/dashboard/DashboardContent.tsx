@@ -23,6 +23,7 @@ import XPBar from '@/components/gamification/XPBar';
 import LevelBadge from '@/components/gamification/LevelBadge';
 import StreakCounter from '@/components/gamification/StreakCounter';
 import PageTransition from '@/components/layout/PageTransition';
+import StudyHeatmap from '@/components/dashboard/StudyHeatmap';
 import { playSuccess, playXP } from '@/lib/sounds';
 
 const containerVariants = {
@@ -36,7 +37,7 @@ const itemVariants = {
 
 export default function DashboardContent() {
   const { profile } = useAuthContext();
-  const { gamification, checkStreak, awardXP } = useGamification();
+  const { gamification, checkStreak, awardXP, xpHistory } = useGamification();
   const { tasks } = useTasks();
   const { friends, incomingRequests, acceptRequest, rejectRequest } = useFriends();
   const { quests, addQuest, toggleQuest, deleteQuest, todayCompleted, todayTotal } = useDailyQuests();
@@ -261,6 +262,19 @@ export default function DashboardContent() {
           <Card padding="md"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center"><StreakCounter streak={gamification?.streak || 0} size="md" /></div><div><p className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Streak</p><p className="text-xl font-heading font-black">{gamification?.streak || 0} Days</p></div></div><p className="text-[9px] text-[var(--muted-foreground)] mt-1 font-semibold">Best: {gamification?.longestStreak || 0} days</p></Card>
           <Card padding="md"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-teal/15 flex items-center justify-center"><HiClipboardCheck className="text-teal" size={22} /></div><div><p className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Active Quests</p><p className="text-xl font-heading font-black">{todayTasks.length}</p></div></div><p className="text-[9px] text-teal font-bold mt-1">✅ {completedToday.length} completed today</p></Card>
           <Card padding="md"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-amber/15 flex items-center justify-center text-xl">🏆</div><div><p className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Trophies</p><p className="text-xl font-heading font-black">{gamification?.achievements.length || 0}</p></div></div><p className="text-[9px] text-[var(--muted-foreground)] mt-1 font-semibold">of {ACHIEVEMENTS.length} total</p></Card>
+        </motion.div>
+
+        {/* ============ Study Heatmap ============ */}
+        <motion.div variants={itemVariants}>
+          <Card padding="md" hover={false}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-heading font-bold flex items-center gap-2">
+                <HiCalendar className="text-primary" /> Study Activity
+              </h3>
+              <Badge variant="primary" size="sm">Heatmap</Badge>
+            </div>
+            <StudyHeatmap xpByDate={xpHistory} />
+          </Card>
         </motion.div>
 
         {/* ============ Quick Actions ============ */}
