@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { HiSun, HiMoon, HiBell } from 'react-icons/hi';
+import { HiSun, HiMoon, HiBell, HiSearch } from 'react-icons/hi';
 import { useTheme } from '@/context/ThemeContext';
 import { useGamification } from '@/hooks/useGamification';
 import { useFriends } from '@/hooks/useFriends';
@@ -16,6 +16,10 @@ export default function Header() {
   const { incomingRequests } = useFriends();
   const router = useRouter();
 
+  const openCommandPalette = () => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
+  };
+
   return (
     <header className="h-16 bg-[var(--card-bg)]/80 backdrop-blur-lg border-b border-[var(--card-border)] flex items-center justify-between px-4 md:px-6 sticky top-0 z-30">
       {/* Left — Page title area */}
@@ -27,6 +31,20 @@ export default function Header() {
         >
           StudyQuest
         </motion.h1>
+
+        {/* Ctrl+K Search Hint */}
+        <button
+          onClick={openCommandPalette}
+          className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[var(--card-border)] hover:border-primary/40 hover:bg-primary/5 transition-all group cursor-pointer"
+        >
+          <HiSearch size={13} className="text-[var(--muted-foreground)] group-hover:text-primary transition-colors" />
+          <span className="text-[11px] text-[var(--muted-foreground)] group-hover:text-[var(--foreground)] transition-colors">
+            Ask Questie...
+          </span>
+          <kbd className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-[var(--background)] border border-[var(--card-border)] text-[var(--muted-foreground)]">
+            Ctrl+K
+          </kbd>
+        </button>
       </div>
 
       {/* Right — Stats & Actions */}

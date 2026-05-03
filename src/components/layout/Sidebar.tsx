@@ -17,6 +17,7 @@ import { getAvatarUrl } from '@/lib/constants';
 import XPBar from '@/components/gamification/XPBar';
 import LevelBadge from '@/components/gamification/LevelBadge';
 import StreakCounter from '@/components/gamification/StreakCounter';
+import QuestieMascot from '@/components/gamification/QuestieMascot';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string; size?: number }>> = {
   HiHome, HiClipboardCheck, HiPencilAlt, HiLightningBolt,
@@ -84,7 +85,7 @@ export default function Sidebar() {
       animate={{ width: collapsed ? 72 : 272 }}
       transition={{ duration: 0.25, ease: 'easeInOut' }}
     >
-      {/* Header - Questie mascot + Avatar */}
+      {/* Header - Avatar + Profile */}
       <div className="p-4 border-b-2 border-[var(--card-border)]">
         <div className="flex items-center gap-3">
           {/* Avatar with level badge */}
@@ -147,21 +148,10 @@ export default function Sidebar() {
         </AnimatePresence>
       </div>
 
-      {/* Questie speech bubble (only when expanded) */}
-      <AnimatePresence>
-        {!collapsed && (
-          <motion.div
-            className="mx-3 mt-3"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-          >
-            <div className="speech-bubble text-[11px]">
-              🦉 Ready for a quest?
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Questie Mascot — always visible */}
+      <div className="px-3 py-2 border-b border-[var(--card-border)]">
+        <QuestieMascot collapsed={collapsed} />
+      </div>
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-4 mt-1">
@@ -269,6 +259,30 @@ export default function Sidebar() {
           </AnimatePresence>
         </button>
       </div>
+
+      {/* Ctrl+K Shortcut Hint */}
+      <AnimatePresence>
+        {!collapsed && (
+          <motion.button
+            onClick={() => {
+              // Dispatch Ctrl+K programmatically
+              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
+            }}
+            className="mx-2 mb-1 px-3 py-2 rounded-xl border border-dashed border-[var(--card-border)] hover:border-primary/40 hover:bg-primary/5 transition-all flex items-center gap-2 group"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <HiSparkles size={14} className="text-primary/60 group-hover:text-primary transition-colors" />
+            <span className="text-[11px] text-[var(--muted-foreground)] group-hover:text-[var(--foreground)] transition-colors flex-1 text-left">
+              Ask Questie...
+            </span>
+            <kbd className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-[var(--background)] border border-[var(--card-border)] text-[var(--muted-foreground)]">
+              Ctrl+K
+            </kbd>
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* Collapse Toggle */}
       <button
