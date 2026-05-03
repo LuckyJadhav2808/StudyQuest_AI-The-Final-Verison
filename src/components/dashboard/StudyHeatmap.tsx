@@ -114,13 +114,13 @@ export default function StudyHeatmap({ xpByDate, days = 180 }: StudyHeatmapProps
 
       {/* Heatmap grid */}
       <div className="overflow-x-auto pb-2">
-        <div className="inline-flex flex-col gap-[2px] min-w-max">
+        <div className="flex flex-col gap-[2px] w-full">
           {/* Month labels */}
-          <div className="flex gap-[2px] ml-[30px]">
+          <div className="flex gap-[2px]" style={{ paddingLeft: '30px' }}>
             {weeks.map((_, colIdx) => {
               const monthLabel = monthLabels.find((m) => m.col === colIdx);
               return (
-                <div key={`month-${colIdx}`} className="w-[12px] text-center">
+                <div key={`month-${colIdx}`} className="flex-1 min-w-[8px] text-center">
                   {monthLabel && (
                     <span className="text-[8px] font-bold text-[var(--muted-foreground)]">
                       {monthLabel.label}
@@ -135,7 +135,7 @@ export default function StudyHeatmap({ xpByDate, days = 180 }: StudyHeatmapProps
           {[0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => (
             <div key={dayOfWeek} className="flex items-center gap-[2px]">
               {/* Day label */}
-              <span className="w-[28px] text-[8px] font-bold text-[var(--muted-foreground)] text-right pr-1">
+              <span className="w-[28px] flex-shrink-0 text-[8px] font-bold text-[var(--muted-foreground)] text-right pr-1">
                 {DAYS_LABELS[dayOfWeek]}
               </span>
 
@@ -143,7 +143,7 @@ export default function StudyHeatmap({ xpByDate, days = 180 }: StudyHeatmapProps
               {weeks.map((week, colIdx) => {
                 const dateStr = week[dayOfWeek];
                 if (!dateStr) {
-                  return <div key={`empty-${colIdx}`} className="w-[12px] h-[12px]" />;
+                  return <div key={`empty-${colIdx}`} className="flex-1 min-w-[8px] aspect-square" />;
                 }
 
                 const xp = xpByDate[dateStr] || 0;
@@ -152,7 +152,7 @@ export default function StudyHeatmap({ xpByDate, days = 180 }: StudyHeatmapProps
                 return (
                   <motion.div
                     key={dateStr}
-                    className="w-[12px] h-[12px] rounded-[2px] cursor-pointer relative group"
+                    className="flex-1 min-w-[8px] aspect-square rounded-[2px] cursor-pointer relative group"
                     style={{ backgroundColor: LEVEL_COLORS[level] }}
                     whileHover={{ scale: 1.8, zIndex: 10 }}
                     transition={{ duration: 0.15 }}

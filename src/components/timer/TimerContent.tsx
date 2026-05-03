@@ -10,6 +10,7 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import PageTransition from '@/components/layout/PageTransition';
+import PomodoroPet from '@/components/timer/PomodoroPet';
 import { POMODORO_DEFAULTS, XP_AWARDS } from '@/lib/constants';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -40,6 +41,7 @@ export default function TimerContent() {
   const [sessions, setSessions] = useState(0);
   const [totalFocusToday, setTotalFocusToday] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
+  const [wasAbandoned, setWasAbandoned] = useState(false);
 
   const [durations, setDurations] = useState({
     focus: POMODORO_DEFAULTS.focus,
@@ -146,9 +148,15 @@ export default function TimerContent() {
     setTimeLeft(duration * 60);
   };
 
-  const toggleTimer = () => setIsRunning(!isRunning);
+  const toggleTimer = () => {
+    if (!isRunning) setWasAbandoned(false);
+    setIsRunning(!isRunning);
+  };
 
   const resetTimer = () => {
+    if (isRunning && phase === 'focus' && progress > 0.1) {
+      setWasAbandoned(true);
+    }
     setIsRunning(false);
     setTimeLeft(totalTime);
     toast('Timer reset');
@@ -283,6 +291,15 @@ export default function TimerContent() {
             </div>
           </div>
         </Card>
+
+        {/* Pomodoro Pet */}
+        <PomodoroPet
+          isRunning={isRunning}
+          phase={phase}
+          progress={progress}
+          sessions={sessions}
+          wasAbandoned={wasAbandoned}
+        />
 
         {/* Stats row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

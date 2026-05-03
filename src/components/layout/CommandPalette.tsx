@@ -113,9 +113,9 @@ export default function CommandPalette() {
   // ── Scroll selected into view ──────────────────────────────
   useEffect(() => {
     if (listRef.current) {
-      const selected = listRef.current.children[selectedIndex] as HTMLElement;
+      const selected = listRef.current.querySelector(`[data-idx="${selectedIndex}"]`) as HTMLElement;
       if (selected) {
-        selected.scrollIntoView({ block: 'nearest' });
+        selected.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       }
     }
   }, [selectedIndex]);
@@ -163,8 +163,14 @@ export default function CommandPalette() {
     return groups;
   }, [filteredCommands]);
 
-  // ── Build flat index for keyboard nav ──────────────────────
-  let flatIndex = -1;
+  // ── Build flat index map for keyboard nav ────────────────────
+  const flatItems = useMemo(() => {
+    const items: CommandItem[] = [];
+    Object.values(grouped).forEach((catItems) => {
+      catItems.forEach((cmd) => items.push(cmd));
+    });
+    return items;
+  }, [grouped]);
 
   return (
     <AnimatePresence>
@@ -219,7 +225,11 @@ export default function CommandPalette() {
             </div>
 
             {/* Results */}
-            <div ref={listRef} className="max-h-[360px] overflow-y-auto py-2">
+            <div
+              ref={listRef}
+              className="max-h-[360px] overflow-y-auto py-2"
+              style={{ scrollBehavior: 'smooth', overscrollBehavior: 'contain' }}
+            >
               {filteredCommands.length === 0 ? (
                 <div className="text-center py-8">
                   <span className="text-2xl">🦉</span>
@@ -230,22 +240,24 @@ export default function CommandPalette() {
                     Try &quot;tasks&quot;, &quot;dark mode&quot;, or &quot;start studying&quot;
                   </p>
                 </div>
-              ) : (
-                Object.entries(grouped).map(([category, items]) => (
+              ) : (() => {
+                let idx = 0;
+                return Object.entries(grouped).map(([category, items]) => (
                   <div key={category}>
                     <p className="px-4 py-1.5 text-[9px] uppercase tracking-[0.15em] font-bold text-[var(--muted-foreground)]">
                       {getCategoryLabel(category)}
                     </p>
                     {items.map((cmd) => {
-                      flatIndex++;
-                      const idx = flatIndex;
-                      const isSelected = idx === selectedIndex;
+                      const currentIdx = idx;
+                      idx++;
+                      const isSelected = currentIdx === selectedIndex;
 
                       return (
                         <button
                           key={cmd.id}
+                          data-idx={currentIdx}
                           onClick={() => executeCommand(cmd)}
-                          onMouseEnter={() => setSelectedIndex(idx)}
+                          onMouseEnter={() => setSelectedIndex(currentIdx)}
                           className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-all ${
                             isSelected
                               ? 'bg-primary/10 text-primary'
@@ -270,8 +282,8 @@ export default function CommandPalette() {
                       );
                     })}
                   </div>
-                ))
-              )}
+                ));
+              })()}
             </div>
 
             {/* Footer hint */}

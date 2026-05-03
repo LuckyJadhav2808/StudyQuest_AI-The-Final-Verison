@@ -109,19 +109,22 @@ export default function CodePage() {
                 <span className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Editor</span>
                 <Badge variant="primary" size="sm">{LANGUAGES.find((l) => l.id === language)?.label}</Badge>
               </div>
-              <div className="flex gap-1.5">
-                <CodeAIPanel code={code} language={language} />
+              <div className="flex items-center gap-1.5">
                 <Button variant="ghost" size="sm" onClick={() => setCode('')} icon={<HiTrash size={14} />}>Clear</Button>
                 <Button variant="primary" size="sm" onClick={runCode} icon={<HiPlay size={14} />} loading={running}>
-                  {running ? 'Running...' : 'Run'}
+                  {running ? 'Running...' : 'Run ▶'}
                 </Button>
               </div>
+            </div>
+            {/* AI tools row */}
+            <div className="flex items-center gap-1.5 px-4 py-1.5 border-b border-[var(--card-border)]/50 bg-[var(--background)]/30">
+              <CodeAIPanel code={code} language={language} />
             </div>
             <CodeEditor
               value={code}
               onChange={setCode}
               onRun={runCode}
-              minHeight="400px"
+              minHeight="380px"
               placeholder="Write your code here..."
             />
           </Card>
