@@ -184,6 +184,48 @@ export interface SavedQuery {
   createdAt: number;
 }
 
+// ----- Resources Vault -----
+export type ResourceType = 'link' | 'pdf' | 'text';
+
+export interface ResourceFolder {
+  id: string;
+  name: string;
+  color: string;       // hex color from candy palette
+  icon: string;        // emoji
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface Resource {
+  id: string;
+  folderId: string;
+  type: ResourceType;
+  title: string;
+  content: string;     // URL for links, base64/URL for PDFs, text content for text
+  description: string;
+  tags: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ----- Code Arena IDE -----
+export interface CodeProject {
+  id: string;
+  name: string;
+  language: string;      // primary language or 'web' for HTML/CSS/JS projects
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface CodeFile {
+  id: string;
+  projectId: string;
+  name: string;          // e.g., "index.html", "style.css", "main.py"
+  content: string;       // file content
+  createdAt: number;
+  updatedAt: number;
+}
+
 // ----- Navigation -----
 export interface NavItem {
   label: string;

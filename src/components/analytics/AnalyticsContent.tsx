@@ -66,7 +66,7 @@ export default function AnalyticsContent() {
       >
         {/* Header */}
         <motion.div variants={itemVariants}>
-          <h1 className="text-2xl font-heading font-black">Hall of Fame</h1>
+          <h1 className="text-2xl font-heading font-bold">Hall of Fame</h1>
           <p className="text-sm text-[var(--muted-foreground)]">Your complete adventure log and achievement showcase.</p>
         </motion.div>
 
@@ -82,7 +82,7 @@ export default function AnalyticsContent() {
               <LevelBadge level={level} size="xl" />
               <div className="flex-1">
                 <p className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Level Journey</p>
-                <h2 className="text-3xl font-heading font-black mb-2">Level {level}</h2>
+                <h2 className="text-3xl font-heading font-bold mb-2">Level {level}</h2>
                 <XPBar xp={xp} size="md" />
                 <div className="flex items-center justify-between mt-2">
                   <span className="text-[10px] font-semibold text-[var(--muted-foreground)]">
@@ -116,7 +116,7 @@ export default function AnalyticsContent() {
                   </div>
                   <div>
                     <p className="text-[9px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">{stat.label}</p>
-                    <p className="text-lg font-heading font-black">{stat.value}</p>
+                    <p className="text-lg font-heading font-bold">{stat.value}</p>
                   </div>
                 </div>
               </Card>

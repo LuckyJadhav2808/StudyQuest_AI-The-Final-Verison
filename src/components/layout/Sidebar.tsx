@@ -9,7 +9,7 @@ import {
   HiClock, HiCalendar, HiChatAlt2, HiChartBar,
   HiUserGroup, HiDatabase, HiCode, HiCubeTransparent,
   HiBookmark, HiCog, HiChevronLeft, HiChevronRight,
-  HiLogout, HiSparkles,
+  HiLogout, HiSparkles, HiCollection, HiTerminal,
 } from 'react-icons/hi';
 import { useAuthContext } from '@/context/AuthContext';
 import { useGamification } from '@/hooks/useGamification';
@@ -22,7 +22,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string; size?: n
   HiHome, HiClipboardCheck, HiPencilAlt, HiLightningBolt,
   HiClock, HiCalendar, HiChatAlt2, HiChartBar,
   HiUserGroup, HiDatabase, HiCode, HiCubeTransparent,
-  HiBookmark, HiCog, HiSparkles,
+  HiBookmark, HiCog, HiSparkles, HiCollection, HiTerminal,
 };
 
 /* ============================================================
@@ -45,6 +45,7 @@ const NAV_SECTIONS = [
     items: [
       { label: 'Focus Timer', href: '/timer', icon: 'HiClock' },
       { label: 'Timetable', href: '/timetable', icon: 'HiCalendar' },
+      { label: 'Resources', href: '/resources', icon: 'HiCollection' },
       { label: 'Questie Chat', href: '/chat', icon: 'HiChatAlt2' },
       { label: 'Hall of Fame', href: '/analytics', icon: 'HiChartBar' },
     ],
@@ -59,7 +60,8 @@ const NAV_SECTIONS = [
     title: 'Forge',
     items: [
       { label: 'SQL Lab', href: '/sql', icon: 'HiDatabase' },
-      { label: 'Code Arena', href: '/code', icon: 'HiCode' },
+      { label: 'Code Runner', href: '/code', icon: 'HiCode' },
+      { label: 'Code Arena IDE', href: '/ide', icon: 'HiTerminal' },
       { label: 'DSA Dungeon', href: '/dsa', icon: 'HiCubeTransparent' },
       { label: 'Spell Book', href: '/snippets', icon: 'HiBookmark' },
     ],

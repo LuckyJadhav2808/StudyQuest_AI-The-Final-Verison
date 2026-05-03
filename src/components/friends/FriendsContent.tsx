@@ -73,7 +73,7 @@ export default function FriendsContent() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-heading font-black">Friends</h1>
+            <h1 className="text-2xl font-heading font-bold">Friends</h1>
             <p className="text-sm text-[var(--muted-foreground)]">Study together, grow together.</p>
           </div>
           <Button variant="primary" size="sm" icon={<HiUserAdd />} onClick={() => setShowAddModal(true)}>
@@ -88,7 +88,7 @@ export default function FriendsContent() {
               <p className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)] mb-1">
                 Your Friend Code
               </p>
-              <p className="text-2xl font-heading font-black tracking-[0.3em] text-primary">
+              <p className="text-2xl font-heading font-bold tracking-[0.3em] text-primary">
                 {profile?.friendCode || '------'}
               </p>
               <p className="text-[10px] text-[var(--muted-foreground)] mt-1">

@@ -18,7 +18,7 @@ export default function LevelBadge({ level, size = 'md' }: LevelBadgeProps) {
 
   return (
     <motion.div
-      className={`${sizes[size]} rounded-full bg-gradient-to-br from-primary via-purple-500 to-coral flex items-center justify-center font-heading font-black text-white shadow-lg`}
+      className={`${sizes[size]} rounded-full bg-gradient-to-br from-primary via-purple-500 to-coral flex items-center justify-center font-heading font-bold text-white shadow-lg`}
       whileHover={{ scale: 1.15, rotate: 10 }}
       whileTap={{ scale: 0.95 }}
       transition={{ type: 'spring', stiffness: 400, damping: 15 }}

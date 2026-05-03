@@ -35,6 +35,10 @@ export const getTimetableCollection = (uid: string) => collection(db, 'users', u
 export const getSnippetsCollection = (uid: string) => collection(db, 'users', uid, 'snippets');
 export const getSavedQueriesCollection = (uid: string) => collection(db, 'users', uid, 'savedQueries');
 export const getFriendsCollection = (uid: string) => collection(db, 'users', uid, 'friends');
+export const getResourceFoldersCollection = (uid: string) => collection(db, 'users', uid, 'resourceFolders');
+export const getResourcesCollection = (uid: string) => collection(db, 'users', uid, 'resources');
+export const getCodeProjectsCollection = (uid: string) => collection(db, 'users', uid, 'codeProjects');
+export const getCodeFilesCollection = (uid: string, projectId: string) => collection(db, 'users', uid, 'codeProjects', projectId, 'files');
 
 // ----- Global Collections -----
 export const getFriendRequestsCollection = () => collection(db, 'friendRequests');

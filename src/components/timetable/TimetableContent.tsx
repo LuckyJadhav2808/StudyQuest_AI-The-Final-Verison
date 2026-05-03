@@ -138,7 +138,7 @@ export default function TimetableContent() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-heading font-black">Timetable</h1>
+            <h1 className="text-2xl font-heading font-bold">Timetable</h1>
             <p className="text-sm text-[var(--muted-foreground)]">Your weekly study schedule. Plan your quests.</p>
           </div>
           <div className="flex gap-2 items-center">

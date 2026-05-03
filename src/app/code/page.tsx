@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { HiPlay, HiTrash, HiCode, HiLightningBolt } from 'react-icons/hi';
+import { HiPlay, HiTrash, HiCode, HiLightningBolt, HiTerminal } from 'react-icons/hi';
+import Link from 'next/link';
 import toast from 'react-hot-toast';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -69,10 +70,20 @@ export default function CodePage() {
       <div className="max-w-6xl mx-auto space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-heading font-black">Code Arena</h1>
+            <h1 className="text-2xl font-heading font-black">Code Runner</h1>
             <p className="text-sm text-[var(--muted-foreground)]">Write, run, and experiment with code in any language.</p>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex items-center gap-2">
+            <Link
+              href="/ide"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-primary to-secondary text-white shadow-[0_3px_0_rgba(88,28,135,0.3)] hover:shadow-[0_4px_0_rgba(88,28,135,0.4)] hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-[0_1px_0_rgba(88,28,135,0.3)] transition-all"
+            >
+              <HiTerminal size={14} />
+              Open Code Arena IDE
+            </Link>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
             {LANGUAGES.map((lang) => (
               <button
                 key={lang.id}
@@ -87,7 +98,6 @@ export default function CodePage() {
               </button>
             ))}
           </div>
-        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Editor */}

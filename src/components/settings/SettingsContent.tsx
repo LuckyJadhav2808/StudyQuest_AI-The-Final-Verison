@@ -70,7 +70,7 @@ export default function SettingsContent() {
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-heading font-black">Settings</h1>
+          <h1 className="text-2xl font-heading font-bold">Settings</h1>
           <p className="text-sm text-[var(--muted-foreground)]">Customize your StudyQuest experience.</p>
         </div>
 
@@ -144,7 +144,7 @@ export default function SettingsContent() {
           </h2>
           <div className="flex items-center gap-4">
             <div className="flex-1">
-              <p className="text-3xl font-heading font-black tracking-[0.3em] text-primary">
+              <p className="text-3xl font-heading font-bold tracking-[0.3em] text-primary">
                 {profile?.friendCode || '------'}
               </p>
               <p className="text-[10px] text-[var(--muted-foreground)] mt-1">

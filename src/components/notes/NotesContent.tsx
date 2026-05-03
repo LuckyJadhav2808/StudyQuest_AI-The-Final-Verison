@@ -259,9 +259,9 @@ export default function NotesContent() {
             <button onClick={backToList} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors"><HiChevronLeft size={20} /></button>
             <div className="flex-1 min-w-0">
               {isEditing ? (
-                <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="text-2xl font-heading font-black bg-transparent border-none outline-none w-full" placeholder="Note title..." />
+                <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="text-2xl font-heading font-bold bg-transparent border-none outline-none w-full" placeholder="Note title..." />
               ) : (
-                <h1 className="text-2xl font-heading font-black truncate">{selectedNote.title}</h1>
+                <h1 className="text-2xl font-heading font-bold truncate">{selectedNote.title}</h1>
               )}
               <div className="flex items-center gap-2 mt-0.5">
                 <Badge variant="primary" size="sm">{selectedNote.folder}</Badge>
@@ -483,7 +483,7 @@ export default function NotesContent() {
       <div className="max-w-5xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-heading font-black">Notes & Scrolls</h1>
+            <h1 className="text-2xl font-heading font-bold">Notes & Scrolls</h1>
             <p className="text-sm text-[var(--muted-foreground)]">Your knowledge base. Write, organize, remember.</p>
           </div>
           <Button variant="primary" size="sm" icon={<HiPlus />} onClick={() => setShowNewModal(true)}>New Note</Button>

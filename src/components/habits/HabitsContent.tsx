@@ -93,7 +93,7 @@ export default function HabitsContent() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-heading font-black">Daily Quests</h1>
+            <h1 className="text-2xl font-heading font-bold">Daily Quests</h1>
             <p className="text-sm text-[var(--muted-foreground)]">Build powerful habits, one day at a time.</p>
           </div>
           <Button variant="primary" size="sm" icon={<HiPlus />} onClick={() => setShowModal(true)}>
@@ -199,11 +199,11 @@ export default function HabitsContent() {
                       <div className="hidden sm:flex items-center gap-3 text-right">
                         <div>
                           <p className="text-[9px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Streak</p>
-                          <p className="text-sm font-heading font-black">{streak}d</p>
+                          <p className="text-sm font-heading font-bold">{streak}d</p>
                         </div>
                         <div>
                           <p className="text-[9px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Best</p>
-                          <p className="text-sm font-heading font-black">{habit.bestStreak}d</p>
+                          <p className="text-sm font-heading font-bold">{habit.bestStreak}d</p>
                         </div>
                       </div>
 

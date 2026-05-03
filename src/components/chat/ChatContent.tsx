@@ -156,7 +156,7 @@ export default function ChatContent() {
               🦉
             </motion.div>
             <div>
-              <h1 className="text-lg font-heading font-black">Questie Chat</h1>
+              <h1 className="text-lg font-heading font-bold">Questie Chat</h1>
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-teal animate-pulse" />
                 <span className="text-[10px] text-[var(--muted-foreground)] font-semibold">Online</span>
