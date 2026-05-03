@@ -10,6 +10,7 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import PageTransition from '@/components/layout/PageTransition';
 import CodeEditor from '@/components/ui/CodeEditor';
+import CodeAIPanel from '@/components/code/CodeAIPanel';
 import { executeCode } from '@/lib/codeRunner';
 
 const LANGUAGES = [
@@ -109,6 +110,7 @@ export default function CodePage() {
                 <Badge variant="primary" size="sm">{LANGUAGES.find((l) => l.id === language)?.label}</Badge>
               </div>
               <div className="flex gap-1.5">
+                <CodeAIPanel code={code} language={language} />
                 <Button variant="ghost" size="sm" onClick={() => setCode('')} icon={<HiTrash size={14} />}>Clear</Button>
                 <Button variant="primary" size="sm" onClick={runCode} icon={<HiPlay size={14} />} loading={running}>
                   {running ? 'Running...' : 'Run'}

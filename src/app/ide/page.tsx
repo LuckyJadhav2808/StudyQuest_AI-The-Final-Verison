@@ -10,6 +10,7 @@ import CodeEditor from '@/components/ui/CodeEditor';
 import ProjectSidebar, { PROJECT_TEMPLATES } from '@/components/code/ProjectSidebar';
 import EditorTabs from '@/components/code/EditorTabs';
 import PreviewPanel from '@/components/code/PreviewPanel';
+import CodeAIPanel from '@/components/code/CodeAIPanel';
 import { useCodeProjects } from '@/hooks/useCodeProjects';
 import { CodeFile } from '@/types';
 
@@ -274,13 +275,26 @@ export default function IDEPage() {
                 </button>
               </div>
 
-              {/* Tabs */}
-              <EditorTabs
-                openFiles={openFiles}
-                activeFileId={activeFileId}
-                onSelectTab={handleSelectFile}
-                onCloseTab={handleCloseTab}
-              />
+              {/* Tabs + AI Toolbar */}
+              <div className="flex items-center justify-between border-b border-[var(--card-border)]">
+                <div className="flex-1 min-w-0">
+                  <EditorTabs
+                    openFiles={openFiles}
+                    activeFileId={activeFileId}
+                    onSelectTab={handleSelectFile}
+                    onCloseTab={handleCloseTab}
+                  />
+                </div>
+                {/* AI Assistant buttons */}
+                {activeFile && (
+                  <div className="flex-shrink-0 px-2">
+                    <CodeAIPanel
+                      code={activeFile.content}
+                      fileName={activeFile.name}
+                    />
+                  </div>
+                )}
+              </div>
 
               {/* Code Editor */}
               <div className="flex-1 min-h-0 overflow-hidden">
