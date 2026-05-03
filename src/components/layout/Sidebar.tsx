@@ -18,6 +18,7 @@ import XPBar from '@/components/gamification/XPBar';
 import LevelBadge from '@/components/gamification/LevelBadge';
 import StreakCounter from '@/components/gamification/StreakCounter';
 import QuestieMascot from '@/components/gamification/QuestieMascot';
+import AvatarBorder from '@/components/gamification/AvatarBorder';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string; size?: number }>> = {
   HiHome, HiClipboardCheck, HiPencilAlt, HiLightningBolt,
@@ -88,19 +89,21 @@ export default function Sidebar() {
       {/* Header - Avatar + Profile */}
       <div className="p-4 border-b-2 border-[var(--card-border)]">
         <div className="flex items-center gap-3">
-          {/* Avatar with level badge */}
+          {/* Avatar with level-based border */}
           <div className="relative flex-shrink-0">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt="Avatar"
-                className="w-10 h-10 rounded-full bg-surface-200 ring-2 ring-primary/20"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold text-sm">
-                🦉
-              </div>
-            )}
+            <AvatarBorder level={gamification?.level || 0} size={40}>
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt="Avatar"
+                  className="w-full h-full rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold text-sm">
+                  🦉
+                </div>
+              )}
+            </AvatarBorder>
             {gamification && (
               <div className="absolute -bottom-1 -right-1">
                 <LevelBadge level={gamification.level} size="sm" />

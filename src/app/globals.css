@@ -103,6 +103,78 @@
   --outline: #7B7487;
 }
 
+/* ---- Ocean Breeze Theme 🌊 ---- */
+.ocean {
+  --background: #0A1628;
+  --foreground: #E0F2FE;
+  --card-bg: #0F1F38;
+  --card-border: #1E3A5F;
+  --muted: #1E3A5F;
+  --muted-foreground: #7DD3FC;
+  --outline: #38BDF8;
+  --color-primary: #38BDF8;
+  --color-primary-light: #7DD3FC;
+  --color-primary-dark: #0369A1;
+  --color-primary-glow: rgba(56, 189, 248, 0.3);
+  --color-secondary: #06B6D4;
+  --color-tertiary: #2DD4BF;
+}
+
+/* ---- Sakura Theme 🌸 ---- */
+.sakura {
+  --background: #FFF5F7;
+  --foreground: #4A2040;
+  --card-bg: #FFFFFF;
+  --card-border: #FBCFE8;
+  --muted: #FBCFE8;
+  --muted-foreground: #9D4880;
+  --outline: #DB2777;
+  --color-primary: #EC4899;
+  --color-primary-light: #F472B6;
+  --color-primary-dark: #BE185D;
+  --color-primary-glow: rgba(236, 72, 153, 0.3);
+  --color-secondary: #F43F5E;
+  --color-tertiary: #A855F7;
+}
+
+/* ---- Cyberpunk Theme ⚡ (Unlock at Level 10) ---- */
+.cyberpunk {
+  --background: #0A0A0F;
+  --foreground: #00FF88;
+  --card-bg: #141420;
+  --card-border: #1F1F3A;
+  --muted: #1F1F3A;
+  --muted-foreground: #6EE7B7;
+  --outline: #00FF88;
+  --color-primary: #00FF88;
+  --color-primary-light: #6EE7B7;
+  --color-primary-dark: #009955;
+  --color-primary-glow: rgba(0, 255, 136, 0.35);
+  --color-secondary: #FF00FF;
+  --color-tertiary: #FFD700;
+  --color-coral: #FF3366;
+  --color-amber: #FFD700;
+}
+
+/* ---- Midnight Forest Theme 🌲 (Unlock at Level 20) ---- */
+.forest {
+  --background: #0B1A0B;
+  --foreground: #D1FAE5;
+  --card-bg: #122212;
+  --card-border: #1F3D1F;
+  --muted: #1F3D1F;
+  --muted-foreground: #86EFAC;
+  --outline: #4ADE80;
+  --color-primary: #4ADE80;
+  --color-primary-light: #86EFAC;
+  --color-primary-dark: #166534;
+  --color-primary-glow: rgba(74, 222, 128, 0.3);
+  --color-secondary: #A78BFA;
+  --color-tertiary: #FBBF24;
+  --color-coral: #FB923C;
+  --color-amber: #FBBF24;
+}
+
 html {
   scroll-behavior: smooth;
 }
