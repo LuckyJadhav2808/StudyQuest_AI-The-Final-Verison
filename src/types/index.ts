@@ -12,6 +12,7 @@ export interface UserProfile {
   friendCode: string;       // 6-char shareable code
   lastSeen: number;         // timestamp for online status
   openRouterKey?: string;
+  equippedTitle?: string;   // equipped title ID from TITLES
   theme: 'light' | 'dark';
   createdAt: number;
   updatedAt: number;
@@ -48,9 +49,12 @@ export interface GamificationData {
   longestStreak: number;
   lastActiveDate: string; // ISO date string YYYY-MM-DD
   achievements: string[]; // achievement IDs
+  unlockedTitles: string[]; // title IDs
   totalTasksCompleted: number;
   totalFocusMinutes: number;
   totalNotesCreated: number;
+  totalCodeRuns: number;     // for Code Wizard title
+  nightOwlCount: number;     // for Night Owl title
 }
 
 export interface Achievement {

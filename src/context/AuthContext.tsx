@@ -91,9 +91,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         longestStreak: 0,
         lastActiveDate: '',
         achievements: [],
+        unlockedTitles: [],
         totalTasksCompleted: 0,
         totalFocusMinutes: 0,
         totalNotesCreated: 0,
+        totalCodeRuns: 0,
+        nightOwlCount: 0,
       };
 
       await setDocument(profileRef, newProfile);

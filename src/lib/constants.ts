@@ -177,6 +177,102 @@ export const ACHIEVEMENTS: Achievement[] = [
   },
 ];
 
+// ----- Unlockable Titles -----
+export interface TitleDef {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  condition: (d: GamificationData) => boolean;
+}
+
+export const TITLES: TitleDef[] = [
+  {
+    id: 'newcomer',
+    name: 'The Newcomer',
+    emoji: '🌱',
+    description: 'Begin your StudyQuest journey',
+    condition: (d) => d.level >= 1,
+  },
+  {
+    id: 'night-owl',
+    name: 'The Night Owl',
+    emoji: '🦉',
+    description: 'Study past midnight 5 times',
+    condition: (d) => (d.nightOwlCount || 0) >= 5,
+  },
+  {
+    id: 'early-riser',
+    name: 'The Early Riser',
+    emoji: '🌅',
+    description: 'Reach Level 3',
+    condition: (d) => d.level >= 3,
+  },
+  {
+    id: 'code-wizard',
+    name: 'Code Wizard',
+    emoji: '🧙‍♂️',
+    description: 'Run 100 code snippets in the Arena',
+    condition: (d) => (d.totalCodeRuns || 0) >= 100,
+  },
+  {
+    id: 'unbroken',
+    name: 'Unbroken',
+    emoji: '⛓️',
+    description: 'Achieve a 30-day streak',
+    condition: (d) => d.longestStreak >= 30,
+  },
+  {
+    id: 'scholar',
+    name: 'The Scholar',
+    emoji: '📚',
+    description: 'Create 25 notes',
+    condition: (d) => d.totalNotesCreated >= 25,
+  },
+  {
+    id: 'task-slayer',
+    name: 'Task Slayer',
+    emoji: '⚔️',
+    description: 'Complete 50 tasks',
+    condition: (d) => d.totalTasksCompleted >= 50,
+  },
+  {
+    id: 'focus-sage',
+    name: 'Focus Sage',
+    emoji: '🧘',
+    description: 'Accumulate 1000 minutes of focus time',
+    condition: (d) => d.totalFocusMinutes >= 1000,
+  },
+  {
+    id: 'rising-star',
+    name: 'Rising Star',
+    emoji: '⭐',
+    description: 'Reach Level 5',
+    condition: (d) => d.level >= 5,
+  },
+  {
+    id: 'veteran',
+    name: 'The Veteran',
+    emoji: '🎖️',
+    description: 'Reach Level 10',
+    condition: (d) => d.level >= 10,
+  },
+  {
+    id: 'legend',
+    name: 'The Legend',
+    emoji: '👑',
+    description: 'Reach Level 20',
+    condition: (d) => d.level >= 20,
+  },
+  {
+    id: 'centurion',
+    name: 'Centurion',
+    emoji: '💯',
+    description: 'Complete 100 tasks',
+    condition: (d) => d.totalTasksCompleted >= 100,
+  },
+];
+
 // ----- Navigation Items -----
 export const NAV_ITEMS = [
   { label: 'Dashboard', href: '/', icon: 'HiHome' },

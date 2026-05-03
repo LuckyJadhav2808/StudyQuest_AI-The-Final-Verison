@@ -13,7 +13,7 @@ import {
 } from 'react-icons/hi';
 import { useAuthContext } from '@/context/AuthContext';
 import { useGamification } from '@/hooks/useGamification';
-import { getAvatarUrl } from '@/lib/constants';
+import { getAvatarUrl, TITLES } from '@/lib/constants';
 import XPBar from '@/components/gamification/XPBar';
 import LevelBadge from '@/components/gamification/LevelBadge';
 import StreakCounter from '@/components/gamification/StreakCounter';
@@ -123,6 +123,14 @@ export default function Sidebar() {
                 <p className="text-sm font-heading font-bold truncate">
                   {profile?.displayName || 'Adventurer'}
                 </p>
+                {profile?.equippedTitle && (() => {
+                  const t = TITLES.find((x) => x.id === profile.equippedTitle);
+                  return t ? (
+                    <p className="text-[9px] font-bold text-primary truncate">
+                      {t.emoji} {t.name}
+                    </p>
+                  ) : null;
+                })()}
                 {gamification && (
                   <div className="flex items-center gap-2">
                     <StreakCounter streak={gamification.streak} size="sm" />

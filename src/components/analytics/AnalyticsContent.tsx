@@ -6,14 +6,18 @@ import {
   HiStar, HiFire, HiClipboardCheck, HiClock,
   HiPencilAlt, HiTrendingUp,
 } from 'react-icons/hi';
+import toast from 'react-hot-toast';
 import { useGamification } from '@/hooks/useGamification';
+import { useAuthContext } from '@/context/AuthContext';
 import { useTasks } from '@/hooks/useTasks';
 import { useFriends } from '@/hooks/useFriends';
-import { ACHIEVEMENTS, getLevelProgress, getLevelFromXP, LEVEL_THRESHOLDS } from '@/lib/constants';
+import { ACHIEVEMENTS, getLevelProgress, getLevelFromXP, LEVEL_THRESHOLDS, TITLES } from '@/lib/constants';
+import { getProfileRef, setDocument } from '@/lib/firestore';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import XPBar from '@/components/gamification/XPBar';
 import LevelBadge from '@/components/gamification/LevelBadge';
+import QuestMap from '@/components/gamification/QuestMap';
 import PageTransition from '@/components/layout/PageTransition';
 
 const containerVariants = {
@@ -28,6 +32,7 @@ const itemVariants = {
 
 export default function AnalyticsContent() {
   const { gamification } = useGamification();
+  const { user, profile } = useAuthContext();
   const { tasks } = useTasks();
   const { friends } = useFriends();
 
@@ -55,6 +60,24 @@ export default function AnalyticsContent() {
   const unlockedIds = new Set(g?.achievements || []);
   const unlocked = ACHIEVEMENTS.filter((a) => unlockedIds.has(a.id));
   const locked = ACHIEVEMENTS.filter((a) => !unlockedIds.has(a.id));
+
+  const handleEquipTitle = async (titleId: string) => {
+    const title = TITLES.find((t) => t.id === titleId);
+    if (!title || !user || !gamification) return;
+
+    const isUnlocked = title.condition(gamification);
+    if (!isUnlocked) {
+      toast.error(`🔒 ${title.description} to unlock!`);
+      return;
+    }
+
+    const isEquipped = profile?.equippedTitle === titleId;
+    await setDocument(getProfileRef(user.uid), {
+      equippedTitle: isEquipped ? '' : titleId,
+      updatedAt: Date.now(),
+    });
+    toast.success(isEquipped ? 'Title unequipped' : `${title.emoji} "${title.name}" equipped!`);
+  };
 
   return (
     <PageTransition>
@@ -95,6 +118,59 @@ export default function AnalyticsContent() {
               </div>
             </div>
           </Card>
+        </motion.div>
+
+        {/* Quest Map */}
+        <motion.div variants={itemVariants}>
+          <Card padding="lg" hover={false}>
+            <h2 className="text-xs uppercase tracking-[0.15em] font-bold text-[var(--muted-foreground)] mb-3 flex items-center gap-2">
+              🗺️ Quest Map
+              <Badge variant="primary" size="sm">Progression</Badge>
+            </h2>
+            <QuestMap />
+          </Card>
+        </motion.div>
+
+        {/* Equippable Titles */}
+        <motion.div variants={itemVariants}>
+          <h2 className="text-xs uppercase tracking-[0.15em] font-bold text-[var(--muted-foreground)] mb-3 flex items-center gap-2">
+            🏷️ Titles
+            <Badge variant="pink" size="sm">
+              {gamification ? TITLES.filter((t) => t.condition(gamification)).length : 0}/{TITLES.length}
+            </Badge>
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {TITLES.map((title) => {
+              const isUnlocked = gamification ? title.condition(gamification) : false;
+              const isEquipped = profile?.equippedTitle === title.id;
+
+              return (
+                <motion.button
+                  key={title.id}
+                  onClick={() => handleEquipTitle(title.id)}
+                  className={`text-left p-3 rounded-xl border-2 transition-all ${
+                    isEquipped
+                      ? 'border-primary bg-primary/10 shadow-[0_0_12px_var(--color-primary-glow)]'
+                      : isUnlocked
+                        ? 'border-[var(--card-border)] hover:border-primary/30 bg-[var(--card-bg)]'
+                        : 'border-[var(--card-border)] bg-[var(--card-bg)] opacity-40 cursor-not-allowed'
+                  }`}
+                  whileHover={isUnlocked ? { scale: 1.03, y: -2 } : undefined}
+                  whileTap={isUnlocked ? { scale: 0.97 } : undefined}
+                >
+                  <div className="text-2xl mb-1">{isUnlocked ? title.emoji : '🔒'}</div>
+                  <p className="text-xs font-heading font-bold">{title.name}</p>
+                  <p className="text-[8px] text-[var(--muted-foreground)] mt-0.5">{title.description}</p>
+                  {isEquipped && (
+                    <Badge variant="primary" size="sm" className="mt-1.5">✦ EQUIPPED</Badge>
+                  )}
+                  {isUnlocked && !isEquipped && (
+                    <span className="text-[8px] font-bold text-primary mt-1 block">Click to equip</span>
+                  )}
+                </motion.button>
+              );
+            })}
+          </div>
         </motion.div>
 
         {/* Stats Grid */}
