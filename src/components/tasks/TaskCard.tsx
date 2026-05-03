@@ -5,8 +5,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { HiTrash, HiPencil, HiCheck, HiCalendar } from 'react-icons/hi';
 import { Task } from '@/types';
 import Badge from '@/components/ui/Badge';
-import { PRIORITY_COLORS } from '@/lib/constants';
+import { PRIORITY_COLORS, XP_AWARDS } from '@/lib/constants';
 import { format, isPast, isToday } from 'date-fns';
+import { spawnXPFromEvent } from '@/components/gamification/FloatingXP';
+import { playSuccess } from '@/lib/sounds';
 
 interface TaskCardProps {
   task: Task;
@@ -55,7 +57,7 @@ export default function TaskCard({
         {task.status !== 'done' && (
           <motion.button
             className="mt-0.5 w-5 h-5 rounded-md border-2 border-[var(--muted)] hover:border-teal hover:bg-teal/10 flex-shrink-0 flex items-center justify-center transition-colors"
-            onClick={(e) => { e.stopPropagation(); onComplete(task.id); }}
+            onClick={(e) => { e.stopPropagation(); onComplete(task.id); spawnXPFromEvent(XP_AWARDS.TASK_COMPLETE, e); playSuccess(); }}
             whileHover={{ scale: 1.2 }}
             whileTap={{ scale: 0.8 }}
           >

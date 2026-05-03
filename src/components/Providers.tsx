@@ -10,10 +10,15 @@ import Header from '@/components/layout/Header';
 import MobileNav from '@/components/layout/MobileNav';
 import AuthGuard from '@/components/auth/AuthGuard';
 import CommandPalette from '@/components/layout/CommandPalette';
+import FloatingXPContainer from '@/components/gamification/FloatingXP';
+import { usePresence } from '@/hooks/usePresence';
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLoginPage = pathname === '/login';
+
+  // Start broadcasting online presence (heartbeat)
+  usePresence();
 
   if (isLoginPage) {
     return <>{children}</>;
@@ -38,6 +43,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Global Command Palette (Ctrl+K) */}
         <CommandPalette />
+
+        {/* Floating XP Particles */}
+        <FloatingXPContainer />
       </div>
     </AuthGuard>
   );

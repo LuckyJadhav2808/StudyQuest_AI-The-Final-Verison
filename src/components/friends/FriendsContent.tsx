@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   HiUserAdd, HiCheck, HiX, HiTrash, HiClipboardCopy,
@@ -8,6 +8,7 @@ import {
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import { useFriends } from '@/hooks/useFriends';
+import { useFriendsPresence } from '@/hooks/usePresence';
 import { useAuthContext } from '@/context/AuthContext';
 import { getAvatarUrl } from '@/lib/constants';
 import Card from '@/components/ui/Card';
@@ -16,11 +17,6 @@ import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import PageTransition from '@/components/layout/PageTransition';
-
-function isOnline(lastSeen?: number): boolean {
-  if (!lastSeen) return false;
-  return Date.now() - lastSeen < 5 * 60 * 1000; // 5 minutes
-}
 
 export default function FriendsContent() {
   const { profile } = useAuthContext();
@@ -42,6 +38,11 @@ export default function FriendsContent() {
   const [addLoading, setAddLoading] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Live presence tracking for all friends
+  const friendUids = useMemo(() => friends.map((f) => f.uid), [friends]);
+  const presenceMap = useFriendsPresence(friendUids);
+  const onlineCount = Object.values(presenceMap).filter((p) => p.online).length;
 
   const handleSendRequest = async () => {
     setAddError('');
@@ -196,6 +197,11 @@ export default function FriendsContent() {
             <HiUsers className="text-primary" size={14} />
             All Friends
             <Badge variant="primary" size="sm">{friends.length}</Badge>
+            {onlineCount > 0 && (
+              <Badge variant="teal" size="sm">
+                <HiStatusOnline className="inline" size={10} /> {onlineCount} online
+              </Badge>
+            )}
           </h2>
 
           {friends.length === 0 && !loading ? (
@@ -232,16 +238,40 @@ export default function FriendsContent() {
                         <img
                           src={getAvatarUrl(friend.avatarSeed, friend.avatarStyle)}
                           alt={friend.displayName}
-                          className="w-11 h-11 rounded-full ring-2 ring-primary/20"
+                          className={`w-11 h-11 rounded-full ring-2 ${
+                            presenceMap[friend.uid]?.online
+                              ? 'ring-teal/50 shadow-[0_0_8px_rgba(16,185,129,0.3)]'
+                              : 'ring-primary/20'
+                          }`}
                         />
                         {/* Online indicator dot */}
-                        <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[var(--card-bg)] ${
-                          isOnline() ? 'bg-teal' : 'bg-[var(--muted)]'
-                        }`} />
+                        <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-[var(--card-bg)] ${
+                          presenceMap[friend.uid]?.online ? 'bg-teal' : 'bg-[var(--muted)]'
+                        }`}>
+                          {presenceMap[friend.uid]?.online && (
+                            <motion.div
+                              className="w-full h-full rounded-full bg-teal"
+                              animate={{ scale: [1, 1.4, 1], opacity: [1, 0.4, 1] }}
+                              transition={{ duration: 2, repeat: Infinity }}
+                            />
+                          )}
+                        </div>
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-heading font-bold truncate">{friend.displayName}</p>
                         <div className="flex items-center gap-1.5">
+                          {presenceMap[friend.uid]?.online ? (
+                            <span className="text-[10px] text-teal font-bold flex items-center gap-1">
+                              <HiStatusOnline size={10} />
+                              {presenceMap[friend.uid]?.activity === 'online' ? 'Online' : presenceMap[friend.uid]?.activity}
+                            </span>
+                          ) : (
+                            <span className="text-[9px] text-[var(--muted-foreground)] font-semibold flex items-center gap-1">
+                              <HiStatusOffline size={10} />
+                              Offline
+                            </span>
+                          )}
+                          <span className="text-[8px] text-[var(--muted)]">&bull;</span>
                           <span className="text-[9px] text-[var(--muted-foreground)] font-semibold">
                             Code: {friend.friendCode}
                           </span>

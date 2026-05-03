@@ -14,6 +14,7 @@ import Input from '@/components/ui/Input';
 import PageTransition from '@/components/layout/PageTransition';
 import { XP_AWARDS } from '@/lib/constants';
 import { playSuccess } from '@/lib/sounds';
+import { spawnXPFromEvent } from '@/components/gamification/FloatingXP';
 
 const HABIT_COLORS = [
   '#7C3AED', '#EC4899', '#10B981', '#FF6B6B', '#FFD166',
@@ -74,11 +75,12 @@ export default function HabitsContent() {
     setShowModal(false);
   };
 
-  const handleToggleToday = async (habitId: string, isCompleted: boolean) => {
+  const handleToggleToday = async (habitId: string, isCompleted: boolean, event?: React.MouseEvent) => {
     await toggleDate(habitId, today);
     if (!isCompleted) {
       await awardXP(XP_AWARDS.HABIT_CHECKED, 'Daily habit completed');
       playSuccess();
+      spawnXPFromEvent(XP_AWARDS.HABIT_CHECKED, event);
       toast.success('+10 XP! ⚡');
     }
   };
@@ -150,7 +152,7 @@ export default function HabitsContent() {
                     <div className="flex items-center gap-4">
                       {/* Check button */}
                       <motion.button
-                        onClick={() => handleToggleToday(habit.id, isCompletedToday)}
+                        onClick={(e) => handleToggleToday(habit.id, isCompletedToday, e)}
                         className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0 border-2 transition-all duration-200 ${
                           isCompletedToday
                             ? 'bg-teal/15 border-teal/30 shadow-[0_3px_0_rgba(16,185,129,0.2)]'
