@@ -13,6 +13,7 @@ import {
 } from 'react-icons/hi';
 import { useAuthContext } from '@/context/AuthContext';
 import { useGamification } from '@/hooks/useGamification';
+import { useSidebar } from '@/context/SidebarContext';
 import { getAvatarUrl, TITLES } from '@/lib/constants';
 import XPBar from '@/components/gamification/XPBar';
 import LevelBadge from '@/components/gamification/LevelBadge';
@@ -71,7 +72,7 @@ const NAV_SECTIONS = [
 ];
 
 export default function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+  const { collapsed, setCollapsed } = useSidebar();
   const pathname = usePathname();
   const { profile, signOut } = useAuthContext();
   const { gamification } = useGamification();
