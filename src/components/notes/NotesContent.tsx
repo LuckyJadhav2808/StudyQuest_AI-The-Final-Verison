@@ -8,7 +8,9 @@ import {
   HiEye, HiCode, HiDocumentText, HiFolder,
   HiChevronLeft, HiClock, HiDownload, HiSparkles,
   HiLightningBolt, HiRefresh, HiInformationCircle, HiShare,
+  HiClipboardCopy, HiX,
 } from 'react-icons/hi';
+import { marked } from 'marked';
 import 'react-quill-new/dist/quill.snow.css';
 
 const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false, loading: () => <div className="h-[400px] flex items-center justify-center text-sm text-[var(--muted-foreground)]">Loading editor...</div> });
@@ -61,6 +63,7 @@ export default function NotesContent() {
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [preview, setPreview] = useState(false);
+  const [viewMode, setViewMode] = useState(false);
   const [search, setSearch] = useState('');
   const [showNewModal, setShowNewModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -68,6 +71,10 @@ export default function NotesContent() {
   const [editContent, setEditContent] = useState('');
   const [editTitle, setEditTitle] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  // Markdown import
+  const [showMarkdownImport, setShowMarkdownImport] = useState(false);
+  const [markdownInput, setMarkdownInput] = useState('');
 
   // AI states
   const [aiLoading, setAiLoading] = useState(false);
@@ -121,8 +128,21 @@ export default function NotesContent() {
     toast.success('Note saved! 💾');
   };
 
-  const openNote = (note: Note) => { setSelectedNote(note); setEditContent(note.content); setEditTitle(note.title); setIsEditing(false); setPreview(false); };
-  const backToList = () => { setSelectedNote(null); setIsEditing(false); setPreview(false); };
+  const openNote = (note: Note) => { setSelectedNote(note); setEditContent(note.content); setEditTitle(note.title); setIsEditing(false); setPreview(false); setViewMode(false); };
+  const backToList = () => { setSelectedNote(null); setIsEditing(false); setPreview(false); setViewMode(false); };
+
+  // Convert markdown to HTML and save into the note
+  const handleMarkdownImport = async () => {
+    if (!markdownInput.trim() || !selectedNote) return;
+    const html = await marked.parse(markdownInput);
+    const newContent = (editContent || '') + html;
+    setEditContent(newContent);
+    await updateNote(selectedNote.id, { content: newContent });
+    setSelectedNote({ ...selectedNote, content: newContent, updatedAt: Date.now() });
+    setMarkdownInput('');
+    setShowMarkdownImport(false);
+    toast.success('Markdown imported! 📄');
+  };
 
   // Insert diagram image into note content
   const handleInsertDiagram = (dataUrl: string) => {
@@ -274,8 +294,14 @@ export default function NotesContent() {
                   <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancel</Button>
                   <Button variant="primary" size="sm" onClick={handleSave}>Save</Button>
                 </>
+              ) : viewMode ? (
+                <>
+                  <Button variant="ghost" size="sm" icon={<HiX size={14} />} onClick={() => setViewMode(false)}>Exit View</Button>
+                </>
               ) : (
                 <>
+                  <Button variant="teal" size="sm" icon={<HiEye size={14} />} onClick={() => setViewMode(true)}>View Mode</Button>
+                  <Button variant="ghost" size="sm" icon={<HiClipboardCopy size={14} />} onClick={() => setShowMarkdownImport(true)}>Import MD</Button>
                   <Button variant="primary" size="sm" icon={<HiPencil size={14} />} onClick={() => setIsEditing(true)}>Edit</Button>
                   <button onClick={() => setConfirmDelete(selectedNote.id)} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-coral/30 hover:text-coral transition-colors"><HiTrash size={18} /></button>
                 </>
@@ -283,8 +309,8 @@ export default function NotesContent() {
             </div>
           </div>
 
-          {/* Toolbar */}
-          {!isEditing && selectedNote.content && selectedNote.content !== '<p><br></p>' && (
+          {/* Toolbar — hidden in View Mode */}
+          {!isEditing && !viewMode && selectedNote.content && selectedNote.content !== '<p><br></p>' && (
             <Card padding="sm" hover={false}>
               <div className="flex flex-wrap gap-2">
                 <Button variant="teal" size="sm" icon={<HiDownload size={14} />} onClick={() => setShowPdfModal(true)}>Export PDF</Button>
@@ -303,7 +329,7 @@ export default function NotesContent() {
             </div>
           )}
 
-          {/* Editor / Preview */}
+          {/* Editor / Preview / View Mode */}
           <Card padding="none" hover={false}>
             <div ref={noteRef}>
               {isEditing ? (
@@ -318,10 +344,26 @@ export default function NotesContent() {
                     style={{ minHeight: 400 }}
                   />
                 </div>
+              ) : viewMode ? (
+                /* ===== Distraction-Free View Mode ===== */
+                <div className="p-8 md:p-12 min-h-[500px] bg-[var(--card-bg)]">
+                  <div className="max-w-2xl mx-auto">
+                    <h1 className="text-3xl font-heading font-bold mb-2">{selectedNote.title}</h1>
+                    <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[var(--card-border)]">
+                      <Badge variant="primary" size="sm">{selectedNote.folder}</Badge>
+                      <span className="text-xs text-[var(--muted-foreground)]"><HiClock className="inline mr-1" size={12} />{timeAgo(selectedNote.updatedAt)}</span>
+                    </div>
+                    {selectedNote.content && selectedNote.content !== '<p><br></p>' ? (
+                      <div className="prose prose-lg max-w-none dark:prose-invert leading-relaxed studyquest-markdown" dangerouslySetInnerHTML={{ __html: selectedNote.content }} />
+                    ) : (
+                      <p className="text-sm text-[var(--muted-foreground)] italic">This note is empty.</p>
+                    )}
+                  </div>
+                </div>
               ) : (
                 <div className="p-6 min-h-[300px]">
                   {selectedNote.content && selectedNote.content !== '<p><br></p>' ? (
-                    <div className="prose prose-sm max-w-none dark:prose-invert text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: selectedNote.content }} />
+                    <div className="prose prose-sm max-w-none dark:prose-invert text-sm leading-relaxed studyquest-markdown" dangerouslySetInnerHTML={{ __html: selectedNote.content }} />
                   ) : (
                     <div className="text-center py-12">
                       <span className="text-4xl mb-3 block">📝</span>
@@ -463,6 +505,23 @@ export default function NotesContent() {
 
         {/* Diagram Modal */}
         <DiagramModal isOpen={showDiagram} onClose={() => setShowDiagram(false)} onInsert={handleInsertDiagram} />
+
+        {/* Markdown / README Import Modal */}
+        <Modal isOpen={showMarkdownImport} onClose={() => { setShowMarkdownImport(false); setMarkdownInput(''); }} title="Import Markdown / README">
+          <div className="space-y-4">
+            <p className="text-xs text-[var(--muted-foreground)]">Paste raw Markdown or README.md content below. It will be converted to rich text and appended to this note.</p>
+            <textarea
+              value={markdownInput}
+              onChange={(e) => setMarkdownInput(e.target.value)}
+              placeholder={`# My README\n\nPaste your markdown here...\n\n## Features\n- Feature 1\n- Feature 2\n\n\`\`\`js\nconsole.log("Hello!");\n\`\`\``}
+              className="w-full h-64 p-4 rounded-xl border-2 border-[var(--card-border)] bg-[var(--card-bg)] text-sm font-mono focus:border-primary focus:outline-none transition-colors resize-none"
+            />
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => { setShowMarkdownImport(false); setMarkdownInput(''); }} className="flex-1">Cancel</Button>
+              <Button variant="primary" onClick={handleMarkdownImport} className="flex-1" icon={<HiDocumentText size={14} />} disabled={!markdownInput.trim()}>Import &amp; Render</Button>
+            </div>
+          </div>
+        </Modal>
 
         {/* Share to Group Modal */}
         <Modal isOpen={showShareGroup} onClose={() => setShowShareGroup(false)} title="Share to Group">

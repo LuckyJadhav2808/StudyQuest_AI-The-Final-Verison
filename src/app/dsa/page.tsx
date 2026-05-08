@@ -103,13 +103,17 @@ export default function DsaPage() {
   const [freeCode, setFreeCode] = useState('// Write any DSA code here\n// Use console.log() to see output\n\nfunction bubbleSort(arr) {\n  const n = arr.length;\n  for (let i = 0; i < n; i++) {\n    for (let j = 0; j < n - i - 1; j++) {\n      if (arr[j] > arr[j + 1]) {\n        [arr[j], arr[j + 1]] = [arr[j + 1], arr[j]];\n      }\n    }\n  }\n  return arr;\n}\n\nconsole.log(bubbleSort([64, 34, 25, 12, 22, 11, 90]));');
   const [freeOutput, setFreeOutput] = useState('');
   const [freeLang, setFreeLang] = useState('javascript');
+  const [stdin, setStdin] = useState('');
+  const [freeStdin, setFreeStdin] = useState('');
+  const [showStdin, setShowStdin] = useState(false);
+  const [showFreeStdin, setShowFreeStdin] = useState(false);
 
   const runCode = async () => {
     if (!code.trim()) return;
     setRunning(true);
     setOutput('⏳ Running...');
     try {
-      const result = await executeCode(code, lang);
+      const result = await executeCode(code, lang, stdin);
       const out = (result.stdout || '') + (result.stderr ? '\n' + result.stderr : '');
       setOutput(out.trim() || '(no output)');
       if (result.stderr) toast.error('Execution had errors');
@@ -123,7 +127,7 @@ export default function DsaPage() {
     setRunning(true);
     setFreeOutput('⏳ Running...');
     try {
-      const result = await executeCode(freeCode, freeLang);
+      const result = await executeCode(freeCode, freeLang, freeStdin);
       const out = (result.stdout || '') + (result.stderr ? '\n' + result.stderr : '');
       setFreeOutput(out.trim() || '(no output)');
       if (result.stderr) toast.error('Execution had errors');
@@ -181,6 +185,16 @@ export default function DsaPage() {
                     onRun={runFreeCode}
                     minHeight="350px"
                   />
+                  {/* Stdin for Free Code */}
+                  <div className="border-t-2 border-[var(--card-border)]">
+                    <button onClick={() => setShowFreeStdin(!showFreeStdin)} className="w-full flex items-center justify-between px-4 py-1.5 text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+                      <span>📥 Input (stdin){freeStdin.trim() ? ` — ${freeStdin.split('\n').length} line(s)` : ''}</span>
+                      <span>{showFreeStdin ? '▲' : '▼'}</span>
+                    </button>
+                    {showFreeStdin && (
+                      <textarea value={freeStdin} onChange={(e) => setFreeStdin(e.target.value)} placeholder={'Enter input here (one value per line)'} className="w-full h-20 px-4 py-2 bg-[var(--background)] text-sm border-t border-[var(--card-border)] resize-none focus:outline-none" style={{ fontFamily: 'var(--font-mono)' }} />
+                    )}
+                  </div>
                 </Card>
                 <DSVisualizer code={freeCode} />
               </div>
@@ -253,6 +267,16 @@ export default function DsaPage() {
                     onRun={runCode}
                     minHeight="250px"
                   />
+                  {/* Stdin for Challenge */}
+                  <div className="border-t-2 border-[var(--card-border)]">
+                    <button onClick={() => setShowStdin(!showStdin)} className="w-full flex items-center justify-between px-4 py-1.5 text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+                      <span>📥 Input (stdin){stdin.trim() ? ` — ${stdin.split('\n').length} line(s)` : ''}</span>
+                      <span>{showStdin ? '▲' : '▼'}</span>
+                    </button>
+                    {showStdin && (
+                      <textarea value={stdin} onChange={(e) => setStdin(e.target.value)} placeholder={'Enter input here (one value per line)'} className="w-full h-20 px-4 py-2 bg-[var(--background)] text-sm border-t border-[var(--card-border)] resize-none focus:outline-none" style={{ fontFamily: 'var(--font-mono)' }} />
+                    )}
+                  </div>
                 </Card>
 
                 <Card padding="none" hover={false}>

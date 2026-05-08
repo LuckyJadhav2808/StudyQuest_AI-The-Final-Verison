@@ -22,6 +22,8 @@ export default function PreviewPanel({ files, activeFile }: PreviewPanelProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const prevUrlRef = useRef<string | null>(null);
+  const [stdin, setStdin] = useState('');
+  const [showStdin, setShowStdin] = useState(false);
 
   const hasWebFiles = isWebProject(files);
 
@@ -70,7 +72,7 @@ export default function PreviewPanel({ files, activeFile }: PreviewPanelProps) {
     setMode('console');
 
     try {
-      const result = await executeCode(activeFile.content, lang);
+      const result = await executeCode(activeFile.content, lang, stdin);
       const out = (result.stdout || '') + (result.stderr ? '\n' + result.stderr : '');
       setOutput(out.trim() || '(no output)');
     } catch {
@@ -150,7 +152,18 @@ export default function PreviewPanel({ files, activeFile }: PreviewPanelProps) {
           )
         ) : (
           /* Console Output */
-          <div className="p-3 text-sm h-full overflow-auto" style={{ fontFamily: 'var(--font-mono)' }}>
+          <div className="flex flex-col h-full">
+            {/* Stdin toggle */}
+            <div className="border-b border-[var(--card-border)]">
+              <button onClick={() => setShowStdin(!showStdin)} className="w-full flex items-center justify-between px-3 py-1 text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+                <span>📥 Input (stdin){stdin.trim() ? ` — ${stdin.split('\n').length} line(s)` : ''}</span>
+                <span>{showStdin ? '▲' : '▼'}</span>
+              </button>
+              {showStdin && (
+                <textarea value={stdin} onChange={(e) => setStdin(e.target.value)} placeholder={'Enter input here (one per line)\nFor: Scanner, input(), cin, etc.'} className="w-full h-20 px-3 py-2 bg-[var(--background)] text-xs border-t border-[var(--card-border)] resize-none focus:outline-none" style={{ fontFamily: 'var(--font-mono)' }} />
+              )}
+            </div>
+            <div className="p-3 text-sm flex-1 overflow-auto" style={{ fontFamily: 'var(--font-mono)' }}>
             {!output ? (
               <span className="text-[var(--muted-foreground)]">
                 Click &quot;Run&quot; or press Ctrl+Enter to execute...
@@ -184,6 +197,7 @@ export default function PreviewPanel({ files, activeFile }: PreviewPanelProps) {
                 Executing...
               </motion.div>
             )}
+          </div>
           </div>
         )}
       </div>

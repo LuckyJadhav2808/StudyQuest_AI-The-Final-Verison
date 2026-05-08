@@ -40,6 +40,8 @@ export default function CodePage() {
   const [code, setCode] = useState(TEMPLATES.javascript);
   const [output, setOutput] = useState('');
   const [running, setRunning] = useState(false);
+  const [stdin, setStdin] = useState('');
+  const [showStdin, setShowStdin] = useState(false);
 
   const runCode = async () => {
     if (!code.trim()) return;
@@ -47,7 +49,7 @@ export default function CodePage() {
     setOutput('⏳ Running...');
 
     try {
-      const result = await executeCode(code, language);
+      const result = await executeCode(code, language, stdin);
       const out = (result.stdout || '') + (result.stderr ? '\n' + result.stderr : '');
       setOutput(out.trim() || '(no output)');
       if (result.stderr) toast.error('Execution had errors');
@@ -127,6 +129,25 @@ export default function CodePage() {
               minHeight="380px"
               placeholder="Write your code here..."
             />
+            {/* Stdin Input */}
+            <div className="border-t-2 border-[var(--card-border)]">
+              <button
+                onClick={() => setShowStdin(!showStdin)}
+                className="w-full flex items-center justify-between px-4 py-1.5 text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+              >
+                <span>📥 Input (stdin){stdin.trim() ? ` — ${stdin.split('\n').length} line(s)` : ''}</span>
+                <span>{showStdin ? '▲' : '▼'}</span>
+              </button>
+              {showStdin && (
+                <textarea
+                  value={stdin}
+                  onChange={(e) => setStdin(e.target.value)}
+                  placeholder={'Enter input here (one value per line)\nUsed by: Scanner (Java), input() (Python), cin (C++), etc.'}
+                  className="w-full h-24 px-4 py-2 bg-[var(--background)] text-sm border-t border-[var(--card-border)] resize-none focus:outline-none"
+                  style={{ fontFamily: 'var(--font-mono)' }}
+                />
+              )}
+            </div>
           </Card>
 
           {/* Output */}

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HiCode, HiMenu, HiX } from 'react-icons/hi';
+import { HiCode, HiMenu, HiX, HiEye, HiPlay, HiTerminal } from 'react-icons/hi';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import PageTransition from '@/components/layout/PageTransition';
@@ -13,6 +13,10 @@ import PreviewPanel from '@/components/code/PreviewPanel';
 import CodeAIPanel from '@/components/code/CodeAIPanel';
 import { useCodeProjects } from '@/hooks/useCodeProjects';
 import { CodeFile } from '@/types';
+import { isWebProject, getLanguageFromExtension } from '@/lib/webPreview';
+import { executeCode } from '@/lib/codeRunner';
+
+type IDEView = 'editor' | 'preview';
 
 export default function IDEPage() {
   const {
@@ -28,6 +32,11 @@ export default function IDEPage() {
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebar, setMobileSidebar] = useState(false);
+  const [ideView, setIdeView] = useState<IDEView>('editor');
+  const [stdin, setStdin] = useState('');
+  const [showStdin, setShowStdin] = useState(false);
+  const [output, setOutput] = useState('');
+  const [running, setRunning] = useState(false);
 
   // Subscribe to files when project changes
   useEffect(() => {
@@ -59,6 +68,7 @@ export default function IDEPage() {
   }, [projects, selectedProjectId]);
 
   const activeFile = openFiles.find((f) => f.id === activeFileId) || null;
+  const hasWebFiles = isWebProject(projectFiles);
 
   const handleSelectFile = useCallback((file: CodeFile) => {
     setOpenFiles((prev) => {
@@ -68,6 +78,7 @@ export default function IDEPage() {
       return prev;
     });
     setActiveFileId(file.id);
+    setIdeView('editor'); // switch back to editor when selecting a file
   }, []);
 
   const handleCloseTab = useCallback((fileId: string) => {
@@ -83,12 +94,10 @@ export default function IDEPage() {
   const handleCodeChange = useCallback((value: string) => {
     if (!activeFileId || !selectedProjectId) return;
 
-    // Update in open files locally for instant feedback
     setOpenFiles((prev) =>
       prev.map((f) => (f.id === activeFileId ? { ...f, content: value } : f))
     );
 
-    // Update in projectFiles locally
     setProjectFiles((prev) =>
       prev.map((f) => (f.id === activeFileId ? { ...f, content: value } : f))
     );
@@ -149,6 +158,37 @@ export default function IDEPage() {
     toast.success('Project deleted');
   }, [deleteProject, selectedProjectId]);
 
+  // Run code for non-web files
+  const runCode = async () => {
+    if (!activeFile) {
+      setOutput('❌ No file selected to run.');
+      setIdeView('preview');
+      return;
+    }
+    const lang = getLanguageFromExtension(activeFile.name);
+    if (lang === 'html' || lang === 'css') {
+      setIdeView('preview'); // switch to preview for web files
+      return;
+    }
+
+    setRunning(true);
+    setOutput('⏳ Running...');
+    setIdeView('preview');
+
+    try {
+      const result = await executeCode(activeFile.content, lang, stdin);
+      const out = (result.stdout || '') + (result.stderr ? '\n' + result.stderr : '');
+      setOutput(out.trim() || '(no output)');
+      if (result.stderr) toast.error('Execution had errors');
+      else toast.success('Code executed! ⚡');
+    } catch {
+      setOutput('❌ Failed to execute. Check your network.');
+      toast.error('Execution failed');
+    } finally {
+      setRunning(false);
+    }
+  };
+
   if (loading) {
     return (
       <PageTransition>
@@ -162,6 +202,10 @@ export default function IDEPage() {
       </PageTransition>
     );
   }
+
+  // Detect if current file is non-web (needs console output, not preview)
+  const currentLang = activeFile ? getLanguageFromExtension(activeFile.name) : '';
+  const isNonWebFile = currentLang && currentLang !== 'html' && currentLang !== 'css';
 
   return (
     <PageTransition>
@@ -183,13 +227,48 @@ export default function IDEPage() {
               </p>
             </div>
           </div>
-          <Link
-            href="/code"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider border-2 border-[var(--card-border)] hover:border-primary/30 transition-all text-[var(--muted-foreground)] hover:text-primary"
-          >
-            <HiCode size={14} />
-            Quick Runner
-          </Link>
+          <div className="flex items-center gap-2">
+            {/* View Toggle */}
+            <div className="flex rounded-xl border-2 border-[var(--card-border)] overflow-hidden">
+              <button
+                onClick={() => setIdeView('editor')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all ${
+                  ideView === 'editor'
+                    ? 'bg-primary text-white'
+                    : 'text-[var(--muted-foreground)] hover:bg-[var(--card-border)]/40'
+                }`}
+              >
+                <HiCode size={13} /> Editor
+              </button>
+              <button
+                onClick={() => setIdeView('preview')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all ${
+                  ideView === 'preview'
+                    ? 'bg-teal text-[#0B0D17]'
+                    : 'text-[var(--muted-foreground)] hover:bg-[var(--card-border)]/40'
+                }`}
+              >
+                {hasWebFiles ? <HiEye size={13} /> : <HiTerminal size={13} />}
+                {hasWebFiles ? 'Preview' : 'Output'}
+              </button>
+            </div>
+            {/* Run button */}
+            <button
+              onClick={runCode}
+              disabled={running}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-primary to-secondary text-white shadow-[0_3px_0_rgba(88,28,135,0.3)] hover:shadow-[0_4px_0_rgba(88,28,135,0.4)] hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-[0_1px_0_rgba(88,28,135,0.3)] transition-all disabled:opacity-60"
+            >
+              <HiPlay size={14} />
+              {running ? 'Running...' : 'Run ▶'}
+            </button>
+            <Link
+              href="/code"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider border-2 border-[var(--card-border)] hover:border-primary/30 transition-all text-[var(--muted-foreground)] hover:text-primary"
+            >
+              <HiCode size={14} />
+              Quick Runner
+            </Link>
+          </div>
         </div>
 
         {/* Main IDE layout */}
@@ -260,74 +339,141 @@ export default function IDEPage() {
             )}
           </AnimatePresence>
 
-          {/* Editor + Preview area */}
-          <div className="flex-1 flex flex-col lg:flex-row gap-3 min-w-0">
-            {/* Editor panel */}
-            <div className="flex-1 min-w-0 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-2xl overflow-hidden flex flex-col">
-              {/* Toggle sidebar button (desktop) */}
-              <div className="hidden lg:flex items-center">
-                <button
-                  onClick={() => setSidebarOpen(!sidebarOpen)}
-                  className="px-2 py-1 text-[10px] font-semibold text-[var(--muted-foreground)] hover:text-primary transition-colors"
-                  title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-                >
-                  {sidebarOpen ? '◀' : '▶'}
-                </button>
-              </div>
+          {/* Main content area — full width, toggles between editor and preview */}
+          <div className="flex-1 min-w-0 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-2xl overflow-hidden flex flex-col">
+            {/* Toggle sidebar button (desktop) */}
+            <div className="hidden lg:flex items-center">
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="px-2 py-1 text-[10px] font-semibold text-[var(--muted-foreground)] hover:text-primary transition-colors"
+                title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+              >
+                {sidebarOpen ? '◀' : '▶'}
+              </button>
+            </div>
 
-              {/* Tabs + AI Toolbar */}
-              <div className="flex items-center justify-between border-b border-[var(--card-border)]">
-                <div className="flex-1 min-w-0">
-                  <EditorTabs
-                    openFiles={openFiles}
-                    activeFileId={activeFileId}
-                    onSelectTab={handleSelectFile}
-                    onCloseTab={handleCloseTab}
-                  />
-                </div>
-                {/* AI Assistant buttons */}
-                {activeFile && (
-                  <div className="flex-shrink-0 px-2">
-                    <CodeAIPanel
-                      code={activeFile.content}
-                      fileName={activeFile.name}
+            {ideView === 'editor' ? (
+              /* ===== EDITOR VIEW ===== */
+              <>
+                {/* Tabs + AI Toolbar */}
+                <div className="flex items-center justify-between border-b border-[var(--card-border)]">
+                  <div className="flex-1 min-w-0">
+                    <EditorTabs
+                      openFiles={openFiles}
+                      activeFileId={activeFileId}
+                      onSelectTab={handleSelectFile}
+                      onCloseTab={handleCloseTab}
                     />
                   </div>
-                )}
-              </div>
+                  {activeFile && (
+                    <div className="flex-shrink-0 px-2">
+                      <CodeAIPanel
+                        code={activeFile.content}
+                        fileName={activeFile.name}
+                      />
+                    </div>
+                  )}
+                </div>
 
-              {/* Code Editor */}
-              <div className="flex-1 min-h-0 overflow-hidden">
-                {activeFile ? (
-                  <CodeEditor
-                    value={activeFile.content}
-                    onChange={handleCodeChange}
-                    minHeight="100%"
-                    placeholder="Start coding..."
-                  />
+                {/* Code Editor — full width */}
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  {activeFile ? (
+                    <CodeEditor
+                      value={activeFile.content}
+                      onChange={handleCodeChange}
+                      onRun={runCode}
+                      minHeight="100%"
+                      placeholder="Start coding..."
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-[var(--muted-foreground)] gap-3 p-8">
+                      <HiCode size={48} className="text-[var(--muted)] opacity-40" />
+                      <p className="text-sm font-semibold">
+                        {projects.length === 0
+                          ? 'Create a project to get started'
+                          : 'Select a file from the sidebar to start editing'}
+                      </p>
+                      <p className="text-xs text-center max-w-[300px]">
+                        Build HTML/CSS/JS projects with live preview, or code in Python, Java, C++ and more!
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Stdin input for non-web languages */}
+                {isNonWebFile && (
+                  <div className="border-t-2 border-[var(--card-border)]">
+                    <button
+                      onClick={() => setShowStdin(!showStdin)}
+                      className="w-full flex items-center justify-between px-4 py-1.5 text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                    >
+                      <span>📥 Input (stdin){stdin.trim() ? ` — ${stdin.split('\n').length} line(s)` : ''}</span>
+                      <span>{showStdin ? '▲' : '▼'}</span>
+                    </button>
+                    {showStdin && (
+                      <textarea
+                        value={stdin}
+                        onChange={(e) => setStdin(e.target.value)}
+                        placeholder={'Enter input here (one value per line)\nUsed by: Scanner (Java), input() (Python), cin (C++), etc.'}
+                        className="w-full h-24 px-4 py-2 bg-[var(--background)] text-sm border-t border-[var(--card-border)] resize-none focus:outline-none"
+                        style={{ fontFamily: 'var(--font-mono)' }}
+                      />
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              /* ===== PREVIEW / OUTPUT VIEW ===== */
+              <div className="flex-1 min-h-0">
+                {hasWebFiles ? (
+                  /* Web preview — use PreviewPanel's iframe rendering */
+                  <PreviewPanel files={projectFiles} activeFile={activeFile} />
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-[var(--muted-foreground)] gap-3 p-8">
-                    <HiCode size={48} className="text-[var(--muted)] opacity-40" />
-                    <p className="text-sm font-semibold">
-                      {projects.length === 0
-                        ? 'Create a project to get started'
-                        : 'Select a file from the sidebar to start editing'}
-                    </p>
-                    <p className="text-xs text-center max-w-[300px]">
-                      Build HTML/CSS/JS projects with live preview, or code in Python, Java, C++ and more!
-                    </p>
+                  /* Console output for non-web languages */
+                  <div className="flex flex-col h-full">
+                    <div className="px-4 py-2 border-b-2 border-[var(--card-border)] flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <HiTerminal className="text-teal" size={14} />
+                        <span className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Console Output</span>
+                        {running && (
+                          <motion.div className="w-2 h-2 rounded-full bg-amber" animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 0.8, repeat: Infinity }} />
+                        )}
+                      </div>
+                      <button
+                        onClick={() => setIdeView('editor')}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider text-[var(--muted-foreground)] hover:bg-[var(--card-border)]/40 transition-all"
+                      >
+                        <HiCode size={12} /> Back to Editor
+                      </button>
+                    </div>
+                    <div className="flex-1 p-4 overflow-auto text-sm" style={{ fontFamily: 'var(--font-mono)' }}>
+                      {!output ? (
+                        <span className="text-[var(--muted-foreground)]">
+                          Click &quot;Run&quot; or press Ctrl+Enter to execute...
+                        </span>
+                      ) : (
+                        <pre className="whitespace-pre-wrap">
+                          {output.split('\n').map((line, i) => (
+                            <div key={i} className="flex gap-2">
+                              <span className="select-none text-[var(--muted-foreground)] opacity-40 w-6 text-right flex-shrink-0 text-xs">
+                                {i + 1}
+                              </span>
+                              <span className={line.startsWith('❌') ? 'text-coral' : line.startsWith('⏳') ? 'text-amber' : ''}>
+                                {line}
+                              </span>
+                            </div>
+                          ))}
+                        </pre>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* Preview/Output panel */}
-            <div className="flex-1 min-w-0 min-h-[250px] lg:min-h-0">
-              <PreviewPanel files={projectFiles} activeFile={activeFile} />
-            </div>
+            )}
           </div>
         </div>
       </div>
     </PageTransition>
   );
 }
+

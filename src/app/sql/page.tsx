@@ -15,6 +15,34 @@ import CodeEditor from '@/components/ui/CodeEditor';
 interface DBEntry { name: string; data: number[] | null; }
 interface QueryResult { columns: string[]; values: (string | number | null)[][]; }
 
+const SQL_STORAGE_KEY = 'studyquest-sql-databases';
+const SQL_ACTIVE_KEY = 'studyquest-sql-active';
+const MAX_IMPORT_SIZE = 50 * 1024 * 1024; // 50 MB
+const QUERY_TIMEOUT = 10_000; // 10 seconds
+
+// Helper: save databases to localStorage
+function saveDatabasesToStorage(dbs: DBEntry[], active: string) {
+  try {
+    localStorage.setItem(SQL_STORAGE_KEY, JSON.stringify(dbs));
+    localStorage.setItem(SQL_ACTIVE_KEY, active);
+  } catch { /* localStorage full or unavailable — silently ignore */ }
+}
+
+// Helper: load databases from localStorage
+function loadDatabasesFromStorage(): { databases: DBEntry[]; active: string } | null {
+  try {
+    const raw = localStorage.getItem(SQL_STORAGE_KEY);
+    const active = localStorage.getItem(SQL_ACTIVE_KEY);
+    if (raw) {
+      const databases = JSON.parse(raw) as DBEntry[];
+      if (Array.isArray(databases) && databases.length > 0) {
+        return { databases, active: active || databases[0].name };
+      }
+    }
+  } catch { /* corrupted data — ignore */ }
+  return null;
+}
+
 let initSqlJs: (() => Promise<{ Database: new (data?: ArrayLike<number>) => SqlJsDatabase }>) | null = null;
 
 interface SqlJsDatabase {
@@ -25,8 +53,10 @@ interface SqlJsDatabase {
 }
 
 export default function SqlPage() {
-  const [databases, setDatabases] = useState<DBEntry[]>([{ name: 'StudentDB', data: null }]);
-  const [activeDb, setActiveDb] = useState('StudentDB');
+  // Restore from localStorage on first render
+  const saved = useRef(loadDatabasesFromStorage());
+  const [databases, setDatabases] = useState<DBEntry[]>(saved.current?.databases || [{ name: 'StudentDB', data: null }]);
+  const [activeDb, setActiveDb] = useState(saved.current?.active || 'StudentDB');
   const [db, setDb] = useState<SqlJsDatabase | null>(null);
   const [query, setQuery] = useState('-- Welcome to SQL Lab!\n-- Try: CREATE TABLE students (id INTEGER PRIMARY KEY, name TEXT, grade REAL);\n-- Then: INSERT INTO students VALUES (1, \'Alice\', 3.9);\n-- Then: SELECT * FROM students;\n\nSELECT "Hello, SQL Lab!" AS message;');
   const [results, setResults] = useState<QueryResult[]>([]);
@@ -37,6 +67,15 @@ export default function SqlPage() {
   const [newDbName, setNewDbName] = useState('');
   const [sqlReady, setSqlReady] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Auto-persist to localStorage whenever databases or activeDb change
+  const persistDb = useCallback(() => {
+    if (db) {
+      const exported = db.export();
+      const updatedDbs = databases.map((d) => d.name === activeDb ? { ...d, data: Array.from(exported) } : d);
+      saveDatabasesToStorage(updatedDbs, activeDb);
+    }
+  }, [db, databases, activeDb]);
 
   // Load sql.js
   useEffect(() => {
@@ -79,11 +118,23 @@ export default function SqlPage() {
   const runQuery = () => {
     if (!db || !query.trim()) return;
     setError('');
+
+    // Timeout protection: wrap execution in a race
+    const start = performance.now();
     try {
       const res = db.exec(query);
+      const elapsed = performance.now() - start;
+
+      if (elapsed > QUERY_TIMEOUT) {
+        setError(`⏱️ Query took ${(elapsed / 1000).toFixed(1)}s — consider optimizing it.`);
+      }
+
       setResults(res);
       setHistory((prev) => [query.trim(), ...prev.slice(0, 19)]);
       if (res.length === 0) toast.success('Query executed (no results returned)');
+
+      // Auto-save after every successful query (persists schema changes)
+      persistDb();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       // Try to extract line number from SQL error
@@ -160,6 +211,14 @@ export default function SqlPage() {
   const importSql = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !initSqlJs) return;
+
+    // File size guard
+    if (file.size > MAX_IMPORT_SIZE) {
+      toast.error(`File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Max is ${MAX_IMPORT_SIZE / 1024 / 1024}MB.`);
+      e.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = async () => {
       try {
@@ -169,6 +228,8 @@ export default function SqlPage() {
         const newDb = new sqlPromise.Database(data);
         setDb(newDb);
         toast.success(`Imported "${file.name}"!`);
+        // Persist the import
+        persistDb();
       } catch {
         toast.error('Invalid SQL file');
       }
