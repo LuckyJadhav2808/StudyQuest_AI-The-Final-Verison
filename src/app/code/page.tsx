@@ -126,6 +126,7 @@ export default function CodePage() {
               value={code}
               onChange={setCode}
               onRun={runCode}
+              language={language}
               minHeight="380px"
               placeholder="Write your code here..."
             />

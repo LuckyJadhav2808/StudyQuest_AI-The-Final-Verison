@@ -183,6 +183,7 @@ export default function DsaPage() {
                     value={freeCode}
                     onChange={setFreeCode}
                     onRun={runFreeCode}
+                    language={freeLang}
                     minHeight="350px"
                   />
                   {/* Stdin for Free Code */}
@@ -265,6 +266,7 @@ export default function DsaPage() {
                     value={code}
                     onChange={setCode}
                     onRun={runCode}
+                    language={lang}
                     minHeight="250px"
                   />
                   {/* Stdin for Challenge */}

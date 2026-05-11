@@ -39,11 +39,11 @@ export default function PreviewPanel({ files, activeFile }: PreviewPanelProps) {
     // Revoke previous blob URL
     if (prevUrlRef.current) URL.revokeObjectURL(prevUrlRef.current);
 
-    const html = buildWebPreview(files);
+    const html = buildWebPreview(files, activeFile);
     const url = createPreviewBlobUrl(html);
     setPreviewUrl(url);
     prevUrlRef.current = url;
-  }, [files, hasWebFiles]);
+  }, [files, hasWebFiles, activeFile]);
 
   // Auto-refresh preview when files change
   useEffect(() => {

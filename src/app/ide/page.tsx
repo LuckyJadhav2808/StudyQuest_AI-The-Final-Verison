@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HiCode, HiMenu, HiX, HiEye, HiPlay, HiTerminal } from 'react-icons/hi';
+import { HiCode, HiMenu, HiX, HiEye, HiPlay, HiTerminal, HiDownload } from 'react-icons/hi';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+import JSZip from 'jszip';
 import PageTransition from '@/components/layout/PageTransition';
 import CodeEditor from '@/components/ui/CodeEditor';
 import ProjectSidebar, { PROJECT_TEMPLATES } from '@/components/code/ProjectSidebar';
@@ -189,6 +190,31 @@ export default function IDEPage() {
     }
   };
 
+  // Download project as .zip
+  const downloadZip = async () => {
+    if (!selectedProjectId || projectFiles.length === 0) {
+      toast.error('No files to download');
+      return;
+    }
+
+    const project = projects.find((p) => p.id === selectedProjectId);
+    const projectName = project?.name || 'project';
+
+    const zip = new JSZip();
+    projectFiles.forEach((file) => {
+      zip.file(file.name, file.content || '');
+    });
+
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${projectName.replace(/\s+/g, '-').toLowerCase()}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Downloaded ${projectName}.zip! 📦`);
+  };
+
   if (loading) {
     return (
       <PageTransition>
@@ -260,6 +286,15 @@ export default function IDEPage() {
             >
               <HiPlay size={14} />
               {running ? 'Running...' : 'Run ▶'}
+            </button>
+            {/* Download .zip */}
+            <button
+              onClick={downloadZip}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider border-2 border-[var(--card-border)] hover:border-teal/30 hover:bg-teal/5 transition-all text-[var(--muted-foreground)] hover:text-teal"
+              title="Download project as .zip"
+            >
+              <HiDownload size={14} />
+              .zip
             </button>
             <Link
               href="/code"
@@ -382,6 +417,7 @@ export default function IDEPage() {
                       value={activeFile.content}
                       onChange={handleCodeChange}
                       onRun={runCode}
+                      language={currentLang}
                       minHeight="100%"
                       placeholder="Start coding..."
                     />

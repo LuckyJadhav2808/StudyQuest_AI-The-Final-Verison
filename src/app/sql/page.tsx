@@ -303,6 +303,7 @@ export default function SqlPage() {
                   value={query}
                   onChange={setQuery}
                   onRun={runQuery}
+                  language="sql"
                   minHeight="200px"
                   placeholder="Write your SQL query..."
                 />

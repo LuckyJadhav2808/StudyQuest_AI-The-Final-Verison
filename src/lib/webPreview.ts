@@ -88,12 +88,15 @@ export function getFileIcon(fileName: string): string {
 
 /**
  * Combine HTML/CSS/JS files into a single HTML document for preview.
- * Finds the main HTML file and injects CSS + JS inline.
+ * If activeFile is an HTML file, use it as the preview target.
+ * Otherwise, prefer index.html, then fallback to first .html file.
  */
-export function buildWebPreview(files: CodeFile[]): string {
-  // Find the HTML file (prefer index.html, fallback to first .html)
-  const htmlFile = files.find((f) => f.name === 'index.html') ||
-                   files.find((f) => f.name.endsWith('.html'));
+export function buildWebPreview(files: CodeFile[], activeFile?: CodeFile | null): string {
+  // If the active file IS an HTML file, preview that one
+  const htmlFile =
+    (activeFile && activeFile.name.endsWith('.html') ? activeFile : null) ||
+    files.find((f) => f.name === 'index.html') ||
+    files.find((f) => f.name.endsWith('.html'));
 
   if (!htmlFile) {
     return `<!DOCTYPE html><html><body style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;color:#888;"><p>No HTML file found in project. Create an <code>index.html</code> to see a preview.</p></body></html>`;
