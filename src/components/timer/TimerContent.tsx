@@ -34,7 +34,7 @@ const PHASE_COLORS: Record<TimerPhase, { ring: string; bg: string; text: string 
 
 export default function TimerContent() {
   const { user } = useAuthContext();
-  const { awardXP } = useGamification();
+  const { awardXP, gamification } = useGamification();
   const { focusMode, setFocusMode } = useSidebar();
 
   const [phase, setPhase] = useState<TimerPhase>('focus');
@@ -385,6 +385,7 @@ export default function TimerContent() {
           phase={phase}
           progress={progress}
           sessions={sessions}
+          totalXP={gamification?.xp || 0}
           wasAbandoned={wasAbandoned}
         />
 

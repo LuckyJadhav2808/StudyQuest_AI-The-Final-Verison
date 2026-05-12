@@ -55,6 +55,8 @@ export interface GamificationData {
   totalNotesCreated: number;
   totalCodeRuns: number;     // for Code Wizard title
   nightOwlCount: number;     // for Night Owl title
+  dailyChallengeStreak: number;       // consecutive days of daily challenge
+  lastDailyChallengeDate: string;     // ISO date YYYY-MM-DD
 }
 
 export interface Achievement {

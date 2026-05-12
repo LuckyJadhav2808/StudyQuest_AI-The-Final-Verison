@@ -97,6 +97,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         totalNotesCreated: 0,
         totalCodeRuns: 0,
         nightOwlCount: 0,
+        dailyChallengeStreak: 0,
+        lastDailyChallengeDate: '',
       };
 
       await setDocument(profileRef, newProfile);

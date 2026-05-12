@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { HiCheck, HiChevronRight, HiLightningBolt, HiPlay, HiBookmark, HiEye, HiCode, HiTrash } from 'react-icons/hi';
+import { HiCheck, HiChevronRight, HiLightningBolt, HiPlay, HiBookmark, HiEye, HiCode, HiTrash, HiFire } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -10,9 +10,13 @@ import Badge from '@/components/ui/Badge';
 import PageTransition from '@/components/layout/PageTransition';
 import CodeEditor from '@/components/ui/CodeEditor';
 import { useAuthContext } from '@/context/AuthContext';
+import { useGamification } from '@/hooks/useGamification';
 import { doc, setDoc } from 'firebase/firestore';
 import { db as fireDb } from '@/lib/firebase';
 import { executeCode } from '@/lib/codeRunner';
+import { XP_AWARDS } from '@/lib/constants';
+import { getGamificationRef, updateDocument } from '@/lib/firestore';
+import confetti from 'canvas-confetti';
 
 const PROBLEMS = [
   { id: 'two-sum', title: 'Two Sum', difficulty: 'easy' as const, category: 'Arrays', desc: 'Return indices of two numbers that add up to target.', template: 'function twoSum(nums, target) {\n  // Your solution\n  \n}\nconsole.log(twoSum([2,7,11,15], 9));' },
@@ -24,6 +28,17 @@ const PROBLEMS = [
 ];
 
 const DC = { easy: 'teal', medium: 'amber', hard: 'coral' } as const;
+
+// Deterministic daily challenge picker based on the current date
+function getDailyChallengeIndex(): number {
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  let hash = 0;
+  for (let i = 0; i < today.length; i++) {
+    hash = ((hash << 5) - hash) + today.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash) % PROBLEMS.length;
+}
 
 const LANGS = [
   { id: 'javascript', label: 'JavaScript', version: '18.15.0' },
@@ -93,6 +108,7 @@ function DSVisualizer({ code }: { code: string }) {
 
 export default function DsaPage() {
   const { user } = useAuthContext();
+  const { awardXP, gamification } = useGamification();
   const [sel, setSel] = useState<typeof PROBLEMS[0] | null>(null);
   const [code, setCode] = useState('');
   const [lang, setLang] = useState('javascript');
@@ -143,6 +159,42 @@ export default function DsaPage() {
       id, title: `DSA: ${sel.title}`, language: lang, code, tags: ['dsa', sel.category.toLowerCase()], createdAt: Date.now(),
     });
     toast.success('Saved to Spell Book! 📜');
+  };
+
+  // Daily challenge logic
+  const dailyChallengeIdx = useMemo(() => getDailyChallengeIndex(), []);
+  const dailyProblem = PROBLEMS[dailyChallengeIdx];
+  const today = new Date().toISOString().split('T')[0];
+  const isDailyCompleted = gamification?.lastDailyChallengeDate === today;
+  const dailyStreak = gamification?.dailyChallengeStreak || 0;
+
+  const handleSolveProblem = async (problemId: string) => {
+    const isDaily = problemId === dailyProblem.id && !isDailyCompleted;
+    setSolved((p) => new Set(p).add(problemId));
+
+    if (isDaily && user && gamification) {
+      // Award 3x XP for daily challenge
+      const xpAmount = XP_AWARDS.TASK_COMPLETE * XP_AWARDS.DAILY_CHALLENGE_MULTIPLIER;
+      await awardXP(xpAmount, 'Daily Code Challenge completed!');
+
+      // Update daily challenge streak
+      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      const newStreak = gamification.lastDailyChallengeDate === yesterday
+        ? (gamification.dailyChallengeStreak || 0) + 1
+        : 1;
+
+      const ref = getGamificationRef(user.uid);
+      await updateDocument(ref, {
+        dailyChallengeStreak: newStreak,
+        lastDailyChallengeDate: today,
+      });
+
+      confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+      toast.success(`🔥 Daily Challenge Complete! +${xpAmount} XP (3x bonus!)`);
+    } else {
+      toast.success('Problem marked solved! 🏆');
+    }
+    setSel(null);
   };
 
   return (
@@ -214,21 +266,91 @@ export default function DsaPage() {
             </div>
           </div>
         ) : !sel ? (
-          <div className="space-y-2">
-            {PROBLEMS.map((p, i) => (
-              <motion.div key={p.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
-                <Card padding="md" className="cursor-pointer" onClick={() => { setSel(p); setCode(p.template); setOutput(''); }}>
-                  <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${solved.has(p.id) ? 'bg-teal/15' : 'bg-primary/15'}`}>
-                      {solved.has(p.id) ? <HiCheck className="text-teal" size={20} /> : <HiLightningBolt className="text-primary" size={20} />}
-                    </div>
-                    <div className="flex-1"><h3 className="text-sm font-heading font-bold">{p.title}</h3><span className="text-[10px] text-[var(--muted-foreground)]">{p.category}</span></div>
-                    <Badge variant={DC[p.difficulty]} size="sm">{p.difficulty}</Badge>
-                    <HiChevronRight className="text-[var(--muted-foreground)]" size={18} />
+          <div className="space-y-3">
+            {/* Daily Challenge Banner */}
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`rounded-2xl border-2 p-4 relative overflow-hidden ${
+                isDailyCompleted
+                  ? 'border-teal/50 bg-teal/5'
+                  : 'border-amber-400/50 bg-gradient-to-r from-amber-400/10 via-orange-400/10 to-red-400/10'
+              }`}
+              style={!isDailyCompleted ? { boxShadow: '0 0 24px rgba(251,191,36,0.15)' } : {}}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${
+                    isDailyCompleted ? 'bg-teal/15' : 'bg-amber-400/15'
+                  }`}>
+                    {isDailyCompleted ? '✅' : '🔥'}
                   </div>
-                </Card>
-              </motion.div>
-            ))}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-heading font-bold">
+                        {isDailyCompleted ? 'Daily Challenge Complete!' : 'Daily Challenge'}
+                      </h3>
+                      {!isDailyCompleted && (
+                        <Badge variant="amber" size="sm">3x XP</Badge>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-[var(--muted-foreground)]">
+                      {isDailyCompleted
+                        ? `Come back tomorrow for a new challenge!`
+                        : `Solve "${dailyProblem.title}" for ${XP_AWARDS.TASK_COMPLETE * XP_AWARDS.DAILY_CHALLENGE_MULTIPLIER} XP!`
+                      }
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  {dailyStreak > 0 && (
+                    <div className="flex items-center gap-1 text-orange-500">
+                      <HiFire size={16} />
+                      <span className="text-xs font-heading font-black">{dailyStreak}d streak</span>
+                    </div>
+                  )}
+                  {!isDailyCompleted && (
+                    <button
+                      onClick={() => { setSel(dailyProblem); setCode(dailyProblem.template); setOutput(''); }}
+                      className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-amber-400 to-orange-500 text-white shadow-[0_3px_0_rgba(217,119,6,0.4)] hover:shadow-[0_4px_0_rgba(217,119,6,0.5)] hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-[0_1px_0_rgba(217,119,6,0.4)] transition-all"
+                    >
+                      Start →
+                    </button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Problem List */}
+            {PROBLEMS.map((p, i) => {
+              const isDaily = p.id === dailyProblem.id;
+              return (
+                <motion.div key={p.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
+                  <Card
+                    padding="md"
+                    className={`cursor-pointer ${isDaily && !isDailyCompleted ? 'ring-2 ring-amber-400/40' : ''}`}
+                    onClick={() => { setSel(p); setCode(p.template); setOutput(''); }}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${solved.has(p.id) ? 'bg-teal/15' : isDaily && !isDailyCompleted ? 'bg-amber-400/15' : 'bg-primary/15'}`}>
+                        {solved.has(p.id) ? <HiCheck className="text-teal" size={20} /> : isDaily && !isDailyCompleted ? <HiFire className="text-amber-500" size={20} /> : <HiLightningBolt className="text-primary" size={20} />}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-heading font-bold">{p.title}</h3>
+                          {isDaily && !isDailyCompleted && (
+                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-400/15 text-amber-500 uppercase tracking-wider">🔥 Daily</span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-[var(--muted-foreground)]">{p.category}</span>
+                      </div>
+                      <Badge variant={DC[p.difficulty]} size="sm">{p.difficulty}</Badge>
+                      <HiChevronRight className="text-[var(--muted-foreground)]" size={18} />
+                    </div>
+                  </Card>
+                </motion.div>
+              );
+            })}
           </div>
         ) : (
           <div className="space-y-4">
@@ -258,7 +380,7 @@ export default function DsaPage() {
                     <span className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Solution</span>
                     <div className="flex gap-1.5">
                       <Button variant="ghost" size="sm" icon={<HiBookmark size={14} />} onClick={saveToSpellBook}>Save</Button>
-                      <Button variant="teal" size="sm" icon={<HiCheck size={14} />} onClick={() => { setSolved((p) => new Set(p).add(sel.id)); toast.success('Problem marked solved! 🏆'); setSel(null); }}>Solved</Button>
+                      <Button variant="teal" size="sm" icon={<HiCheck size={14} />} onClick={() => handleSolveProblem(sel.id)}>Solved</Button>
                       <Button variant="primary" size="sm" icon={<HiPlay size={14} />} onClick={runCode} loading={running}>{running ? '...' : 'Run'}</Button>
                     </div>
                   </div>

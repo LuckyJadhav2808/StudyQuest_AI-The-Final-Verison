@@ -12,7 +12,42 @@ import MobileNav from '@/components/layout/MobileNav';
 import AuthGuard from '@/components/auth/AuthGuard';
 import CommandPalette from '@/components/layout/CommandPalette';
 import FloatingXPContainer from '@/components/gamification/FloatingXP';
+import LevelUpOverlay from '@/components/gamification/LevelUpOverlay';
 import { usePresence } from '@/hooks/usePresence';
+
+/**
+ * Animated SVG background grid — creates a subtle, immersive "command center" aesthetic.
+ * Very faint lines that slowly shift, giving the app depth.
+ */
+function AnimatedGrid() {
+  return (
+    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
+      <svg
+        className="absolute inset-0 w-full h-full opacity-[0.03]"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <defs>
+          <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+            <path
+              d="M 60 0 L 0 0 0 60"
+              fill="none"
+              stroke="var(--color-primary)"
+              strokeWidth="0.8"
+            />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)" />
+      </svg>
+      {/* Radial gradient overlay — gives grid a natural falloff from center */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: 'radial-gradient(ellipse at 50% 30%, transparent 20%, var(--background) 80%)',
+        }}
+      />
+    </div>
+  );
+}
 
 function MainContent({ children }: { children: React.ReactNode }) {
   const { collapsed, focusMode } = useSidebar();
@@ -23,7 +58,7 @@ function MainContent({ children }: { children: React.ReactNode }) {
       style={focusMode ? { marginLeft: 0 } : { marginLeft: collapsed ? 72 : 272 }}
     >
       {!focusMode && <Header />}
-      <main className={`flex-1 overflow-y-auto ${focusMode ? 'p-0' : 'p-4 md:p-6 pb-20 md:pb-6'}`}>
+      <main className={`flex-1 overflow-y-auto relative z-10 ${focusMode ? 'p-0' : 'p-4 md:p-6 pb-20 md:pb-6'}`}>
         {children}
       </main>
     </div>
@@ -44,7 +79,10 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthGuard>
-      <div className="flex h-screen overflow-hidden">
+      <div className="flex h-screen overflow-hidden relative">
+        {/* Animated Background Grid */}
+        <AnimatedGrid />
+
         {/* Sidebar (Desktop) — hidden in focus mode */}
         {!focusMode && <Sidebar />}
 
@@ -59,6 +97,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Floating XP Particles */}
         <FloatingXPContainer />
+
+        {/* Cinematic Level-Up Overlay */}
+        <LevelUpOverlay />
       </div>
     </AuthGuard>
   );

@@ -110,7 +110,7 @@ export default function CodeEditor({
         {/* Line numbers gutter */}
         <div
           ref={lineNumberRef}
-          className="flex-shrink-0 select-none overflow-hidden text-right pr-1 pt-4 pb-4 border-r-2 border-[var(--card-border)]"
+          className="flex-shrink-0 select-none overflow-hidden text-right pr-1 pt-4 pb-4 border-r-2 border-[var(--card-border)] code-scroll"
           style={{
             fontFamily: 'var(--font-mono)',
             fontSize: '0.8rem',
@@ -157,7 +157,7 @@ export default function CodeEditor({
           onChange={(e) => onChange(e.target.value)}
           onScroll={handleScroll}
           onKeyDown={handleKeyDown}
-          className="flex-1 bg-transparent resize-none outline-none text-sm px-3 py-4"
+          className="flex-1 bg-transparent resize-none outline-none text-sm px-3 py-4 code-scroll"
           style={{
             fontFamily: 'var(--font-mono)',
             lineHeight: '1.625rem',

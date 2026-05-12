@@ -359,9 +359,10 @@ h4 { font-size: 1.125rem; }
 }
 
 /* ============================================================
-   Scrollbar Styling
+   Scrollbar Styling — Premium "Gaming" Scrollbars
    ============================================================ */
 
+/* Global thin scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -372,12 +373,52 @@ h4 { font-size: 1.125rem; }
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--muted);
-  border-radius: 3px;
+  background: var(--color-primary-glow);
+  border-radius: 10px;
+  border: 1px solid transparent;
+  transition: background 0.3s;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--muted-foreground);
+  background: var(--color-primary);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(124, 58, 237, 0.3) transparent;
+}
+
+/* Code area scrollbar — always visible, neon accent */
+.code-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.code-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+}
+
+.code-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--color-primary), var(--color-secondary));
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.code-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--color-primary-light), var(--color-secondary));
+  background-clip: content-box;
+}
+
+.code-scroll {
+  scrollbar-width: auto;
+  scrollbar-color: var(--color-primary) rgba(0, 0, 0, 0.15);
 }
 
 /* ============================================================

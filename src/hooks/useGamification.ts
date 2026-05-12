@@ -110,6 +110,28 @@ export function useGamification(): UseGamificationReturn {
         achievements: [...gamification.achievements, ...newAchievements],
       });
 
+      // Sync public leaderboard entry
+      const finalXP = newXP + newAchievements.reduce((sum, id) => {
+        const a = ACHIEVEMENTS.find((x) => x.id === id);
+        return sum + (a?.xpReward || 0);
+      }, 0);
+      const finalLevel = getLevelFromXP(finalXP);
+      try {
+        const leaderboardRef = doc(db, 'leaderboard', user.uid);
+        await setDocument(leaderboardRef, {
+          uid: user.uid,
+          displayName: user.displayName || 'Adventurer',
+          avatarSeed: user.uid,
+          avatarStyle: 'adventurer',
+          xp: finalXP,
+          level: finalLevel,
+          streak: gamification.streak || 0,
+          updatedAt: Date.now(),
+        });
+      } catch {
+        // Leaderboard sync is best-effort, don't block XP award
+      }
+
       // Log daily XP for heatmap
       const today = new Date().toISOString().split('T')[0];
       const dayLogRef = doc(db, 'users', user.uid, 'xpLog', today);

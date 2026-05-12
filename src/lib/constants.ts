@@ -14,6 +14,7 @@ export const XP_AWARDS = {
   STREAK_BONUS: 5, // per day of streak
   DAILY_LOGIN: 5,
   GROUP_MESSAGE: 2,
+  DAILY_CHALLENGE_MULTIPLIER: 3, // 3x XP for daily code challenge
 } as const;
 
 // ----- Level Thresholds -----
