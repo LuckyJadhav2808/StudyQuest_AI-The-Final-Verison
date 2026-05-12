@@ -611,6 +611,8 @@ h4 { font-size: 1.125rem; }
   font-family: 'Inter', system-ui, sans-serif;
   font-size: 14px;
   min-height: 400px;
+  max-height: 65vh;
+  overflow-y: auto;
 }
 
 .quill-wrapper .ql-editor {
@@ -618,6 +620,28 @@ h4 { font-size: 1.125rem; }
   line-height: 1.8;
   min-height: 400px;
   color: var(--foreground);
+}
+
+/* Themed scrollbar for the notes editor */
+.quill-wrapper .ql-container.ql-snow::-webkit-scrollbar {
+  width: 8px;
+}
+
+.quill-wrapper .ql-container.ql-snow::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+}
+
+.quill-wrapper .ql-container.ql-snow::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--color-primary), var(--color-secondary));
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.quill-wrapper .ql-container.ql-snow::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--color-primary-light), var(--color-secondary));
+  background-clip: content-box;
 }
 
 .quill-wrapper .ql-editor.ql-blank::before {
