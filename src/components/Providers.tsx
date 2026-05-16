@@ -12,6 +12,8 @@ import MobileNav from '@/components/layout/MobileNav';
 import AuthGuard from '@/components/auth/AuthGuard';
 import CommandPalette from '@/components/layout/CommandPalette';
 import FloatingXPContainer from '@/components/gamification/FloatingXP';
+import ParticleBackground from '@/components/ui/ParticleBackground';
+import StickyNotesOverlay from '@/components/ui/StickyNotesOverlay';
 import LevelUpOverlay from '@/components/gamification/LevelUpOverlay';
 import { usePresence } from '@/hooks/usePresence';
 
@@ -83,6 +85,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
         {/* Animated Background Grid */}
         <AnimatedGrid />
 
+        {/* Floating Particle Background */}
+        <ParticleBackground />
+
         {/* Sidebar (Desktop) — hidden in focus mode */}
         {!focusMode && <Sidebar />}
 
@@ -100,6 +105,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Cinematic Level-Up Overlay */}
         <LevelUpOverlay />
+
+        {/* Global Sticky Notes */}
+        <StickyNotesOverlay />
       </div>
     </AuthGuard>
   );

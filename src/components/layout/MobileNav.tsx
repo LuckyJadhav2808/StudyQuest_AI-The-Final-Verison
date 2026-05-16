@@ -23,6 +23,8 @@ import {
   HiBookmark,
   HiCog,
   HiCollection,
+  HiAcademicCap,
+  HiPencil,
 } from 'react-icons/hi';
 
 const MOBILE_QUICK = [
@@ -37,9 +39,11 @@ const ALL_NAV_ITEMS = [
   { label: 'Quest Log', href: '/tasks', icon: HiClipboardCheck },
   { label: 'Notes & Scrolls', href: '/notes', icon: HiPencilAlt },
   { label: 'Daily Quests', href: '/habits', icon: HiLightningBolt },
+  { label: 'Exam Countdown', href: '/exams', icon: HiAcademicCap },
   { label: 'Focus Timer', href: '/timer', icon: HiClock },
   { label: 'Timetable', href: '/timetable', icon: HiCalendar },
   { label: 'Resources', href: '/resources', icon: HiCollection },
+  { label: 'Whiteboard', href: '/whiteboard', icon: HiPencil },
   { label: 'Questie Chat', href: '/chat', icon: HiChatAlt2 },
   { label: 'Hall of Fame', href: '/analytics', icon: HiChartBar },
   { label: 'Study Groups', href: '/groups', icon: HiUserGroup },

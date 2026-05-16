@@ -39,6 +39,8 @@ export const getResourceFoldersCollection = (uid: string) => collection(db, 'use
 export const getResourcesCollection = (uid: string) => collection(db, 'users', uid, 'resources');
 export const getCodeProjectsCollection = (uid: string) => collection(db, 'users', uid, 'codeProjects');
 export const getCodeFilesCollection = (uid: string, projectId: string) => collection(db, 'users', uid, 'codeProjects', projectId, 'files');
+export const getExamsCollection = (uid: string) => collection(db, 'users', uid, 'exams');
+export const getStickiesCollection = (uid: string) => collection(db, 'users', uid, 'stickies');
 
 // ----- Global Collections -----
 export const getFriendRequestsCollection = () => collection(db, 'friendRequests');

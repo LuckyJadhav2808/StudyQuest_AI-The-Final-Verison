@@ -232,6 +232,27 @@ export interface CodeFile {
   updatedAt: number;
 }
 
+// ----- Exams (Countdown Timer) -----
+export interface Exam {
+  id: string;
+  title: string;
+  subject: string;
+  emoji: string;
+  date: number;       // timestamp of exam date/time
+  color: string;      // hex color
+  createdAt: number;
+}
+
+// ----- Sticky Notes (Quick Capture) -----
+export interface StickyNote {
+  id: string;
+  content: string;
+  color: string;      // hex background color
+  x: number;          // position X
+  y: number;          // position Y
+  createdAt: number;
+}
+
 // ----- Navigation -----
 export interface NavItem {
   label: string;

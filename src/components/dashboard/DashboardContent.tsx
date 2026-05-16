@@ -26,7 +26,17 @@ import PageTransition from '@/components/layout/PageTransition';
 import StudyHeatmap from '@/components/dashboard/StudyHeatmap';
 import DraggableDashboard from '@/components/dashboard/DraggableDashboard';
 import { useNotes } from '@/hooks/useNotes';
+import { useExams } from '@/hooks/useExams';
 import { playSuccess, playXP } from '@/lib/sounds';
+
+// Time-of-day greeting system
+function getTimeOfDay() {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return { greeting: 'Good Morning', emoji: '🌅', gradient: 'from-amber-500/15 via-orange-400/10 to-yellow-300/10', border: 'border-amber-400/20', accent: 'text-amber-500', tip: 'Rise and grind.' };
+  if (hour >= 12 && hour < 17) return { greeting: 'Good Afternoon', emoji: '☀️', gradient: 'from-sky-400/15 via-teal/10 to-lime/10', border: 'border-sky-400/20', accent: 'text-sky-500', tip: 'Stay focused.' };
+  if (hour >= 17 && hour < 21) return { greeting: 'Good Evening', emoji: '🌆', gradient: 'from-orange-500/15 via-pink-500/10 to-purple-500/10', border: 'border-orange-400/20', accent: 'text-orange-500', tip: 'Finish strong.' };
+  return { greeting: 'Night Owl Mode', emoji: '🌙', gradient: 'from-violet-600/15 via-purple-500/10 to-indigo-600/10', border: 'border-violet-500/25', accent: 'text-violet-400', tip: '2x XP active!' };
+}
 
 export default function DashboardContent() {
   const { profile } = useAuthContext();
@@ -35,6 +45,9 @@ export default function DashboardContent() {
   const { friends, incomingRequests, acceptRequest, rejectRequest } = useFriends();
   const { quests, addQuest, toggleQuest, deleteQuest, todayCompleted, todayTotal } = useDailyQuests();
   const { notes } = useNotes();
+  const { upcomingExams } = useExams();
+
+  const timeOfDay = getTimeOfDay();
 
   const [newQuest, setNewQuest] = useState('');
   const [showNotifs, setShowNotifs] = useState(false);
@@ -108,11 +121,11 @@ export default function DashboardContent() {
   const widgetMap = useMemo(() => ({
     /* ── Welcome Banner ── */
     'welcome': (
-      <div className="relative overflow-hidden rounded-[20px] bg-gradient-to-r from-primary/10 via-secondary/10 to-tertiary/10 p-6 md:p-8 border-2 border-primary/15">
+      <div className={`relative overflow-hidden rounded-[20px] bg-gradient-to-r ${timeOfDay.gradient} p-6 md:p-8 border-2 ${timeOfDay.border}`}>
         <div className="relative z-10 flex items-start gap-4">
-          <motion.div className="hidden sm:flex flex-shrink-0 w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary items-center justify-center text-3xl shadow-lg" animate={{ y: [0, -6, 0] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}>🦉</motion.div>
+          <motion.div className="hidden sm:flex flex-shrink-0 w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary items-center justify-center text-3xl shadow-lg" animate={{ y: [0, -6, 0] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}>{timeOfDay.emoji}</motion.div>
           <div className="flex-1">
-            <h1 className="text-2xl md:text-3xl font-heading font-black mb-1">Welcome back! Your streak is alive! 🔥</h1>
+            <h1 className="text-2xl md:text-3xl font-heading font-black mb-1">{timeOfDay.greeting}, {profile?.displayName?.split(' ')[0] || 'Adventurer'}! <span className={timeOfDay.accent}>{timeOfDay.tip}</span></h1>
             <p className="text-sm text-[var(--muted-foreground)] max-w-xl">{streakMessage}</p>
           </div>
           {/* Notification Bell */}
@@ -364,7 +377,7 @@ export default function DashboardContent() {
       </div>
     ),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [gamification, tasks, friends, incomingRequests, quests, newQuest, showNotifs, xpHistory, profile, todayTasks, completedToday, todayCompleted, todayTotal, streakMessage, isNightOwlTime, notes]);
+  }), [gamification, tasks, friends, incomingRequests, quests, newQuest, showNotifs, xpHistory, profile, todayTasks, completedToday, todayCompleted, todayTotal, streakMessage, isNightOwlTime, notes, timeOfDay, upcomingExams]);
 
   return (
     <PageTransition>

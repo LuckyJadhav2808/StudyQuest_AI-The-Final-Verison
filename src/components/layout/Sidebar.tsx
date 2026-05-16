@@ -10,6 +10,7 @@ import {
   HiUserGroup, HiDatabase, HiCode, HiCubeTransparent,
   HiBookmark, HiCog, HiChevronLeft, HiChevronRight,
   HiLogout, HiSparkles, HiCollection, HiTerminal,
+  HiAcademicCap, HiPencil,
 } from 'react-icons/hi';
 import { useAuthContext } from '@/context/AuthContext';
 import { useGamification } from '@/hooks/useGamification';
@@ -26,6 +27,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string; size?: n
   HiClock, HiCalendar, HiChatAlt2, HiChartBar,
   HiUserGroup, HiDatabase, HiCode, HiCubeTransparent,
   HiBookmark, HiCog, HiSparkles, HiCollection, HiTerminal,
+  HiAcademicCap, HiPencil,
 };
 
 /* ============================================================
@@ -41,6 +43,7 @@ const NAV_SECTIONS = [
       { label: 'Quest Log', href: '/tasks', icon: 'HiClipboardCheck' },
       { label: 'Notes & Scrolls', href: '/notes', icon: 'HiPencilAlt' },
       { label: 'Daily Quests', href: '/habits', icon: 'HiLightningBolt' },
+      { label: 'Exam Countdown', href: '/exams', icon: 'HiAcademicCap' },
     ],
   },
   {
@@ -49,6 +52,7 @@ const NAV_SECTIONS = [
       { label: 'Focus Timer', href: '/timer', icon: 'HiClock' },
       { label: 'Timetable', href: '/timetable', icon: 'HiCalendar' },
       { label: 'Resources', href: '/resources', icon: 'HiCollection' },
+      { label: 'Whiteboard', href: '/whiteboard', icon: 'HiPencil' },
       { label: 'Questie Chat', href: '/chat', icon: 'HiChatAlt2' },
       { label: 'Hall of Fame', href: '/analytics', icon: 'HiChartBar' },
     ],
