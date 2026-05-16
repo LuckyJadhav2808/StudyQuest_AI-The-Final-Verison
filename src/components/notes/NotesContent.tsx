@@ -545,7 +545,10 @@ export default function NotesContent() {
             <h1 className="text-2xl font-heading font-bold">Notes & Scrolls</h1>
             <p className="text-sm text-[var(--muted-foreground)]">Your knowledge base. Write, organize, remember.</p>
           </div>
-          <Button variant="primary" size="sm" icon={<HiPlus />} onClick={() => setShowNewModal(true)}>New Note</Button>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" icon={<HiPencil size={14} />} onClick={() => window.location.href = '/whiteboard'}>Whiteboard</Button>
+            <Button variant="primary" size="sm" icon={<HiPlus />} onClick={() => setShowNewModal(true)}>New Note</Button>
+          </div>
         </div>
 
         <div className="relative">
