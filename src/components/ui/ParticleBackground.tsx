@@ -5,12 +5,11 @@ import { motion } from 'framer-motion';
 
 /**
  * ParticleBackground — Floating, softly glowing orbs that drift across the app.
- * Uses CSS-only approach with framer-motion for smooth infinite animations.
- * Responds to the CSS theme via var(--color-primary) and var(--color-secondary).
- * Zero interaction — pointer-events: none, aria-hidden.
+ * Uses framer-motion for smooth infinite animations.
+ * Pointer-events: none, aria-hidden for zero interaction.
  */
 
-const PARTICLE_COUNT = 18;
+const PARTICLE_COUNT = 22;
 
 interface Particle {
   id: number;
@@ -26,29 +25,33 @@ interface Particle {
   driftY: number;
 }
 
+// Hardcoded hex colors so they work reliably in inline styles
 const COLORS = [
-  'var(--color-primary)',
-  'var(--color-secondary)',
-  'var(--color-tertiary)',
-  'var(--color-teal)',
-  'var(--color-sky)',
+  '#7C3AED', // primary purple
+  '#EC4899', // secondary pink
+  '#10B981', // tertiary green
+  '#06D6A0', // teal
+  '#4CC9F0', // sky
+  '#F59E0B', // amber
+  '#6366F1', // indigo
+  '#D946EF', // fuchsia
 ];
 
 function generateParticles(): Particle[] {
   return Array.from({ length: PARTICLE_COUNT }, (_, i) => {
-    const size = 4 + Math.random() * 12;
+    const size = 8 + Math.random() * 20; // bigger orbs (8-28px)
     return {
       id: i,
       size,
       x: Math.random() * 100,
       y: Math.random() * 100,
-      opacity: 0.08 + Math.random() * 0.15,
-      duration: 15 + Math.random() * 25,
-      delay: Math.random() * 10,
+      opacity: 0.12 + Math.random() * 0.22, // more visible (0.12 - 0.34)
+      duration: 18 + Math.random() * 30,
+      delay: Math.random() * 8,
       color: COLORS[i % COLORS.length],
-      blur: size > 10 ? 8 + Math.random() * 12 : 4 + Math.random() * 6,
-      driftX: -30 + Math.random() * 60,
-      driftY: -40 + Math.random() * 80,
+      blur: size > 16 ? 12 + Math.random() * 16 : 6 + Math.random() * 10,
+      driftX: -50 + Math.random() * 100,
+      driftY: -60 + Math.random() * 120,
     };
   });
 }
@@ -58,7 +61,8 @@ export default function ParticleBackground() {
 
   return (
     <div
-      className="fixed inset-0 pointer-events-none z-[1] overflow-hidden"
+      className="fixed inset-0 pointer-events-none overflow-hidden"
+      style={{ zIndex: 1 }}
       aria-hidden="true"
     >
       {particles.map((p) => (
@@ -70,15 +74,15 @@ export default function ParticleBackground() {
             height: p.size,
             left: `${p.x}%`,
             top: `${p.y}%`,
-            background: p.color,
+            background: `radial-gradient(circle, ${p.color}, ${p.color}88)`,
             filter: `blur(${p.blur}px)`,
             opacity: p.opacity,
           }}
           animate={{
-            x: [0, p.driftX, -p.driftX * 0.5, 0],
-            y: [0, p.driftY, -p.driftY * 0.6, 0],
-            scale: [1, 1.3, 0.8, 1],
-            opacity: [p.opacity, p.opacity * 1.5, p.opacity * 0.6, p.opacity],
+            x: [0, p.driftX, -p.driftX * 0.5, p.driftX * 0.3, 0],
+            y: [0, p.driftY, -p.driftY * 0.6, p.driftY * 0.4, 0],
+            scale: [1, 1.4, 0.7, 1.2, 1],
+            opacity: [p.opacity, p.opacity * 1.6, p.opacity * 0.5, p.opacity * 1.3, p.opacity],
           }}
           transition={{
             duration: p.duration,

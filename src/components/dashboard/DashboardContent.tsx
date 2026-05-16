@@ -24,6 +24,7 @@ import LevelBadge from '@/components/gamification/LevelBadge';
 import StreakCounter from '@/components/gamification/StreakCounter';
 import PageTransition from '@/components/layout/PageTransition';
 import StudyHeatmap from '@/components/dashboard/StudyHeatmap';
+import TypewriterQuote from '@/components/dashboard/TypewriterQuote';
 import DraggableDashboard from '@/components/dashboard/DraggableDashboard';
 import { useNotes } from '@/hooks/useNotes';
 import { useExams } from '@/hooks/useExams';
@@ -246,6 +247,11 @@ export default function DashboardContent() {
       </Card>
     ),
 
+    /* ── Daily Motivation ── */
+    'motivation': (
+      <TypewriterQuote />
+    ),
+
     /* ── Quick Actions + Recent Notes ── */
     'quick-actions': (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -287,6 +293,42 @@ export default function DashboardContent() {
           )}
         </Card>
       </div>
+    ),
+
+    /* ── Exam Countdown ── */
+    'exam-countdown': (
+      <Card padding="md" hover={false}>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-heading font-bold flex items-center gap-2"><HiCalendar className="text-coral" /> Exam Countdown</h3>
+          <Link href="/exams" className="text-[10px] text-primary font-bold hover:underline uppercase tracking-wider">View All →</Link>
+        </div>
+        {(!upcomingExams || upcomingExams.length === 0) ? (
+          <div className="text-center py-6">
+            <motion.span className="text-3xl mb-2 block" animate={{ y: [0, -5, 0] }} transition={{ duration: 2.5, repeat: Infinity }}>📅</motion.span>
+            <p className="text-xs text-[var(--muted-foreground)] mb-2">No upcoming exams scheduled.</p>
+            <Link href="/exams"><Button variant="coral" size="sm" icon={<HiPlus />}>Add Exam</Button></Link>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {upcomingExams.slice(0, 3).map((exam, i) => {
+              const daysLeft = Math.max(0, Math.ceil((new Date(exam.date).getTime() - Date.now()) / 86400000));
+              const urgency = daysLeft <= 3 ? 'coral' : daysLeft <= 7 ? 'amber' : 'teal';
+              return (
+                <motion.div key={exam.id || i} className="flex items-center gap-3 p-3 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/20 transition-all" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.06 }}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0`} style={{ background: `color-mix(in srgb, var(--color-${urgency}) 15%, transparent)` }}>
+                    <span className="text-lg font-heading font-black" style={{ color: `var(--color-${urgency})` }}>{daysLeft}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate">{exam.subject || 'Exam'}</p>
+                    <p className="text-[10px] text-[var(--muted-foreground)]">{new Date(exam.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+                  </div>
+                  <Badge variant={urgency as 'coral' | 'amber' | 'teal'} size="sm">{daysLeft === 0 ? 'Today!' : `${daysLeft}d`}</Badge>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
     ),
 
     /* ── Bottom Grid (Active Quests + Hall of Fame + Friends) ── */

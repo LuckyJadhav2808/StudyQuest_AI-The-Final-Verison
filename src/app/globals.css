@@ -891,3 +891,24 @@ h4 { font-size: 1.125rem; }
   transform: scale(1.15);
   vertical-align: middle;
 }
+
+/* ============================================================
+   Custom Quest Cursor — hide default, replaced by React component.
+   IMPORTANT: Preserve native text cursor on inputs for usability.
+   ============================================================ */
+html, body {
+  cursor: none !important;
+}
+a, button, [role="button"], select, label, summary,
+.cursor-pointer {
+  cursor: none !important;
+}
+/* Restore native I-beam on all text-editable elements */
+input[type="text"], input[type="email"], input[type="password"],
+input[type="search"], input[type="url"], input[type="number"],
+input[type="tel"], input:not([type]), textarea,
+[contenteditable="true"], [contenteditable=""], [role="textbox"],
+.cm-editor, .cm-content, .monaco-editor, .ProseMirror,
+pre[contenteditable], code[contenteditable] {
+  cursor: text !important;
+}

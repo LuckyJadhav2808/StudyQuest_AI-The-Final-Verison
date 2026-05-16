@@ -11,6 +11,8 @@ const DEFAULT_ORDER = [
   'daily-quests',
   'stat-cards',
   'heatmap',
+  'motivation',
+  'exam-countdown',
   'quick-actions',
   'bottom-grid',
 ];

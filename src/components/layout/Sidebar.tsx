@@ -71,6 +71,7 @@ const NAV_SECTIONS = [
       { label: 'Code Arena IDE', href: '/ide', icon: 'HiTerminal' },
       { label: 'DSA Dungeon', href: '/dsa', icon: 'HiCubeTransparent' },
       { label: 'Spell Book', href: '/snippets', icon: 'HiBookmark' },
+      { label: 'Typing Arcade', href: '/arcade', icon: 'HiSparkles' },
     ],
   },
 ];
