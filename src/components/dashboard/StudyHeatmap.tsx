@@ -101,6 +101,11 @@ export default function StudyHeatmap({ xpByDate, days = 180 }: StudyHeatmapProps
     return labels;
   }, [weeks]);
 
+  const CELL = 12;   // px — fixed cell size
+  const GAP = 2;     // px — gap between cells
+  const DAY_LABEL_W = 28; // px
+  const gridW = weeks.length * (CELL + GAP) - GAP; // total grid width
+
   return (
     <div className="space-y-3">
       {/* Stats row */}
@@ -112,72 +117,80 @@ export default function StudyHeatmap({ xpByDate, days = 180 }: StudyHeatmapProps
         <span>Last {days} days</span>
       </div>
 
-      {/* Heatmap grid */}
-      <div className="overflow-x-auto pb-2">
-        <div className="flex flex-col gap-[2px] w-full">
-          {/* Month labels */}
-          <div className="flex gap-[2px]" style={{ paddingLeft: '30px' }}>
-            {weeks.map((_, colIdx) => {
-              const monthLabel = monthLabels.find((m) => m.col === colIdx);
-              return (
-                <div key={`month-${colIdx}`} className="flex-1 min-w-[8px] text-center">
-                  {monthLabel && (
-                    <span className="text-[8px] font-bold text-[var(--muted-foreground)]">
-                      {monthLabel.label}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
+      {/* Scrollable heatmap */}
+      <div className="overflow-x-auto overflow-y-hidden pb-2 -mx-1 px-1" style={{ scrollbarWidth: 'thin' }}>
+        <div style={{ width: DAY_LABEL_W + gridW + 8, minWidth: DAY_LABEL_W + gridW + 8 }}>
+          {/* Month labels row */}
+          <div className="flex relative" style={{ height: 16, marginLeft: DAY_LABEL_W }}>
+            {monthLabels.map((m, i) => (
+              <span
+                key={i}
+                className="absolute text-[9px] font-bold text-[var(--muted-foreground)] leading-none"
+                style={{ left: m.col * (CELL + GAP) }}
+              >
+                {m.label}
+              </span>
+            ))}
           </div>
 
           {/* Grid rows (7 rows = days of week) */}
-          {[0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => (
-            <div key={dayOfWeek} className="flex items-center gap-[2px]">
-              {/* Day label */}
-              <span className="w-[28px] flex-shrink-0 text-[8px] font-bold text-[var(--muted-foreground)] text-right pr-1">
-                {DAYS_LABELS[dayOfWeek]}
-              </span>
+          <div className="flex flex-col" style={{ gap: GAP }}>
+            {[0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => (
+              <div key={dayOfWeek} className="flex items-center" style={{ gap: GAP }}>
+                {/* Day label */}
+                <span
+                  className="flex-shrink-0 text-[8px] font-bold text-[var(--muted-foreground)] text-right pr-1"
+                  style={{ width: DAY_LABEL_W }}
+                >
+                  {DAYS_LABELS[dayOfWeek]}
+                </span>
 
-              {/* Squares */}
-              {weeks.map((week, colIdx) => {
-                const dateStr = week[dayOfWeek];
-                if (!dateStr) {
-                  return <div key={`empty-${colIdx}`} className="flex-1 min-w-[8px] aspect-square" />;
-                }
-
-                const xp = xpByDate[dateStr] || 0;
-                const level = getLevel(xp, maxXp);
-
-                return (
-                  <motion.div
-                    key={dateStr}
-                    className="flex-1 min-w-[8px] aspect-square rounded-[2px] cursor-pointer relative group"
-                    style={{ backgroundColor: LEVEL_COLORS[level] }}
-                    whileHover={{ scale: 1.8, zIndex: 10 }}
-                    transition={{ duration: 0.15 }}
-                  >
-                    {/* Tooltip */}
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
-                      <div className="px-2 py-1 rounded-lg bg-[var(--foreground)] text-[var(--background)] text-[9px] font-bold whitespace-nowrap shadow-lg">
-                        {xp > 0 ? `${xp} XP` : 'No activity'} — {new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </div>
-                    </div>
-
-                    {/* Glow effect for high activity */}
-                    {level >= 4 && (
+                {/* Squares */}
+                {weeks.map((week, colIdx) => {
+                  const dateStr = week[dayOfWeek];
+                  if (!dateStr) {
+                    return (
                       <div
-                        className="absolute inset-0 rounded-[2px] animate-pulse"
-                        style={{
-                          boxShadow: `0 0 ${level * 3}px ${LEVEL_COLORS[level]}`,
-                        }}
+                        key={`empty-${colIdx}`}
+                        className="flex-shrink-0 rounded-[2px]"
+                        style={{ width: CELL, height: CELL }}
                       />
-                    )}
-                  </motion.div>
-                );
-              })}
-            </div>
-          ))}
+                    );
+                  }
+
+                  const xp = xpByDate[dateStr] || 0;
+                  const level = getLevel(xp, maxXp);
+
+                  return (
+                    <motion.div
+                      key={dateStr}
+                      className="flex-shrink-0 rounded-[2px] cursor-pointer relative group"
+                      style={{ width: CELL, height: CELL, backgroundColor: LEVEL_COLORS[level] }}
+                      whileHover={{ scale: 1.6, zIndex: 10 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      {/* Tooltip */}
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 pointer-events-none">
+                        <div className="px-2 py-1 rounded-lg bg-[var(--foreground)] text-[var(--background)] text-[9px] font-bold whitespace-nowrap shadow-lg">
+                          {xp > 0 ? `${xp} XP` : 'No activity'} — {new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </div>
+                      </div>
+
+                      {/* Glow effect for high activity */}
+                      {level >= 4 && (
+                        <div
+                          className="absolute inset-0 rounded-[2px] animate-pulse"
+                          style={{
+                            boxShadow: `0 0 ${level * 3}px ${LEVEL_COLORS[level]}`,
+                          }}
+                        />
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
