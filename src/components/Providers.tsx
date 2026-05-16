@@ -13,7 +13,6 @@ import AuthGuard from '@/components/auth/AuthGuard';
 import CommandPalette from '@/components/layout/CommandPalette';
 import FloatingXPContainer from '@/components/gamification/FloatingXP';
 import ParticleBackground from '@/components/ui/ParticleBackground';
-import QuestCursor from '@/components/ui/QuestCursor';
 import StickyNotesOverlay from '@/components/ui/StickyNotesOverlay';
 import LevelUpOverlay from '@/components/gamification/LevelUpOverlay';
 import { usePresence } from '@/hooks/usePresence';
@@ -88,9 +87,6 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Floating Particle Background */}
         <ParticleBackground />
-
-        {/* Custom Quest Cursor */}
-        <QuestCursor />
 
         {/* Sidebar (Desktop) — hidden in focus mode */}
         {!focusMode && <Sidebar />}
