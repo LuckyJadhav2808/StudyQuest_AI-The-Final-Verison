@@ -893,6 +893,77 @@ h4 { font-size: 1.125rem; }
 }
 
 /* ============================================================
+   Quill Editor — Whitespace & Styling Overrides
+   ============================================================ */
+
+/* Preserve whitespace/indentation in editor */
+.ql-editor {
+  white-space: pre-wrap !important;
+  word-wrap: break-word;
+  min-height: 400px;
+  font-size: 14px;
+  line-height: 1.8;
+  padding: 1.5rem;
+}
+
+/* Preserve whitespace in rendered view */
+.studyquest-markdown {
+  white-space: pre-wrap;
+}
+
+/* Quill theme overrides for dark mode */
+.quill-wrapper .ql-toolbar {
+  border-color: var(--card-border) !important;
+  background: var(--card-bg);
+  border-radius: 16px 16px 0 0;
+}
+.quill-wrapper .ql-container {
+  border-color: var(--card-border) !important;
+  border-radius: 0 0 16px 16px;
+  background: var(--card-bg);
+  font-family: inherit;
+}
+.quill-wrapper .ql-toolbar .ql-stroke {
+  stroke: var(--foreground) !important;
+}
+.quill-wrapper .ql-toolbar .ql-fill {
+  fill: var(--foreground) !important;
+}
+.quill-wrapper .ql-toolbar .ql-picker-label {
+  color: var(--foreground) !important;
+}
+.quill-wrapper .ql-toolbar button:hover .ql-stroke,
+.quill-wrapper .ql-toolbar .ql-active .ql-stroke {
+  stroke: var(--color-primary) !important;
+}
+.quill-wrapper .ql-toolbar button:hover .ql-fill,
+.quill-wrapper .ql-toolbar .ql-active .ql-fill {
+  fill: var(--color-primary) !important;
+}
+.quill-wrapper .ql-editor.ql-blank::before {
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+
+/* Quill indentation classes */
+.ql-indent-1 { padding-left: 3em !important; }
+.ql-indent-2 { padding-left: 6em !important; }
+.ql-indent-3 { padding-left: 9em !important; }
+.ql-indent-4 { padding-left: 12em !important; }
+
+/* Autosave indicator */
+.save-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: opacity 0.3s;
+}
+
+/* ============================================================
    Pixelated Quest Cursor — Hollow Knight themed!
    Pure CSS, zero JavaScript, zero lag.
    ============================================================ */

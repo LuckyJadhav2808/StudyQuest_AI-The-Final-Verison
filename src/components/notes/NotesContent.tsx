@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -8,7 +8,7 @@ import {
   HiEye, HiCode, HiDocumentText, HiFolder,
   HiChevronLeft, HiClock, HiDownload, HiSparkles,
   HiLightningBolt, HiRefresh, HiInformationCircle, HiShare,
-  HiClipboardCopy, HiX,
+  HiClipboardCopy, HiX, HiReply, HiCheck,
 } from 'react-icons/hi';
 import { marked } from 'marked';
 import 'react-quill-new/dist/quill.snow.css';
@@ -20,13 +20,15 @@ const QUILL_MODULES = {
     [{ header: [1, 2, 3, false] }],
     ['bold', 'italic', 'underline', 'strike'],
     [{ list: 'ordered' }, { list: 'bullet' }],
+    [{ indent: '-1' }, { indent: '+1' }],
     ['blockquote', 'code-block'],
     ['link', 'image'],
     [{ color: [] }, { background: [] }],
     ['clean'],
   ],
+  history: { delay: 500, maxStack: 100, userOnly: true },
 };
-const QUILL_FORMATS = ['header', 'bold', 'italic', 'underline', 'strike', 'list', 'blockquote', 'code-block', 'link', 'image', 'color', 'background'];
+const QUILL_FORMATS = ['header', 'bold', 'italic', 'underline', 'strike', 'list', 'indent', 'blockquote', 'code-block', 'link', 'image', 'color', 'background'];
 import toast from 'react-hot-toast';
 import { useNotes } from '@/hooks/useNotes';
 import { useGamification } from '@/hooks/useGamification';
@@ -71,6 +73,12 @@ export default function NotesContent() {
   const [editContent, setEditContent] = useState('');
   const [editTitle, setEditTitle] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  // Autosave & editor state
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const quillWrapperRef = useRef<HTMLDivElement>(null);
+  const lastSavedAt = useRef<number>(0);
 
   // Markdown import
   const [showMarkdownImport, setShowMarkdownImport] = useState(false);
@@ -122,14 +130,73 @@ export default function NotesContent() {
 
   const handleSave = async () => {
     if (!selectedNote) return;
+    setSaveStatus('saving');
     await updateNote(selectedNote.id, { title: editTitle, content: editContent });
     setSelectedNote({ ...selectedNote, title: editTitle, content: editContent, updatedAt: Date.now() });
+    lastSavedAt.current = Date.now();
+    setSaveStatus('saved');
     setIsEditing(false);
     toast.success('Note saved! 💾');
+    setTimeout(() => setSaveStatus('idle'), 2000);
   };
 
-  const openNote = (note: Note) => { setSelectedNote(note); setEditContent(note.content); setEditTitle(note.title); setIsEditing(false); setPreview(false); setViewMode(false); };
-  const backToList = () => { setSelectedNote(null); setIsEditing(false); setPreview(false); setViewMode(false); };
+  // Autosave: fires 5 seconds after last change
+  const triggerAutosave = useCallback(async (content: string, title: string) => {
+    if (!selectedNote) return;
+    setSaveStatus('saving');
+    await updateNote(selectedNote.id, { title, content });
+    setSelectedNote((prev) => prev ? { ...prev, title, content, updatedAt: Date.now() } : prev);
+    lastSavedAt.current = Date.now();
+    setSaveStatus('saved');
+    setTimeout(() => setSaveStatus('idle'), 3000);
+  }, [selectedNote, updateNote]);
+
+  const handleContentChange = useCallback((content: string) => {
+    setEditContent(content);
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(() => {
+      triggerAutosave(content, editTitle);
+    }, 5000);
+  }, [editTitle, triggerAutosave]);
+
+  // Cleanup autosave timer
+  useEffect(() => {
+    return () => {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    };
+  }, []);
+
+  // Undo / Redo via Quill history (accessed through DOM)
+  const getQuillEditor = useCallback(() => {
+    const wrapper = quillWrapperRef.current;
+    if (!wrapper) return null;
+    // react-quill-new stores the instance on the component; access via DOM
+    const quillEl = wrapper.querySelector('.ql-editor');
+    // @ts-ignore - Quill attaches __quill to the container
+    return (wrapper.querySelector('.ql-container') as any)?.__quill || null;
+  }, []);
+
+  const handleUndo = () => {
+    const editor = getQuillEditor();
+    if (editor) editor.history.undo();
+  };
+  const handleRedo = () => {
+    const editor = getQuillEditor();
+    if (editor) editor.history.redo();
+  };
+
+  // Word count & reading time
+  const wordCount = useMemo(() => {
+    const text = editContent.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+    if (!text) return { words: 0, chars: 0, readingTime: '0 min' };
+    const words = text.split(/\s+/).filter(Boolean).length;
+    const chars = text.length;
+    const mins = Math.max(1, Math.ceil(words / 200));
+    return { words, chars, readingTime: `${mins} min read` };
+  }, [editContent]);
+
+  const openNote = (note: Note) => { setSelectedNote(note); setEditContent(note.content); setEditTitle(note.title); setIsEditing(false); setPreview(false); setViewMode(false); setSaveStatus('idle'); };
+  const backToList = () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current); setSelectedNote(null); setIsEditing(false); setPreview(false); setViewMode(false); setSaveStatus('idle'); };
 
   // Convert markdown to HTML and save into the note
   const handleMarkdownImport = async () => {
@@ -167,12 +234,31 @@ export default function NotesContent() {
       const html2canvas = (await import('html2canvas')).default;
       const { jsPDF } = await import('jspdf');
 
-      // Create offscreen rendering element with proper rich text rendering
+      // Create offscreen rendering element — match editor styling exactly
       const container = document.createElement('div');
-      container.style.cssText = `width:794px;padding:40px;position:absolute;left:-9999px;font-family:system-ui;font-size:14px;line-height:1.8;color:#222;background:#fff;`;
-      container.innerHTML = `<h1 style="font-size:24px;font-weight:800;margin-bottom:8px;">${selectedNote.title}</h1>
+      container.style.cssText = `width:794px;padding:40px;position:absolute;left:-9999px;font-family:system-ui;font-size:14px;line-height:1.8;color:#222;background:#fff;white-space:pre-wrap;word-wrap:break-word;`;
+      // Include Quill indent CSS so indentation renders in PDF
+      const styleTag = document.createElement('style');
+      styleTag.textContent = `
+        .ql-indent-1 { padding-left: 3em; }
+        .ql-indent-2 { padding-left: 6em; }
+        .ql-indent-3 { padding-left: 9em; }
+        .ql-indent-4 { padding-left: 12em; }
+        p, li, div { white-space: pre-wrap; word-wrap: break-word; }
+        pre { background: #f4f4f5; padding: 12px 16px; border-radius: 8px; overflow-x: auto; font-family: monospace; font-size: 13px; }
+        code { background: #f4f4f5; padding: 2px 4px; border-radius: 4px; font-family: monospace; font-size: 13px; }
+        blockquote { border-left: 4px solid #7C3AED; padding: 8px 16px; margin: 12px 0; background: #f5f3ff; border-radius: 0 8px 8px 0; }
+        h1 { font-size: 22px; font-weight: 700; margin: 16px 0 8px; }
+        h2 { font-size: 18px; font-weight: 700; margin: 14px 0 6px; }
+        h3 { font-size: 16px; font-weight: 600; margin: 12px 0 4px; }
+        ul, ol { padding-left: 1.5em; margin: 8px 0; }
+        li { margin: 4px 0; }
+        img { max-width: 100%; border-radius: 8px; margin: 8px 0; }
+      `;
+      container.appendChild(styleTag);
+      container.innerHTML += `<h1 style="font-size:24px;font-weight:800;margin-bottom:8px;">${selectedNote.title}</h1>
         <p style="font-size:10px;color:#888;margin-bottom:20px;">Exported from StudyQuest AI · ${new Date().toLocaleDateString()}</p>
-        <div style="line-height:1.8;">${selectedNote.content}</div>`;
+        <div style="line-height:1.8;white-space:pre-wrap;">${selectedNote.content}</div>`;
       document.body.appendChild(container);
 
       const canvas = await html2canvas(container, { scale: qualityScale, useCORS: true, backgroundColor: '#ffffff' });
@@ -286,6 +372,11 @@ export default function NotesContent() {
               <div className="flex items-center gap-2 mt-0.5">
                 <Badge variant="primary" size="sm">{selectedNote.folder}</Badge>
                 <span className="text-[10px] text-[var(--muted-foreground)]"><HiClock className="inline mr-0.5" size={12} />{timeAgo(selectedNote.updatedAt)}</span>
+                {isEditing && saveStatus !== 'idle' && (
+                  <span className={`save-indicator ${saveStatus === 'saving' ? 'text-amber' : 'text-teal'}`}>
+                    {saveStatus === 'saving' ? (<><HiRefresh className="animate-spin" size={10} /> Saving...</>) : (<><HiCheck size={10} /> Saved</>)}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex gap-1.5 flex-wrap justify-end">
@@ -321,11 +412,17 @@ export default function NotesContent() {
               </div>
             </Card>
           )}
-          {/* Editing toolbar: Diagram + Shortcuts */}
+          {/* Editing toolbar: Undo/Redo + Diagram + Shortcuts */}
           {isEditing && (
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setShowShortcuts(!showShortcuts)} className={`p-2 rounded-xl border-2 transition-all text-xs ${showShortcuts ? 'border-primary bg-primary/10 text-primary' : 'border-[var(--card-border)] hover:border-primary/30 text-[var(--muted-foreground)]'}`} title="Keyboard Shortcuts"><HiInformationCircle size={18} /></button>
-              <Button variant="coral" size="sm" icon={<HiCode size={14} />} onClick={() => setShowDiagram(true)}>Insert Diagram</Button>
+            <div className="flex items-center justify-between">
+              <div className="flex gap-1.5">
+                <button onClick={handleUndo} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors" title="Undo (Ctrl+Z)"><HiReply size={16} /></button>
+                <button onClick={handleRedo} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors" title="Redo (Ctrl+Y)"><HiReply size={16} className="scale-x-[-1]" /></button>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setShowShortcuts(!showShortcuts)} className={`p-2 rounded-xl border-2 transition-all text-xs ${showShortcuts ? 'border-primary bg-primary/10 text-primary' : 'border-[var(--card-border)] hover:border-primary/30 text-[var(--muted-foreground)]'}`} title="Keyboard Shortcuts"><HiInformationCircle size={18} /></button>
+                <Button variant="coral" size="sm" icon={<HiCode size={14} />} onClick={() => setShowDiagram(true)}>Insert Diagram</Button>
+              </div>
             </div>
           )}
 
@@ -333,16 +430,27 @@ export default function NotesContent() {
           <Card padding="none" hover={false}>
             <div ref={noteRef}>
               {isEditing ? (
-                <div className="quill-wrapper">
+                <div className="quill-wrapper" ref={quillWrapperRef}>
                   <ReactQuill
                     theme="snow"
                     value={editContent}
-                    onChange={setEditContent}
+                    onChange={handleContentChange}
                     modules={QUILL_MODULES}
                     formats={QUILL_FORMATS}
                     placeholder="Start writing your note..."
-                    style={{ minHeight: 400 }}
                   />
+                  {/* Editor footer: word count & stats */}
+                  <div className="flex items-center justify-between px-4 py-2 border-t border-[var(--card-border)] text-[10px] text-[var(--muted-foreground)] font-semibold">
+                    <div className="flex gap-4">
+                      <span>{wordCount.words} words</span>
+                      <span>{wordCount.chars} chars</span>
+                      <span>{wordCount.readingTime}</span>
+                    </div>
+                    <div className="flex gap-3">
+                      {saveStatus === 'saving' && <span className="text-amber flex items-center gap-1"><HiRefresh className="animate-spin" size={10} /> Autosaving...</span>}
+                      {saveStatus === 'saved' && <span className="text-teal flex items-center gap-1"><HiCheck size={10} /> Autosaved</span>}
+                    </div>
+                  </div>
                 </div>
               ) : viewMode ? (
                 /* ===== Distraction-Free View Mode ===== */
