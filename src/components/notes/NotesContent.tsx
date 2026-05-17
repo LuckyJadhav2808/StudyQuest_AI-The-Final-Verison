@@ -18,17 +18,27 @@ const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false, loadin
 const QUILL_MODULES = {
   toolbar: [
     [{ header: [1, 2, 3, false] }],
+    [{ size: ['small', false, 'large', 'huge'] }],
     ['bold', 'italic', 'underline', 'strike'],
     [{ list: 'ordered' }, { list: 'bullet' }],
     [{ indent: '-1' }, { indent: '+1' }],
+    [{ align: [] }],
     ['blockquote', 'code-block'],
     ['link', 'image'],
     [{ color: [] }, { background: [] }],
     ['clean'],
   ],
   history: { delay: 500, maxStack: 100, userOnly: true },
+  keyboard: {
+    bindings: {
+      heading1: { key: '1', shortKey: true, handler: function(this: any) { this.quill.format('header', 1); } },
+      heading2: { key: '2', shortKey: true, handler: function(this: any) { this.quill.format('header', 2); } },
+      heading3: { key: '3', shortKey: true, handler: function(this: any) { this.quill.format('header', 3); } },
+      normalText: { key: '0', shortKey: true, handler: function(this: any) { this.quill.format('header', false); } },
+    },
+  },
 };
-const QUILL_FORMATS = ['header', 'bold', 'italic', 'underline', 'strike', 'list', 'indent', 'blockquote', 'code-block', 'link', 'image', 'color', 'background'];
+const QUILL_FORMATS = ['header', 'size', 'bold', 'italic', 'underline', 'strike', 'list', 'indent', 'align', 'blockquote', 'code-block', 'link', 'image', 'color', 'background'];
 import toast from 'react-hot-toast';
 import { useNotes } from '@/hooks/useNotes';
 import { useGamification } from '@/hooks/useGamification';
@@ -438,6 +448,8 @@ export default function NotesContent() {
                     modules={QUILL_MODULES}
                     formats={QUILL_FORMATS}
                     placeholder="Start writing your note..."
+                    preserveWhitespace={true}
+                    useSemanticHTML={false}
                   />
                   {/* Editor footer: word count & stats */}
                   <div className="flex items-center justify-between px-4 py-2 border-t border-[var(--card-border)] text-[10px] text-[var(--muted-foreground)] font-semibold">
@@ -495,18 +507,21 @@ export default function NotesContent() {
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1.5">
                     {[
+                      ['Ctrl + 1', 'Heading 1'],
+                      ['Ctrl + 2', 'Heading 2'],
+                      ['Ctrl + 3', 'Heading 3'],
+                      ['Ctrl + 0', 'Normal Text'],
                       ['Ctrl + B', 'Bold'],
                       ['Ctrl + I', 'Italic'],
                       ['Ctrl + U', 'Underline'],
                       ['Ctrl + Shift + S', 'Strikethrough'],
-                      ['Ctrl + Shift + 1', 'Heading 1'],
-                      ['Ctrl + Shift + 2', 'Heading 2'],
                       ['Ctrl + Shift + 7', 'Ordered List'],
                       ['Ctrl + Shift + 8', 'Bullet List'],
                       ['Ctrl + K', 'Insert Link'],
                       ['Ctrl + Z', 'Undo'],
                       ['Ctrl + Y', 'Redo'],
                       ['Tab', 'Indent'],
+                      ['Shift + Tab', 'Outdent'],
                     ].map(([key, action]) => (
                       <div key={key} className="flex items-center justify-between gap-2">
                         <span className="text-[10px] text-[var(--muted-foreground)]">{action}</span>

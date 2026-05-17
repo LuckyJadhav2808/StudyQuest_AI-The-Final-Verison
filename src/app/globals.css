@@ -963,6 +963,30 @@ h4 { font-size: 1.125rem; }
   transition: opacity 0.3s;
 }
 
+/* Quill font sizes */
+.ql-snow .ql-editor .ql-size-small { font-size: 0.75em; }
+.ql-snow .ql-editor .ql-size-large { font-size: 1.5em; }
+.ql-snow .ql-editor .ql-size-huge { font-size: 2em; }
+
+/* Quill text alignment */
+.ql-align-center { text-align: center; }
+.ql-align-right { text-align: right; }
+.ql-align-justify { text-align: justify; }
+
+/* Quill toolbar dropdown styling for dark mode */
+.quill-wrapper .ql-toolbar .ql-picker-options {
+  background: var(--card-bg) !important;
+  border-color: var(--card-border) !important;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+.quill-wrapper .ql-toolbar .ql-picker-item {
+  color: var(--foreground) !important;
+}
+.quill-wrapper .ql-toolbar .ql-picker-item:hover {
+  color: var(--color-primary) !important;
+}
+
 /* ============================================================
    Pixelated Quest Cursor — Hollow Knight themed!
    Pure CSS, zero JavaScript, zero lag.
