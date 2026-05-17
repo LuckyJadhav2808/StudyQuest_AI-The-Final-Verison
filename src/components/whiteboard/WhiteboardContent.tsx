@@ -13,7 +13,7 @@ import Modal from '@/components/ui/Modal';
 import PageTransition from '@/components/layout/PageTransition';
 import { useNotes } from '@/hooks/useNotes';
 
-type Tool = 'pen' | 'highlighter' | 'eraser' | 'rect' | 'circle' | 'line' | 'arrow' | 'triangle';
+type Tool = 'pen' | 'highlighter' | 'eraser' | 'rect' | 'circle' | 'line' | 'arrow' | 'triangle' | 'text' | 'select';
 const SHAPE_TOOLS: Tool[] = ['rect', 'circle', 'line', 'arrow', 'triangle'];
 const isShapeTool = (t: Tool) => SHAPE_TOOLS.includes(t);
 
@@ -24,10 +24,20 @@ interface Stroke {
   tool: Tool;
 }
 
+interface TextBox {
+  id: string;
+  x: number;
+  y: number;
+  text: string;
+  fontSize: number;
+  color: string;
+}
+
 interface Board {
   id: string;
   name: string;
   strokes: Stroke[];
+  textBoxes: TextBox[];
 }
 
 const PALETTE = [
@@ -59,10 +69,12 @@ const TOOL_CONFIG: Record<Tool, { label: string; emoji: string; cursor: string }
   line: { label: 'Line', emoji: '📏', cursor: 'crosshair' },
   arrow: { label: 'Arrow', emoji: '➡️', cursor: 'crosshair' },
   triangle: { label: 'Triangle', emoji: '🔺', cursor: 'crosshair' },
+  text: { label: 'Text', emoji: '📝', cursor: 'text' },
+  select: { label: 'Select', emoji: '🔀', cursor: 'default' },
 };
 
 function createBoard(name = 'Untitled Board'): Board {
-  return { id: crypto.randomUUID(), name, strokes: [] };
+  return { id: crypto.randomUUID(), name, strokes: [], textBoxes: [] };
 }
 
 /** Draw a full stroke or shape on a canvas context */
@@ -171,6 +183,10 @@ export default function WhiteboardContent() {
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [canvasBg, setCanvasBg] = useState('#ffffff');
   const [showBgPicker, setShowBgPicker] = useState(false);
+  const [activeTextId, setActiveTextId] = useState<string | null>(null);
+  const [draggingTextId, setDraggingTextId] = useState<string | null>(null);
+  const dragOffset = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [textFontSize, setTextFontSize] = useState(18);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -181,6 +197,7 @@ export default function WhiteboardContent() {
 
   const { notes, updateNote } = useNotes();
   const activeBoard = boards[activeBoardIdx];
+  const textBoxes = activeBoard?.textBoxes || [];
 
   // ─── Full redraw ───
   const fullRedraw = useCallback((strokes: Stroke[]) => {
@@ -269,6 +286,7 @@ export default function WhiteboardContent() {
 
   // ─── Pointer handlers ───
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (tool === 'text' || tool === 'select') return; // handled by overlay
     e.preventDefault();
     const pos = getPos(e);
     currentStrokeRef.current = { points: [pos], color, width: strokeWidth, tool };
@@ -332,10 +350,11 @@ export default function WhiteboardContent() {
   }, [redoStack, activeBoardIdx]);
 
   const clearCanvas = () => {
-    if (activeBoard.strokes.length === 0) return;
+    if (activeBoard.strokes.length === 0 && textBoxes.length === 0) return;
     setUndoStack((p) => [...p, boards[activeBoardIdx].strokes]);
     setRedoStack([]);
-    setBoards((b) => { const n = [...b]; n[activeBoardIdx] = { ...n[activeBoardIdx], strokes: [] }; return n; });
+    setBoards((b) => { const n = [...b]; n[activeBoardIdx] = { ...n[activeBoardIdx], strokes: [], textBoxes: [] }; return n; });
+    setActiveTextId(null);
     toast.success('Canvas cleared');
   };
 
@@ -368,6 +387,18 @@ export default function WhiteboardContent() {
     ctx.fillStyle = canvasBg;
     ctx.fillRect(0, 0, exp.width / dpr, exp.height / dpr);
     for (const s of activeBoard.strokes) drawStroke(ctx, s);
+    // Render text boxes onto export canvas
+    for (const tb of textBoxes) {
+      ctx.save();
+      ctx.font = `${tb.fontSize}px system-ui, sans-serif`;
+      ctx.fillStyle = tb.color;
+      ctx.textBaseline = 'top';
+      const lines = tb.text.split('\n');
+      lines.forEach((line, i) => {
+        ctx.fillText(line, tb.x, tb.y + i * (tb.fontSize * 1.3));
+      });
+      ctx.restore();
+    }
     return exp.toDataURL('image/png');
   };
 
@@ -391,20 +422,60 @@ export default function WhiteboardContent() {
     setShowNoteModal(false);
     toast.success(`Drawing added to "${note.title}"! 🖊️`);
   };
+  // ─── Text box helpers ───
+  const addTextBox = useCallback((x: number, y: number) => {
+    const tb: TextBox = { id: crypto.randomUUID(), x, y, text: '', fontSize: textFontSize, color };
+    setBoards((prev) => {
+      const n = [...prev];
+      n[activeBoardIdx] = { ...n[activeBoardIdx], textBoxes: [...(n[activeBoardIdx].textBoxes || []), tb] };
+      return n;
+    });
+    setActiveTextId(tb.id);
+  }, [activeBoardIdx, color, textFontSize]);
+
+  const updateTextBox = useCallback((id: string, updates: Partial<TextBox>) => {
+    setBoards((prev) => {
+      const n = [...prev];
+      n[activeBoardIdx] = { ...n[activeBoardIdx], textBoxes: (n[activeBoardIdx].textBoxes || []).map((t) => t.id === id ? { ...t, ...updates } : t) };
+      return n;
+    });
+  }, [activeBoardIdx]);
+
+  const deleteTextBox = useCallback((id: string) => {
+    setBoards((prev) => {
+      const n = [...prev];
+      n[activeBoardIdx] = { ...n[activeBoardIdx], textBoxes: (n[activeBoardIdx].textBoxes || []).filter((t) => t.id !== id) };
+      return n;
+    });
+    if (activeTextId === id) setActiveTextId(null);
+  }, [activeBoardIdx, activeTextId]);
+
+  // Click on canvas overlay for text tool
+  const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (tool !== 'text') return;
+    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    addTextBox(x, y);
+  }, [tool, addTextBox]);
 
   // ─── Keyboard shortcuts ───
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || (e.target as HTMLElement)?.isContentEditable) return;
       if (e.ctrlKey && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
       if (e.ctrlKey && e.key === 'z' && e.shiftKey) { e.preventDefault(); redo(); }
       if (e.ctrlKey && e.key === 'y') { e.preventDefault(); redo(); }
-      if (e.key === 'p' && !e.ctrlKey && !(e.target instanceof HTMLInputElement)) setTool('pen');
-      if (e.key === 'h' && !e.ctrlKey && !(e.target instanceof HTMLInputElement)) setTool('highlighter');
-      if (e.key === 'e' && !e.ctrlKey && !(e.target instanceof HTMLInputElement)) setTool('eraser');
+      if (e.key === 'p' && !e.ctrlKey) setTool('pen');
+      if (e.key === 'h' && !e.ctrlKey) setTool('highlighter');
+      if (e.key === 'e' && !e.ctrlKey) setTool('eraser');
+      if (e.key === 't' && !e.ctrlKey) setTool('text');
+      if (e.key === 'v' && !e.ctrlKey) setTool('select');
+      if (e.key === 'Delete' && activeTextId) deleteTextBox(activeTextId);
     };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
-  }, [undo, redo]);
+  }, [undo, redo, activeTextId, deleteTextBox]);
 
   return (
     <PageTransition>
@@ -450,6 +521,11 @@ export default function WhiteboardContent() {
             {/* Shapes */}
             {SHAPE_TOOLS.map((t) => (
               <motion.button key={t} onClick={() => setTool(t)} className={`w-12 h-10 rounded-xl flex items-center justify-center text-sm border-2 transition-all ${tool === t ? 'bg-primary text-white border-primary shadow-[0_3px_0_rgba(88,28,135,0.3)]' : 'border-[var(--card-border)] hover:border-primary/30 bg-[var(--card-bg)]'}`} whileTap={{ scale: 0.9 }} title={TOOL_CONFIG[t].label}>{TOOL_CONFIG[t].emoji}</motion.button>
+            ))}
+            <div className="h-px bg-[var(--card-border)] my-1" />
+            {/* Text & Select */}
+            {(['text', 'select'] as Tool[]).map((t) => (
+              <motion.button key={t} onClick={() => { setTool(t); setActiveTextId(null); }} className={`w-12 h-10 rounded-xl flex items-center justify-center text-sm border-2 transition-all ${tool === t ? 'bg-teal text-white border-teal shadow-[0_3px_0_rgba(16,185,129,0.3)]' : 'border-[var(--card-border)] hover:border-teal/30 bg-[var(--card-bg)]'}`} whileTap={{ scale: 0.9 }} title={`${TOOL_CONFIG[t].label} (${t === 'text' ? 'T' : 'V'})`}>{TOOL_CONFIG[t].emoji}</motion.button>
             ))}
             <div className="h-px bg-[var(--card-border)] my-1" />
             {/* Color */}
@@ -508,29 +584,90 @@ export default function WhiteboardContent() {
           {/* Canvas Area */}
           <div ref={containerRef} className="flex-1 rounded-2xl border-2 border-[var(--card-border)] overflow-hidden relative transition-colors" style={{ minHeight: 400, backgroundColor: canvasBg }}>
             <canvas ref={canvasRef} className="absolute inset-0 touch-none" style={{ cursor: TOOL_CONFIG[tool].cursor }} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onPointerLeave={handlePointerUp} />
-            {activeBoard.strokes.length === 0 && !isDrawingRef.current && (
+            {/* Text overlay — click to place, drag to move */}
+            {(tool === 'text' || tool === 'select') && (
+              <div
+                className="absolute inset-0"
+                style={{ cursor: tool === 'text' ? 'text' : 'default', zIndex: 5 }}
+                onClick={handleCanvasClick}
+                onMouseMove={(e) => {
+                  if (!draggingTextId) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  updateTextBox(draggingTextId, { x: e.clientX - rect.left - dragOffset.current.x, y: e.clientY - rect.top - dragOffset.current.y });
+                }}
+                onMouseUp={() => setDraggingTextId(null)}
+                onMouseLeave={() => setDraggingTextId(null)}
+              />
+            )}
+            {/* Render text boxes */}
+            {textBoxes.map((tb) => (
+              <div
+                key={tb.id}
+                className={`absolute group ${tool === 'select' ? 'cursor-move' : ''}`}
+                style={{ left: tb.x, top: tb.y, zIndex: activeTextId === tb.id ? 15 : 10 }}
+                onMouseDown={(e) => {
+                  if (tool !== 'select') return;
+                  e.stopPropagation();
+                  setDraggingTextId(tb.id);
+                  setActiveTextId(tb.id);
+                  dragOffset.current = { x: e.clientX - e.currentTarget.getBoundingClientRect().left, y: e.clientY - e.currentTarget.getBoundingClientRect().top };
+                }}
+              >
+                <div className="relative">
+                  <div
+                    contentEditable={tool === 'text' || activeTextId === tb.id}
+                    suppressContentEditableWarning
+                    className={`min-w-[60px] min-h-[24px] outline-none px-1 rounded ${activeTextId === tb.id ? 'ring-2 ring-teal/50 bg-white/10' : 'hover:ring-1 hover:ring-[var(--card-border)]'}`}
+                    style={{ fontSize: tb.fontSize, color: tb.color, fontFamily: 'system-ui, sans-serif', whiteSpace: 'pre-wrap', lineHeight: 1.3 }}
+                    onFocus={() => setActiveTextId(tb.id)}
+                    onBlur={(e) => updateTextBox(tb.id, { text: (e.target as HTMLElement).innerText })}
+                    onClick={(e) => e.stopPropagation()}
+                    ref={(el) => {
+                      // Set initial text only once when element mounts
+                      if (el && !el.dataset.initialized && tb.text) {
+                        el.innerText = tb.text;
+                        el.dataset.initialized = 'true';
+                      }
+                    }}
+                  />
+                  {!tb.text && activeTextId !== tb.id && (
+                    <span className="absolute left-1 top-0 pointer-events-none opacity-40" style={{ fontSize: tb.fontSize, lineHeight: 1.3 }}>Type here...</span>
+                  )}
+                </div>
+                {(activeTextId === tb.id || tool === 'select') && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deleteTextBox(tb.id); }}
+                    className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-coral text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                  >×</button>
+                )}
+              </div>
+            ))}
+            {activeBoard.strokes.length === 0 && textBoxes.length === 0 && !isDrawingRef.current && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="text-center opacity-30">
                   <p className="text-5xl mb-3">🖊️</p>
                   <p className="text-sm font-heading font-bold">Start drawing!</p>
-                  <p className="text-xs text-[var(--muted-foreground)] mt-1">Use tools on the left · P/H/E keys</p>
+                  <p className="text-xs text-[var(--muted-foreground)] mt-1">P/H/E keys · T for text · V to select</p>
                 </div>
               </div>
             )}
             <div className="absolute bottom-2 right-2 flex items-center gap-2 pointer-events-none">
               <Badge variant="muted" size="sm">{TOOL_CONFIG[tool].emoji} {TOOL_CONFIG[tool].label}</Badge>
-              <Badge variant="muted" size="sm">{activeBoard.strokes.length} strokes</Badge>
+              <Badge variant="muted" size="sm">{activeBoard.strokes.length} strokes · {textBoxes.length} texts</Badge>
             </div>
           </div>
         </div>
 
         {/* Shortcuts hint */}
-        <div className="flex items-center gap-4 text-[9px] text-[var(--muted-foreground)] font-bold uppercase tracking-wider flex-shrink-0 px-1">
+        <div className="flex items-center gap-4 text-[9px] text-[var(--muted-foreground)] font-bold uppercase tracking-wider flex-shrink-0 px-1 flex-wrap">
           <span>⌨️ Shortcuts:</span>
           <span><kbd className="px-1 py-0.5 rounded bg-[var(--card-border)] text-[8px]">P</kbd> Pen</span>
           <span><kbd className="px-1 py-0.5 rounded bg-[var(--card-border)] text-[8px]">H</kbd> Highlighter</span>
           <span><kbd className="px-1 py-0.5 rounded bg-[var(--card-border)] text-[8px]">E</kbd> Eraser</span>
+          <span><kbd className="px-1 py-0.5 rounded bg-[var(--card-border)] text-[8px]">T</kbd> Text</span>
+          <span><kbd className="px-1 py-0.5 rounded bg-[var(--card-border)] text-[8px]">V</kbd> Select/Move</span>
           <span><kbd className="px-1 py-0.5 rounded bg-[var(--card-border)] text-[8px]">Ctrl+Z</kbd> Undo</span>
+          <span><kbd className="px-1 py-0.5 rounded bg-[var(--card-border)] text-[8px]">Del</kbd> Delete text</span>
         </div>
       </div>
 
