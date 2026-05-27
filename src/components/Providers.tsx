@@ -12,6 +12,8 @@ import MobileNav from '@/components/layout/MobileNav';
 import AuthGuard from '@/components/auth/AuthGuard';
 import CommandPalette from '@/components/layout/CommandPalette';
 import FloatingXPContainer from '@/components/gamification/FloatingXP';
+import FloatingTimerWidget from '@/components/timer/FloatingTimerWidget';
+import { TimerProvider } from '@/context/TimerContext';
 import ParticleBackground from '@/components/ui/ParticleBackground';
 import StickyNotesOverlay from '@/components/ui/StickyNotesOverlay';
 import LevelUpOverlay from '@/components/gamification/LevelUpOverlay';
@@ -122,7 +124,10 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     <AuthProvider>
       <ThemeProvider>
         <SidebarProvider>
-          <AppShell>{children}</AppShell>
+          <TimerProvider>
+            <AppShell>{children}</AppShell>
+            <FloatingTimerWidget />
+          </TimerProvider>
         </SidebarProvider>
         <Toaster
           position="top-right"

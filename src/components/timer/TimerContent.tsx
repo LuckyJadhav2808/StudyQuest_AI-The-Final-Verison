@@ -14,6 +14,7 @@ import PageTransition from '@/components/layout/PageTransition';
 import PomodoroPet from '@/components/timer/PomodoroPet';
 import ZenMode from '@/components/timer/ZenMode';
 import LocalMusicPlayer from '@/components/timer/LocalMusicPlayer';
+import { useTimerContext } from '@/context/TimerContext';
 import { POMODORO_DEFAULTS, XP_AWARDS } from '@/lib/constants';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -35,33 +36,18 @@ const PHASE_COLORS: Record<TimerPhase, { ring: string; bg: string; text: string 
 };
 
 export default function TimerContent() {
-  const { user } = useAuthContext();
-  const { awardXP, gamification } = useGamification();
+  const { 
+    phase, isRunning, timeLeft, totalTime, sessions, totalFocusToday, durations, progress, wasAbandoned,
+    toggleTimer, resetTimer, skipPhase, switchPhase, setDurations, setTimeLeft, setIsRunning,
+    playlist, currentTrackIndex, isPlayingMusic, volume,
+    handleFilesSelected, handlePlayPauseMusic, handleNextMusic, handlePrevMusic, setVolume,
+    removeTrack, playTrack
+  } = useTimerContext();
+
+  const { gamification } = useGamification();
   const { focusMode, setFocusMode } = useSidebar();
-
-  const [phase, setPhase] = useState<TimerPhase>('focus');
-  const [isRunning, setIsRunning] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(POMODORO_DEFAULTS.focus * 60);
-  const [sessions, setSessions] = useState(0);
-  const [totalFocusToday, setTotalFocusToday] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
-  const [wasAbandoned, setWasAbandoned] = useState(false);
-
-  const [durations, setDurations] = useState({
-    focus: POMODORO_DEFAULTS.focus,
-    shortBreak: POMODORO_DEFAULTS.shortBreak,
-    longBreak: POMODORO_DEFAULTS.longBreak,
-  });
-
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
-
-  // Music Player State
-  const [playlist, setPlaylist] = useState<{ name: string; url: string }[]>([]);
-  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
-  const [isPlayingMusic, setIsPlayingMusic] = useState(false);
-  const [volume, setVolume] = useState(0.5);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // ESC key exits focus mode
   useEffect(() => {
@@ -77,21 +63,6 @@ export default function TimerContent() {
     return () => setFocusMode(false);
   }, [setFocusMode]);
 
-  const totalTime = phase === 'focus'
-    ? durations.focus * 60
-    : phase === 'short-break'
-    ? durations.shortBreak * 60
-    : durations.longBreak * 60;
-
-  const progress = 1 - timeLeft / totalTime;
-
-  // SVG ring dimensions
-  const size = 320;
-  const stroke = 12;
-  const radius = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const dashOffset = circumference * (1 - progress);
-
   // Close settings dropdown on outside click
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -103,141 +74,32 @@ export default function TimerContent() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showSettings]);
 
-  // Music Player Handlers
-  const handleFilesSelected = (files: FileList) => {
-    const newTracks = Array.from(files).map((file) => ({
-      name: file.name.replace(/\.[^/.]+$/, ""),
-      url: URL.createObjectURL(file)
-    }));
-    setPlaylist(prev => {
-      const updated = [...prev, ...newTracks];
-      if (!isPlayingMusic && newTracks.length > 0 && prev.length === 0) {
-        setCurrentTrackIndex(0);
-        setIsPlayingMusic(true);
-      }
-      return updated;
-    });
-  };
-
-  const handlePlayPauseMusic = () => {
-    if (playlist.length === 0) return;
-    setIsPlayingMusic(!isPlayingMusic);
-  };
-
-  const handleNextMusic = () => {
-    if (playlist.length <= 1) return;
-    setCurrentTrackIndex((prev) => (prev + 1) % playlist.length);
-    setIsPlayingMusic(true);
-  };
-
-  const handlePrevMusic = () => {
-    if (playlist.length <= 1) return;
-    setCurrentTrackIndex((prev) => (prev - 1 + playlist.length) % playlist.length);
-    setIsPlayingMusic(true);
-  };
-
-  // Sync audio ref with state
-  useEffect(() => {
-    if (!audioRef.current) return;
-    if (isPlayingMusic && playlist.length > 0) {
-      audioRef.current.volume = volume;
-      audioRef.current.play().catch(() => setIsPlayingMusic(false));
-    } else {
-      audioRef.current.pause();
-    }
-  }, [isPlayingMusic, currentTrackIndex, playlist, volume]);
-
-  // Timer countdown
-  useEffect(() => {
-    if (isRunning && timeLeft > 0) {
-      intervalRef.current = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
-        if (phase === 'focus') {
-          setTotalFocusToday((prev) => prev + 1);
-        }
-      }, 1000);
-    }
-
-    if (timeLeft === 0 && isRunning) {
-      setIsRunning(false);
-      handlePhaseComplete();
-    }
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRunning, timeLeft]);
-
-  const handlePhaseComplete = async () => {
-    // Fire confetti on focus complete
-    if (phase === 'focus') {
-      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-      playCelebration();
-
-      const newSessions = sessions + 1;
-      setSessions(newSessions);
-
-      // Award XP
-      await awardXP(XP_AWARDS.POMODORO_COMPLETE, `Focus session #${newSessions} completed`);
-      toast.success(`+${XP_AWARDS.POMODORO_COMPLETE} XP! Session #${newSessions} done! 🎉`);
-
-      // Save session to Firestore
-      if (user) {
-        const sessionId = crypto.randomUUID();
-        await setDoc(doc(db, 'users', user.uid, 'focusSessions', sessionId), {
-          id: sessionId,
-          duration: durations.focus,
-          type: 'focus',
-          completedAt: Date.now(),
-        });
-      }
-
-      // Auto-transition to break
-      if (newSessions % POMODORO_DEFAULTS.sessionsBeforeLongBreak === 0) {
-        switchPhase('long-break');
-      } else {
-        switchPhase('short-break');
-      }
-    } else {
-      playNotify();
-      toast('Break over! Time to focus 🎯');
-      switchPhase('focus');
-    }
-  };
-
-  const switchPhase = (newPhase: TimerPhase) => {
-    setPhase(newPhase);
-    setIsRunning(false);
-    const duration = newPhase === 'focus'
-      ? durations.focus
-      : newPhase === 'short-break'
-      ? durations.shortBreak
-      : durations.longBreak;
-    setTimeLeft(duration * 60);
-  };
-
-  const toggleTimer = () => {
-    if (!isRunning) setWasAbandoned(false);
-    setIsRunning(!isRunning);
-  };
-
-  const resetTimer = () => {
-    if (isRunning && phase === 'focus' && progress > 0.1) {
-      setWasAbandoned(true);
-    }
-    setIsRunning(false);
-    setTimeLeft(totalTime);
-    toast('Timer reset');
-  };
-
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  const size = 320;
+  const stroke = 12;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset = circumference * (1 - progress);
   const colors = PHASE_COLORS[phase];
+
+  // ESC key exits focus mode
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && focusMode) setFocusMode(false);
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [focusMode, setFocusMode]);
+
+  // Clean up focus mode when leaving the timer page
+  useEffect(() => {
+    return () => setFocusMode(false);
+  }, [setFocusMode]);
 
   // Focus mode renders the immersive Zen Mode
   if (focusMode) {
@@ -252,7 +114,7 @@ export default function TimerContent() {
         xpPerSession={XP_AWARDS.POMODORO_COMPLETE}
         onToggle={toggleTimer}
         onReset={resetTimer}
-        onSkip={() => { setIsRunning(false); handlePhaseComplete(); }}
+        onSkip={skipPhase}
         onExit={() => setFocusMode(false)}
         musicProps={{
           playlist,
@@ -263,7 +125,9 @@ export default function TimerContent() {
           onNext: handleNextMusic,
           onPrev: handlePrevMusic,
           onVolumeChange: setVolume,
-          onFilesSelected: handleFilesSelected
+          onFilesSelected: handleFilesSelected,
+          removeTrack,
+          playTrack
         }}
       />
     );
@@ -271,13 +135,6 @@ export default function TimerContent() {
 
   return (
     <PageTransition>
-      {/* Hidden audio element for global music playback */}
-      <audio 
-        ref={audioRef}
-        src={playlist[currentTrackIndex]?.url}
-        onEnded={handleNextMusic}
-      />
-      
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -404,7 +261,7 @@ export default function TimerContent() {
             <div className="flex items-center gap-4 mt-8">
               <motion.button onClick={resetTimer} className="w-12 h-12 rounded-full border-2 border-[var(--card-border)] flex items-center justify-center hover:border-primary/30 transition-colors" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}><HiRefresh size={20} /></motion.button>
               <motion.button onClick={toggleTimer} className={`w-20 h-20 rounded-full flex items-center justify-center text-white shadow-lg ${isRunning ? 'bg-gradient-to-br from-coral to-coral-dark shadow-coral/30' : 'bg-gradient-to-br from-primary to-primary-dark shadow-primary/30'}`} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} style={{ boxShadow: `0 8px 0 ${isRunning ? 'rgba(224, 82, 82, 0.4)' : 'rgba(88, 28, 135, 0.4)'}` }}>{isRunning ? <HiPause size={32} /> : <HiPlay size={32} className="ml-1" />}</motion.button>
-              <motion.button onClick={() => { setIsRunning(false); handlePhaseComplete(); }} className="w-12 h-12 rounded-full border-2 border-[var(--card-border)] flex items-center justify-center hover:border-teal/30 transition-colors" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} title="Skip to next phase"><HiCheck size={20} /></motion.button>
+              <motion.button onClick={skipPhase} className="w-12 h-12 rounded-full border-2 border-[var(--card-border)] flex items-center justify-center hover:border-teal/30 transition-colors" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} title="Skip to next phase"><HiCheck size={20} /></motion.button>
             </div>
           </div>
         </Card>
@@ -421,6 +278,8 @@ export default function TimerContent() {
           onPrev={handlePrevMusic}
           onVolumeChange={setVolume}
           onFilesSelected={handleFilesSelected}
+          removeTrack={removeTrack}
+          playTrack={playTrack}
         />
 
         {/* Pomodoro Pet */}
