@@ -13,6 +13,7 @@ import Badge from '@/components/ui/Badge';
 import PageTransition from '@/components/layout/PageTransition';
 import PomodoroPet from '@/components/timer/PomodoroPet';
 import ZenMode from '@/components/timer/ZenMode';
+import LocalMusicPlayer from '@/components/timer/LocalMusicPlayer';
 import { POMODORO_DEFAULTS, XP_AWARDS } from '@/lib/constants';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -55,6 +56,13 @@ export default function TimerContent() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
 
+  // Music Player State
+  const [playlist, setPlaylist] = useState<{ name: string; url: string }[]>([]);
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+  const [isPlayingMusic, setIsPlayingMusic] = useState(false);
+  const [volume, setVolume] = useState(0.5);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   // ESC key exits focus mode
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -94,6 +102,50 @@ export default function TimerContent() {
     if (showSettings) document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showSettings]);
+
+  // Music Player Handlers
+  const handleFilesSelected = (files: FileList) => {
+    const newTracks = Array.from(files).map((file) => ({
+      name: file.name.replace(/\.[^/.]+$/, ""),
+      url: URL.createObjectURL(file)
+    }));
+    setPlaylist(prev => {
+      const updated = [...prev, ...newTracks];
+      if (!isPlayingMusic && newTracks.length > 0 && prev.length === 0) {
+        setCurrentTrackIndex(0);
+        setIsPlayingMusic(true);
+      }
+      return updated;
+    });
+  };
+
+  const handlePlayPauseMusic = () => {
+    if (playlist.length === 0) return;
+    setIsPlayingMusic(!isPlayingMusic);
+  };
+
+  const handleNextMusic = () => {
+    if (playlist.length <= 1) return;
+    setCurrentTrackIndex((prev) => (prev + 1) % playlist.length);
+    setIsPlayingMusic(true);
+  };
+
+  const handlePrevMusic = () => {
+    if (playlist.length <= 1) return;
+    setCurrentTrackIndex((prev) => (prev - 1 + playlist.length) % playlist.length);
+    setIsPlayingMusic(true);
+  };
+
+  // Sync audio ref with state
+  useEffect(() => {
+    if (!audioRef.current) return;
+    if (isPlayingMusic && playlist.length > 0) {
+      audioRef.current.volume = volume;
+      audioRef.current.play().catch(() => setIsPlayingMusic(false));
+    } else {
+      audioRef.current.pause();
+    }
+  }, [isPlayingMusic, currentTrackIndex, playlist, volume]);
 
   // Timer countdown
   useEffect(() => {
@@ -202,12 +254,30 @@ export default function TimerContent() {
         onReset={resetTimer}
         onSkip={() => { setIsRunning(false); handlePhaseComplete(); }}
         onExit={() => setFocusMode(false)}
+        musicProps={{
+          playlist,
+          currentTrackIndex,
+          isPlaying: isPlayingMusic,
+          volume,
+          onPlayPause: handlePlayPauseMusic,
+          onNext: handleNextMusic,
+          onPrev: handlePrevMusic,
+          onVolumeChange: setVolume,
+          onFilesSelected: handleFilesSelected
+        }}
       />
     );
   }
 
   return (
     <PageTransition>
+      {/* Hidden audio element for global music playback */}
+      <audio 
+        ref={audioRef}
+        src={playlist[currentTrackIndex]?.url}
+        onEnded={handleNextMusic}
+      />
+      
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -338,6 +408,20 @@ export default function TimerContent() {
             </div>
           </div>
         </Card>
+
+        {/* Music Player */}
+        <LocalMusicPlayer
+          variant="regular"
+          playlist={playlist}
+          currentTrackIndex={currentTrackIndex}
+          isPlaying={isPlayingMusic}
+          volume={volume}
+          onPlayPause={handlePlayPauseMusic}
+          onNext={handleNextMusic}
+          onPrev={handlePrevMusic}
+          onVolumeChange={setVolume}
+          onFilesSelected={handleFilesSelected}
+        />
 
         {/* Pomodoro Pet */}
         <PomodoroPet

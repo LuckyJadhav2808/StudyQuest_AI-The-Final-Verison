@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiPlus, HiX, HiViewList, HiTrash, HiPencil } from 'react-icons/hi';
 import { useStickies, STICKY_COLORS } from '@/hooks/useStickies';
@@ -105,6 +105,13 @@ export default function StickyNotesOverlay() {
   const { stickies, addSticky, updateSticky, deleteSticky } = useStickies();
   const [showPanel, setShowPanel] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Allow other components to open the panel via custom event
+  useEffect(() => {
+    const handler = () => setShowPanel(true);
+    window.addEventListener('open-sticky-notes', handler);
+    return () => window.removeEventListener('open-sticky-notes', handler);
+  }, []);
 
   if (!user) return null;
 

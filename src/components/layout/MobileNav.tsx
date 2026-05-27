@@ -47,6 +47,8 @@ const ALL_NAV_ITEMS = [
   { label: 'Whiteboard', href: '/whiteboard', icon: HiPencil },
   { label: 'Questie Chat', href: '/chat', icon: HiChatAlt2 },
   { label: 'Hall of Fame', href: '/analytics', icon: HiChartBar },
+  { label: 'Item Shop', href: '/shop', icon: HiCollection },
+  { label: 'Skill Tree', href: '/skills', icon: HiSparkles },
   { label: 'Study Groups', href: '/groups', icon: HiUserGroup },
   { label: 'SQL Lab', href: '/sql', icon: HiDatabase },
   { label: 'Code Runner', href: '/code', icon: HiCode },

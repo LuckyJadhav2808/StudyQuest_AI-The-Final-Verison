@@ -1,12 +1,16 @@
 'use client';
 
-import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
+import React, { useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { usePet } from '@/hooks/usePet';
 import { useGamification } from '@/hooks/useGamification';
 import { useTasks } from '@/hooks/useTasks';
 import { useShop } from '@/hooks/useShop';
+import { useTheme } from '@/context/ThemeContext';
 import { PET_SPECIES_CONFIG } from '@/lib/constants';
+import { playClick, playXP, playSuccess } from '@/lib/sounds';
+import toast from 'react-hot-toast';
 import './LofiRoom.css';
 
 // ── Time of day detection ──
@@ -41,15 +45,35 @@ const BOOK_COLORS = [
   '#D946EF', '#F97316',
 ];
 
+const MOTIVATION_QUOTES = [
+  "KEEP GOING",
+  "YOU GOT THIS",
+  "DREAM BIG",
+  "STAY FOCUSED",
+  "NEVER GIVE UP",
+  "WORK HARD",
+  "STAY SHARP",
+  "DO IT TODAY",
+  "STAY CALM",
+  "AIM HIGH"
+];
+
 interface LofiRoomProps {
   className?: string;
 }
 
 export default function LofiRoom({ className = '' }: LofiRoomProps) {
+  const router = useRouter();
+  const { toggleTheme } = useTheme();
   const { pet, getMood } = usePet();
   const { gamification } = useGamification();
   const { tasks } = useTasks();
-  const { coins } = useShop();
+  const { coins, addCoins } = useShop();
+
+  // Local interactive states
+  const [petting, setPetting] = useState(false);
+  const [waterCount, setWaterCount] = useState(0);
+  const [splashes, setSplashes] = useState<{ id: number; x: number; y: number }[]>([]);
 
   const level = gamification?.level || 0;
   const xp = gamification?.xp || 0;
@@ -66,22 +90,64 @@ export default function LofiRoom({ className = '' }: LofiRoomProps) {
     }).length;
   }, [tasks]);
 
-  // Pet data
-  const petEmoji = pet ? PET_SPECIES_CONFIG[pet.species]?.emoji[pet.stage] || '🥚' : null;
-  const mood = getMood();
-  const moodEmoji = mood === 'happy' ? '💖' : mood === 'sleeping' ? '💤' : mood === 'sad' ? '😢' : '💭';
-  const petOnDesk = pet && pet.stage <= 2; // baby/teen on desk, adult/legendary on floor
+  const dailyQuote = useMemo(() => {
+    const dayIndex = new Date().getDate() % MOTIVATION_QUOTES.length;
+    return MOTIVATION_QUOTES[dayIndex];
+  }, []);
 
-  // Unlock checks
-  const hasDesk = level >= 0; // always
-  const hasChair = level >= 0;
-  const hasBookshelf = level >= 3;
-  const hasPosters = level >= 5;
-  const hasLamp = level >= 7;
-  const hasMonitor = level >= 10;
-  const hasPlants = level >= 15;
-  const hasRug = level >= 15;
-  const hasPremiumEffects = level >= 20;
+  // Pet data
+  const petEmoji = pet ? PET_SPECIES_CONFIG[pet.species]?.emoji[pet.stage] || '🥚' : '🥚';
+  const baseMood = getMood();
+  // Override mood to happy when petting
+  const mood = petting ? 'happy' : baseMood;
+  const moodEmoji = mood === 'happy' ? '💖' : mood === 'sleeping' ? '💤' : mood === 'sad' ? '😢' : '💭';
+  const petOnDesk = false; // Always on floor per user request
+
+  // All features unlocked in the room at level 0 now!
+  const hasDesk = true;
+  const hasChair = true;
+  const hasBookshelf = true;
+  const hasPosters = true;
+  const hasLamp = true;
+  const hasMonitor = true;
+  const hasPlants = true;
+  const hasRug = true;
+  const hasPremiumEffects = true;
+
+  // Handlers
+  const handleNavigation = (path: string) => {
+    playClick();
+    router.push(path);
+  };
+
+  const handlePetInteract = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (petting) return;
+    playXP();
+    setPetting(true);
+    setTimeout(() => setPetting(false), 2000); // 2s pet jump animation
+  };
+
+  const handleWaterPlant = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    playSuccess();
+    
+    // Add splash animation
+    const rect = e.currentTarget.getBoundingClientRect();
+    const newSplash = { id: Date.now(), x: e.clientX - rect.left, y: e.clientY - rect.top };
+    setSplashes((prev) => [...prev, newSplash]);
+    setTimeout(() => {
+      setSplashes((prev) => prev.filter((s) => s.id !== newSplash.id));
+    }, 1000);
+
+    if (waterCount < 5) {
+      setWaterCount((prev) => prev + 1);
+      addCoins(1);
+      toast.success('You watered the plant! +1 Coin 🪙', { icon: '🌱', duration: 2000 });
+    } else {
+      toast('The plant is fully watered for now! 🌿', { icon: '💧', duration: 2000 });
+    }
+  };
 
   return (
     <motion.div
@@ -97,7 +163,9 @@ export default function LofiRoom({ className = '' }: LofiRoomProps) {
       <div className="lofi-floor" />
 
       {/* ── Window ── */}
-      <div className="lofi-window">
+      <div 
+        className="lofi-window"
+      >
         <div className={`lofi-sky ${timeOfDay}`}>
           {/* Clouds (daytime only) */}
           {!isNight && (
@@ -133,40 +201,73 @@ export default function LofiRoom({ className = '' }: LofiRoomProps) {
         <div className="lofi-window-divider-v" />
       </div>
 
+      {/* ── Wall Clock ── */}
+      <div 
+        className="lofi-clock lofi-interactive"
+        onClick={() => handleNavigation('/timer')}
+        title="Open Focus Timer"
+      >
+        <div className="lofi-clock-face">
+          <div className="lofi-clock-center" />
+          <div className="lofi-clock-hand-h" />
+          <div className="lofi-clock-hand-m" />
+        </div>
+      </div>
+
       {/* ── Light Rays ── */}
       {(timeOfDay === 'morning' || timeOfDay === 'afternoon') && (
         <div className="lofi-light-rays" />
       )}
 
-      {/* ── Posters (Level 5+) ── */}
+      {/* ── Posters ── */}
       {hasPosters && (
         <>
           <motion.div
-            className="lofi-poster lofi-poster-1"
+            className="lofi-poster lofi-poster-1 lofi-interactive"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.4 }}
+            onClick={() => handleNavigation('/skills')}
+            title="RPG Skill Trees"
           >
             ⚡
           </motion.div>
           <motion.div
-            className="lofi-poster lofi-poster-2"
+            className="lofi-poster lofi-poster-2 lofi-interactive"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.5 }}
+            onClick={() => handleNavigation('/analytics')}
+            title="Study Analytics"
           >
             🎯
+          </motion.div>
+          <motion.div
+            className="lofi-poster lofi-poster-3 lofi-interactive"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.6 }}
+            onClick={() => { playClick(); toast(`${dailyQuote}! You got this. 🔥`, { icon: "💪" }); }}
+            title="Motivation"
+          >
+            <div className="lofi-poster-text">
+              {dailyQuote.split(' ').map((word, i) => (
+                <div key={i}>{word}</div>
+              ))}
+            </div>
           </motion.div>
         </>
       )}
 
-      {/* ── Bookshelf (Level 3+) ── */}
+      {/* ── Bookshelf ── */}
       {hasBookshelf && (
         <motion.div
-          className="lofi-bookshelf"
+          className="lofi-bookshelf lofi-interactive"
           initial={{ opacity: 0, x: 30 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.3 }}
+          onClick={() => handleNavigation('/notes')}
+          title="Open Notes & Scrolls"
         >
           <div className="lofi-shelf" style={{ top: '30%' }} />
           <div className="lofi-shelf" style={{ top: '60%' }} />
@@ -212,15 +313,47 @@ export default function LofiRoom({ className = '' }: LofiRoomProps) {
         </motion.div>
       )}
 
-      {/* ── Rug (Level 15+) ── */}
+      {/* ── Rug ── */}
       {hasRug && (
         <motion.div
-          className="lofi-rug"
+          className="lofi-rug lofi-interactive"
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.5 }}
+          onClick={() => handleNavigation('/shop')}
+          title="Visit Item Shop"
         />
       )}
+
+      {/* ── Game Console ── */}
+      <motion.div
+        className="lofi-console lofi-interactive"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.55 }}
+        onClick={() => handleNavigation('/arcade')}
+        title="Play Arcade Games"
+      >
+        🎮
+      </motion.div>
+
+      {/* ── Fridge (Sticky Notes Widget) ── */}
+      <motion.div
+        className="lofi-fridge lofi-interactive"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.4 }}
+        onClick={() => { playClick(); window.dispatchEvent(new CustomEvent('open-sticky-notes')); }}
+        title="Open Sticky Notes"
+      >
+        <div className="lofi-fridge-door">
+          <div className="lofi-fridge-handle" />
+          <div className="lofi-fridge-note">📝</div>
+        </div>
+        <div className="lofi-fridge-freezer">
+          <div className="lofi-fridge-handle" style={{ top: '15%', height: '40%' }} />
+        </div>
+      </motion.div>
 
       {/* ── Desk ── */}
       {hasDesk && (
@@ -249,13 +382,15 @@ export default function LofiRoom({ className = '' }: LofiRoomProps) {
         </motion.div>
       )}
 
-      {/* ── Monitor (Level 10+) ── */}
+      {/* ── Monitor ── */}
       {hasMonitor && (
         <motion.div
-          className="lofi-monitor"
+          className="lofi-monitor lofi-interactive"
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.4 }}
+          onClick={() => handleNavigation('/tasks')}
+          title="Open Quest Log"
         >
           <div className="lofi-monitor-screen">
             <div className="lofi-monitor-glow" />
@@ -279,13 +414,15 @@ export default function LofiRoom({ className = '' }: LofiRoomProps) {
         </motion.div>
       )}
 
-      {/* ── Desk Lamp (Level 7+) ── */}
+      {/* ── Desk Lamp ── */}
       {hasLamp && (
         <motion.div
-          className="lofi-lamp"
+          className="lofi-lamp lofi-interactive"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.35 }}
+          onClick={() => { playClick(); toggleTheme(); }}
+          title="Toggle Room Theme"
         >
           <div className="lofi-lamp-shade" />
           <div className="lofi-lamp-light" />
@@ -294,41 +431,72 @@ export default function LofiRoom({ className = '' }: LofiRoomProps) {
         </motion.div>
       )}
 
-      {/* ── Plants (Level 15+) ── */}
+      {/* ── Plants ── */}
       {hasPlants && (
         <motion.div
-          className="lofi-plant"
+          className="lofi-plant lofi-interactive"
           initial={{ opacity: 0, scale: 0 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.5, type: 'spring' }}
+          onClick={handleWaterPlant}
+          title="Water Plant"
         >
           🪴
+          <AnimatePresence>
+            {splashes.map((s) => (
+              <motion.div
+                key={s.id}
+                initial={{ opacity: 1, y: 0, scale: 0.5 }}
+                animate={{ opacity: 0, y: -30, scale: 1.2 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.8 }}
+                style={{
+                  position: 'absolute',
+                  top: '-10px',
+                  left: '50%',
+                  marginLeft: '-10px',
+                  fontSize: '20px',
+                  pointerEvents: 'none',
+                }}
+              >
+                💧
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </motion.div>
       )}
 
       {/* ── Virtual Pet ── */}
-      {pet && petEmoji && (
-        <motion.div
-          className={`lofi-pet ${petOnDesk ? 'lofi-pet-desk' : 'lofi-pet-floor'}`}
-          animate={{
-            y: mood === 'sleeping' ? [0, -2, 0] : [0, -6, 0],
-          }}
-          transition={{
-            duration: mood === 'sleeping' ? 3 : 1.8,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
+      {petEmoji && (
+        <div 
+          className={`lofi-pet-wrapper lofi-interactive ${petOnDesk ? 'lofi-pet-desk' : 'lofi-pet-floor'}`}
+          onClick={handlePetInteract}
+          title="Pet your companion"
         >
-          {petEmoji}
+          {!petOnDesk && <div className="lofi-pet-cushion" />}
           <motion.div
-            className="lofi-pet-mood"
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 1 }}
+            className={`lofi-pet ${petting ? 'petting-active' : ''}`}
+            animate={{
+              y: petting ? [0, -30, 0] : (mood === 'sleeping' ? [0, -2, 0] : [0, -6, 0]),
+            }}
+            transition={{
+              duration: petting ? 0.6 : (mood === 'sleeping' ? 3 : 1.8),
+              repeat: petting ? 0 : Infinity,
+              ease: 'easeInOut',
+            }}
           >
-            {moodEmoji}
+            {petEmoji}
+            <motion.div
+              key={moodEmoji}
+              className="lofi-pet-mood"
+              initial={{ opacity: 0, scale: 0.5, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ delay: petting ? 0 : 1, type: 'spring' }}
+            >
+              {moodEmoji}
+            </motion.div>
           </motion.div>
-        </motion.div>
+        </div>
       )}
 
       {/* ── Floating Dust Particles ── */}
@@ -348,83 +516,6 @@ export default function LofiRoom({ className = '' }: LofiRoomProps) {
         ))}
       </div>
 
-      {/* ── Stat Bubbles ── */}
-      <motion.div
-        className="lofi-stat-bubble lofi-stat-xp"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.6 }}
-      >
-        <span className="lofi-stat-icon">⭐</span>
-        <div>
-          <div className="lofi-stat-value">Lv.{level}</div>
-          <div className="lofi-stat-label">{xp.toLocaleString()} XP</div>
-        </div>
-      </motion.div>
-
-      <motion.div
-        className="lofi-stat-bubble lofi-stat-streak"
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.7 }}
-      >
-        <span className="lofi-stat-icon">🔥</span>
-        <div>
-          <div className="lofi-stat-value">{streak}</div>
-          <div className="lofi-stat-label">Day Streak</div>
-        </div>
-      </motion.div>
-
-      <motion.div
-        className="lofi-stat-bubble lofi-stat-tasks"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.8 }}
-      >
-        <span className="lofi-stat-icon">✅</span>
-        <div>
-          <div className="lofi-stat-value">{completedToday}</div>
-          <div className="lofi-stat-label">Done Today</div>
-        </div>
-      </motion.div>
-
-      <motion.div
-        className="lofi-stat-bubble lofi-stat-coins"
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.9 }}
-      >
-        <span className="lofi-stat-icon">🪙</span>
-        <div>
-          <div className="lofi-stat-value">{coins}</div>
-          <div className="lofi-stat-label">Coins</div>
-        </div>
-      </motion.div>
-
-      {/* ── Room Level Label ── */}
-      {hasPremiumEffects && (
-        <motion.div
-          style={{
-            position: 'absolute',
-            bottom: '2%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 25,
-            background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.4), rgba(236, 72, 153, 0.4))',
-            backdropFilter: 'blur(8px)',
-            borderRadius: '12px',
-            padding: '4px 14px',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-          }}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1 }}
-        >
-          <span style={{ fontSize: '10px', fontWeight: 800, color: '#fff', fontFamily: 'var(--font-heading)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-            ✨ Maxed Out Room ✨
-          </span>
-        </motion.div>
-      )}
     </motion.div>
   );
 }

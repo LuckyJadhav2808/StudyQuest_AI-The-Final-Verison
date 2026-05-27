@@ -62,6 +62,7 @@ const NAV_SECTIONS = [
     items: [
       { label: 'My Pet', href: '/pets', icon: 'HiHeart' },
       { label: 'Item Shop', href: '/shop', icon: 'HiShoppingCart' },
+      { label: 'Skill Tree', href: '/skills', icon: 'HiSparkles' },
       { label: 'Study Groups', href: '/groups', icon: 'HiUserGroup' },
     ],
   },

@@ -37,19 +37,7 @@
   );
 }
 
-.zen-bg-sunset::before {
-  content: '';
-  position: absolute;
-  bottom: 20%;
-  left: 0;
-  right: 0;
-  height: 40%;
-  background:
-    linear-gradient(135deg, transparent 40%, #1a1030 40%, #1a1030 42%, transparent 42%),
-    linear-gradient(225deg, transparent 45%, #1a1030 45%, #1a1030 47%, transparent 47%),
-    linear-gradient(160deg, transparent 35%, #251540 35%, #251540 38%, transparent 38%);
-  opacity: 0.7;
-}
+
 
 /* Cyberpunk City */
 .zen-bg-cyberpunk {
@@ -63,7 +51,7 @@
   );
 }
 
-/* Cyberpunk neon glow */
+/* Cyberpunk neon glow and buildings */
 .zen-bg-cyberpunk::before {
   content: '';
   position: absolute;
@@ -72,18 +60,25 @@
   right: 0;
   height: 50%;
   background:
-    linear-gradient(180deg, transparent 0%, rgba(124, 58, 237, 0.04) 50%, rgba(236, 72, 153, 0.06) 100%);
+    linear-gradient(#050512, #050512) 15% 100% / 15% 80% no-repeat,
+    linear-gradient(#080816, #080816) 75% 100% / 20% 95% no-repeat,
+    linear-gradient(#03030d, #03030d) 90% 100% / 12% 60% no-repeat,
+    linear-gradient(180deg, transparent 0%, rgba(124, 58, 237, 0.1) 50%, rgba(236, 72, 153, 0.15) 100%);
 }
 
 .zen-bg-cyberpunk::after {
   content: '';
   position: absolute;
-  bottom: 15%;
+  bottom: 0;
   left: 0;
   right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(124, 58, 237, 0.4), rgba(236, 72, 153, 0.4), transparent);
-  box-shadow: 0 0 30px rgba(124, 58, 237, 0.2);
+  height: 50%;
+  background:
+    repeating-linear-gradient(180deg, transparent, transparent 10px, rgba(236,72,153,0.8) 10px, rgba(236,72,153,0.8) 15px) 18% 100% / 3% 75% no-repeat,
+    repeating-linear-gradient(180deg, transparent, transparent 10px, rgba(236,72,153,0.8) 10px, rgba(236,72,153,0.8) 15px) 24% 100% / 3% 75% no-repeat,
+    repeating-linear-gradient(180deg, transparent, transparent 15px, rgba(0,255,136,0.6) 15px, rgba(0,255,136,0.6) 20px) 78% 100% / 12% 85% no-repeat,
+    linear-gradient(90deg, transparent, rgba(124, 58, 237, 0.4), rgba(236, 72, 153, 0.4), transparent) 0 30% / 100% 2px no-repeat;
+  box-shadow: inset 0 -30px 40px -10px rgba(124, 58, 237, 0.2);
 }
 
 /* Northern Lights */
@@ -91,8 +86,8 @@
   background: linear-gradient(
     180deg,
     #020024 0%,
-    #090979 30%,
-    #00d4ff08 60%,
+    #07073b 30%,
+    #092642 60%,
     #020024 100%
   );
 }
@@ -101,20 +96,23 @@
   content: '';
   position: absolute;
   top: 10%;
-  left: -10%;
-  right: -10%;
-  height: 50%;
+  left: -20%;
+  right: -20%;
+  height: 60%;
   background: linear-gradient(
     180deg,
     transparent,
-    rgba(0, 212, 255, 0.06),
-    rgba(16, 185, 129, 0.08),
-    rgba(124, 58, 237, 0.05),
+    rgba(0, 212, 255, 0.1),
+    rgba(16, 185, 129, 0.15),
+    rgba(124, 58, 237, 0.08),
     transparent
   );
-  animation: auroraWave 8s ease-in-out infinite alternate;
-  filter: blur(40px);
+  animation: auroraWave 12s ease-in-out infinite alternate;
+  filter: blur(50px);
+  transform: rotate(-10deg);
 }
+
+
 
 @keyframes auroraWave {
   0% { transform: translateX(-5%) skewY(-2deg); }
@@ -125,33 +123,54 @@
 .zen-bg-ocean {
   background: linear-gradient(
     180deg,
-    #000428 0%,
+    #000f28 0%,
     #004e92 40%,
-    #000428 100%
+    #001128 100%
   );
 }
 
 .zen-bg-ocean::before {
   content: '';
   position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse at 50% 80%, rgba(0, 78, 146, 0.2), transparent 60%);
-  animation: oceanPulse 6s ease-in-out infinite alternate;
+  top: -10%;
+  left: 10%;
+  right: 10%;
+  height: 70%;
+  background: repeating-linear-gradient(
+    75deg,
+    transparent,
+    transparent 10%,
+    rgba(255, 255, 255, 0.03) 10%,
+    rgba(255, 255, 255, 0.03) 15%
+  );
+  mask-image: linear-gradient(to bottom, black, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, black, transparent);
+  animation: oceanRays 8s ease-in-out infinite alternate;
 }
 
-@keyframes oceanPulse {
-  0% { opacity: 0.5; }
-  100% { opacity: 1; }
+.zen-bg-ocean::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 15%;
+  background: radial-gradient(ellipse at 50% 100%, #000418 0%, transparent 80%);
+}
+
+@keyframes oceanRays {
+  0% { transform: scale(1.05) rotate(2deg); opacity: 0.6; }
+  100% { transform: scale(1) rotate(-2deg); opacity: 1; }
 }
 
 /* Forest */
 .zen-bg-forest {
   background: linear-gradient(
     180deg,
-    #0a1a0a 0%,
-    #1a3a1a 30%,
-    #0d2b0d 60%,
-    #0a1a0a 100%
+    #051005 0%,
+    #133813 40%,
+    #061a06 80%,
+    #020a02 100%
   );
 }
 
@@ -159,19 +178,37 @@
   content: '';
   position: absolute;
   top: 0;
+  left: -20%;
+  right: -20%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 10%,
+    rgba(16, 185, 129, 0.03) 10%,
+    rgba(16, 185, 129, 0.03) 15%
+  );
+  mask-image: linear-gradient(to bottom, black 20%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, black 20%, transparent);
+  animation: forestRays 12s ease-in-out infinite alternate;
+  transform-origin: top center;
+}
+
+.zen-bg-forest::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
   left: 0;
   right: 0;
-  height: 60%;
-  background: radial-gradient(
-    ellipse at 30% 20%,
-    rgba(16, 185, 129, 0.06),
-    transparent 50%
-  ),
-  radial-gradient(
-    ellipse at 70% 40%,
-    rgba(34, 197, 94, 0.04),
-    transparent 50%
-  );
+  height: 40%;
+  background: 
+    linear-gradient(170deg, transparent 60%, #030d03 60%),
+    linear-gradient(-160deg, transparent 40%, #020802 40%);
+}
+
+@keyframes forestRays {
+  0% { transform: rotate(-5deg); }
+  100% { transform: rotate(5deg); }
 }
 
 /* ── Rain Effect ── */

@@ -2,9 +2,10 @@
 
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HiX, HiPlay, HiPause, HiRefresh, HiCheck, HiVolumeUp, HiVolumeOff } from 'react-icons/hi';
+import { HiX, HiPlay, HiPause, HiRefresh, HiCheck } from 'react-icons/hi';
 import { usePet } from '@/hooks/usePet';
 import { PET_SPECIES_CONFIG } from '@/lib/constants';
+import LocalMusicPlayer, { LocalMusicPlayerProps } from '@/components/timer/LocalMusicPlayer';
 import './ZenMode.css';
 
 type Scene = 'sunset' | 'cyberpunk' | 'aurora' | 'ocean' | 'forest';
@@ -17,11 +18,7 @@ const SCENES: { id: Scene; emoji: string; label: string }[] = [
   { id: 'forest', emoji: '🌲', label: 'Midnight Forest' },
 ];
 
-// Lofi music streams (free/royalty-free YouTube lofi streams embedded as audio)
-const LOFI_TRACKS = [
-  { name: 'Lofi Chill', url: 'https://streams.fluxfm.de/Chillhop/mp3-128/streams.fluxfm.de/' },
-  { name: 'Study Beats', url: 'https://streams.fluxfm.de/Chillhop/mp3-128/streams.fluxfm.de/' },
-];
+
 
 // Generate deterministic stars
 const STARS = Array.from({ length: 30 }, (_, i) => ({
@@ -61,6 +58,7 @@ interface ZenModeProps {
   onReset: () => void;
   onSkip: () => void;
   onExit: () => void;
+  musicProps: Omit<LocalMusicPlayerProps, 'variant'>;
 }
 
 export default function ZenMode({
@@ -75,12 +73,9 @@ export default function ZenMode({
   onReset,
   onSkip,
   onExit,
+  musicProps,
 }: ZenModeProps) {
   const [scene, setScene] = useState<Scene>('sunset');
-  const [musicPlaying, setMusicPlaying] = useState(false);
-  const [audioRef] = useState<HTMLAudioElement | null>(
-    typeof window !== 'undefined' ? new Audio() : null
-  );
 
   const { pet, getMood } = usePet();
 
@@ -108,27 +103,8 @@ export default function ZenMode({
   const hasRain = scene === 'cyberpunk';
   const hasStars = scene !== 'forest';
 
-  const toggleMusic = () => {
-    if (!audioRef) return;
-    if (musicPlaying) {
-      audioRef.pause();
-      setMusicPlaying(false);
-    } else {
-      audioRef.src = LOFI_TRACKS[0].url;
-      audioRef.volume = 0.3;
-      audioRef.play().catch(() => {
-        // Audio autoplay may be blocked
-      });
-      setMusicPlaying(true);
-    }
-  };
-
-  // Cleanup audio on exit
+  // Cleanup audio on exit is handled by TimerContent holding the state
   const handleExit = () => {
-    if (audioRef) {
-      audioRef.pause();
-      audioRef.src = '';
-    }
     onExit();
   };
 
@@ -345,32 +321,7 @@ export default function ZenMode({
       </motion.div>
 
       {/* ── Music Player (bottom-left) ── */}
-      <motion.div
-        className="zen-music-player"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.8 }}
-      >
-        <button
-          onClick={toggleMusic}
-          className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition-colors flex-shrink-0"
-        >
-          {musicPlaying ? <HiVolumeUp size={16} /> : <HiVolumeOff size={16} />}
-        </button>
-        <div>
-          <p className="text-[11px] font-bold text-white/80">
-            {musicPlaying ? '🎵 Lofi Chill' : '🎵 Music Off'}
-          </p>
-          <p className="text-[9px] text-white/40">
-            {musicPlaying ? 'Click to pause' : 'Click to play'}
-          </p>
-        </div>
-        <div className="zen-music-bars">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className={`zen-music-bar ${!musicPlaying ? 'paused' : ''}`} />
-          ))}
-        </div>
-      </motion.div>
+      <LocalMusicPlayer variant="zen" {...musicProps} />
 
       {/* ── Pet Corner (bottom-right) ── */}
       {pet && petEmoji && (
