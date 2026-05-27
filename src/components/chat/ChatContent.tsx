@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiPaperAirplane, HiTrash, HiSparkles, HiKey, HiClipboardCopy } from 'react-icons/hi';
 import toast from 'react-hot-toast';
+import { doc, collection, orderBy, query, onSnapshot, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { useAuthContext } from '@/context/AuthContext';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -35,21 +37,43 @@ Your personality:
 Always sign off with a fun owl-themed phrase when appropriate.`;
 
 export default function ChatContent() {
-  const { profile } = useAuthContext();
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: "🦉 Hey there, adventurer! I'm Questie, your study companion. Ask me anything — study tips, concept explanations, or just need some motivation. I'm here to help you level up! What's on your mind today?",
-      timestamp: Date.now(),
-    },
-  ]);
+  const { user, profile } = useAuthContext();
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const hasApiKey = !!profile?.openRouterKey;
+
+  // Load chat history from Firestore
+  useEffect(() => {
+    if (!user?.uid) { setLoadingHistory(false); return; }
+    const chatRef = collection(db, 'users', user.uid, 'chatMessages');
+    const q = query(chatRef, orderBy('timestamp', 'asc'));
+    const unsub = onSnapshot(q, (snap) => {
+      if (snap.empty) {
+        setMessages([{
+          id: 'welcome',
+          role: 'assistant',
+          content: "🦉 Hey there, adventurer! I'm Questie, your study companion. Ask me anything — study tips, concept explanations, or just need some motivation. I'm here to help you level up! What's on your mind today?",
+          timestamp: Date.now(),
+        }]);
+      } else {
+        setMessages(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Message)));
+      }
+      setLoadingHistory(false);
+    });
+    return () => unsub();
+  }, [user?.uid]);
+
+  // Save a message to Firestore
+  const saveMessage = useCallback(async (msg: Message) => {
+    if (!user?.uid) return;
+    const msgRef = doc(db, 'users', user.uid, 'chatMessages', msg.id);
+    await setDoc(msgRef, { role: msg.role, content: msg.content, timestamp: msg.timestamp });
+  }, [user?.uid]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -70,6 +94,7 @@ export default function ChatContent() {
     };
 
     setMessages((prev) => [...prev, userMsg]);
+    saveMessage(userMsg);
     setInput('');
     setLoading(true);
 
@@ -108,30 +133,37 @@ export default function ChatContent() {
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
+      saveMessage(assistantMsg);
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: "🦉 Oops! I couldn't connect to my brain right now. Check your API key in Settings and try again.",
-          timestamp: Date.now(),
-        },
-      ]);
+      const errMsg: Message = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: "🦉 Oops! I couldn't connect to my brain right now. Check your API key in Settings and try again.",
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => [...prev, errMsg]);
+      saveMessage(errMsg);
     } finally {
       setLoading(false);
     }
   };
 
-  const clearChat = () => {
-    setMessages([
-      {
-        id: 'welcome',
-        role: 'assistant',
-        content: "🦉 Fresh start! What would you like to learn today?",
-        timestamp: Date.now(),
-      },
-    ]);
+  const clearChat = async () => {
+    // Delete all messages from Firestore
+    if (user?.uid) {
+      const chatRef = collection(db, 'users', user.uid, 'chatMessages');
+      const snap = await getDocs(chatRef);
+      const deletePromises = snap.docs.map((d) => deleteDoc(d.ref));
+      await Promise.all(deletePromises);
+    }
+    const welcomeMsg: Message = {
+      id: 'welcome-' + Date.now(),
+      role: 'assistant',
+      content: "🦉 Fresh start! What would you like to learn today?",
+      timestamp: Date.now(),
+    };
+    setMessages([welcomeMsg]);
+    if (user?.uid) saveMessage(welcomeMsg);
     toast.success('Chat cleared');
   };
 

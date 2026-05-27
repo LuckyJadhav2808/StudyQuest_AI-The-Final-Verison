@@ -10,7 +10,7 @@ import {
   HiUserGroup, HiDatabase, HiCode, HiCubeTransparent,
   HiBookmark, HiCog, HiChevronLeft, HiChevronRight,
   HiLogout, HiSparkles, HiCollection, HiTerminal,
-  HiAcademicCap, HiPencil,
+  HiAcademicCap, HiPencil, HiHeart, HiShoppingCart,
 } from 'react-icons/hi';
 import { useAuthContext } from '@/context/AuthContext';
 import { useGamification } from '@/hooks/useGamification';
@@ -27,7 +27,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string; size?: n
   HiClock, HiCalendar, HiChatAlt2, HiChartBar,
   HiUserGroup, HiDatabase, HiCode, HiCubeTransparent,
   HiBookmark, HiCog, HiSparkles, HiCollection, HiTerminal,
-  HiAcademicCap, HiPencil,
+  HiAcademicCap, HiPencil, HiHeart, HiShoppingCart,
 };
 
 /* ============================================================
@@ -58,8 +58,10 @@ const NAV_SECTIONS = [
     ],
   },
   {
-    title: 'Guild',
+    title: 'Companions',
     items: [
+      { label: 'My Pet', href: '/pets', icon: 'HiHeart' },
+      { label: 'Item Shop', href: '/shop', icon: 'HiShoppingCart' },
       { label: 'Study Groups', href: '/groups', icon: 'HiUserGroup' },
     ],
   },

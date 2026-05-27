@@ -2,7 +2,7 @@
 // StudyQuest AI — Constants & Configuration
 // ============================================================
 
-import { Achievement, GamificationData } from '@/types';
+import { Achievement, GamificationData, ShopItem } from '@/types';
 
 // ----- XP Awards -----
 export const XP_AWARDS = {
@@ -335,3 +335,58 @@ export const STATUS_COLUMNS = [
   { id: 'in-progress' as const, label: 'In Progress', color: 'from-amber-500 to-orange-600' },
   { id: 'done' as const, label: 'Done', color: 'from-emerald-500 to-green-600' },
 ];
+
+// ----- Quest Coin Awards -----
+export const COIN_AWARDS = {
+  TASK_COMPLETE: 5,
+  POMODORO_COMPLETE: 3,
+  NOTE_CREATED: 2,
+  STREAK_BONUS: 1,
+  ACHIEVEMENT_UNLOCK: 10,
+  LEVEL_UP: 15,
+  QUIZ_CORRECT: 2,
+  QUIZ_PERFECT: 10,
+} as const;
+
+// ----- Shop Item Catalog -----
+export const SHOP_ITEMS: ShopItem[] = [
+  // Pet Food (consumable)
+  { id: 'food-apple', name: 'Apple', description: 'A crisp, juicy apple. +20 hunger.', category: 'petFood', price: 5, emoji: '🍎', rarity: 'common', consumable: true, effect: 'hunger-20' },
+  { id: 'food-pizza', name: 'Pizza', description: 'Cheesy goodness! +40 hunger.', category: 'petFood', price: 10, emoji: '🍕', rarity: 'common', consumable: true, effect: 'hunger-40' },
+  { id: 'food-cake', name: 'Cake', description: 'Delicious cake! +60 hunger, +10 happiness.', category: 'petFood', price: 20, emoji: '🎂', rarity: 'rare', consumable: true, effect: 'hunger-60-happy-10' },
+  { id: 'food-star', name: 'Star Treat', description: 'Magical star! Full hunger + happiness.', category: 'petFood', price: 50, emoji: '✨', rarity: 'epic', consumable: true, effect: 'full-restore' },
+  // Pet Accessories
+  { id: 'acc-bow', name: 'Red Bow', description: 'A cute red bow for your pet.', category: 'petAccessory', price: 15, emoji: '🎀', rarity: 'common', effect: 'bow-red' },
+  { id: 'acc-scarf', name: 'Blue Scarf', description: 'A cozy scarf for cold nights.', category: 'petAccessory', price: 20, emoji: '🧣', rarity: 'common', effect: 'scarf-blue' },
+  { id: 'acc-hat', name: 'Top Hat', description: 'Fancy and distinguished!', category: 'petAccessory', price: 30, emoji: '🎩', rarity: 'rare', effect: 'hat-top' },
+  { id: 'acc-glasses', name: 'Cool Glasses', description: 'Your pet looks scholarly.', category: 'petAccessory', price: 25, emoji: '🕶️', rarity: 'rare', effect: 'glasses-cool' },
+  { id: 'acc-crown', name: 'Royal Crown', description: 'For true royalty.', category: 'petAccessory', price: 75, emoji: '👑', rarity: 'epic', effect: 'crown-gold' },
+  { id: 'acc-aura', name: 'Rainbow Aura', description: 'A mystical, glowing aura.', category: 'petAccessory', price: 150, emoji: '🌈', rarity: 'legendary', effect: 'aura-rainbow' },
+  // Profile Borders
+  { id: 'border-crystal', name: 'Crystal Frame', description: 'Blue sparkle border.', category: 'border', price: 40, emoji: '💎', rarity: 'rare', effect: 'border-crystal' },
+  { id: 'border-flame', name: 'Flame Frame', description: 'Animated fire border.', category: 'border', price: 60, emoji: '🔥', rarity: 'epic', effect: 'border-flame' },
+  { id: 'border-celestial', name: 'Celestial Frame', description: 'Gold star particles.', category: 'border', price: 100, emoji: '⭐', rarity: 'legendary', effect: 'border-celestial' },
+  // Sound Packs
+  { id: 'sound-retro', name: 'Retro Pack', description: '8-bit sound effects.', category: 'sound', price: 20, emoji: '🎵', rarity: 'rare', effect: 'sound-retro' },
+  { id: 'sound-nature', name: 'Nature Pack', description: 'Calming nature sounds.', category: 'sound', price: 20, emoji: '🎶', rarity: 'rare', effect: 'sound-nature' },
+  // Cursors
+  { id: 'cursor-wand', name: 'Magic Wand', description: 'A sparkly wand cursor.', category: 'cursor', price: 35, emoji: '🪄', rarity: 'rare', effect: 'cursor-wand' },
+  { id: 'cursor-sword', name: 'Pixel Sword', description: 'An RPG sword cursor.', category: 'cursor', price: 35, emoji: '⚔️', rarity: 'rare', effect: 'cursor-sword' },
+];
+
+// ----- Pet Evolution Config -----
+export const PET_STAGES = [
+  { stage: 0, name: 'Egg', requirement: 'Just created!' },
+  { stage: 1, name: 'Baby', requirement: 'Complete 5 tasks to hatch' },
+  { stage: 2, name: 'Teen', requirement: 'Reach Level 5' },
+  { stage: 3, name: 'Adult', requirement: 'Reach Level 10' },
+  { stage: 4, name: 'Legendary', requirement: 'Reach Level 20' },
+] as const;
+
+export const PET_SPECIES_CONFIG = {
+  owl:    { name: 'Owl',    emoji: ['🥚', '🐣', '🐥', '🦅', '🦉'], color: '#8B5CF6' },
+  cat:    { name: 'Cat',    emoji: ['🥚', '🐱', '😺', '🐈', '🐈‍⬛'], color: '#EC4899' },
+  dragon: { name: 'Dragon', emoji: ['🥚', '🐉', '🔥', '🐲', '🐲'], color: '#EF4444' },
+  fox:    { name: 'Fox',    emoji: ['🥚', '🦊', '🦊', '🦊', '🦊'], color: '#F59E0B' },
+  bunny:  { name: 'Bunny',  emoji: ['🥚', '🐰', '🐇', '🐇', '🐇'], color: '#10B981' },
+} as const;

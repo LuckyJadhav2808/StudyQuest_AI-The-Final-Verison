@@ -6,6 +6,7 @@ import { HiSun, HiMoon, HiBell, HiSearch } from 'react-icons/hi';
 import { useTheme } from '@/context/ThemeContext';
 import { useGamification } from '@/hooks/useGamification';
 import { useFriends } from '@/hooks/useFriends';
+import { useShop } from '@/hooks/useShop';
 import StreakCounter from '@/components/gamification/StreakCounter';
 import LevelBadge from '@/components/gamification/LevelBadge';
 import { useRouter } from 'next/navigation';
@@ -14,6 +15,7 @@ export default function Header() {
   const { theme, toggleTheme } = useTheme();
   const { gamification } = useGamification();
   const { incomingRequests } = useFriends();
+  const { coins } = useShop();
   const router = useRouter();
 
   const openCommandPalette = () => {
@@ -53,6 +55,16 @@ export default function Header() {
         {gamification && (
           <StreakCounter streak={gamification.streak} size="sm" />
         )}
+
+        {/* Quest Coins */}
+        <motion.button
+          onClick={() => router.push('/shop')}
+          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-400/10 border border-amber-400/20 hover:border-amber-400/40 transition-all"
+          whileHover={{ scale: 1.05 }}
+        >
+          <span className="text-xs">🪙</span>
+          <span className="text-[11px] font-bold text-amber-400">{coins}</span>
+        </motion.button>
 
         {/* XP Badge */}
         {gamification && (

@@ -18,13 +18,15 @@ import {
   getLevelFromXP,
   ACHIEVEMENTS,
   XP_AWARDS,
+  COIN_AWARDS,
 } from '@/lib/constants';
 import { useAuthContext } from '@/context/AuthContext';
 
 interface UseGamificationReturn {
   gamification: GamificationData | null;
+  gamificationData: GamificationData | null;
   loading: boolean;
-  xpHistory: Record<string, number>; // date → XP earned that day
+  xpHistory: Record<string, number>;
   awardXP: (amount: number, reason: string) => Promise<{ leveledUp: boolean; newAchievements: string[] }>;
   checkStreak: () => Promise<void>;
 }
@@ -142,6 +144,24 @@ export function useGamification(): UseGamificationReturn {
         await setDocument(dayLogRef, { totalXp: amount, lastUpdated: Date.now() }, false);
       }
 
+      // Award Quest Coins alongside XP
+      try {
+        const invRef = doc(db, 'users', user.uid, 'data', 'inventory');
+        // Determine coin amount based on reason
+        let coinAmount = Math.floor(amount / 5); // default: 1 coin per 5 XP
+        if (reason.toLowerCase().includes('task')) coinAmount = COIN_AWARDS.TASK_COMPLETE;
+        else if (reason.toLowerCase().includes('pomodoro') || reason.toLowerCase().includes('focus')) coinAmount = COIN_AWARDS.POMODORO_COMPLETE;
+        else if (reason.toLowerCase().includes('note')) coinAmount = COIN_AWARDS.NOTE_CREATED;
+        else if (reason.toLowerCase().includes('quiz')) coinAmount = COIN_AWARDS.QUIZ_CORRECT;
+        if (leveledUp) coinAmount += COIN_AWARDS.LEVEL_UP;
+        if (newAchievements.length > 0) coinAmount += COIN_AWARDS.ACHIEVEMENT_UNLOCK * newAchievements.length;
+        if (coinAmount > 0) {
+          await setDocument(invRef, { coins: increment(coinAmount) });
+        }
+      } catch {
+        // Coin award is best-effort
+      }
+
       return { leveledUp, newAchievements };
     },
     [user, gamification],
@@ -175,6 +195,6 @@ export function useGamification(): UseGamificationReturn {
     });
   }, [user, gamification]);
 
-  return { gamification, loading, xpHistory, awardXP, checkStreak };
+  return { gamification, gamificationData: gamification, loading, xpHistory, awardXP, checkStreak };
 }
 

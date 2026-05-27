@@ -260,3 +260,64 @@ export interface NavItem {
   icon: string;
   badge?: number;
 }
+
+// ----- Item Shop & Quest Coins -----
+export type ShopCategory = 'petFood' | 'petAccessory' | 'border' | 'sound' | 'cursor';
+export type ItemRarity = 'common' | 'rare' | 'epic' | 'legendary';
+
+export interface ShopItem {
+  id: string;
+  name: string;
+  description: string;
+  category: ShopCategory;
+  price: number;
+  emoji: string;
+  rarity: ItemRarity;
+  consumable?: boolean;     // true for pet food
+  effect?: string;          // identifier for applying the item
+}
+
+export interface UserInventory {
+  coins: number;
+  ownedItems: string[];
+  equippedItems: Record<string, string>;  // category → equipped item ID
+  gachaHistory: string[];
+}
+
+// ----- Virtual Pet -----
+export type PetSpecies = 'owl' | 'cat' | 'dragon' | 'fox' | 'bunny';
+export type PetStage = 0 | 1 | 2 | 3 | 4; // egg → baby → teen → adult → legendary
+
+export interface PetData {
+  id: string;
+  name: string;
+  species: PetSpecies;
+  stage: PetStage;
+  xp: number;
+  happiness: number;   // 0-100
+  energy: number;      // 0-100
+  hunger: number;      // 0-100
+  equippedAccessories: string[];
+  lastFedAt: number;
+  lastPlayedAt: number;
+  hatchedAt: number | null;
+  createdAt: number;
+}
+
+// ----- Auto-Quiz -----
+export interface QuizQuestion {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+}
+
+// ----- Calendar Focus Blocks -----
+export interface FocusBlock {
+  id: string;
+  day: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+  startTime: string;
+  endTime: string;
+  label: string;
+  color: string;
+}

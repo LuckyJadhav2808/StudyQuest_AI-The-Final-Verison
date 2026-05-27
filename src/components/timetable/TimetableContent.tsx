@@ -2,16 +2,18 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HiPlus, HiTrash, HiPencil, HiX, HiClock, HiLocationMarker, HiCog } from 'react-icons/hi';
+import { HiPlus, HiTrash, HiPencil, HiX, HiClock, HiLocationMarker, HiCog, HiClipboardCheck, HiChevronRight } from 'react-icons/hi';
 import toast from 'react-hot-toast';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { useTimetable } from '@/hooks/useTimetable';
+import { useTasks } from '@/hooks/useTasks';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import PageTransition from '@/components/layout/PageTransition';
-import { TimetableBlock } from '@/types';
+import { TimetableBlock, Task } from '@/types';
 
 const DAYS = [
   { id: 'mon' as const, label: 'Mon', full: 'Monday' },
@@ -45,12 +47,14 @@ function minutesToTime(mins: number): string {
 
 export default function TimetableContent() {
   const { blocks, loading, addBlock, updateBlock, deleteBlock } = useTimetable();
+  const { tasks, updateTask } = useTasks();
   const [showModal, setShowModal] = useState(false);
   const [editBlock, setEditBlock] = useState<TimetableBlock | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [startHour, setStartHour] = useState(DEFAULT_START_HOUR);
   const [endHour, setEndHour] = useState(DEFAULT_END_HOUR);
+  const [showTaskPanel, setShowTaskPanel] = useState(true);
   const settingsRef = useRef<HTMLDivElement>(null);
 
   const HOURS = useMemo(() => Array.from({ length: endHour - startHour + 1 }, (_, i) => i + startHour), [startHour, endHour]);
@@ -128,9 +132,50 @@ export default function TimetableContent() {
     return map;
   }, [blocks]);
 
+  // Tasks by day (based on dueDate)
+  const getISODayId = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][d.getDay()];
+  };
+
+  const tasksByDay = useMemo(() => {
+    const map: Record<string, Task[]> = {};
+    DAYS.forEach((d) => { map[d.id] = []; });
+    tasks.filter((t) => t.dueDate && t.status !== 'done').forEach((t) => {
+      const dayId = getISODayId(t.dueDate!);
+      if (map[dayId]) map[dayId].push(t);
+    });
+    return map;
+  }, [tasks]);
+
+  // Unscheduled tasks (no dueDate, not done)
+  const unscheduledTasks = useMemo(() =>
+    tasks.filter((t) => !t.dueDate && t.status !== 'done'),
+  [tasks]);
+
+  // Handle drag-and-drop of tasks onto day columns
+  const handleDragEnd = async (result: DropResult) => {
+    if (!result.destination) return;
+    const destId = result.destination.droppableId;
+    if (!destId.startsWith('day-')) return;
+    const dayId = destId.replace('day-', '');
+    const taskId = result.draggableId;
+    // Calculate the ISO date for this day of the current week
+    const now = new Date();
+    const currentDayIdx = now.getDay(); // 0=Sun
+    const targetDayIdx = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'].indexOf(dayId);
+    const diff = targetDayIdx - currentDayIdx;
+    const targetDate = new Date(now);
+    targetDate.setDate(now.getDate() + diff);
+    const iso = targetDate.toISOString().split('T')[0];
+    await updateTask(taskId, { dueDate: iso });
+    toast.success(`Task scheduled for ${DAYS.find((d) => d.id === dayId)?.full}!`);
+  };
+
   // Today's schedule
   const todayBlocks = blocksByDay[todayId] || [];
   const sortedToday = [...todayBlocks].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+  const todayTasks = tasksByDay[todayId] || [];
 
   return (
     <PageTransition>
@@ -188,7 +233,7 @@ export default function TimetableContent() {
         </div>
 
         {/* Today's Schedule Quick View */}
-        {sortedToday.length > 0 && (
+        {(sortedToday.length > 0 || todayTasks.length > 0) && (
           <Card padding="md" hover={false}>
             <div className="flex items-center gap-2 mb-3">
               <Badge variant="primary" size="sm" dot>Today</Badge>
@@ -214,89 +259,182 @@ export default function TimetableContent() {
                   </div>
                 </motion.div>
               ))}
+              {todayTasks.map((task) => (
+                <motion.div
+                  key={task.id}
+                  className="flex-shrink-0 px-4 py-2.5 rounded-xl border-2 border-teal/30 bg-teal/5 flex items-center gap-2 cursor-default"
+                  whileHover={{ y: -2 }}
+                >
+                  <HiClipboardCheck className="text-teal" size={14} />
+                  <div>
+                    <p className="text-xs font-heading font-bold">{task.title}</p>
+                    <p className="text-[10px] text-[var(--muted-foreground)]">{task.priority} priority</p>
+                  </div>
+                </motion.div>
+              ))}
             </div>
           </Card>
         )}
 
-        {/* Weekly Grid */}
-        <Card padding="none" hover={false} className="overflow-x-auto">
-          <div className="min-w-[800px]">
-            {/* Day headers */}
-            <div className="grid grid-cols-8 border-b-2 border-[var(--card-border)]">
-              <div className="p-3 text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">
-                Time
-              </div>
-              {DAYS.map((d) => (
-                <div
-                  key={d.id}
-                  className={`p-3 text-center text-xs font-heading font-bold ${
-                    d.id === todayId ? 'bg-primary/10 text-primary' : 'text-[var(--muted-foreground)]'
-                  }`}
-                >
-                  <span className="hidden md:inline">{d.full}</span>
-                  <span className="md:hidden">{d.label}</span>
-                  {d.id === todayId && (
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary mx-auto mt-1" />
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Time rows */}
-            {HOURS.map((hour) => (
-              <div key={hour} className="grid grid-cols-8 border-b border-[var(--card-border)]/50">
-                {/* Time label */}
-                <div className="p-2 text-[10px] font-mono font-bold text-[var(--muted-foreground)] border-r border-[var(--card-border)]/50">
-                  {hour.toString().padStart(2, '0')}:00
-                </div>
-
-                {/* Day cells */}
-                {DAYS.map((d) => {
-                  const cellBlocks = blocksByDay[d.id].filter((b) => {
-                    const start = timeToMinutes(b.startTime);
-                    const hStart = hour * 60;
-                    return start >= hStart && start < hStart + 60;
-                  });
-
-                  return (
+        {/* Weekly Grid + Task Sidebar */}
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <div className="flex gap-3">
+            {/* Main Grid */}
+            <Card padding="none" hover={false} className="overflow-x-auto flex-1">
+              <div className="min-w-[700px]">
+                {/* Day headers */}
+                <div className="grid grid-cols-8 border-b-2 border-[var(--card-border)]">
+                  <div className="p-3 text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">
+                    Time
+                  </div>
+                  {DAYS.map((d) => (
                     <div
                       key={d.id}
-                      className={`relative min-h-[60px] border-r border-[var(--card-border)]/30 cursor-pointer hover:bg-primary/5 transition-colors ${
-                        d.id === todayId ? 'bg-primary/[0.02]' : ''
+                      className={`p-3 text-center text-xs font-heading font-bold ${
+                        d.id === todayId ? 'bg-primary/10 text-primary' : 'text-[var(--muted-foreground)]'
                       }`}
-                      onClick={() => openCreate(d.id, hour)}
                     >
-                      {cellBlocks.map((block) => {
-                        const startMin = timeToMinutes(block.startTime);
-                        const endMin = timeToMinutes(block.endTime);
-                        const durationHours = (endMin - startMin) / 60;
-                        const offsetMin = startMin - hour * 60;
-
-                        return (
-                          <motion.div
-                            key={block.id}
-                            className="absolute left-0.5 right-0.5 rounded-lg px-1.5 py-1 text-white overflow-hidden cursor-pointer z-10"
-                            style={{
-                              backgroundColor: block.color,
-                              top: `${(offsetMin / 60) * 100}%`,
-                              height: `${Math.max(durationHours * 100, 50)}%`,
-                              minHeight: '28px',
-                            }}
-                            whileHover={{ scale: 1.02, zIndex: 20 }}
-                            onClick={(e) => { e.stopPropagation(); openEdit(block); }}
-                          >
-                            <p className="text-[9px] font-bold truncate leading-tight">{block.subject}</p>
-                            <p className="text-[8px] opacity-80 truncate">{block.startTime}</p>
-                          </motion.div>
-                        );
-                      })}
+                      <span className="hidden md:inline">{d.full}</span>
+                      <span className="md:hidden">{d.label}</span>
+                      {d.id === todayId && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-primary mx-auto mt-1" />
+                      )}
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
+
+                {/* Task row — droppable per day */}
+                <div className="grid grid-cols-8 border-b-2 border-dashed border-[var(--card-border)]/50">
+                  <div className="p-2 text-[10px] font-mono font-bold text-[var(--muted-foreground)] border-r border-[var(--card-border)]/50 flex items-center">
+                    <HiClipboardCheck size={12} className="mr-1" /> Tasks
+                  </div>
+                  {DAYS.map((d) => (
+                    <Droppable key={d.id} droppableId={`day-${d.id}`}>
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={`min-h-[40px] border-r border-[var(--card-border)]/30 p-0.5 flex flex-wrap gap-0.5 transition-colors ${
+                            snapshot.isDraggingOver ? 'bg-teal/10' : d.id === todayId ? 'bg-primary/[0.02]' : ''
+                          }`}
+                        >
+                          {(tasksByDay[d.id] || []).map((task) => (
+                            <div
+                              key={task.id}
+                              className="px-1.5 py-0.5 rounded-md text-[8px] font-bold bg-teal/10 text-teal border border-teal/20 truncate max-w-full"
+                              title={task.title}
+                            >
+                              {task.title}
+                            </div>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  ))}
+                </div>
+
+                {/* Time rows */}
+                {HOURS.map((hour) => (
+                  <div key={hour} className="grid grid-cols-8 border-b border-[var(--card-border)]/50">
+                    <div className="p-2 text-[10px] font-mono font-bold text-[var(--muted-foreground)] border-r border-[var(--card-border)]/50">
+                      {hour.toString().padStart(2, '0')}:00
+                    </div>
+                    {DAYS.map((d) => {
+                      const cellBlocks = blocksByDay[d.id].filter((b) => {
+                        const start = timeToMinutes(b.startTime);
+                        const hStart = hour * 60;
+                        return start >= hStart && start < hStart + 60;
+                      });
+                      return (
+                        <div
+                          key={d.id}
+                          className={`relative min-h-[60px] border-r border-[var(--card-border)]/30 cursor-pointer hover:bg-primary/5 transition-colors ${
+                            d.id === todayId ? 'bg-primary/[0.02]' : ''
+                          }`}
+                          onClick={() => openCreate(d.id, hour)}
+                        >
+                          {cellBlocks.map((block) => {
+                            const startMin = timeToMinutes(block.startTime);
+                            const endMin = timeToMinutes(block.endTime);
+                            const durationHours = (endMin - startMin) / 60;
+                            const offsetMin = startMin - hour * 60;
+                            return (
+                              <motion.div
+                                key={block.id}
+                                className="absolute left-0.5 right-0.5 rounded-lg px-1.5 py-1 text-white overflow-hidden cursor-pointer z-10"
+                                style={{
+                                  backgroundColor: block.color,
+                                  top: `${(offsetMin / 60) * 100}%`,
+                                  height: `${Math.max(durationHours * 100, 50)}%`,
+                                  minHeight: '28px',
+                                }}
+                                whileHover={{ scale: 1.02, zIndex: 20 }}
+                                onClick={(e) => { e.stopPropagation(); openEdit(block); }}
+                              >
+                                <p className="text-[9px] font-bold truncate leading-tight">{block.subject}</p>
+                                <p className="text-[8px] opacity-80 truncate">{block.startTime}</p>
+                              </motion.div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
-            ))}
+            </Card>
+
+            {/* Task Sidebar */}
+            {showTaskPanel && (
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="w-56 flex-shrink-0 space-y-2"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-xs font-heading font-bold flex items-center gap-1">
+                    <HiClipboardCheck size={14} /> Unscheduled
+                  </h3>
+                  <Badge variant="muted" size="sm">{unscheduledTasks.length}</Badge>
+                </div>
+                <Droppable droppableId="task-sidebar">
+                  {(provided) => (
+                    <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-1.5 min-h-[100px]">
+                      {unscheduledTasks.map((task, index) => (
+                        <Draggable key={task.id} draggableId={task.id} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              className={`px-3 py-2 rounded-xl border-2 text-xs cursor-grab transition-all ${
+                                snapshot.isDragging
+                                  ? 'border-teal bg-teal/10 shadow-lg'
+                                  : 'border-[var(--card-border)] bg-[var(--card-bg)] hover:border-primary/30'
+                              }`}
+                            >
+                              <p className="font-bold truncate">{task.title}</p>
+                              <p className="text-[9px] text-[var(--muted-foreground)] mt-0.5">{task.priority}</p>
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                      {unscheduledTasks.length === 0 && (
+                        <div className="text-center py-6">
+                          <p className="text-2xl mb-1">✅</p>
+                          <p className="text-[10px] text-[var(--muted-foreground)]">All tasks scheduled!</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </Droppable>
+                <p className="text-[9px] text-[var(--muted-foreground)] text-center">Drag tasks onto day columns ↑</p>
+              </motion.div>
+            )}
           </div>
-        </Card>
+        </DragDropContext>
 
         {/* Add/Edit Modal */}
         <Modal

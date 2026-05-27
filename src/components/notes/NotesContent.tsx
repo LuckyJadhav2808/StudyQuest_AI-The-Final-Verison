@@ -8,8 +8,9 @@ import {
   HiEye, HiCode, HiDocumentText, HiFolder,
   HiChevronLeft, HiClock, HiDownload, HiSparkles,
   HiLightningBolt, HiRefresh, HiInformationCircle, HiShare,
-  HiClipboardCopy, HiX, HiReply, HiCheck,
+  HiClipboardCopy, HiX, HiReply, HiCheck, HiAcademicCap,
 } from 'react-icons/hi';
+import QuizModal from '@/components/notes/QuizModal';
 import { marked } from 'marked';
 import 'react-quill-new/dist/quill.snow.css';
 
@@ -108,6 +109,7 @@ export default function NotesContent() {
   const [showDiagram, setShowDiagram] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showShareGroup, setShowShareGroup] = useState(false);
+  const [showQuiz, setShowQuiz] = useState(false);
 
   const { groups } = useGroups();
 
@@ -417,6 +419,7 @@ export default function NotesContent() {
                 <Button variant="teal" size="sm" icon={<HiDownload size={14} />} onClick={() => setShowPdfModal(true)}>Export PDF</Button>
                 <Button variant="primary" size="sm" icon={<HiSparkles size={14} />} onClick={aiSummarize} loading={aiLoading}>AI Summarize</Button>
                 <Button variant="amber" size="sm" icon={<HiLightningBolt size={14} />} onClick={aiFlashcards} loading={aiLoading}>AI Flashcards</Button>
+                <Button variant="ghost" size="sm" icon={<HiAcademicCap size={14} />} onClick={() => setShowQuiz(true)}>Quiz Me</Button>
                 <Button variant="coral" size="sm" icon={<HiCode size={14} />} onClick={() => setShowDiagram(true)}>Diagram</Button>
                 {groups.length > 0 && <Button variant="ghost" size="sm" icon={<HiShare size={14} />} onClick={() => setShowShareGroup(true)}>Share to Group</Button>}
               </div>
@@ -628,6 +631,16 @@ export default function NotesContent() {
 
         {/* Diagram Modal */}
         <DiagramModal isOpen={showDiagram} onClose={() => setShowDiagram(false)} onInsert={handleInsertDiagram} />
+
+        {/* Quiz Modal */}
+        {selectedNote && (
+          <QuizModal
+            isOpen={showQuiz}
+            onClose={() => setShowQuiz(false)}
+            noteTitle={selectedNote.title}
+            noteContent={selectedNote.content}
+          />
+        )}
 
         {/* Markdown / README Import Modal */}
         <Modal isOpen={showMarkdownImport} onClose={() => { setShowMarkdownImport(false); setMarkdownInput(''); }} title="Import Markdown / README">

@@ -7,6 +7,9 @@ import {
   HiPlus, HiX, HiPencilAlt,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useAuthContext } from '@/context/AuthContext';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
@@ -171,8 +174,48 @@ function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
 }
 
 export default function WhiteboardContent() {
+  const { user } = useAuthContext();
   const [boards, setBoards] = useState<Board[]>(() => [createBoard('Board 1')]);
   const [activeBoardIdx, setActiveBoardIdx] = useState(0);
+  const [loaded, setLoaded] = useState(false);
+  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Load boards from Firestore on mount
+  useEffect(() => {
+    if (!user?.uid) return;
+    const wbRef = doc(db, 'users', user.uid, 'data', 'whiteboard');
+    const unsub = onSnapshot(wbRef, (snap) => {
+      if (snap.exists() && !loaded) {
+        const data = snap.data();
+        if (data.boards && Array.isArray(data.boards) && data.boards.length > 0) {
+          setBoards(data.boards);
+          setActiveBoardIdx(data.activeBoardIdx || 0);
+        }
+      }
+      setLoaded(true);
+    });
+    return () => unsub();
+  }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-save boards to Firestore whenever boards change (debounced)
+  useEffect(() => {
+    if (!user?.uid || !loaded) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      try {
+        const wbRef = doc(db, 'users', user.uid, 'data', 'whiteboard');
+        await setDoc(wbRef, {
+          boards: boards.map(b => ({
+            ...b,
+            strokes: b.strokes.slice(-500),
+          })),
+          activeBoardIdx,
+          updatedAt: Date.now(),
+        });
+      } catch { /* silently fail */ }
+    }, 2000);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, [boards, activeBoardIdx, user?.uid, loaded]);
   const [tool, setTool] = useState<Tool>('pen');
   const [color, setColor] = useState('#1a1a1a');
   const [strokeWidth, setStrokeWidth] = useState(4);

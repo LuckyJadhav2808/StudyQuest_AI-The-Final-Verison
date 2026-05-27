@@ -115,8 +115,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider>
-      <AuthProvider>
+    <AuthProvider>
+      <ThemeProvider>
         <SidebarProvider>
           <AppShell>{children}</AppShell>
         </SidebarProvider>
@@ -138,7 +138,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
             error: { iconTheme: { primary: '#FF6B6B', secondary: '#fff' } },
           }}
         />
-      </AuthProvider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }

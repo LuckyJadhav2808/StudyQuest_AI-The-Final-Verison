@@ -41,6 +41,10 @@ export const getCodeProjectsCollection = (uid: string) => collection(db, 'users'
 export const getCodeFilesCollection = (uid: string, projectId: string) => collection(db, 'users', uid, 'codeProjects', projectId, 'files');
 export const getExamsCollection = (uid: string) => collection(db, 'users', uid, 'exams');
 export const getStickiesCollection = (uid: string) => collection(db, 'users', uid, 'stickies');
+export const getChatMessagesCollection = (uid: string) => collection(db, 'users', uid, 'chatMessages');
+export const getWhiteboardsCollection = (uid: string) => collection(db, 'users', uid, 'whiteboards');
+export const getUserPrefsRef = (uid: string) => doc(db, 'users', uid, 'data', 'preferences');
+export const getSqlDataRef = (uid: string) => doc(db, 'users', uid, 'data', 'sqlPlayground');
 
 // ----- Global Collections -----
 export const getFriendRequestsCollection = () => collection(db, 'friendRequests');

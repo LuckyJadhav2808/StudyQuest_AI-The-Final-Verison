@@ -4,6 +4,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiPlus, HiTrash, HiDownload, HiUpload, HiPlay, HiDatabase, HiPencil } from 'react-icons/hi';
 import toast from 'react-hot-toast';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { db as firebaseDb } from '@/lib/firebase';
+import { useAuthContext } from '@/context/AuthContext';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -20,12 +23,17 @@ const SQL_ACTIVE_KEY = 'studyquest-sql-active';
 const MAX_IMPORT_SIZE = 50 * 1024 * 1024; // 50 MB
 const QUERY_TIMEOUT = 10_000; // 10 seconds
 
-// Helper: save databases to localStorage
-function saveDatabasesToStorage(dbs: DBEntry[], active: string) {
+// Helper: save databases to localStorage AND Firestore
+function saveDatabasesToStorage(dbs: DBEntry[], active: string, uid?: string) {
   try {
     localStorage.setItem(SQL_STORAGE_KEY, JSON.stringify(dbs));
     localStorage.setItem(SQL_ACTIVE_KEY, active);
-  } catch { /* localStorage full or unavailable — silently ignore */ }
+  } catch { /* localStorage full or unavailable */ }
+  // Also save to Firestore
+  if (uid) {
+    const sqlRef = doc(firebaseDb, 'users', uid, 'data', 'sqlPlayground');
+    setDoc(sqlRef, { databases: dbs, activeDb: active, updatedAt: Date.now() }, { merge: true }).catch(() => {});
+  }
 }
 
 // Helper: load databases from localStorage
@@ -53,10 +61,12 @@ interface SqlJsDatabase {
 }
 
 export default function SqlPage() {
+  const { user } = useAuthContext();
   // Restore from localStorage on first render
   const saved = useRef(loadDatabasesFromStorage());
   const [databases, setDatabases] = useState<DBEntry[]>(saved.current?.databases || [{ name: 'StudentDB', data: null }]);
   const [activeDb, setActiveDb] = useState(saved.current?.active || 'StudentDB');
+  const [firebaseLoaded, setFirebaseLoaded] = useState(false);
   const [db, setDb] = useState<SqlJsDatabase | null>(null);
   const [query, setQuery] = useState('-- Welcome to SQL Lab!\n-- Try: CREATE TABLE students (id INTEGER PRIMARY KEY, name TEXT, grade REAL);\n-- Then: INSERT INTO students VALUES (1, \'Alice\', 3.9);\n-- Then: SELECT * FROM students;\n\nSELECT "Hello, SQL Lab!" AS message;');
   const [results, setResults] = useState<QueryResult[]>([]);
@@ -68,14 +78,34 @@ export default function SqlPage() {
   const [sqlReady, setSqlReady] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Auto-persist to localStorage whenever databases or activeDb change
+  // Auto-persist to localStorage + Firestore whenever databases or activeDb change
   const persistDb = useCallback(() => {
     if (db) {
       const exported = db.export();
       const updatedDbs = databases.map((d) => d.name === activeDb ? { ...d, data: Array.from(exported) } : d);
-      saveDatabasesToStorage(updatedDbs, activeDb);
+      saveDatabasesToStorage(updatedDbs, activeDb, user?.uid);
     }
-  }, [db, databases, activeDb]);
+  }, [db, databases, activeDb, user?.uid]);
+
+  // Load from Firestore on mount (takes priority over localStorage)
+  useEffect(() => {
+    if (!user?.uid || firebaseLoaded) return;
+    const loadFromFirebase = async () => {
+      try {
+        const sqlRef = doc(firebaseDb, 'users', user.uid, 'data', 'sqlPlayground');
+        const snap = await getDoc(sqlRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.databases && Array.isArray(data.databases) && data.databases.length > 0) {
+            setDatabases(data.databases);
+            if (data.activeDb) setActiveDb(data.activeDb);
+          }
+        }
+      } catch { /* fall through to localStorage data */ }
+      setFirebaseLoaded(true);
+    };
+    loadFromFirebase();
+  }, [user?.uid, firebaseLoaded]);
 
   // Load sql.js
   useEffect(() => {
