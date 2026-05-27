@@ -1,0 +1,660 @@
+/* ============================================================
+   StudyQuest AI — Lofi Study Room CSS
+   Animated isometric-style study room illustration
+   ============================================================ */
+
+/* ── Room Container ── */
+.lofi-room {
+  position: relative;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  aspect-ratio: 16 / 10;
+  border-radius: 24px;
+  overflow: hidden;
+  background: var(--room-wall, #2a1f3d);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.3),
+    inset 0 0 80px rgba(0, 0, 0, 0.15);
+  user-select: none;
+}
+
+/* ── Wall ── */
+.lofi-wall {
+  position: absolute;
+  inset: 0;
+  background: var(--room-wall);
+  z-index: 1;
+}
+
+/* ── Floor ── */
+.lofi-floor {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 38%;
+  z-index: 2;
+  background: var(--room-floor, #1a1428);
+  border-top: 3px solid var(--room-baseboard, #3d2f5c);
+}
+
+.lofi-floor::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 80px,
+    rgba(255, 255, 255, 0.02) 80px,
+    rgba(255, 255, 255, 0.02) 82px
+  );
+}
+
+/* ── Window ── */
+.lofi-window {
+  position: absolute;
+  top: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 35%;
+  height: 48%;
+  border-radius: 6px;
+  overflow: hidden;
+  z-index: 3;
+  border: 6px solid var(--room-window-frame, #4a3a6a);
+  box-shadow:
+    0 0 30px rgba(124, 58, 237, 0.1),
+    inset 0 0 20px rgba(0, 0, 0, 0.2);
+}
+
+.lofi-window-divider-h {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 4px;
+  background: var(--room-window-frame, #4a3a6a);
+  z-index: 2;
+}
+
+.lofi-window-divider-v {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 4px;
+  background: var(--room-window-frame, #4a3a6a);
+  z-index: 2;
+}
+
+/* Window sky gradients */
+.lofi-sky {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  transition: background 2s ease;
+}
+
+.lofi-sky.morning {
+  background: linear-gradient(180deg, #87CEEB 0%, #FFD89B 50%, #FF9A76 100%);
+}
+
+.lofi-sky.afternoon {
+  background: linear-gradient(180deg, #4FC3F7 0%, #81D4FA 40%, #B3E5FC 100%);
+}
+
+.lofi-sky.evening {
+  background: linear-gradient(180deg, #1a0533 0%, #6a2c70 30%, #f38181 60%, #fce38a 100%);
+}
+
+.lofi-sky.night {
+  background: linear-gradient(180deg, #0B0D2E 0%, #1a1a4e 50%, #2d1b69 100%);
+}
+
+/* Clouds */
+.lofi-cloud {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 50px;
+  z-index: 2;
+  animation: cloudDrift 25s linear infinite;
+}
+
+.lofi-cloud:nth-child(1) {
+  width: 60px;
+  height: 18px;
+  top: 20%;
+  left: -60px;
+  animation-duration: 30s;
+}
+
+.lofi-cloud:nth-child(2) {
+  width: 40px;
+  height: 12px;
+  top: 40%;
+  left: -40px;
+  animation-duration: 22s;
+  animation-delay: 8s;
+}
+
+@keyframes cloudDrift {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(100% + 320px)); }
+}
+
+/* Stars (night only) */
+.lofi-stars {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.lofi-star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: #fff;
+  border-radius: 50%;
+  animation: twinkle 2s ease-in-out infinite alternate;
+}
+
+@keyframes twinkle {
+  0% { opacity: 0.2; transform: scale(0.8); }
+  100% { opacity: 1; transform: scale(1.2); }
+}
+
+/* Moon */
+.lofi-moon {
+  position: absolute;
+  top: 15%;
+  right: 15%;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffeaa7;
+  box-shadow: 0 0 20px rgba(255, 234, 167, 0.6);
+  z-index: 2;
+}
+
+/* ── Light Rays from Window ── */
+.lofi-light-rays {
+  position: absolute;
+  top: 8%;
+  left: 32%;
+  width: 36%;
+  height: 90%;
+  z-index: 4;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 200, 0.06) 0%,
+    rgba(255, 255, 200, 0.02) 60%,
+    transparent 100%
+  );
+  clip-path: polygon(15% 0%, 85% 0%, 110% 100%, -10% 100%);
+  pointer-events: none;
+  animation: lightPulse 6s ease-in-out infinite alternate;
+}
+
+@keyframes lightPulse {
+  0% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+/* ── Desk ── */
+.lofi-desk {
+  position: absolute;
+  bottom: 22%;
+  left: 10%;
+  width: 55%;
+  height: 8%;
+  z-index: 10;
+  background: linear-gradient(180deg, #6d4c41 0%, #5d4037 100%);
+  border-radius: 4px 4px 0 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.lofi-desk-legs {
+  position: absolute;
+  bottom: 14%;
+  left: 10%;
+  width: 55%;
+  height: 8%;
+  z-index: 9;
+}
+
+.lofi-desk-legs::before,
+.lofi-desk-legs::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 4px;
+  height: 100%;
+  background: #5d4037;
+  border-radius: 0 0 2px 2px;
+}
+
+.lofi-desk-legs::before { left: 5%; }
+.lofi-desk-legs::after { right: 5%; }
+
+/* ── Chair ── */
+.lofi-chair {
+  position: absolute;
+  bottom: 14%;
+  left: 28%;
+  z-index: 8;
+  width: 14%;
+  height: 22%;
+}
+
+.lofi-chair-seat {
+  position: absolute;
+  bottom: 35%;
+  left: 0;
+  right: 0;
+  height: 20%;
+  background: linear-gradient(180deg, #7C3AED 0%, #6D28D9 100%);
+  border-radius: 6px 6px 2px 2px;
+}
+
+.lofi-chair-back {
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 55%;
+  background: linear-gradient(180deg, #7C3AED 0%, #6D28D9 100%);
+  border-radius: 8px 8px 0 0;
+}
+
+.lofi-chair-legs {
+  position: absolute;
+  bottom: 0;
+  left: 15%;
+  right: 15%;
+  height: 35%;
+  border-left: 3px solid #4a4a4a;
+  border-right: 3px solid #4a4a4a;
+}
+
+/* ── Bookshelf ── */
+.lofi-bookshelf {
+  position: absolute;
+  top: 12%;
+  right: 8%;
+  width: 18%;
+  height: 45%;
+  z-index: 5;
+  background: linear-gradient(180deg, #5d4037 0%, #4e342e 100%);
+  border-radius: 4px;
+  box-shadow: 2px 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.lofi-shelf {
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  height: 3px;
+  background: #6d4c41;
+}
+
+.lofi-shelf:nth-child(1) { top: 30%; }
+.lofi-shelf:nth-child(2) { top: 60%; }
+
+.lofi-books {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+}
+
+.lofi-book {
+  width: 8px;
+  border-radius: 1px 2px 0 0;
+}
+
+/* ── Monitor / Computer ── */
+.lofi-monitor {
+  position: absolute;
+  bottom: 30%;
+  left: 22%;
+  width: 20%;
+  height: 16%;
+  z-index: 11;
+}
+
+.lofi-monitor-screen {
+  position: absolute;
+  inset: 0;
+  bottom: 15%;
+  background: #1a1a2e;
+  border-radius: 4px;
+  border: 3px solid #2d2d44;
+  overflow: hidden;
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.15);
+}
+
+.lofi-monitor-glow {
+  position: absolute;
+  inset: 3px;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(16, 185, 129, 0.15));
+  animation: screenGlow 4s ease-in-out infinite alternate;
+}
+
+@keyframes screenGlow {
+  0% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+.lofi-monitor-stand {
+  position: absolute;
+  bottom: 0;
+  left: 40%;
+  right: 40%;
+  height: 15%;
+  background: #2d2d44;
+  border-radius: 0 0 4px 4px;
+}
+
+/* ── Desk Lamp ── */
+.lofi-lamp {
+  position: absolute;
+  bottom: 30%;
+  left: 50%;
+  width: 10%;
+  height: 18%;
+  z-index: 12;
+}
+
+.lofi-lamp-shade {
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 30%;
+  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+  border-radius: 50% 50% 4px 4px;
+  box-shadow: 0 8px 25px rgba(245, 158, 11, 0.3);
+}
+
+.lofi-lamp-light {
+  position: absolute;
+  top: 28%;
+  left: -30%;
+  right: -30%;
+  height: 100%;
+  background: radial-gradient(ellipse at top, rgba(245, 158, 11, 0.12), transparent 70%);
+  pointer-events: none;
+  animation: lampFlicker 5s ease-in-out infinite alternate;
+}
+
+@keyframes lampFlicker {
+  0% { opacity: 0.7; }
+  50% { opacity: 1; }
+  100% { opacity: 0.8; }
+}
+
+.lofi-lamp-arm {
+  position: absolute;
+  bottom: 0;
+  left: 45%;
+  width: 3px;
+  height: 70%;
+  background: #6b7280;
+}
+
+.lofi-lamp-base {
+  position: absolute;
+  bottom: 0;
+  left: 20%;
+  right: 20%;
+  height: 8%;
+  background: #6b7280;
+  border-radius: 2px;
+}
+
+/* ── Plant ── */
+.lofi-plant {
+  position: absolute;
+  bottom: 38%;
+  right: 10%;
+  z-index: 11;
+  font-size: clamp(24px, 3.5vw, 40px);
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+  animation: plantSway 4s ease-in-out infinite alternate;
+}
+
+@keyframes plantSway {
+  0% { transform: rotate(-2deg); }
+  100% { transform: rotate(2deg); }
+}
+
+/* ── Poster ── */
+.lofi-poster {
+  position: absolute;
+  z-index: 4;
+  border-radius: 4px;
+  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(14px, 2vw, 22px);
+}
+
+.lofi-poster-1 {
+  top: 10%;
+  left: 8%;
+  width: 12%;
+  height: 18%;
+  background: linear-gradient(135deg, #7C3AED, #EC4899);
+}
+
+.lofi-poster-2 {
+  top: 15%;
+  left: 23%;
+  width: 10%;
+  height: 14%;
+  background: linear-gradient(135deg, #10B981, #14B8A6);
+}
+
+/* ── Rug ── */
+.lofi-rug {
+  position: absolute;
+  bottom: 4%;
+  left: 15%;
+  width: 45%;
+  height: 12%;
+  z-index: 3;
+  background: linear-gradient(135deg, #7C3AED33, #EC489933);
+  border-radius: 50%;
+  border: 2px solid rgba(124, 58, 237, 0.15);
+}
+
+/* ── Pet ── */
+.lofi-pet {
+  position: absolute;
+  z-index: 15;
+  font-size: clamp(28px, 4vw, 48px);
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+  cursor: default;
+}
+
+.lofi-pet-desk {
+  bottom: 30%;
+  left: 14%;
+}
+
+.lofi-pet-floor {
+  bottom: 16%;
+  right: 18%;
+}
+
+/* Pet thought bubble */
+.lofi-pet-mood {
+  position: absolute;
+  top: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 14px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.lofi-pet-mood::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid rgba(255, 255, 255, 0.9);
+}
+
+/* ── Floating Dust Particles ── */
+.lofi-particles {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.lofi-particle {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  animation: particleFloat linear infinite;
+}
+
+@keyframes particleFloat {
+  0% {
+    transform: translateY(100%) translateX(0);
+    opacity: 0;
+  }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% {
+    transform: translateY(-100%) translateX(30px);
+    opacity: 0;
+  }
+}
+
+/* ── Stat Bubbles ── */
+.lofi-stat-bubble {
+  position: absolute;
+  z-index: 25;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: default;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.lofi-stat-bubble:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.lofi-stat-icon {
+  font-size: 18px;
+}
+
+.lofi-stat-value {
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  font-family: var(--font-heading);
+}
+
+.lofi-stat-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Stat positions */
+.lofi-stat-xp { top: 6%; left: 4%; }
+.lofi-stat-streak { top: 6%; right: 4%; }
+.lofi-stat-tasks { bottom: 6%; left: 4%; }
+.lofi-stat-coins { bottom: 6%; right: 4%; }
+
+/* ── Room Theme Variables ── */
+.lofi-room {
+  --room-wall: #2a1f3d;
+  --room-floor: #1a1428;
+  --room-baseboard: #3d2f5c;
+  --room-window-frame: #4a3a6a;
+}
+
+/* Light theme overrides */
+:root:not(.dark) .lofi-room {
+  --room-wall: #e8dff0;
+  --room-floor: #d4c8e0;
+  --room-baseboard: #c4b5d6;
+  --room-window-frame: #b8a8ce;
+}
+
+:root:not(.dark) .lofi-stat-bubble {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+:root:not(.dark) .lofi-stat-value {
+  color: #1a1a2e;
+}
+
+:root:not(.dark) .lofi-stat-label {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .lofi-room {
+    aspect-ratio: 4 / 3;
+    border-radius: 16px;
+  }
+
+  .lofi-stat-bubble {
+    padding: 5px 10px;
+    border-radius: 12px;
+    gap: 5px;
+  }
+
+  .lofi-stat-icon { font-size: 14px; }
+  .lofi-stat-value { font-size: 11px; }
+  .lofi-stat-label { font-size: 7px; }
+
+  .lofi-pet-mood {
+    font-size: 11px;
+    top: -22px;
+  }
+}
+
+@media (max-width: 480px) {
+  .lofi-room {
+    aspect-ratio: 3 / 3;
+  }
+
+  .lofi-stat-bubble {
+    padding: 4px 8px;
+  }
+}

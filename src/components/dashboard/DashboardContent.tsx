@@ -10,6 +10,8 @@ import {
 } from 'react-icons/hi';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { useAuthContext } from '@/context/AuthContext';
 import { useGamification } from '@/hooks/useGamification';
 import { useTasks } from '@/hooks/useTasks';
@@ -26,6 +28,7 @@ import PageTransition from '@/components/layout/PageTransition';
 import StudyHeatmap from '@/components/dashboard/StudyHeatmap';
 import TypewriterQuote from '@/components/dashboard/TypewriterQuote';
 import DraggableDashboard from '@/components/dashboard/DraggableDashboard';
+import LofiRoom from '@/components/dashboard/LofiRoom';
 import { useNotes } from '@/hooks/useNotes';
 import { useExams } from '@/hooks/useExams';
 import { playSuccess, playXP } from '@/lib/sounds';
@@ -40,13 +43,26 @@ function getTimeOfDay() {
 }
 
 export default function DashboardContent() {
-  const { profile } = useAuthContext();
+  const { user, profile } = useAuthContext();
   const { gamification, checkStreak, awardXP, xpHistory } = useGamification();
   const { tasks } = useTasks();
   const { friends, incomingRequests, acceptRequest, rejectRequest } = useFriends();
   const { quests, addQuest, toggleQuest, deleteQuest, todayCompleted, todayTotal } = useDailyQuests();
   const { notes } = useNotes();
   const { upcomingExams } = useExams();
+
+  // Dashboard mode preference (from Firestore)
+  const [dashboardMode, setDashboardMode] = useState<'classic' | 'lofi'>('classic');
+  useEffect(() => {
+    if (!user?.uid) return;
+    const prefsRef = doc(db, 'users', user.uid, 'data', 'preferences');
+    const unsub = onSnapshot(prefsRef, (snap) => {
+      if (snap.exists() && snap.data().dashboardMode) {
+        setDashboardMode(snap.data().dashboardMode as 'classic' | 'lofi');
+      }
+    });
+    return () => unsub();
+  }, [user?.uid]);
 
   const timeOfDay = getTimeOfDay();
 
@@ -424,7 +440,67 @@ export default function DashboardContent() {
   return (
     <PageTransition>
       <div className="max-w-6xl mx-auto">
-        <DraggableDashboard widgetMap={widgetMap} />
+        {dashboardMode === 'lofi' ? (
+          <div className="space-y-6">
+            {/* Lofi Study Room */}
+            <LofiRoom />
+
+            {/* Compact widgets below the room */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* Daily Quests */}
+              <Card className="lg:col-span-2" padding="lg">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center"><HiSparkles className="text-primary" size={18} /></div>
+                  <h3 className="text-base font-heading font-bold">Daily Quests</h3>
+                  <Badge variant="primary" size="sm" dot>Today</Badge>
+                  {todayTotal > 0 && (<Badge variant={todayCompleted >= todayTotal ? 'teal' : 'amber'} size="sm">{todayCompleted}/{todayTotal}</Badge>)}
+                </div>
+                <div className="flex gap-2 mb-3">
+                  <input type="text" placeholder="Add a quest for today..." value={newQuest} onChange={(e) => setNewQuest(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddQuest()} className="flex-1 px-3 py-2 rounded-xl border-2 border-[var(--card-border)] bg-transparent text-sm font-medium focus:border-primary focus:outline-none transition-colors" />
+                  <Button variant="primary" size="sm" icon={<HiPlus />} onClick={handleAddQuest}>Add</Button>
+                </div>
+                {quests.length === 0 ? (
+                  <p className="text-xs text-[var(--muted-foreground)] text-center py-4">No quests yet. Add one above! ⚡</p>
+                ) : (
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {quests.map((quest) => (
+                      <motion.div key={quest.id} className="flex items-center gap-2 px-3 py-2 rounded-xl border-2 border-[var(--card-border)]/50 hover:border-primary/20 transition-colors" layout>
+                        <motion.button onClick={() => handleToggleQuest(quest.id, quest.completed)} className={`w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-all ${quest.completed ? 'bg-teal/15 border-teal/30' : 'border-[var(--card-border)]'}`} whileTap={{ scale: 0.8 }}>
+                          {quest.completed && <HiCheck className="text-teal" size={14} />}
+                        </motion.button>
+                        <span className={`flex-1 text-sm font-semibold ${quest.completed ? 'line-through opacity-50' : ''}`}>{quest.title}</span>
+                        <button onClick={() => handleDeleteQuest(quest.id)} className="p-1 rounded-lg hover:bg-coral/10 text-[var(--muted-foreground)] hover:text-coral transition-colors"><HiTrash size={14} /></button>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+
+              {/* Quick Actions */}
+              <div className="space-y-3">
+                <h2 className="text-xs uppercase tracking-[0.15em] font-bold text-[var(--muted-foreground)]">Quick Actions</h2>
+                <Link href="/tasks"><Button variant="primary" size="sm" icon={<HiPlus />} className="w-full justify-start">New Quest</Button></Link>
+                <Link href="/timer"><Button variant="coral" size="sm" icon={<HiPlay />} className="w-full justify-start">Focus Session</Button></Link>
+                <Link href="/notes"><Button variant="teal" size="sm" icon={<HiPlus />} className="w-full justify-start">New Scroll</Button></Link>
+                <Link href="/habits"><Button variant="amber" size="sm" icon={<HiLightningBolt />} className="w-full justify-start">Daily Quests</Button></Link>
+              </div>
+            </div>
+
+            {/* Study Heatmap & Motivation */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card padding="md" hover={false}>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-heading font-bold flex items-center gap-2"><HiCalendar className="text-primary" /> Study Activity</h3>
+                  <Badge variant="primary" size="sm">Heatmap</Badge>
+                </div>
+                <StudyHeatmap xpByDate={xpHistory} />
+              </Card>
+              <TypewriterQuote />
+            </div>
+          </div>
+        ) : (
+          <DraggableDashboard widgetMap={widgetMap} />
+        )}
       </div>
     </PageTransition>
   );

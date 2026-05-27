@@ -4,13 +4,15 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   HiUser, HiMail, HiKey, HiColorSwatch, HiSun, HiMoon,
-  HiClipboardCopy, HiCheck, HiSave, HiShieldCheck, HiLockClosed,
+  HiClipboardCopy, HiCheck, HiSave, HiShieldCheck, HiLockClosed, HiViewGrid, HiHome,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import { useAuthContext } from '@/context/AuthContext';
 import { useTheme, THEMES, Theme } from '@/context/ThemeContext';
 import { useGamification } from '@/hooks/useGamification';
 import { getProfileRef, setDocument } from '@/lib/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { getAvatarUrl, DICEBEAR_STYLES } from '@/lib/constants';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -34,6 +36,30 @@ export default function SettingsContent() {
 
   const userLevel = gamification?.level || 0;
   const tier = getAvatarTier(userLevel);
+
+  // Dashboard mode preference
+  const [dashboardMode, setDashboardModeState] = useState<'classic' | 'lofi'>('classic');
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const loadPrefs = async () => {
+      const prefsRef = doc(db, 'users', user.uid, 'data', 'preferences');
+      const snap = await getDoc(prefsRef);
+      if (snap.exists() && snap.data().dashboardMode) {
+        setDashboardModeState(snap.data().dashboardMode as 'classic' | 'lofi');
+      }
+    };
+    loadPrefs();
+  }, [user?.uid]);
+
+  const handleDashboardMode = async (mode: 'classic' | 'lofi') => {
+    setDashboardModeState(mode);
+    if (user?.uid) {
+      const prefsRef = doc(db, 'users', user.uid, 'data', 'preferences');
+      await setDoc(prefsRef, { dashboardMode: mode, updatedAt: Date.now() }, { merge: true });
+      toast.success(mode === 'lofi' ? '🏠 Lofi Room activated!' : '📊 Classic dashboard activated!');
+    }
+  };
 
   useEffect(() => {
     if (profile) {
@@ -291,6 +317,94 @@ export default function SettingsContent() {
                 </motion.button>
               );
             })}
+          </div>
+        </Card>
+
+        {/* Dashboard Style */}
+        <Card padding="lg" hover={false}>
+          <h2 className="text-sm font-heading font-bold mb-2 flex items-center gap-2">
+            <HiHome className="text-primary" /> Dashboard Style
+          </h2>
+          <p className="text-xs text-[var(--muted-foreground)] mb-4">
+            Choose how your dashboard looks when you open StudyQuest.
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            {/* Classic */}
+            <motion.button
+              onClick={() => handleDashboardMode('classic')}
+              className={`relative p-4 rounded-2xl border-2 text-left transition-all ${
+                dashboardMode === 'classic'
+                  ? 'border-primary shadow-[0_0_16px_var(--color-primary-glow)]'
+                  : 'border-[var(--card-border)] hover:border-primary/30'
+              }`}
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              {/* Mini preview — grid of colored blocks */}
+              <div className="mb-3 p-3 rounded-xl bg-[var(--background)] border border-[var(--card-border)]">
+                <div className="space-y-1.5">
+                  <div className="h-3 rounded bg-primary/20 w-full" />
+                  <div className="grid grid-cols-3 gap-1">
+                    <div className="h-6 rounded bg-primary/15" />
+                    <div className="h-6 rounded bg-teal/15" />
+                    <div className="h-6 rounded bg-amber/15" />
+                  </div>
+                  <div className="h-4 rounded bg-[var(--card-border)]/40 w-full" />
+                  <div className="grid grid-cols-2 gap-1">
+                    <div className="h-5 rounded bg-primary/10" />
+                    <div className="h-5 rounded bg-coral/10" />
+                  </div>
+                </div>
+              </div>
+              <p className="text-sm font-heading font-bold flex items-center gap-1.5">
+                <HiViewGrid size={14} className="text-primary" /> Classic
+              </p>
+              <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5">
+                Widget grid with drag & drop
+              </p>
+              {dashboardMode === 'classic' && (
+                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                  <HiCheck size={12} className="text-white" />
+                </div>
+              )}
+            </motion.button>
+
+            {/* Lofi Room */}
+            <motion.button
+              onClick={() => handleDashboardMode('lofi')}
+              className={`relative p-4 rounded-2xl border-2 text-left transition-all ${
+                dashboardMode === 'lofi'
+                  ? 'border-primary shadow-[0_0_16px_var(--color-primary-glow)]'
+                  : 'border-[var(--card-border)] hover:border-primary/30'
+              }`}
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              {/* Mini preview — illustrated room */}
+              <div className="mb-3 p-3 rounded-xl border border-[var(--card-border)] overflow-hidden" style={{ background: 'linear-gradient(180deg, #2a1f3d 60%, #1a1428 100%)' }}>
+                <div className="relative h-14">
+                  {/* Mini window */}
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-5 rounded-sm border border-[#4a3a6a]" style={{ background: 'linear-gradient(180deg, #4FC3F7, #81D4FA)' }} />
+                  {/* Mini desk */}
+                  <div className="absolute bottom-1 left-1 w-12 h-1.5 rounded-sm bg-[#6d4c41]" />
+                  {/* Mini pet */}
+                  <div className="absolute bottom-2.5 left-2 text-[8px]">🦉</div>
+                  {/* Mini stat bubble */}
+                  <div className="absolute top-0.5 left-0.5 px-1 py-0.5 rounded bg-black/40 text-[5px] text-white font-bold">⭐ Lv.5</div>
+                </div>
+              </div>
+              <p className="text-sm font-heading font-bold flex items-center gap-1.5">
+                <span>🏠</span> Lofi Room
+              </p>
+              <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5">
+                Animated study room with your pet
+              </p>
+              {dashboardMode === 'lofi' && (
+                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                  <HiCheck size={12} className="text-white" />
+                </div>
+              )}
+            </motion.button>
           </div>
         </Card>
 
