@@ -443,7 +443,9 @@ export default function DashboardContent() {
         {dashboardMode === 'lofi' ? (
           <div className="space-y-6">
             {/* Lofi Study Room */}
-            <LofiRoom />
+            <div className="pb-8">
+              <LofiRoom />
+            </div>
 
             {/* Compact widgets below the room */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
