@@ -16,6 +16,7 @@ import ParticleBackground from '@/components/ui/ParticleBackground';
 import StickyNotesOverlay from '@/components/ui/StickyNotesOverlay';
 import LevelUpOverlay from '@/components/gamification/LevelUpOverlay';
 import { usePresence } from '@/hooks/usePresence';
+import { useCustomization } from '@/hooks/useCustomization';
 
 /**
  * Animated SVG background grid — creates a subtle, immersive "command center" aesthetic.
@@ -74,6 +75,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
   // Start broadcasting online presence (heartbeat)
   usePresence();
+
+  // Apply shop customizations (custom cursors, borders, sounds)
+  useCustomization();
 
   if (isLoginPage) {
     return <>{children}</>;

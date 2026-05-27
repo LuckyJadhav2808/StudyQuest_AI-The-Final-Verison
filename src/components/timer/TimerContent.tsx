@@ -12,6 +12,7 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import PageTransition from '@/components/layout/PageTransition';
 import PomodoroPet from '@/components/timer/PomodoroPet';
+import ZenMode from '@/components/timer/ZenMode';
 import { POMODORO_DEFAULTS, XP_AWARDS } from '@/lib/constants';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -186,63 +187,22 @@ export default function TimerContent() {
 
   const colors = PHASE_COLORS[phase];
 
-  // Focus mode renders a completely immersive full-screen view
+  // Focus mode renders the immersive Zen Mode
   if (focusMode) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[var(--background)]" style={{ background: `radial-gradient(ellipse at center, ${phase === 'focus' ? 'rgba(124,58,237,0.08)' : phase === 'short-break' ? 'rgba(16,185,129,0.08)' : 'rgba(76,201,240,0.08)'} 0%, var(--background) 70%)` }}>
-        {/* Exit Focus Mode */}
-        <motion.button
-          onClick={() => setFocusMode(false)}
-          className="absolute top-6 right-6 flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-[var(--card-border)] hover:border-coral/40 hover:bg-coral/10 text-[var(--muted-foreground)] hover:text-coral transition-all text-xs font-bold uppercase tracking-wider"
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          title="Press ESC to exit"
-        >
-          <HiX size={14} />
-          Exit Focus <kbd className="ml-1 px-1.5 py-0.5 text-[9px] rounded bg-[var(--card-border)] border border-[var(--card-border)]">ESC</kbd>
-        </motion.button>
-
-        {/* Phase label */}
-        <motion.span
-          className={`text-sm font-heading font-bold uppercase tracking-[0.2em] mb-6 ${colors.text}`}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          key={phase}
-        >
-          {PHASE_LABELS[phase]}
-        </motion.span>
-
-        {/* Large Timer Ring */}
-        <div className="relative" style={{ width: 380, height: 380 }}>
-          <svg width={380} height={380} className="transform -rotate-90">
-            <circle cx={190} cy={190} r={178} fill="none" stroke="var(--card-border)" strokeWidth={14} opacity={0.2} />
-            <motion.circle cx={190} cy={190} r={178} fill="none" stroke={colors.ring} strokeWidth={14} strokeLinecap="round" strokeDasharray={2 * Math.PI * 178} initial={{ strokeDashoffset: 2 * Math.PI * 178 }} animate={{ strokeDashoffset: (2 * Math.PI * 178) * (1 - progress) }} transition={{ duration: 0.5, ease: 'easeOut' }} />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <motion.span className="text-7xl font-mono font-bold tracking-tight" style={{ fontFamily: 'var(--font-mono)' }} key={timeLeft} initial={{ scale: 1.05 }} animate={{ scale: 1 }}>{formatTime(timeLeft)}</motion.span>
-          </div>
-        </div>
-
-        {/* Controls */}
-        <div className="flex items-center gap-6 mt-10">
-          <motion.button onClick={resetTimer} className="w-14 h-14 rounded-full border-2 border-[var(--card-border)] flex items-center justify-center hover:border-primary/30 transition-colors" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}><HiRefresh size={22} /></motion.button>
-          <motion.button onClick={toggleTimer} className={`w-24 h-24 rounded-full flex items-center justify-center text-white shadow-lg ${isRunning ? 'bg-gradient-to-br from-coral to-coral-dark shadow-coral/30' : 'bg-gradient-to-br from-primary to-primary-dark shadow-primary/30'}`} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} style={{ boxShadow: `0 10px 0 ${isRunning ? 'rgba(224, 82, 82, 0.4)' : 'rgba(88, 28, 135, 0.4)'}` }}>{isRunning ? <HiPause size={38} /> : <HiPlay size={38} className="ml-1" />}</motion.button>
-          <motion.button onClick={() => { setIsRunning(false); handlePhaseComplete(); }} className="w-14 h-14 rounded-full border-2 border-[var(--card-border)] flex items-center justify-center hover:border-teal/30 transition-colors" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} title="Skip"><HiCheck size={22} /></motion.button>
-        </div>
-
-        {/* Minimal stats */}
-        <motion.div
-          className="flex items-center gap-8 mt-8 text-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-        >
-          <div><p className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Sessions</p><p className="text-xl font-heading font-black">{sessions}</p></div>
-          <div><p className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Focus Today</p><p className="text-xl font-heading font-black">{Math.floor(totalFocusToday / 60)}m</p></div>
-          <div><p className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">XP Earned</p><p className="text-xl font-heading font-black text-primary">{sessions * XP_AWARDS.POMODORO_COMPLETE}</p></div>
-        </motion.div>
-      </div>
+      <ZenMode
+        isRunning={isRunning}
+        timeLeft={timeLeft}
+        totalTime={totalTime}
+        phase={phase}
+        sessions={sessions}
+        totalFocusToday={totalFocusToday}
+        xpPerSession={XP_AWARDS.POMODORO_COMPLETE}
+        onToggle={toggleTimer}
+        onReset={resetTimer}
+        onSkip={() => { setIsRunning(false); handlePhaseComplete(); }}
+        onExit={() => setFocusMode(false)}
+      />
     );
   }
 
@@ -260,9 +220,9 @@ export default function TimerContent() {
             <button
               onClick={() => setFocusMode(true)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 hover:bg-primary/5 transition-all text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)] hover:text-primary"
-              title="Enter distraction-free Deep Focus mode"
+              title="Enter immersive Zen Focus mode"
             >
-              🧘 Deep Focus
+              🧘 Zen Mode
             </button>
 
             {/* Settings Dropdown */}

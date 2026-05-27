@@ -321,3 +321,23 @@ export interface FocusBlock {
   label: string;
   color: string;
 }
+
+// ----- Skill Tree -----
+export type SkillBranch = 'focus' | 'combat' | 'beast';
+
+export interface SkillNodeDef {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  branch: SkillBranch;
+  tier: 0 | 1 | 2 | 3; // 0=root, 1=basic, 2=advanced, 3=ultimate
+  cost: number;        // skill points required
+  requires: string[];  // prerequisite skill IDs
+  effect: string;      // machine-readable effect key
+}
+
+export interface SkillTreeData {
+  skillPoints: number;
+  unlockedSkills: string[]; // skill IDs
+}

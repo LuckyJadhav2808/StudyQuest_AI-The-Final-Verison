@@ -290,6 +290,7 @@ export const NAV_ITEMS = [
   { label: 'Code', href: '/code', icon: 'HiCode' },
   { label: 'Code Arena IDE', href: '/ide', icon: 'HiTerminal' },
   { label: 'DSA', href: '/dsa', icon: 'HiCubeTransparent' },
+  { label: 'Skill Tree', href: '/skills', icon: 'HiSparkles' },
   { label: 'Snippets', href: '/snippets', icon: 'HiBookmark' },
   { label: 'Settings', href: '/settings', icon: 'HiCog' },
 ];
@@ -390,3 +391,37 @@ export const PET_SPECIES_CONFIG = {
   fox:    { name: 'Fox',    emoji: ['🥚', '🦊', '🦊', '🦊', '🦊'], color: '#F59E0B' },
   bunny:  { name: 'Bunny',  emoji: ['🥚', '🐰', '🐇', '🐇', '🐇'], color: '#10B981' },
 } as const;
+
+// ----- Skill Point Awards -----
+export const SKILL_POINT_AWARDS = {
+  LEVEL_UP: 1,         // 1 SP per level
+} as const;
+
+// ----- Skill Tree Nodes -----
+import { SkillNodeDef } from '@/types';
+
+export const SKILL_TREE_NODES: SkillNodeDef[] = [
+  // ── Focus Mage Branch ──
+  { id: 'focus-root', name: 'Focus Initiate', emoji: '🧠', description: 'Begin the path of the Focus Mage.', branch: 'focus', tier: 0, cost: 0, requires: [], effect: 'none' },
+  { id: 'focus-1a', name: 'Deep Concentration', emoji: '🎯', description: '+10% XP from Pomodoro sessions.', branch: 'focus', tier: 1, cost: 1, requires: ['focus-root'], effect: 'pomodoro-xp-10' },
+  { id: 'focus-1b', name: 'Study Endurance', emoji: '⏳', description: '+1 bonus coin per Pomodoro session.', branch: 'focus', tier: 1, cost: 1, requires: ['focus-root'], effect: 'pomodoro-coin-1' },
+  { id: 'focus-2a', name: 'Meditation Master', emoji: '🧘', description: '+20% XP from Pomodoro sessions.', branch: 'focus', tier: 2, cost: 2, requires: ['focus-1a'], effect: 'pomodoro-xp-20' },
+  { id: 'focus-2b', name: 'Time Warp', emoji: '⚡', description: '+2 bonus coins per Pomodoro session.', branch: 'focus', tier: 2, cost: 2, requires: ['focus-1b'], effect: 'pomodoro-coin-2' },
+  { id: 'focus-3', name: 'Zen Sage', emoji: '✨', description: 'Focus sessions award double XP. Ultimate perk.', branch: 'focus', tier: 3, cost: 3, requires: ['focus-2a', 'focus-2b'], effect: 'pomodoro-xp-double' },
+
+  // ── Task Slayer Branch ──
+  { id: 'combat-root', name: 'Task Recruit', emoji: '⚔️', description: 'Begin the path of the Task Slayer.', branch: 'combat', tier: 0, cost: 0, requires: [], effect: 'none' },
+  { id: 'combat-1a', name: 'Sharp Strike', emoji: '🗡️', description: '10% chance of critical hit (+5 bonus coins) on task completion.', branch: 'combat', tier: 1, cost: 1, requires: ['combat-root'], effect: 'task-crit-10' },
+  { id: 'combat-1b', name: 'Quest Bonus', emoji: '📋', description: '+5 bonus XP per completed task.', branch: 'combat', tier: 1, cost: 1, requires: ['combat-root'], effect: 'task-xp-5' },
+  { id: 'combat-2a', name: 'Ruthless Efficiency', emoji: '💥', description: '20% crit chance (+10 bonus coins) on task completion.', branch: 'combat', tier: 2, cost: 2, requires: ['combat-1a'], effect: 'task-crit-20' },
+  { id: 'combat-2b', name: 'Urgent Slayer', emoji: '🔥', description: 'Urgent tasks award double XP.', branch: 'combat', tier: 2, cost: 2, requires: ['combat-1b'], effect: 'task-urgent-double' },
+  { id: 'combat-3', name: 'Legendary Slayer', emoji: '👑', description: '30% crit chance + all tasks award +10 bonus XP. Ultimate perk.', branch: 'combat', tier: 3, cost: 3, requires: ['combat-2a', 'combat-2b'], effect: 'task-legendary' },
+
+  // ── Beastmaster Branch ──
+  { id: 'beast-root', name: 'Pet Pal', emoji: '🐾', description: 'Begin the path of the Beastmaster.', branch: 'beast', tier: 0, cost: 0, requires: [], effect: 'none' },
+  { id: 'beast-1a', name: 'Gentle Touch', emoji: '💖', description: 'Pet loses hunger 25% slower.', branch: 'beast', tier: 1, cost: 1, requires: ['beast-root'], effect: 'pet-hunger-slow-25' },
+  { id: 'beast-1b', name: 'Happy Vibes', emoji: '😊', description: 'Pet gains +5 extra happiness from playing.', branch: 'beast', tier: 1, cost: 1, requires: ['beast-root'], effect: 'pet-happy-5' },
+  { id: 'beast-2a', name: 'Iron Stomach', emoji: '🛡️', description: 'Pet loses hunger 50% slower.', branch: 'beast', tier: 2, cost: 2, requires: ['beast-1a'], effect: 'pet-hunger-slow-50' },
+  { id: 'beast-2b', name: 'Bond of Friendship', emoji: '🤝', description: 'Pet earns double XP from your activities.', branch: 'beast', tier: 2, cost: 2, requires: ['beast-1b'], effect: 'pet-xp-double' },
+  { id: 'beast-3', name: 'Alpha Tamer', emoji: '🦁', description: 'Pet never loses hunger. +10 coins per pet level-up. Ultimate perk.', branch: 'beast', tier: 3, cost: 3, requires: ['beast-2a', 'beast-2b'], effect: 'pet-ultimate' },
+];

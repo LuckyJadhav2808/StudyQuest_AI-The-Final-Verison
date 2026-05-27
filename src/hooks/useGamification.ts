@@ -162,6 +162,16 @@ export function useGamification(): UseGamificationReturn {
         // Coin award is best-effort
       }
 
+      // Award Skill Points on level-up
+      if (leveledUp) {
+        try {
+          const skillRef = doc(db, 'users', user.uid, 'data', 'skillTree');
+          await setDocument(skillRef, { skillPoints: increment(1) });
+        } catch {
+          // Skill point award is best-effort
+        }
+      }
+
       return { leveledUp, newAchievements };
     },
     [user, gamification],
