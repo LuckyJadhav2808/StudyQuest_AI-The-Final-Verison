@@ -19,6 +19,7 @@ import StickyNotesOverlay from '@/components/ui/StickyNotesOverlay';
 import LevelUpOverlay from '@/components/gamification/LevelUpOverlay';
 import { usePresence } from '@/hooks/usePresence';
 import { useCustomization } from '@/hooks/useCustomization';
+import OfflineIndicator from '@/components/ui/OfflineIndicator';
 
 /**
  * Animated SVG background grid — creates a subtle, immersive "command center" aesthetic.
@@ -114,6 +115,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Global Sticky Notes */}
         <StickyNotesOverlay />
+
+        {/* Offline Deep Work Mode Indicator */}
+        <OfflineIndicator />
       </div>
     </AuthGuard>
   );

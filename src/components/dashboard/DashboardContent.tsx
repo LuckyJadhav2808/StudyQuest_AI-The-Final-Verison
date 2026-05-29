@@ -29,9 +29,11 @@ import StudyHeatmap from '@/components/dashboard/StudyHeatmap';
 import TypewriterQuote from '@/components/dashboard/TypewriterQuote';
 import DraggableDashboard from '@/components/dashboard/DraggableDashboard';
 import LofiRoom from '@/components/dashboard/LofiRoom';
+import TreasureChestModal from '@/components/dashboard/TreasureChestModal';
 import { useNotes } from '@/hooks/useNotes';
 import { useExams } from '@/hooks/useExams';
-import { playSuccess, playXP } from '@/lib/sounds';
+import { useShop } from '@/hooks/useShop';
+import { playClick, playSuccess, playXP } from '@/lib/sounds';
 
 // Time-of-day greeting system
 function getTimeOfDay() {
@@ -50,6 +52,9 @@ export default function DashboardContent() {
   const { quests, addQuest, toggleQuest, deleteQuest, todayCompleted, todayTotal } = useDailyQuests();
   const { notes } = useNotes();
   const { upcomingExams } = useExams();
+  const { canClaimTreasureChest } = useShop();
+  const [showTreasureChest, setShowTreasureChest] = useState(false);
+  const chestAvailable = canClaimTreasureChest();
 
   // Dashboard mode preference (from Firestore)
   const [dashboardMode, setDashboardMode] = useState<'classic' | 'lofi'>('classic');
@@ -177,6 +182,26 @@ export default function DashboardContent() {
               )}
             </AnimatePresence>
           </div>
+          {/* Treasure Chest Button */}
+          <motion.button
+            className={`hidden sm:flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all cursor-pointer ${
+              chestAvailable
+                ? 'bg-amber-500/15 border-amber-400/30 hover:bg-amber-500/25'
+                : 'bg-[var(--card-border)]/30 border-[var(--card-border)] opacity-60'
+            }`}
+            onClick={() => { playClick(); setShowTreasureChest(true); }}
+            animate={chestAvailable ? { scale: [1, 1.06, 1] } : {}}
+            transition={chestAvailable ? { duration: 2.5, repeat: Infinity, ease: 'easeInOut' } : {}}
+            title={chestAvailable ? 'Open Daily Treasure Chest!' : 'Already claimed today'}
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <span className="text-lg">{chestAvailable ? '🎁' : '📦'}</span>
+            <p className={`text-xs font-bold uppercase tracking-wider ${chestAvailable ? 'text-amber-500' : 'text-[var(--muted-foreground)]'}`}>
+              {chestAvailable ? 'Daily Chest!' : 'Claimed'}
+            </p>
+            {chestAvailable && <span className="text-sm animate-pulse">✨</span>}
+          </motion.button>
           {gamification && gamification.streak > 0 && (
             <motion.div className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/15 border-2 border-orange-500/20" animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 2, repeat: Infinity }}>
               <HiFire className="text-orange-500" size={24} />
@@ -435,7 +460,7 @@ export default function DashboardContent() {
       </div>
     ),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [gamification, tasks, friends, incomingRequests, quests, newQuest, showNotifs, xpHistory, profile, todayTasks, completedToday, todayCompleted, todayTotal, streakMessage, isNightOwlTime, notes, timeOfDay, upcomingExams]);
+  }), [gamification, tasks, friends, incomingRequests, quests, newQuest, showNotifs, xpHistory, profile, todayTasks, completedToday, todayCompleted, todayTotal, streakMessage, isNightOwlTime, notes, timeOfDay, upcomingExams, chestAvailable]);
 
   return (
     <PageTransition>
@@ -503,6 +528,12 @@ export default function DashboardContent() {
         ) : (
           <DraggableDashboard widgetMap={widgetMap} />
         )}
+
+        {/* Treasure Chest Modal (shared across both dashboard modes) */}
+        <TreasureChestModal
+          isOpen={showTreasureChest}
+          onClose={() => setShowTreasureChest(false)}
+        />
       </div>
     </PageTransition>
   );

@@ -1,10 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HiPlay, HiPause, HiRefresh, HiCog, HiCheck, HiX } from 'react-icons/hi';
-import toast from 'react-hot-toast';
-import { useAuthContext } from '@/context/AuthContext';
+import { HiPlay, HiPause, HiRefresh, HiCog, HiCheck } from 'react-icons/hi';
 import { useGamification } from '@/hooks/useGamification';
 import { useSidebar } from '@/context/SidebarContext';
 import Card from '@/components/ui/Card';
@@ -15,11 +13,7 @@ import PomodoroPet from '@/components/timer/PomodoroPet';
 import ZenMode from '@/components/timer/ZenMode';
 import LocalMusicPlayer from '@/components/timer/LocalMusicPlayer';
 import { useTimerContext } from '@/context/TimerContext';
-import { POMODORO_DEFAULTS, XP_AWARDS } from '@/lib/constants';
-import { doc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import confetti from 'canvas-confetti';
-import { playCelebration, playNotify } from '@/lib/sounds';
+import { XP_AWARDS } from '@/lib/constants';
 
 type TimerPhase = 'focus' | 'short-break' | 'long-break';
 
@@ -86,20 +80,6 @@ export default function TimerContent() {
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference * (1 - progress);
   const colors = PHASE_COLORS[phase];
-
-  // ESC key exits focus mode
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && focusMode) setFocusMode(false);
-    };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, [focusMode, setFocusMode]);
-
-  // Clean up focus mode when leaving the timer page
-  useEffect(() => {
-    return () => setFocusMode(false);
-  }, [setFocusMode]);
 
   // Focus mode renders the immersive Zen Mode
   if (focusMode) {

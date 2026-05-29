@@ -11,6 +11,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { PET_SPECIES_CONFIG } from '@/lib/constants';
 import { playClick, playXP, playSuccess } from '@/lib/sounds';
 import toast from 'react-hot-toast';
+import TreasureChestModal from './TreasureChestModal';
 import './LofiRoom.css';
 
 // ── Time of day detection ──
@@ -68,12 +69,14 @@ export default function LofiRoom({ className = '' }: LofiRoomProps) {
   const { pet, getMood } = usePet();
   const { gamification } = useGamification();
   const { tasks } = useTasks();
-  const { coins, addCoins } = useShop();
+  const { coins, addCoins, canClaimTreasureChest } = useShop();
 
   // Local interactive states
   const [petting, setPetting] = useState(false);
   const [waterCount, setWaterCount] = useState(0);
   const [splashes, setSplashes] = useState<{ id: number; x: number; y: number }[]>([]);
+  const [showTreasureChest, setShowTreasureChest] = useState(false);
+  const chestAvailable = canClaimTreasureChest();
 
   const level = gamification?.level || 0;
   const xp = gamification?.xp || 0;
@@ -325,6 +328,27 @@ export default function LofiRoom({ className = '' }: LofiRoomProps) {
         />
       )}
 
+      {/* ── Treasure Chest ── */}
+      <motion.div
+        className={`lofi-treasure-chest lofi-interactive ${chestAvailable ? 'lofi-chest-available' : 'lofi-chest-claimed'}`}
+        initial={{ opacity: 0, scale: 0 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.6, type: 'spring' }}
+        onClick={() => { playClick(); setShowTreasureChest(true); }}
+        title={chestAvailable ? 'Open Daily Treasure Chest!' : 'Treasure Chest (claimed today)'}
+      >
+        {chestAvailable ? '🎁' : '📦'}
+        {chestAvailable && (
+          <motion.div
+            className="lofi-chest-sparkle"
+            animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          >
+            ✨
+          </motion.div>
+        )}
+      </motion.div>
+
       {/* ── Game Console ── */}
       <motion.div
         className="lofi-console lofi-interactive"
@@ -516,6 +540,11 @@ export default function LofiRoom({ className = '' }: LofiRoomProps) {
         ))}
       </div>
 
+      {/* ── Treasure Chest Modal ── */}
+      <TreasureChestModal
+        isOpen={showTreasureChest}
+        onClose={() => setShowTreasureChest(false)}
+      />
     </motion.div>
   );
 }

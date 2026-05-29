@@ -282,6 +282,7 @@ export interface UserInventory {
   ownedItems: string[];
   equippedItems: Record<string, string>;  // category → equipped item ID
   gachaHistory: string[];
+  lastTreasureChestClaim?: string;        // ISO date YYYY-MM-DD — daily reward tracker
 }
 
 // ----- Virtual Pet -----

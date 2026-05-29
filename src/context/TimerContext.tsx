@@ -92,6 +92,17 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // --- Timer Logic ---
+  const switchPhase = useCallback((newPhase: TimerPhase) => {
+    setPhase(newPhase);
+    setIsRunning(false);
+    const duration = newPhase === 'focus'
+      ? durations.focus
+      : newPhase === 'short-break'
+      ? durations.shortBreak
+      : durations.longBreak;
+    setTimeLeft(duration * 60);
+  }, [durations]);
+
   const handlePhaseComplete = useCallback(async () => {
     setIsRunning(false);
     
@@ -116,18 +127,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       toast('Break over! Time to focus 🎯');
       switchPhase('focus');
     }
-  }, [phase, sessions, awardXP]);
-
-  const switchPhase = (newPhase: TimerPhase) => {
-    setPhase(newPhase);
-    setIsRunning(false);
-    const duration = newPhase === 'focus'
-      ? durations.focus
-      : newPhase === 'short-break'
-      ? durations.shortBreak
-      : durations.longBreak;
-    setTimeLeft(duration * 60);
-  };
+  }, [phase, sessions, awardXP, switchPhase]);
 
   const toggleTimer = () => {
     if (!isRunning) setWasAbandoned(false);
@@ -161,7 +161,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         });
         
         if (phase === 'focus') {
-          setTotalFocusToday((prev) => prev + 1 / 60);
+          setTotalFocusToday((prev) => prev + 1); // Count in seconds
         }
       }, 1000);
     }
@@ -187,14 +187,14 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       name: file.name.replace(/\.[^/.]+$/, ""),
       url: URL.createObjectURL(file)
     }));
-    setPlaylist(prev => {
-      const updated = [...prev, ...newTracks];
-      if (!isPlayingMusic && newTracks.length > 0 && prev.length === 0) {
-        setCurrentTrackIndex(0);
-        setIsPlayingMusic(true);
-      }
-      return updated;
-    });
+    
+    setPlaylist(prev => [...prev, ...newTracks]);
+    
+    // Auto-play if this is the first batch of tracks
+    if (!isPlayingMusic && newTracks.length > 0 && playlist.length === 0) {
+      setCurrentTrackIndex(0);
+      setIsPlayingMusic(true);
+    }
   };
 
   const handlePlayPauseMusic = () => {
@@ -215,26 +215,28 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeTrack = (index: number) => {
-    setPlaylist(prev => {
-      const updated = [...prev];
-      updated.splice(index, 1);
-      
-      // If we removed the currently playing track
-      if (index === currentTrackIndex) {
-        if (updated.length === 0) {
-          setIsPlayingMusic(false);
-          setCurrentTrackIndex(0);
-        } else if (index >= updated.length) {
-          setCurrentTrackIndex(0); // Wrap around to first track
-        }
-      } 
-      // If we removed a track before the current one, adjust the index
-      else if (index < currentTrackIndex) {
-        setCurrentTrackIndex(prevIndex => prevIndex - 1);
+    // Revoke the blob URL to prevent memory leak
+    const removedUrl = playlist[index]?.url;
+    if (removedUrl) URL.revokeObjectURL(removedUrl);
+    
+    const updated = [...playlist];
+    updated.splice(index, 1);
+    
+    // If we removed the currently playing track
+    if (index === currentTrackIndex) {
+      if (updated.length === 0) {
+        setIsPlayingMusic(false);
+        setCurrentTrackIndex(0);
+      } else if (index >= updated.length) {
+        setCurrentTrackIndex(0); // Wrap around to first track
       }
-      
-      return updated;
-    });
+    } 
+    // If we removed a track before the current one, adjust the index
+    else if (index < currentTrackIndex) {
+      setCurrentTrackIndex(prevIndex => prevIndex - 1);
+    }
+    
+    setPlaylist(updated);
   };
 
   const playTrack = (index: number) => {
@@ -251,6 +253,16 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       audioRef.current.pause();
     }
   }, [isPlayingMusic, currentTrackIndex, playlist, volume]);
+
+  // Cleanup all blob URLs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      playlist.forEach((track) => {
+        try { URL.revokeObjectURL(track.url); } catch { /* ignore */ }
+      });
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const value = {
     phase, isRunning, timeLeft, totalTime, sessions, totalFocusToday, durations, progress, wasAbandoned,

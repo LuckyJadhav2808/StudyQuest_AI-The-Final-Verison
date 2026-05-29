@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HiPlay, HiRefresh, HiLightningBolt, HiClock, HiStar, HiTrendingUp } from 'react-icons/hi';
+import { HiPlay, HiRefresh, HiLightningBolt, HiClock, HiStar, HiTrendingUp, HiArrowLeft } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -10,6 +10,10 @@ import Badge from '@/components/ui/Badge';
 import PageTransition from '@/components/layout/PageTransition';
 import { useGamification } from '@/hooks/useGamification';
 import { XP_AWARDS } from '@/lib/constants';
+import TriviaDungeon from '@/components/arcade/TriviaDungeon';
+import PetCatchGame from '@/components/arcade/PetCatchGame';
+
+type ArcadeGame = 'hub' | 'typing' | 'dungeon' | 'catch';
 
 // ── Code Snippet Banks (sorted by difficulty) ──
 const CODE_SNIPPETS = [
@@ -93,6 +97,7 @@ interface GameResult {
 const TIME_LIMIT = 30000; // 30 seconds for time challenge
 
 export default function ArcadeContent() {
+  const [activeGame, setActiveGame] = useState<ArcadeGame>('hub');
   const [mode, setMode] = useState<Mode>('code');
   const [gameState, setGameState] = useState<'idle' | 'playing' | 'done'>('idle');
   const [snippet, setSnippet] = useState('');
@@ -210,18 +215,122 @@ export default function ArcadeContent() {
     ? Math.max(...results.map((r) => r.wpm))
     : 0;
 
+  // ─── Game Hub ───
+  if (activeGame === 'hub') {
+    return (
+      <PageTransition>
+        <div className="max-w-4xl mx-auto space-y-8">
+          <div className="text-center">
+            <h1 className="text-3xl font-heading font-black flex items-center justify-center gap-3">
+              <motion.span className="text-4xl" animate={{ y: [0, -8, 0], rotate: [0, 5, -5, 0] }} transition={{ duration: 2.5, repeat: Infinity }}>🕹️</motion.span>
+              Arcade
+            </h1>
+            <p className="text-sm text-[var(--muted-foreground)] mt-1">Choose your game. Earn XP. Have fun.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Typing Arcade Card */}
+            <motion.div whileHover={{ y: -4 }} whileTap={{ scale: 0.98 }}>
+              <Card padding="lg" hover className="cursor-pointer h-full" onClick={() => setActiveGame('typing')}>
+                <div className="text-center space-y-4">
+                  <motion.span className="text-6xl block" animate={{ y: [0, -6, 0] }} transition={{ duration: 2, repeat: Infinity }}>⌨️</motion.span>
+                  <div>
+                    <h2 className="text-xl font-heading font-black">Typing Arcade</h2>
+                    <p className="text-sm text-[var(--muted-foreground)] mt-1">Type code snippets & study terms at blazing speed</p>
+                  </div>
+                  <div className="flex gap-2 justify-center flex-wrap">
+                    <Badge variant="primary" size="sm">💻 Code</Badge>
+                    <Badge variant="teal" size="sm">📚 Terms</Badge>
+                    <Badge variant="coral" size="sm">⏱️ Time Attack</Badge>
+                  </div>
+                  <Button variant="primary" size="sm" icon={<HiPlay />}>Play</Button>
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* Trivia Dungeon Card */}
+            <motion.div whileHover={{ y: -4 }} whileTap={{ scale: 0.98 }}>
+              <Card padding="lg" hover className="cursor-pointer h-full relative overflow-hidden" onClick={() => setActiveGame('dungeon')}>
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-600/10 via-transparent to-red-500/10 pointer-events-none" />
+                <div className="text-center space-y-4 relative z-10">
+                  <motion.span className="text-6xl block" animate={{ y: [0, -8, 0], scale: [1, 1.05, 1] }} transition={{ duration: 2.5, repeat: Infinity }}>⚔️</motion.span>
+                  <div>
+                    <h2 className="text-xl font-heading font-black">Trivia Dungeon</h2>
+                    <p className="text-sm text-[var(--muted-foreground)] mt-1">Battle monsters with knowledge from your notes</p>
+                  </div>
+                  <div className="flex gap-2 justify-center flex-wrap">
+                    <Badge variant="amber" size="sm">🐉 Bosses</Badge>
+                    <Badge variant="primary" size="sm">🧠 AI Quiz</Badge>
+                    <Badge variant="teal" size="sm">💰 Loot</Badge>
+                  </div>
+                  <Button variant="coral" size="sm" icon={<HiPlay />}>Enter Dungeon</Button>
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* Pet Catch Card */}
+            <motion.div whileHover={{ y: -4 }} whileTap={{ scale: 0.98 }} className="md:col-span-2">
+              <Card padding="lg" hover className="cursor-pointer h-full relative overflow-hidden" onClick={() => setActiveGame('catch')}>
+                <div className="absolute inset-0 bg-gradient-to-br from-teal/10 via-transparent to-amber/10 pointer-events-none" />
+                <div className="flex items-center gap-6 relative z-10">
+                  <motion.span className="text-6xl block flex-shrink-0" animate={{ y: [0, -8, 0] }} transition={{ duration: 1.8, repeat: Infinity }}>🐾</motion.span>
+                  <div className="flex-1">
+                    <h2 className="text-xl font-heading font-black">Pet Catch</h2>
+                    <p className="text-sm text-[var(--muted-foreground)] mt-1">Move your pet to catch falling food & treats. Avoid bombs!</p>
+                    <div className="flex gap-2 mt-2 flex-wrap">
+                      <Badge variant="teal" size="sm">❤️ 3 Lives</Badge>
+                      <Badge variant="amber" size="sm">🔥 Combos</Badge>
+                      <Badge variant="primary" size="sm">🐾 Pet Mood</Badge>
+                    </div>
+                  </div>
+                  <Button variant="teal" size="sm" icon={<HiPlay />}>Play</Button>
+                </div>
+              </Card>
+            </motion.div>
+          </div>
+        </div>
+      </PageTransition>
+    );
+  }
+
+  // ─── Trivia Dungeon ───
+  if (activeGame === 'dungeon') {
+    return (
+      <PageTransition>
+        <TriviaDungeon onExit={() => setActiveGame('hub')} />
+      </PageTransition>
+    );
+  }
+
+  // ─── Pet Catch ───
+  if (activeGame === 'catch') {
+    return (
+      <PageTransition>
+        <PetCatchGame onExit={() => setActiveGame('hub')} />
+      </PageTransition>
+    );
+  }
+
+  // ─── Typing Arcade ───
   return (
     <PageTransition>
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-heading font-black flex items-center gap-2">
-              <span className="text-2xl">🕹️</span> Typing Arcade
-            </h1>
-            <p className="text-sm text-[var(--muted-foreground)]">
-              Warm up your fingers. Type fast, type accurate, earn XP.
-            </p>
+            <div className="flex items-center gap-3">
+              <button onClick={() => setActiveGame('hub')} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors" title="Back to Arcade">
+                <HiArrowLeft size={18} />
+              </button>
+              <div>
+                <h1 className="text-2xl font-heading font-black flex items-center gap-2">
+                  <span className="text-2xl">⌨️</span> Typing Arcade
+                </h1>
+                <p className="text-sm text-[var(--muted-foreground)]">
+                  Warm up your fingers. Type fast, type accurate, earn XP.
+                </p>
+              </div>
+            </div>
           </div>
           <div className="flex gap-2 flex-wrap justify-end">
             <button

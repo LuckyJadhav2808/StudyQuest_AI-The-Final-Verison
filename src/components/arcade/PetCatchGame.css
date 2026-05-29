@@ -1,0 +1,258 @@
+/* ============================================================
+   StudyQuest AI — Pet Catch Game CSS
+   Tamagotchi-style falling food catch game
+   ============================================================ */
+
+/* ── Game Canvas ── */
+.catch-game {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  height: 420px;
+  margin: 0 auto;
+  border-radius: 24px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #1a103a 0%, #0f1729 60%, #1a2744 100%);
+  border: 2px solid rgba(124, 58, 237, 0.15);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4), inset 0 0 60px rgba(124, 58, 237, 0.04);
+  touch-action: none;
+  user-select: none;
+  cursor: none;
+}
+
+.catch-game:focus { outline: none; }
+
+/* ── Ground ── */
+.catch-ground {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(180deg, #1e3a2f 0%, #162e24 100%);
+  border-top: 2px solid rgba(16, 185, 129, 0.15);
+}
+
+.catch-ground::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(16, 185, 129, 0.1) 0px,
+    rgba(16, 185, 129, 0.1) 20px,
+    transparent 20px,
+    transparent 40px
+  );
+}
+
+/* ── Pet (catcher) ── */
+.catch-pet {
+  position: absolute;
+  bottom: 24px;
+  font-size: 44px;
+  line-height: 1;
+  transition: left 0.05s linear;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+  z-index: 10;
+  pointer-events: none;
+}
+
+.catch-pet-glow {
+  position: absolute;
+  bottom: 16px;
+  width: 60px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(124, 58, 237, 0.2);
+  filter: blur(10px);
+  z-index: 5;
+  pointer-events: none;
+  transition: left 0.05s linear;
+}
+
+/* ── Falling Items ── */
+.catch-item {
+  position: absolute;
+  font-size: 28px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.3));
+  z-index: 8;
+  pointer-events: none;
+}
+
+.catch-item.danger {
+  filter: drop-shadow(0 2px 8px rgba(239, 68, 68, 0.4));
+}
+
+/* ── Score Popup ── */
+.catch-score-popup {
+  position: absolute;
+  font-size: 14px;
+  font-weight: 900;
+  pointer-events: none;
+  z-index: 50;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+.catch-score-popup.good {
+  color: #6ee7b7;
+}
+
+.catch-score-popup.bad {
+  color: #fca5a5;
+}
+
+.catch-score-popup.great {
+  color: #fbbf24;
+}
+
+/* ── HUD (heads-up display) ── */
+.catch-hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  z-index: 20;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent);
+}
+
+.catch-hud-stat {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.catch-hud-stat .label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ── Lives (hearts) ── */
+.catch-lives {
+  display: flex;
+  gap: 4px;
+}
+
+.catch-heart {
+  font-size: 16px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.catch-heart.lost {
+  opacity: 0.2;
+  transform: scale(0.8);
+}
+
+/* ── Timer Bar ── */
+.catch-timer-bar {
+  position: absolute;
+  top: 44px;
+  left: 16px;
+  right: 16px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  z-index: 20;
+  overflow: hidden;
+}
+
+.catch-timer-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #7C3AED, #EC4899);
+  transition: width 0.3s linear;
+}
+
+.catch-timer-fill.ending {
+  background: linear-gradient(90deg, #EF4444, #F59E0B);
+}
+
+/* ── Background Stars ── */
+.catch-stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.catch-star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  animation: catchTwinkle 3s ease-in-out infinite;
+}
+
+@keyframes catchTwinkle {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.8; }
+}
+
+/* ── Flash on hit ── */
+.catch-flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 15;
+  border-radius: 24px;
+}
+
+.catch-flash.good {
+  animation: flashGreen 0.3s ease-out;
+}
+
+.catch-flash.bad {
+  animation: flashRed 0.3s ease-out;
+}
+
+@keyframes flashGreen {
+  0% { background: rgba(16, 185, 129, 0.2); }
+  100% { background: transparent; }
+}
+
+@keyframes flashRed {
+  0% { background: rgba(239, 68, 68, 0.25); }
+  100% { background: transparent; }
+}
+
+/* ── Combo indicator ── */
+.catch-combo {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  font-size: 14px;
+  font-weight: 900;
+  color: #FBBF24;
+  text-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* ── Responsive ── */
+@media (max-width: 520px) {
+  .catch-game {
+    height: 380px;
+    border-radius: 16px;
+  }
+  .catch-pet { font-size: 36px; }
+  .catch-item { font-size: 24px; }
+  .catch-ground { height: 50px; }
+}

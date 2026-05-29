@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiX, HiPlay, HiPause, HiRefresh, HiCheck } from 'react-icons/hi';
 import { usePet } from '@/hooks/usePet';
@@ -79,7 +79,7 @@ export default function ZenMode({
 
   const { pet, getMood } = usePet();
 
-  const progress = 1 - timeLeft / totalTime;
+  const progress = totalTime > 0 ? 1 - timeLeft / totalTime : 0;
 
   const ringColor = phase === 'focus' ? '#7C3AED' : phase === 'short-break' ? '#10B981' : '#4CC9F0';
   const phaseLabel = phase === 'focus' ? '🎯 Focus Time' : phase === 'short-break' ? '☕ Short Break' : '🌿 Long Break';
@@ -103,10 +103,7 @@ export default function ZenMode({
   const hasRain = scene === 'cyberpunk';
   const hasStars = scene !== 'forest';
 
-  // Cleanup audio on exit is handled by TimerContent holding the state
-  const handleExit = () => {
-    onExit();
-  };
+
 
   return (
     <motion.div
@@ -201,7 +198,7 @@ export default function ZenMode({
 
       {/* ── Exit Button (top-right) ── */}
       <motion.button
-        onClick={handleExit}
+        onClick={onExit}
         className="absolute top-6 right-6 z-20 flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 bg-black/30 backdrop-blur-md hover:bg-white/10 text-white/70 hover:text-white transition-all text-xs font-bold uppercase tracking-wider"
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}

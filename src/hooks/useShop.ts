@@ -4,7 +4,7 @@ import { db } from '@/lib/firebase';
 import { subscribeToDocument, setDocument } from '@/lib/firestore';
 import { useAuthContext } from '@/context/AuthContext';
 import { UserInventory, ShopItem } from '@/types';
-import { SHOP_ITEMS } from '@/lib/constants';
+import { SHOP_ITEMS, TREASURE_CHEST_REWARDS, TreasureReward } from '@/lib/constants';
 
 const DEFAULT_INVENTORY: UserInventory = {
   coins: 0,
@@ -111,5 +111,47 @@ export function useShop() {
     return item;
   }, [inventory, save]);
 
-  return { inventory, loading, coins, buyItem, useItem, equipItem, unequipItem, addCoins, ownsItem, rollGacha };
+  // Daily Treasure Chest claim
+  const canClaimTreasureChest = useCallback((): boolean => {
+    const today = new Date().toISOString().split('T')[0];
+    return inventory.lastTreasureChestClaim !== today;
+  }, [inventory.lastTreasureChestClaim]);
+
+  const claimTreasureChest = useCallback(async (): Promise<TreasureReward | null> => {
+    const today = new Date().toISOString().split('T')[0];
+    if (inventory.lastTreasureChestClaim === today) return null; // Already claimed today
+
+    // Roll weighted random reward
+    const totalWeight = TREASURE_CHEST_REWARDS.reduce((sum, r) => sum + r.weight, 0);
+    let roll = Math.random() * totalWeight;
+    let selected = TREASURE_CHEST_REWARDS[0];
+    for (const entry of TREASURE_CHEST_REWARDS) {
+      roll -= entry.weight;
+      if (roll <= 0) { selected = entry; break; }
+    }
+
+    // Calculate random amounts within range
+    const coins = Math.floor(Math.random() * (selected.coinRange[1] - selected.coinRange[0] + 1)) + selected.coinRange[0];
+    const xp = selected.xpRange[1] > 0
+      ? Math.floor(Math.random() * (selected.xpRange[1] - selected.xpRange[0] + 1)) + selected.xpRange[0]
+      : 0;
+
+    const reward: TreasureReward = {
+      ...selected.reward,
+      coins,
+      xp,
+    };
+
+    // Update inventory with coins + claim date
+    const updated: UserInventory = {
+      ...inventory,
+      coins: inventory.coins + coins,
+      lastTreasureChestClaim: today,
+    };
+    await save(updated);
+
+    return reward;
+  }, [inventory, save]);
+
+  return { inventory, loading, coins, buyItem, useItem, equipItem, unequipItem, addCoins, ownsItem, rollGacha, canClaimTreasureChest, claimTreasureChest };
 }
