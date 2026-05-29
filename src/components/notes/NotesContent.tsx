@@ -51,6 +51,7 @@ import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import PageTransition from '@/components/layout/PageTransition';
 import DiagramModal from '@/components/notes/DiagramModal';
+import { YouTubePanel, AITutorPanel, ReferenceViewerPanel, ResizableSplitLayout } from '@/components/notes/MultitaskPanels';
 import { useGroups, useGroupResources } from '@/hooks/useGroups';
 import { XP_AWARDS } from '@/lib/constants';
 import { Note } from '@/types';
@@ -110,6 +111,7 @@ export default function NotesContent() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showShareGroup, setShowShareGroup] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
+  const [multitaskPanel, setMultitaskPanel] = useState<'youtube' | 'tutor' | 'reference' | null>(null);
 
   const { groups } = useGroups();
 
@@ -371,7 +373,7 @@ export default function NotesContent() {
   if (selectedNote) {
     return (
       <PageTransition>
-        <div className="max-w-4xl mx-auto space-y-4">
+        <div className={`${multitaskPanel && isEditing ? 'max-w-[95vw]' : 'max-w-4xl'} mx-auto space-y-4 transition-all duration-300`}>
           {/* Header */}
           <div className="flex items-center gap-3">
             <button onClick={backToList} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors"><HiChevronLeft size={20} /></button>
@@ -425,12 +427,23 @@ export default function NotesContent() {
               </div>
             </Card>
           )}
-          {/* Editing toolbar: Undo/Redo + Diagram + Shortcuts */}
+          {/* Editing toolbar: Undo/Redo + Multitask + Diagram + Shortcuts */}
           {isEditing && (
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex gap-1.5">
                 <button onClick={handleUndo} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors" title="Undo (Ctrl+Z)"><HiReply size={16} /></button>
                 <button onClick={handleRedo} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors" title="Redo (Ctrl+Y)"><HiReply size={16} className="scale-x-[-1]" /></button>
+              </div>
+              <div className="multitask-toggle-bar">
+                <button className={`multitask-toggle ${multitaskPanel === 'youtube' ? 'active' : ''}`} onClick={() => setMultitaskPanel(multitaskPanel === 'youtube' ? null : 'youtube')} title="YouTube Lecture">
+                  📺 YouTube
+                </button>
+                <button className={`multitask-toggle ${multitaskPanel === 'tutor' ? 'active' : ''}`} onClick={() => setMultitaskPanel(multitaskPanel === 'tutor' ? null : 'tutor')} title="AI Tutor">
+                  🤖 AI Tutor
+                </button>
+                <button className={`multitask-toggle ${multitaskPanel === 'reference' ? 'active' : ''}`} onClick={() => setMultitaskPanel(multitaskPanel === 'reference' ? null : 'reference')} title="Reference Viewer">
+                  📄 Reference
+                </button>
               </div>
               <div className="flex gap-2">
                 <button onClick={() => setShowShortcuts(!showShortcuts)} className={`p-2 rounded-xl border-2 transition-all text-xs ${showShortcuts ? 'border-primary bg-primary/10 text-primary' : 'border-[var(--card-border)] hover:border-primary/30 text-[var(--muted-foreground)]'}`} title="Keyboard Shortcuts"><HiInformationCircle size={18} /></button>
@@ -439,65 +452,103 @@ export default function NotesContent() {
             </div>
           )}
 
-          {/* Editor / Preview / View Mode */}
-          <Card padding="none" hover={false}>
-            <div ref={noteRef}>
-              {isEditing ? (
-                <div className="quill-wrapper" ref={quillWrapperRef}>
-                  <ReactQuill
-                    theme="snow"
-                    value={editContent}
-                    onChange={handleContentChange}
-                    modules={QUILL_MODULES}
-                    formats={QUILL_FORMATS}
-                    placeholder="Start writing your note..."
-                    preserveWhitespace={true}
-                    useSemanticHTML={false}
-                  />
-                  {/* Editor footer: word count & stats */}
-                  <div className="flex items-center justify-between px-4 py-2 border-t border-[var(--card-border)] text-[10px] text-[var(--muted-foreground)] font-semibold">
-                    <div className="flex gap-4">
-                      <span>{wordCount.words} words</span>
-                      <span>{wordCount.chars} chars</span>
-                      <span>{wordCount.readingTime}</span>
+          {/* Editor / Preview / View Mode — wrapped in split layout when multitask panel is active */}
+          {(() => {
+            const editorCard = (
+              <Card padding="none" hover={false}>
+                <div ref={noteRef}>
+                  {isEditing ? (
+                    <div className="quill-wrapper" ref={quillWrapperRef}>
+                      <ReactQuill
+                        theme="snow"
+                        value={editContent}
+                        onChange={handleContentChange}
+                        modules={QUILL_MODULES}
+                        formats={QUILL_FORMATS}
+                        placeholder="Start writing your note..."
+                        preserveWhitespace={true}
+                        useSemanticHTML={false}
+                      />
+                      {/* Editor footer: word count & stats */}
+                      <div className="flex items-center justify-between px-4 py-2 border-t border-[var(--card-border)] text-[10px] text-[var(--muted-foreground)] font-semibold">
+                        <div className="flex gap-4">
+                          <span>{wordCount.words} words</span>
+                          <span>{wordCount.chars} chars</span>
+                          <span>{wordCount.readingTime}</span>
+                        </div>
+                        <div className="flex gap-3">
+                          {saveStatus === 'saving' && <span className="text-amber flex items-center gap-1"><HiRefresh className="animate-spin" size={10} /> Autosaving...</span>}
+                          {saveStatus === 'saved' && <span className="text-teal flex items-center gap-1"><HiCheck size={10} /> Autosaved</span>}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex gap-3">
-                      {saveStatus === 'saving' && <span className="text-amber flex items-center gap-1"><HiRefresh className="animate-spin" size={10} /> Autosaving...</span>}
-                      {saveStatus === 'saved' && <span className="text-teal flex items-center gap-1"><HiCheck size={10} /> Autosaved</span>}
+                  ) : viewMode ? (
+                    /* ===== Distraction-Free View Mode ===== */
+                    <div className="p-8 md:p-12 min-h-[500px] bg-[var(--card-bg)]">
+                      <div className="max-w-2xl mx-auto">
+                        <h1 className="text-3xl font-heading font-bold mb-2">{selectedNote.title}</h1>
+                        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[var(--card-border)]">
+                          <Badge variant="primary" size="sm">{selectedNote.folder}</Badge>
+                          <span className="text-xs text-[var(--muted-foreground)]"><HiClock className="inline mr-1" size={12} />{timeAgo(selectedNote.updatedAt)}</span>
+                        </div>
+                        {selectedNote.content && selectedNote.content !== '<p><br></p>' ? (
+                          <div className="prose prose-lg max-w-none dark:prose-invert leading-relaxed studyquest-markdown" dangerouslySetInnerHTML={{ __html: selectedNote.content }} />
+                        ) : (
+                          <p className="text-sm text-[var(--muted-foreground)] italic">This note is empty.</p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ) : viewMode ? (
-                /* ===== Distraction-Free View Mode ===== */
-                <div className="p-8 md:p-12 min-h-[500px] bg-[var(--card-bg)]">
-                  <div className="max-w-2xl mx-auto">
-                    <h1 className="text-3xl font-heading font-bold mb-2">{selectedNote.title}</h1>
-                    <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[var(--card-border)]">
-                      <Badge variant="primary" size="sm">{selectedNote.folder}</Badge>
-                      <span className="text-xs text-[var(--muted-foreground)]"><HiClock className="inline mr-1" size={12} />{timeAgo(selectedNote.updatedAt)}</span>
-                    </div>
-                    {selectedNote.content && selectedNote.content !== '<p><br></p>' ? (
-                      <div className="prose prose-lg max-w-none dark:prose-invert leading-relaxed studyquest-markdown" dangerouslySetInnerHTML={{ __html: selectedNote.content }} />
-                    ) : (
-                      <p className="text-sm text-[var(--muted-foreground)] italic">This note is empty.</p>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="p-6 min-h-[300px]">
-                  {selectedNote.content && selectedNote.content !== '<p><br></p>' ? (
-                    <div className="prose prose-sm max-w-none dark:prose-invert text-sm leading-relaxed studyquest-markdown" dangerouslySetInnerHTML={{ __html: selectedNote.content }} />
                   ) : (
-                    <div className="text-center py-12">
-                      <span className="text-4xl mb-3 block">📝</span>
-                      <p className="text-sm text-[var(--muted-foreground)]">This note is empty.</p>
-                      <Button variant="primary" size="sm" className="mt-3" onClick={() => setIsEditing(true)}>Start Writing</Button>
+                    <div className="p-6 min-h-[300px]">
+                      {selectedNote.content && selectedNote.content !== '<p><br></p>' ? (
+                        <div className="prose prose-sm max-w-none dark:prose-invert text-sm leading-relaxed studyquest-markdown" dangerouslySetInnerHTML={{ __html: selectedNote.content }} />
+                      ) : (
+                        <div className="text-center py-12">
+                          <span className="text-4xl mb-3 block">📝</span>
+                          <p className="text-sm text-[var(--muted-foreground)]">This note is empty.</p>
+                          <Button variant="primary" size="sm" className="mt-3" onClick={() => setIsEditing(true)}>Start Writing</Button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-          </Card>
+              </Card>
+            );
+
+            // If a multitask panel is active, wrap in resizable split layout
+            if (multitaskPanel && isEditing) {
+              const panelComponent = multitaskPanel === 'youtube' ? (
+                <YouTubePanel
+                  onClose={() => setMultitaskPanel(null)}
+                  onInsertTimestamp={(ts) => {
+                    const timestampHtml = `<p><strong style="color: #EF4444;">[⏱️ ${ts}]</strong> </p>`;
+                    setEditContent(prev => prev + timestampHtml);
+                  }}
+                />
+              ) : multitaskPanel === 'tutor' ? (
+                <AITutorPanel
+                  onClose={() => setMultitaskPanel(null)}
+                  onInsertText={(text) => {
+                    const insertHtml = `<blockquote><p>${text.replace(/\n/g, '</p><p>')}</p></blockquote>`;
+                    setEditContent(prev => prev + insertHtml);
+                  }}
+                  noteContent={editContent}
+                  apiKey={profile?.openRouterKey}
+                />
+              ) : (
+                <ReferenceViewerPanel onClose={() => setMultitaskPanel(null)} />
+              );
+
+              return (
+                <ResizableSplitLayout
+                  editor={editorCard}
+                  panel={panelComponent}
+                />
+              );
+            }
+
+            return editorCard;
+          })()}
 
           {/* Keyboard Shortcuts Panel */}
           <AnimatePresence>
