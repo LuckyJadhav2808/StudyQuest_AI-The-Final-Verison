@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { subscribeToDocument, setDocument } from '@/lib/firestore';
@@ -29,21 +29,32 @@ export function usePet() {
   const [pet, setPet] = useState<PetData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // ── Ref to always hold the latest pet (prevents stale closures) ──
+  const petRef = useRef<PetData | null>(null);
+  useEffect(() => { petRef.current = pet; }, [pet]);
+
   // Subscribe to pet data
   useEffect(() => {
     if (!user?.uid) { setLoading(false); return; }
-    const petRef = doc(db, 'users', user.uid, 'data', 'pet');
-    const unsub = subscribeToDocument<PetData>(petRef, (data) => {
+    const ref = doc(db, 'users', user.uid, 'data', 'pet');
+    const unsub = subscribeToDocument<PetData>(ref, (data) => {
       setPet(data);
+      petRef.current = data;
       setLoading(false);
     });
     return unsub;
   }, [user?.uid]);
 
+  // Get Firestore ref (stable)
+  const getRef = useCallback(() => {
+    if (!user?.uid) return null;
+    return doc(db, 'users', user.uid, 'data', 'pet');
+  }, [user?.uid]);
+
   // Create a new pet
   const createPet = useCallback(async (species: PetSpecies, name: string) => {
-    if (!user?.uid) return;
-    const petRef = doc(db, 'users', user.uid, 'data', 'pet');
+    const ref = getRef();
+    if (!ref) return;
     const newPet: PetData = {
       ...DEFAULT_PET,
       id: crypto.randomUUID(),
@@ -53,58 +64,66 @@ export function usePet() {
       lastFedAt: Date.now(),
       lastPlayedAt: Date.now(),
     };
-    await setDocument(petRef, newPet, false);
-  }, [user?.uid]);
+    petRef.current = newPet;
+    await setDocument(ref, newPet, false);
+  }, [getRef]);
 
   // Update pet data
   const updatePet = useCallback(async (updates: Partial<PetData>) => {
-    if (!user?.uid || !pet) return;
-    const petRef = doc(db, 'users', user.uid, 'data', 'pet');
-    await setDocument(petRef, { ...pet, ...updates });
-  }, [user?.uid, pet]);
+    const ref = getRef();
+    const current = petRef.current;
+    if (!ref || !current) return;
+    const updated = { ...current, ...updates };
+    petRef.current = updated; // optimistic
+    await setDocument(ref, updated);
+  }, [getRef]);
 
   // Feed pet (used by shop system)
   const feedPet = useCallback(async (hungerAmount: number, happinessAmount: number = 0) => {
-    if (!pet) return;
+    const current = petRef.current;
+    if (!current) return;
     await updatePet({
-      hunger: Math.min(100, pet.hunger + hungerAmount),
-      happiness: Math.min(100, pet.happiness + happinessAmount),
+      hunger: Math.min(100, current.hunger + hungerAmount),
+      happiness: Math.min(100, current.happiness + happinessAmount),
       lastFedAt: Date.now(),
     });
-  }, [pet, updatePet]);
+  }, [updatePet]);
 
   // Play with pet
   const playWithPet = useCallback(async () => {
-    if (!pet) return;
+    const current = petRef.current;
+    if (!current) return;
     await updatePet({
-      happiness: Math.min(100, pet.happiness + 15),
-      energy: Math.max(0, pet.energy - 10),
+      happiness: Math.min(100, current.happiness + 15),
+      energy: Math.max(0, current.energy - 10),
       lastPlayedAt: Date.now(),
     });
-  }, [pet, updatePet]);
+  }, [updatePet]);
 
   // Award pet XP and check evolution
   const awardPetXP = useCallback(async (amount: number) => {
-    if (!pet) return;
-    const newXP = pet.xp + amount;
-    const newHappiness = Math.min(100, pet.happiness + 3);
+    const current = petRef.current;
+    if (!current) return;
+    const newXP = current.xp + amount;
+    const newHappiness = Math.min(100, current.happiness + 3);
     await updatePet({ xp: newXP, happiness: newHappiness });
-  }, [pet, updatePet]);
+  }, [updatePet]);
 
   // Check and trigger evolution
   const checkEvolution = useCallback(async (userLevel: number, tasksCompleted: number) => {
-    if (!pet) return false;
-    let newStage: PetStage = pet.stage;
+    const current = petRef.current;
+    if (!current) return false;
+    let newStage: PetStage = current.stage;
 
-    if (pet.stage === 0 && tasksCompleted >= 5) newStage = 1;
-    else if (pet.stage === 1 && userLevel >= 5) newStage = 2;
-    else if (pet.stage === 2 && userLevel >= 10) newStage = 3;
-    else if (pet.stage === 3 && userLevel >= 20) newStage = 4;
+    if (current.stage === 0 && tasksCompleted >= 5) newStage = 1;
+    else if (current.stage === 1 && userLevel >= 5) newStage = 2;
+    else if (current.stage === 2 && userLevel >= 10) newStage = 3;
+    else if (current.stage === 3 && userLevel >= 20) newStage = 4;
 
-    if (newStage !== pet.stage) {
+    if (newStage !== current.stage) {
       await updatePet({
         stage: newStage,
-        hatchedAt: pet.stage === 0 && newStage === 1 ? Date.now() : pet.hatchedAt,
+        hatchedAt: current.stage === 0 && newStage === 1 ? Date.now() : current.hatchedAt,
         happiness: 100,
         energy: 100,
         hunger: 100,
@@ -112,14 +131,15 @@ export function usePet() {
       return true; // evolved!
     }
     return false;
-  }, [pet, updatePet]);
+  }, [updatePet]);
 
   // Decay system — call on page load
   const applyDecay = useCallback(async () => {
-    if (!pet) return;
+    const current = petRef.current;
+    if (!current) return;
     const now = Date.now();
-    const hoursSinceLastFed = (now - pet.lastFedAt) / (1000 * 60 * 60);
-    const hoursSinceLastPlayed = (now - pet.lastPlayedAt) / (1000 * 60 * 60);
+    const hoursSinceLastFed = (now - current.lastFedAt) / (1000 * 60 * 60);
+    const hoursSinceLastPlayed = (now - current.lastPlayedAt) / (1000 * 60 * 60);
 
     if (hoursSinceLastFed < 12 && hoursSinceLastPlayed < 12) return; // no decay needed
 
@@ -128,35 +148,38 @@ export function usePet() {
 
     if (hungerDecay > 0 || happinessDecay > 0) {
       await updatePet({
-        hunger: Math.max(0, pet.hunger - hungerDecay),
-        happiness: Math.max(0, pet.happiness - happinessDecay),
+        hunger: Math.max(0, current.hunger - hungerDecay),
+        happiness: Math.max(0, current.happiness - happinessDecay),
       });
     }
-  }, [pet, updatePet]);
+  }, [updatePet]);
 
   // Equip/unequip accessory
   const equipAccessory = useCallback(async (itemId: string) => {
-    if (!pet) return;
-    const current = pet.equippedAccessories || [];
-    if (current.includes(itemId)) return;
-    await updatePet({ equippedAccessories: [...current, itemId] });
-  }, [pet, updatePet]);
+    const current = petRef.current;
+    if (!current) return;
+    const accessories = current.equippedAccessories || [];
+    if (accessories.includes(itemId)) return;
+    await updatePet({ equippedAccessories: [...accessories, itemId] });
+  }, [updatePet]);
 
   const unequipAccessory = useCallback(async (itemId: string) => {
-    if (!pet) return;
+    const current = petRef.current;
+    if (!current) return;
     await updatePet({
-      equippedAccessories: (pet.equippedAccessories || []).filter((id) => id !== itemId),
+      equippedAccessories: (current.equippedAccessories || []).filter((id) => id !== itemId),
     });
-  }, [pet, updatePet]);
+  }, [updatePet]);
 
   // Mood calculation
   const getMood = useCallback((): 'happy' | 'neutral' | 'sad' | 'sleeping' => {
-    if (!pet) return 'neutral';
-    if (pet.energy < 20) return 'sleeping';
-    if (pet.happiness > 70) return 'happy';
-    if (pet.happiness > 40) return 'neutral';
+    const current = petRef.current;
+    if (!current) return 'neutral';
+    if (current.energy < 20) return 'sleeping';
+    if (current.happiness > 70) return 'happy';
+    if (current.happiness > 40) return 'neutral';
     return 'sad';
-  }, [pet]);
+  }, []);
 
   return {
     pet,

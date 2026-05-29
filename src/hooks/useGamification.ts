@@ -4,7 +4,7 @@
 // StudyQuest AI — Gamification Hook
 // ============================================================
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { doc, collection, onSnapshot, increment } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
@@ -37,6 +37,10 @@ export function useGamification(): UseGamificationReturn {
   const [loading, setLoading] = useState(true);
   const [xpHistory, setXpHistory] = useState<Record<string, number>>({});
 
+  // ── Ref to always hold the latest gamification (prevents stale closures) ──
+  const gamRef = useRef<GamificationData | null>(null);
+  useEffect(() => { gamRef.current = gamification; }, [gamification]);
+
   // Subscribe to gamification data
   useEffect(() => {
     if (!user) {
@@ -48,6 +52,7 @@ export function useGamification(): UseGamificationReturn {
     const ref = getGamificationRef(user.uid);
     const unsub = subscribeToDocument<GamificationData>(ref, (data) => {
       setGamification(data);
+      gamRef.current = data;
       setLoading(false);
     });
 
@@ -73,17 +78,18 @@ export function useGamification(): UseGamificationReturn {
   // Award XP and check for level-ups & achievements
   const awardXP = useCallback(
     async (amount: number, reason: string): Promise<{ leveledUp: boolean; newAchievements: string[] }> => {
-      if (!user || !gamification) return { leveledUp: false, newAchievements: [] };
+      const g = gamRef.current; // always read latest from ref
+      if (!user || !g) return { leveledUp: false, newAchievements: [] };
 
       const ref = getGamificationRef(user.uid);
-      const newXP = gamification.xp + amount;
-      const oldLevel = gamification.level;
+      const newXP = g.xp + amount;
+      const oldLevel = g.level;
       const newLevel = getLevelFromXP(newXP);
       const leveledUp = newLevel > oldLevel;
 
       // Check for new achievements
       const updatedData: GamificationData = {
-        ...gamification,
+        ...g,
         xp: newXP,
         level: newLevel,
       };
@@ -91,33 +97,28 @@ export function useGamification(): UseGamificationReturn {
       const newAchievements: string[] = [];
       for (const achievement of ACHIEVEMENTS) {
         if (
-          !gamification.achievements.includes(achievement.id) &&
+          !g.achievements.includes(achievement.id) &&
           achievement.condition(updatedData)
         ) {
           newAchievements.push(achievement.id);
         }
       }
 
-      await updateDocument(ref, {
-        xp: newXP + newAchievements.reduce((sum, id) => {
-          const a = ACHIEVEMENTS.find((x) => x.id === id);
-          return sum + (a?.xpReward || 0);
-        }, 0),
-        level: getLevelFromXP(
-          newXP + newAchievements.reduce((sum, id) => {
-            const a = ACHIEVEMENTS.find((x) => x.id === id);
-            return sum + (a?.xpReward || 0);
-          }, 0),
-        ),
-        achievements: [...gamification.achievements, ...newAchievements],
-      });
-
-      // Sync public leaderboard entry
-      const finalXP = newXP + newAchievements.reduce((sum, id) => {
+      const achievementBonusXP = newAchievements.reduce((sum, id) => {
         const a = ACHIEVEMENTS.find((x) => x.id === id);
         return sum + (a?.xpReward || 0);
       }, 0);
+
+      const finalXP = newXP + achievementBonusXP;
       const finalLevel = getLevelFromXP(finalXP);
+
+      await updateDocument(ref, {
+        xp: finalXP,
+        level: finalLevel,
+        achievements: [...g.achievements, ...newAchievements],
+      });
+
+      // Sync public leaderboard entry
       try {
         const leaderboardRef = doc(db, 'leaderboard', user.uid);
         await setDocument(leaderboardRef, {
@@ -127,7 +128,7 @@ export function useGamification(): UseGamificationReturn {
           avatarStyle: 'adventurer',
           xp: finalXP,
           level: finalLevel,
-          streak: gamification.streak || 0,
+          streak: g.streak || 0,
           updatedAt: Date.now(),
         });
       } catch {
@@ -144,7 +145,7 @@ export function useGamification(): UseGamificationReturn {
         await setDocument(dayLogRef, { totalXp: amount, lastUpdated: Date.now() }, false);
       }
 
-      // Award Quest Coins alongside XP
+      // Award Quest Coins alongside XP (using increment to prevent overwrites)
       try {
         const invRef = doc(db, 'users', user.uid, 'data', 'inventory');
         // Determine coin amount based on reason
@@ -174,37 +175,37 @@ export function useGamification(): UseGamificationReturn {
 
       return { leveledUp, newAchievements };
     },
-    [user, gamification],
+    [user], // Only depends on user — reads gamification from ref
   );
 
   // Check and update daily streak
   const checkStreak = useCallback(async () => {
-    if (!user || !gamification) return;
+    const g = gamRef.current;
+    if (!user || !g) return;
 
     const today = new Date().toISOString().split('T')[0];
-    if (gamification.lastActiveDate === today) return; // Already active today
+    if (g.lastActiveDate === today) return; // Already active today
 
     const ref = getGamificationRef(user.uid);
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
     let newStreak: number;
-    if (gamification.lastActiveDate === yesterday) {
-      newStreak = gamification.streak + 1;
-    } else if (!gamification.lastActiveDate) {
+    if (g.lastActiveDate === yesterday) {
+      newStreak = g.streak + 1;
+    } else if (!g.lastActiveDate) {
       newStreak = 1;
     } else {
       newStreak = 1; // Streak broken
     }
 
-    const longestStreak = Math.max(gamification.longestStreak, newStreak);
+    const longestStreak = Math.max(g.longestStreak, newStreak);
 
     await updateDocument(ref, {
       streak: newStreak,
       longestStreak,
       lastActiveDate: today,
     });
-  }, [user, gamification]);
+  }, [user]); // Only depends on user — reads gamification from ref
 
   return { gamification, gamificationData: gamification, loading, xpHistory, awardXP, checkStreak };
 }
-
