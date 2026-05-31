@@ -103,6 +103,9 @@ export function subscribeToCollection<T>(
   return onSnapshot(q, (snap) => {
     const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as T);
     callback(items);
+  }, (error) => {
+    console.error('Firestore subscription error (collection):', error);
+    callback([]); // Return empty array so the UI doesn't stay stuck loading
   });
 }
 
@@ -117,6 +120,9 @@ export function subscribeToDocument<T>(
       return;
     }
     callback({ id: snap.id, ...snap.data() } as T);
+  }, (error) => {
+    console.error('Firestore subscription error (document):', error);
+    callback(null); // Return null so the UI doesn't stay stuck loading
   });
 }
 

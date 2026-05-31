@@ -51,26 +51,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const existing = await getDocument<UserProfile>(profileRef);
 
     if (existing) {
-      // Backfill friendCode for users created before this feature
+      // Set profile immediately from the successful read — UI unblocks here
       let updatedProfile = { ...existing, lastSeen: Date.now() };
       if (!existing.friendCode) {
-        const friendCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-        updatedProfile = { ...updatedProfile, friendCode };
-        await setDocument(profileRef, { lastSeen: Date.now(), friendCode });
-      } else {
-        await setDocument(profileRef, { lastSeen: Date.now() });
+        updatedProfile = { ...updatedProfile, friendCode: Math.random().toString(36).substring(2, 8).toUpperCase() };
       }
-      // ALWAYS ensure the top-level user doc exists with friendCode (needed for lookups)
-      await setDocument(getUserRef(firebaseUser.uid), {
-        friendCode: updatedProfile.friendCode,
-        uid: firebaseUser.uid,
-        displayName: updatedProfile.displayName,
-      });
       setProfile(updatedProfile);
+
+      // Now attempt background writes (non-blocking — if these fail, the app still works)
+      try {
+        if (!existing.friendCode) {
+          await setDocument(profileRef, { lastSeen: Date.now(), friendCode: updatedProfile.friendCode });
+        } else {
+          await setDocument(profileRef, { lastSeen: Date.now() });
+        }
+        await setDocument(getUserRef(firebaseUser.uid), {
+          friendCode: updatedProfile.friendCode,
+          uid: firebaseUser.uid,
+          displayName: updatedProfile.displayName,
+        });
+      } catch (writeError) {
+        console.warn('Non-critical: Failed to update profile metadata:', writeError);
+      }
     } else {
       // First login — create profile & gamification docs
       const seed = firebaseUser.displayName || firebaseUser.email || firebaseUser.uid;
-      // Generate 6-char alphanumeric friend code
       const friendCode = Math.random().toString(36).substring(2, 8).toUpperCase();
       const newProfile: Omit<UserProfile, 'uid'> = {
         displayName: firebaseUser.displayName || 'Student',
@@ -101,12 +106,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         lastDailyChallengeDate: '',
       };
 
-      await setDocument(profileRef, newProfile);
-      await setDocument(getGamificationRef(firebaseUser.uid), newGamification);
-      // Write friendCode to top-level user doc for lookup queries
-      await setDocument(getUserRef(firebaseUser.uid), { friendCode, uid: firebaseUser.uid });
-
+      // Set profile in React state first so UI can render
       setProfile({ uid: firebaseUser.uid, ...newProfile });
+
+      // Then write to Firestore
+      try {
+        await setDocument(profileRef, newProfile);
+        await setDocument(getGamificationRef(firebaseUser.uid), newGamification);
+        await setDocument(getUserRef(firebaseUser.uid), { friendCode, uid: firebaseUser.uid });
+      } catch (writeError) {
+        console.warn('Non-critical: Failed to write new profile to Firestore:', writeError);
+      }
     }
   }, []);
 

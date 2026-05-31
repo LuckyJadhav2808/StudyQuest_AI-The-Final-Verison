@@ -48,29 +48,35 @@ export default function TreasureChestModal({ isOpen, onClose }: TreasureChestMod
     setPhase('opening');
     playSuccess();
 
-    // Wait for chest open animation
-    await new Promise((resolve) => setTimeout(resolve, 1200));
+    try {
+      // Wait for chest open animation
+      await new Promise((resolve) => setTimeout(resolve, 1200));
 
-    // Phase 2: Claim reward
-    const result = await claimTreasureChest();
-    if (!result) {
+      // Phase 2: Claim reward
+      const result = await claimTreasureChest();
+      if (!result) {
+        setPhase('ready');
+        return;
+      }
+
+      setReward(result);
+      setPhase('reveal');
+
+      // Play sound based on rarity
+      if (result.rarity === 'legendary' || result.rarity === 'epic') {
+        playCelebration();
+      } else {
+        playXP();
+      }
+
+      // Award XP if the reward includes any
+      if (result.xp > 0) {
+        await awardXP(result.xp, 'Treasure Chest Daily Reward');
+      }
+    } catch (error) {
+      console.error('Treasure Chest error:', error);
+      toast.error('Something went wrong opening the chest. Try again!');
       setPhase('ready');
-      return;
-    }
-
-    setReward(result);
-    setPhase('reveal');
-
-    // Play sound based on rarity
-    if (result.rarity === 'legendary' || result.rarity === 'epic') {
-      playCelebration();
-    } else {
-      playXP();
-    }
-
-    // Award XP if the reward includes any
-    if (result.xp > 0) {
-      await awardXP(result.xp, 'Treasure Chest Daily Reward');
     }
   }, [canClaimTreasureChest, claimTreasureChest, awardXP, phase]);
 
