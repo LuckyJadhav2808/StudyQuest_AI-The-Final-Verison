@@ -113,13 +113,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Listen to auth state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      if (firebaseUser) {
-        await initializeProfile(firebaseUser);
-      } else {
-        setProfile(null);
+      try {
+        setUser(firebaseUser);
+        if (firebaseUser) {
+          await initializeProfile(firebaseUser);
+        } else {
+          setProfile(null);
+        }
+      } catch (error) {
+        console.error('Error during authentication initialization:', error);
+        // We still set user to null on critical failure to prevent hanging in a zombie state
+        // but we'll let the user see the UI (AuthGuard handles unauthenticated state by redirecting)
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
