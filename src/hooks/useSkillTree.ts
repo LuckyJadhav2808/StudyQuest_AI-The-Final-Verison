@@ -23,7 +23,7 @@ export function useSkillTree() {
     if (!user?.uid) { setLoading(false); return; }
     const ref = doc(db, 'users', user.uid, 'data', 'skillTree');
     const unsub = subscribeToDocument<SkillTreeData>(ref, (data) => {
-      setSkillTree(data || DEFAULT_SKILL_TREE);
+      setSkillTree(data ? { ...DEFAULT_SKILL_TREE, ...data } : DEFAULT_SKILL_TREE);
       setLoading(false);
     });
     return unsub;
