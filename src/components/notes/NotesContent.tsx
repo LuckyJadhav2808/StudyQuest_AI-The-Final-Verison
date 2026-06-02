@@ -98,6 +98,7 @@ export default function NotesContent() {
   const [quillSuggestions, setQuillSuggestions] = useState<string[]>([]);
   const [quillActiveWord, setQuillActiveWord] = useState('');
   const [quillActiveWordRange, setQuillActiveWordRange] = useState<{ start: number; end: number } | null>(null);
+  const quillActiveWordRangeRef = useRef<{ start: number; end: number } | null>(null);
   const isReplacingRef = useRef(false);
   const lastSelectionIndexRef = useRef<number | null>(null);
 
@@ -112,6 +113,8 @@ export default function NotesContent() {
       setQuillActiveWord('');
       setQuillSuggestions([]);
       setQuillActiveWordRange(null);
+      // Note: We do not clear quillActiveWordRangeRef.current on blur (when range is null)
+      // to preserve the range bounds of the misspelled word for the click handler.
       return;
     }
 
@@ -138,6 +141,7 @@ export default function NotesContent() {
       setQuillActiveWord(word);
       setQuillSuggestions(getSpellingSuggestions(word));
       setQuillActiveWordRange({ start, end });
+      quillActiveWordRangeRef.current = { start, end };
     } else {
       setQuillActiveWord('');
       setQuillSuggestions([]);
@@ -149,14 +153,14 @@ export default function NotesContent() {
     const quill = quillRef.current?.getEditor();
     if (!quill) return;
 
-    // Use the active misspelled word range directly if available.
+    // Use the active misspelled word range directly from ref if available.
     // This matches the exact indices of the misspelled word being corrected.
     let start: number;
     let end: number;
 
-    if (quillActiveWordRange) {
-      start = quillActiveWordRange.start;
-      end = quillActiveWordRange.end;
+    if (quillActiveWordRangeRef.current) {
+      start = quillActiveWordRangeRef.current.start;
+      end = quillActiveWordRangeRef.current.end;
     } else {
       // Fallback: Get current selection dynamically (or fall back to last focused selection ref)
       const range = quill.getSelection();
@@ -208,19 +212,21 @@ export default function NotesContent() {
     setQuillActiveWord('');
     setQuillSuggestions([]);
     setQuillActiveWordRange(null);
+    quillActiveWordRangeRef.current = null;
     lastSelectionIndexRef.current = null;
 
     setTimeout(() => {
       isReplacingRef.current = false;
       checkQuillSpelling();
     }, 50);
-  }, [quillActiveWordRange, checkQuillSpelling]);
+  }, [checkQuillSpelling]);
 
   const addQuillWordToDictionary = useCallback((word: string) => {
     addToCustomDictionary(word);
     setQuillActiveWord('');
     setQuillSuggestions([]);
     setQuillActiveWordRange(null);
+    quillActiveWordRangeRef.current = null;
     lastSelectionIndexRef.current = null;
 
     const quill = quillRef.current?.getEditor();
