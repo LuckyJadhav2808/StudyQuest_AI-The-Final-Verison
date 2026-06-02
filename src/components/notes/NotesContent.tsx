@@ -13,8 +13,9 @@ import {
 import QuizModal from '@/components/notes/QuizModal';
 import { marked } from 'marked';
 import 'react-quill-new/dist/quill.snow.css';
+import { autocorrectWord, isMisspelled, getSpellingSuggestions, cleanWord, addToCustomDictionary } from '@/lib/spellcheck';
 
-const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false, loading: () => <div className="h-[400px] flex items-center justify-center text-sm text-[var(--muted-foreground)]">Loading editor...</div> });
+const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false, loading: () => <div className="h-[400px] flex items-center justify-center text-sm text-[var(--muted-foreground)]">Loading editor...</div> }) as any;
 
 const QUILL_MODULES = {
   toolbar: [
@@ -91,6 +92,194 @@ export default function NotesContent() {
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const quillWrapperRef = useRef<HTMLDivElement>(null);
   const lastSavedAt = useRef<number>(0);
+
+  // ── Spellcheck & Autocorrect states & effects for Quill ──
+  const quillRef = useRef<any>(null);
+  const [quillSuggestions, setQuillSuggestions] = useState<string[]>([]);
+  const [quillActiveWord, setQuillActiveWord] = useState('');
+  const [quillActiveWordRange, setQuillActiveWordRange] = useState<{ start: number; end: number } | null>(null);
+
+  const checkQuillSpelling = useCallback(() => {
+    const quill = quillRef.current?.getEditor();
+    if (!quill) return;
+
+    const range = quill.getSelection();
+    if (!range) {
+      setQuillActiveWord('');
+      setQuillSuggestions([]);
+      setQuillActiveWordRange(null);
+      return;
+    }
+
+    const pos = range.index;
+    const text = quill.getText();
+
+    // Find start of current word
+    let start = pos;
+    while (start > 0 && !/\s/.test(text[start - 1])) {
+      start--;
+    }
+
+    // Find end of current word
+    let end = pos;
+    while (end < text.length && !/\s/.test(text[end])) {
+      end++;
+    }
+
+    const word = text.slice(start, end).trim();
+    const clean = cleanWord(word);
+
+    if (clean.base && isMisspelled(word)) {
+      setQuillActiveWord(word);
+      setQuillSuggestions(getSpellingSuggestions(word));
+      setQuillActiveWordRange({ start, end });
+    } else {
+      setQuillActiveWord('');
+      setQuillSuggestions([]);
+      setQuillActiveWordRange(null);
+    }
+  }, []);
+
+  const replaceQuillWord = useCallback((replacement: string) => {
+    const quill = quillRef.current?.getEditor();
+    if (!quill || !quillActiveWordRange) return;
+
+    const { start, end } = quillActiveWordRange;
+    const text = quill.getText(start, end - start);
+    const clean = cleanWord(text);
+
+    const fullReplacement = clean.leading + replacement + clean.trailing;
+    
+    quill.deleteText(start, end - start);
+    quill.insertText(start, fullReplacement);
+
+    setTimeout(() => {
+      quill.setSelection(start + fullReplacement.length);
+      checkQuillSpelling();
+    }, 0);
+  }, [quillActiveWordRange, checkQuillSpelling]);
+
+  const addQuillWordToDictionary = useCallback((word: string) => {
+    addToCustomDictionary(word);
+    setQuillActiveWord('');
+    setQuillSuggestions([]);
+    setQuillActiveWordRange(null);
+
+    const quill = quillRef.current?.getEditor();
+    if (quill) {
+      setTimeout(() => {
+        checkQuillSpelling();
+      }, 0);
+    }
+  }, [checkQuillSpelling]);
+
+  // Re-check spelling when custom dictionary updates elsewhere
+  useEffect(() => {
+    const handleDictUpdate = () => {
+      checkQuillSpelling();
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('studyquest_custom_dict_update', handleDictUpdate);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('studyquest_custom_dict_update', handleDictUpdate);
+      }
+    };
+  }, [checkQuillSpelling]);
+
+  // Keydown listener for space and punctuation autocorrect in Quill
+  useEffect(() => {
+    if (!isEditing || !quillWrapperRef.current) return;
+    
+    let editorEl: HTMLElement | null = null;
+    let listener: ((e: KeyboardEvent) => void) | null = null;
+
+    const setupListener = () => {
+      editorEl = quillWrapperRef.current?.querySelector('.ql-editor') || null;
+      if (!editorEl) {
+        setTimeout(setupListener, 100);
+        return;
+      }
+
+      listener = (e: KeyboardEvent) => {
+        const quill = quillRef.current?.getEditor();
+        if (!quill) return;
+
+        const triggers = [' ', '.', ',', '!', '?', ';', ':', 'Enter'];
+        if (!triggers.includes(e.key)) return;
+
+        const range = quill.getSelection();
+        if (!range || range.index === 0) return;
+
+        const pos = range.index;
+        const text = quill.getText(0, pos);
+        
+        let start = pos - 1;
+        while (start > 0 && /\s/.test(text[start])) {
+          start--;
+        }
+        while (start > 0 && !/\s/.test(text[start - 1])) {
+          start--;
+        }
+
+        const wordWithPunc = text.slice(start, pos);
+        const corrected = autocorrectWord(wordWithPunc);
+        
+        if (corrected !== wordWithPunc) {
+          const appendChar = e.key === 'Enter' ? '' : e.key;
+          if (e.key !== 'Enter') {
+            e.preventDefault();
+          }
+
+          quill.deleteText(start, pos - start);
+          quill.insertText(start, corrected + appendChar);
+
+          const newCursorPos = start + corrected.length + appendChar.length;
+          setTimeout(() => {
+            quill.setSelection(newCursorPos);
+            checkQuillSpelling();
+          }, 0);
+        }
+      };
+
+      editorEl.addEventListener('keydown', listener);
+    };
+
+    setupListener();
+
+    return () => {
+      if (editorEl && listener) {
+        editorEl.removeEventListener('keydown', listener);
+      }
+    };
+  }, [isEditing, checkQuillSpelling]);
+
+  // Hook up text-change and selection-change events
+  useEffect(() => {
+    if (!isEditing) return;
+    
+    let quill: any = null;
+    const setupEvents = () => {
+      quill = quillRef.current?.getEditor();
+      if (!quill) {
+        setTimeout(setupEvents, 100);
+        return;
+      }
+
+      quill.on('selection-change', checkQuillSpelling);
+      quill.on('text-change', checkQuillSpelling);
+    };
+
+    setupEvents();
+
+    return () => {
+      if (quill) {
+        quill.off('selection-change', checkQuillSpelling);
+        quill.off('text-change', checkQuillSpelling);
+      }
+    };
+  }, [isEditing, checkQuillSpelling]);
 
   // Markdown import
   const [showMarkdownImport, setShowMarkdownImport] = useState(false);
@@ -460,6 +649,7 @@ export default function NotesContent() {
                   {isEditing ? (
                     <div className="quill-wrapper" ref={quillWrapperRef}>
                       <ReactQuill
+                        ref={quillRef}
                         theme="snow"
                         value={editContent}
                         onChange={handleContentChange}
@@ -470,13 +660,38 @@ export default function NotesContent() {
                         useSemanticHTML={false}
                       />
                       {/* Editor footer: word count & stats */}
-                      <div className="flex items-center justify-between px-4 py-2 border-t border-[var(--card-border)] text-[10px] text-[var(--muted-foreground)] font-semibold">
-                        <div className="flex gap-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-2 border-t border-[var(--card-border)] text-[10px] text-[var(--muted-foreground)] font-semibold gap-2">
+                        <div className="flex items-center gap-4 flex-wrap">
                           <span>{wordCount.words} words</span>
                           <span>{wordCount.chars} chars</span>
                           <span>{wordCount.readingTime}</span>
+
+                          {/* Spelling suggestions */}
+                          {quillSuggestions.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5 ml-0 sm:ml-4 bg-purple-500/10 px-2 py-0.5 rounded-lg border border-purple-500/20">
+                              <span className="text-purple-400">💡 Did you mean:</span>
+                              {quillSuggestions.map((suggestion, idx) => (
+                                <button
+                                  key={`${suggestion}-${idx}`}
+                                  type="button"
+                                  onClick={() => replaceQuillWord(suggestion)}
+                                  className="text-purple-300 hover:text-white hover:underline transition-colors px-1 bg-purple-500/25 rounded cursor-pointer"
+                                >
+                                  {suggestion}
+                                </button>
+                              ))}
+                              <span className="text-[var(--muted-foreground)]/30 mx-1">|</span>
+                              <button
+                                type="button"
+                                onClick={() => addQuillWordToDictionary(quillActiveWord)}
+                                className="text-purple-400 hover:text-purple-300 transition-colors font-bold underline cursor-pointer"
+                              >
+                                ➕ Add "{quillActiveWord.replace(/^[^\w'-]+|[^\w'-]+$/g, '') || quillActiveWord}"
+                              </button>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex gap-3">
+                        <div className="flex gap-3 shrink-0 self-end sm:self-auto">
                           {saveStatus === 'saving' && <span className="text-amber flex items-center gap-1"><HiRefresh className="animate-spin" size={10} /> Autosaving...</span>}
                           {saveStatus === 'saved' && <span className="text-teal flex items-center gap-1"><HiCheck size={10} /> Autosaved</span>}
                         </div>

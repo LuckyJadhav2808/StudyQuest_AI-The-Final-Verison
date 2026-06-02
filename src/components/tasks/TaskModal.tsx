@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { HiX } from 'react-icons/hi';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import { useSpellingAssistant } from '@/hooks/useSpellingAssistant';
 import { TaskPriority, TaskStatus } from '@/types';
 
 interface TaskModalProps {
@@ -43,6 +44,24 @@ export default function TaskModal({
   const [dueDate, setDueDate] = useState(initialData?.dueDate || '');
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>(initialData?.tags || []);
+
+  const {
+    handleKeyDown: handleTitleKeyDown,
+    handleSelect: handleTitleSelect,
+    suggestions: titleSuggestions,
+    activeWord: titleActiveWord,
+    replaceActiveWord: replaceTitleWord,
+    addActiveWordToDictionary: addTitleWordToDictionary
+  } = useSpellingAssistant(title, setTitle);
+
+  const {
+    handleKeyDown: handleDescKeyDown,
+    handleSelect: handleDescSelect,
+    suggestions: descSuggestions,
+    activeWord: descActiveWord,
+    replaceActiveWord: replaceDescWord,
+    addActiveWordToDictionary: addDescWordToDictionary
+  } = useSpellingAssistant(description, setDescription);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,13 +138,40 @@ export default function TaskModal({
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
-              <Input
-                label="Task Title"
-                placeholder="What needs to be done?"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-              />
+              <div className="space-y-1.5">
+                <Input
+                  label="Task Title"
+                  placeholder="What needs to be done?"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  onKeyDown={handleTitleKeyDown}
+                  onSelect={handleTitleSelect}
+                  required
+                />
+                {titleSuggestions.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 px-3 py-1 rounded-lg bg-purple-500/10 border border-purple-500/20 text-[10px] font-semibold text-[var(--muted-foreground)]">
+                    <span className="text-purple-400">💡 Did you mean:</span>
+                    {titleSuggestions.map((suggestion, idx) => (
+                      <button
+                        key={`${suggestion}-${idx}`}
+                        type="button"
+                        onClick={() => replaceTitleWord(suggestion)}
+                        className="text-purple-300 hover:text-white hover:underline transition-colors px-1 bg-purple-500/25 rounded cursor-pointer"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                    <span className="text-[var(--muted-foreground)]/30 mx-1">|</span>
+                    <button
+                      type="button"
+                      onClick={() => addTitleWordToDictionary(titleActiveWord)}
+                      className="text-purple-400 hover:text-purple-300 transition-colors font-bold underline cursor-pointer"
+                    >
+                      ➕ Add "{titleActiveWord.replace(/^[^\w'-]+|[^\w'-]+$/g, '') || titleActiveWord}"
+                    </button>
+                  </div>
+                )}
+              </div>
 
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold opacity-80">Description</label>
@@ -134,7 +180,32 @@ export default function TaskModal({
                   placeholder="Add details..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                  onKeyDown={handleDescKeyDown}
+                  onSelect={handleDescSelect}
                 />
+                {descSuggestions.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 px-3 py-1 rounded-lg bg-purple-500/10 border border-purple-500/20 text-[10px] font-semibold text-[var(--muted-foreground)]">
+                    <span className="text-purple-400">💡 Did you mean:</span>
+                    {descSuggestions.map((suggestion, idx) => (
+                      <button
+                        key={`${suggestion}-${idx}`}
+                        type="button"
+                        onClick={() => replaceDescWord(suggestion)}
+                        className="text-purple-300 hover:text-white hover:underline transition-colors px-1 bg-purple-500/25 rounded cursor-pointer"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                    <span className="text-[var(--muted-foreground)]/30 mx-1">|</span>
+                    <button
+                      type="button"
+                      onClick={() => addDescWordToDictionary(descActiveWord)}
+                      className="text-purple-400 hover:text-purple-300 transition-colors font-bold underline cursor-pointer"
+                    >
+                      ➕ Add "{descActiveWord.replace(/^[^\w'-]+|[^\w'-]+$/g, '') || descActiveWord}"
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Priority */}

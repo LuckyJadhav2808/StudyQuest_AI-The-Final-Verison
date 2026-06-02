@@ -12,6 +12,7 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import PageTransition from '@/components/layout/PageTransition';
 import Link from 'next/link';
+import { useSpellingAssistant } from '@/hooks/useSpellingAssistant';
 
 interface Message {
   id: string;
@@ -44,6 +45,15 @@ export default function ChatContent() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const {
+    handleKeyDown: handleSpellcheckKeyDown,
+    handleSelect: handleSpellcheckSelect,
+    suggestions,
+    activeWord,
+    replaceActiveWord,
+    addActiveWordToDictionary
+  } = useSpellingAssistant(input, setInput);
 
   const hasApiKey = !!profile?.openRouterKey;
 
@@ -167,8 +177,9 @@ export default function ChatContent() {
     toast.success('Chat cleared');
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    handleSpellcheckKeyDown(e);
+    if (e.key === 'Enter' && !e.shiftKey && !e.isDefaultPrevented()) {
       e.preventDefault();
       sendMessage();
     }
@@ -290,28 +301,54 @@ export default function ChatContent() {
         </Card>
 
         {/* Input */}
-        <div className="flex gap-2 flex-shrink-0">
-          <div className="flex-1 relative">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={hasApiKey ? "Ask Questie anything..." : "Add your API key in Settings first..."}
-              disabled={!hasApiKey || loading}
-              rows={1}
-              className="w-full px-4 py-3 pr-12 rounded-xl border-2 border-[var(--card-border)] bg-[var(--card-bg)] text-sm font-medium resize-none focus:border-primary focus:outline-none transition-colors disabled:opacity-50"
-            />
+        <div className="flex flex-col gap-2 flex-shrink-0">
+          {suggestions.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-[10px] font-semibold text-[var(--muted-foreground)]">
+              <span className="text-purple-400">💡 Did you mean:</span>
+              {suggestions.map((suggestion, idx) => (
+                <button
+                  key={`${suggestion}-${idx}`}
+                  type="button"
+                  onClick={() => replaceActiveWord(suggestion)}
+                  className="text-purple-300 hover:text-white hover:underline transition-colors px-1 bg-purple-500/25 rounded cursor-pointer"
+                >
+                  {suggestion}
+                </button>
+              ))}
+              <span className="text-[var(--muted-foreground)]/30 mx-1">|</span>
+              <button
+                type="button"
+                onClick={() => addActiveWordToDictionary(activeWord)}
+                className="text-purple-400 hover:text-purple-300 transition-colors font-bold underline cursor-pointer"
+              >
+                ➕ Add "{activeWord.replace(/^[^\w'-]+|[^\w'-]+$/g, '') || activeWord}"
+              </button>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <div className="flex-1 relative">
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onSelect={handleSpellcheckSelect}
+                placeholder={hasApiKey ? "Ask Questie anything..." : "Add your API key in Settings first..."}
+                disabled={!hasApiKey || loading}
+                rows={1}
+                className="w-full px-4 py-3 pr-12 rounded-xl border-2 border-[var(--card-border)] bg-[var(--card-bg)] text-sm font-medium resize-none focus:border-primary focus:outline-none transition-colors disabled:opacity-50"
+              />
+            </div>
+            <motion.button
+              onClick={sendMessage}
+              disabled={!input.trim() || !hasApiKey || loading}
+              className="px-4 py-3 rounded-xl bg-gradient-to-r from-primary to-secondary text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_0_rgba(88,28,135,0.3)] active:translate-y-[2px] active:shadow-[0_2px_0_rgba(88,28,135,0.3)] transition-all"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <HiPaperAirplane size={20} className="rotate-90" />
+            </motion.button>
           </div>
-          <motion.button
-            onClick={sendMessage}
-            disabled={!input.trim() || !hasApiKey || loading}
-            className="px-4 py-3 rounded-xl bg-gradient-to-r from-primary to-secondary text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_0_rgba(88,28,135,0.3)] active:translate-y-[2px] active:shadow-[0_2px_0_rgba(88,28,135,0.3)] transition-all"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <HiPaperAirplane size={20} className="rotate-90" />
-          </motion.button>
         </div>
       </div>
     </PageTransition>
