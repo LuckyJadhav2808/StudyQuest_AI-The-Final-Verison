@@ -70,10 +70,14 @@ export function useSpellingAssistant(
   useEffect(() => {
     if (pendingCursorPosRef.current !== null && elementRef.current) {
       const el = elementRef.current;
-      el.focus();
-      el.selectionStart = el.selectionEnd = pendingCursorPosRef.current;
+      const targetPos = pendingCursorPosRef.current;
       pendingCursorPosRef.current = null;
-      checkSpellingAtCursor(el);
+
+      setTimeout(() => {
+        el.focus();
+        el.selectionStart = el.selectionEnd = targetPos;
+        checkSpellingAtCursor(el);
+      }, 50);
     }
   }, [value, checkSpellingAtCursor]);
 
@@ -124,11 +128,17 @@ export function useSpellingAssistant(
       const after = text.slice(end);
       const newText = before + corrected + appendChar + after;
       
+      const newCursorPos = start + corrected.length + appendChar.length;
+
+      // Programmatically and synchronously update DOM to prevent React selection overrides
+      el.value = newText;
+      el.selectionStart = el.selectionEnd = newCursorPos;
+
       // Prevent spellcheck recalculation during this change
       isReplacingRef.current = true;
       
       // Update state and schedule cursor selection for post-render
-      pendingCursorPosRef.current = start + corrected.length + appendChar.length;
+      pendingCursorPosRef.current = newCursorPos;
       onChange(newText);
 
       setTimeout(() => {
@@ -155,12 +165,29 @@ export function useSpellingAssistant(
     const before = text.slice(0, start);
     const after = text.slice(end);
     const newText = before + fullReplacement + after;
+
+    // Calculate new cursor position based on original cursor position
+    const originalPos = el.selectionStart ?? end;
+    const delta = fullReplacement.length - (end - start);
+    
+    let newCursorPos: number;
+    if (originalPos >= end) {
+      newCursorPos = originalPos + delta;
+    } else if (originalPos <= start) {
+      newCursorPos = originalPos;
+    } else {
+      newCursorPos = start + fullReplacement.length;
+    }
+
+    // Programmatically and synchronously update DOM to prevent React selection overrides
+    el.value = newText;
+    el.selectionStart = el.selectionEnd = newCursorPos;
     
     // Prevent spellcheck recalculation during this change
     isReplacingRef.current = true;
     
     // Update state and schedule cursor selection for post-render
-    pendingCursorPosRef.current = start + fullReplacement.length;
+    pendingCursorPosRef.current = newCursorPos;
     onChange(newText);
     
     // Clear suggestions and active word

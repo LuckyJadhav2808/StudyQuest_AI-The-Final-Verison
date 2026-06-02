@@ -193,6 +193,24 @@ export default function NotesContent() {
 
     const fullReplacement = clean.leading + replacement + clean.trailing;
     
+    // Calculate new cursor position based on original selection position
+    const originalRange = quill.getSelection();
+    const originalPos = originalRange ? originalRange.index : lastSelectionIndexRef.current;
+    const delta = fullReplacement.length - (end - start);
+    
+    let newCursorPos: number;
+    if (originalPos !== null && originalPos !== undefined) {
+      if (originalPos >= end) {
+        newCursorPos = originalPos + delta;
+      } else if (originalPos <= start) {
+        newCursorPos = originalPos;
+      } else {
+        newCursorPos = start + fullReplacement.length;
+      }
+    } else {
+      newCursorPos = start + fullReplacement.length;
+    }
+
     // Perform update in a single atomic Delta operation
     quill.updateContents({
       ops: [
@@ -202,20 +220,20 @@ export default function NotesContent() {
       ]
     });
 
+    // Update selection immediately to update Quill and ReactQuill's internal state
+    quill.setSelection(newCursorPos);
+
     // Update React state synchronously to prevent controlled value override race conditions
     setEditContent(quill.root.innerHTML);
 
-    // Set selection after replacement
-    quill.setSelection(start + fullReplacement.length);
-
-    // Clear suggestions and selection ref
-    setQuillActiveWord('');
-    setQuillSuggestions([]);
-    setQuillActiveWordRange(null);
-    quillActiveWordRangeRef.current = null;
-    lastSelectionIndexRef.current = null;
-
+    // Set selection and clear suggestions after a 50ms delay to prevent ReactQuill selection overrides
     setTimeout(() => {
+      quill.setSelection(newCursorPos);
+      setQuillActiveWord('');
+      setQuillSuggestions([]);
+      setQuillActiveWordRange(null);
+      quillActiveWordRangeRef.current = null;
+      lastSelectionIndexRef.current = null;
       isReplacingRef.current = false;
       checkQuillSpelling();
     }, 50);
@@ -305,14 +323,18 @@ export default function NotesContent() {
             ]
           });
 
+          const newCursorPos = start + corrected.length + appendChar.length;
+
+          // Set selection immediately to update Quill and ReactQuill's internal state
+          quill.setSelection(newCursorPos);
+
           // Update React state synchronously to prevent controlled overwrite
           setEditContent(quill.root.innerHTML);
 
-          const newCursorPos = start + corrected.length + appendChar.length;
           setTimeout(() => {
             quill.setSelection(newCursorPos);
             checkQuillSpelling();
-          }, 0);
+          }, 50);
         }
       };
 
