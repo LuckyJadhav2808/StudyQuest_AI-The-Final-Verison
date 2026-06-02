@@ -189,8 +189,17 @@ export default function NotesContent() {
 
     const fullReplacement = clean.leading + replacement + clean.trailing;
     
-    quill.deleteText(start, end - start);
-    quill.insertText(start, fullReplacement);
+    // Perform update in a single atomic Delta operation
+    quill.updateContents({
+      ops: [
+        { retain: start },
+        { delete: end - start },
+        { insert: fullReplacement }
+      ]
+    });
+
+    // Update React state synchronously to prevent controlled value override race conditions
+    setEditContent(quill.root.innerHTML);
 
     // Set selection after replacement
     quill.setSelection(start + fullReplacement.length);
@@ -281,8 +290,17 @@ export default function NotesContent() {
             e.preventDefault();
           }
 
-          quill.deleteText(start, pos - start);
-          quill.insertText(start, corrected + appendChar);
+          // Use updateContents for atomic change
+          quill.updateContents({
+            ops: [
+              { retain: start },
+              { delete: pos - start },
+              { insert: corrected + appendChar }
+            ]
+          });
+
+          // Update React state synchronously to prevent controlled overwrite
+          setEditContent(quill.root.innerHTML);
 
           const newCursorPos = start + corrected.length + appendChar.length;
           setTimeout(() => {
@@ -454,10 +472,22 @@ export default function NotesContent() {
   const handleMarkdownImport = async () => {
     if (!markdownInput.trim() || !selectedNote) return;
     const html = await marked.parse(markdownInput);
-    const newContent = (editContent || '') + html;
-    setEditContent(newContent);
-    await updateNote(selectedNote.id, { content: newContent });
-    setSelectedNote({ ...selectedNote, content: newContent, updatedAt: Date.now() });
+    
+    const quill = quillRef.current?.getEditor();
+    if (quill) {
+      const length = quill.getLength();
+      quill.clipboard.dangerouslyPasteHTML(length - 1, html);
+      const newContent = quill.root.innerHTML;
+      setEditContent(newContent);
+      await updateNote(selectedNote.id, { content: newContent });
+      setSelectedNote({ ...selectedNote, content: newContent, updatedAt: Date.now() });
+    } else {
+      const newContent = (editContent || '') + html;
+      setEditContent(newContent);
+      await updateNote(selectedNote.id, { content: newContent });
+      setSelectedNote({ ...selectedNote, content: newContent, updatedAt: Date.now() });
+    }
+    
     setMarkdownInput('');
     setShowMarkdownImport(false);
     toast.success('Markdown imported! 📄');
@@ -466,11 +496,25 @@ export default function NotesContent() {
   // Insert diagram image into note content
   const handleInsertDiagram = (dataUrl: string) => {
     const imgTag = `<p><img src="${dataUrl}" alt="Diagram" style="max-width:100%;border-radius:12px;margin:8px 0;" /></p>`;
-    const newContent = (editContent || '') + imgTag;
-    setEditContent(newContent);
-    if (selectedNote) {
-      updateNote(selectedNote.id, { content: newContent });
-      setSelectedNote({ ...selectedNote, content: newContent, updatedAt: Date.now() });
+    
+    const quill = quillRef.current?.getEditor();
+    if (quill) {
+      const range = quill.getSelection();
+      const index = range ? range.index : quill.getLength() - 1;
+      quill.clipboard.dangerouslyPasteHTML(index, imgTag);
+      const newContent = quill.root.innerHTML;
+      setEditContent(newContent);
+      if (selectedNote) {
+        updateNote(selectedNote.id, { content: newContent });
+        setSelectedNote({ ...selectedNote, content: newContent, updatedAt: Date.now() });
+      }
+    } else {
+      const newContent = (editContent || '') + imgTag;
+      setEditContent(newContent);
+      if (selectedNote) {
+        updateNote(selectedNote.id, { content: newContent });
+        setSelectedNote({ ...selectedNote, content: newContent, updatedAt: Date.now() });
+      }
     }
   };
 
@@ -697,10 +741,11 @@ export default function NotesContent() {
                 <div ref={noteRef}>
                   {isEditing ? (
                     <div className="quill-wrapper" ref={quillWrapperRef}>
-                      <ReactQuill
+                       <ReactQuill
+                        key={selectedNote?.id || 'new'}
                         ref={quillRef}
                         theme="snow"
-                        value={editContent}
+                        defaultValue={selectedNote?.content || ''}
                         onChange={handleContentChange}
                         modules={QUILL_MODULES}
                         formats={QUILL_FORMATS}
@@ -792,7 +837,15 @@ export default function NotesContent() {
                   onClose={() => setMultitaskPanel(null)}
                   onInsertTimestamp={(ts) => {
                     const timestampHtml = `<p><strong style="color: #EF4444;">[⏱️ ${ts}]</strong> </p>`;
-                    setEditContent(prev => prev + timestampHtml);
+                    const quill = quillRef.current?.getEditor();
+                    if (quill) {
+                      const range = quill.getSelection();
+                      const index = range ? range.index : quill.getLength() - 1;
+                      quill.clipboard.dangerouslyPasteHTML(index, timestampHtml);
+                      setEditContent(quill.root.innerHTML);
+                    } else {
+                      setEditContent(prev => prev + timestampHtml);
+                    }
                   }}
                 />
               ) : multitaskPanel === 'tutor' ? (
@@ -800,7 +853,15 @@ export default function NotesContent() {
                   onClose={() => setMultitaskPanel(null)}
                   onInsertText={(text) => {
                     const insertHtml = `<blockquote><p>${text.replace(/\n/g, '</p><p>')}</p></blockquote>`;
-                    setEditContent(prev => prev + insertHtml);
+                    const quill = quillRef.current?.getEditor();
+                    if (quill) {
+                      const range = quill.getSelection();
+                      const index = range ? range.index : quill.getLength() - 1;
+                      quill.clipboard.dangerouslyPasteHTML(index, insertHtml);
+                      setEditContent(quill.root.innerHTML);
+                    } else {
+                      setEditContent(prev => prev + insertHtml);
+                    }
                   }}
                   noteContent={editContent}
                   apiKey={profile?.openRouterKey}

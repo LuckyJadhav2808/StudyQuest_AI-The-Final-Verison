@@ -16,6 +16,7 @@ export function useSpellingAssistant(
 ): SpellingAssistantReturn {
   const [activeWord, setActiveWord] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [activeWordRange, setActiveWordRange] = useState<{ start: number; end: number } | null>(null);
   const elementRef = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null);
 
   // Helper to find the word bounds around the cursor
@@ -44,15 +45,17 @@ export function useSpellingAssistant(
     const text = element.value;
     const pos = element.selectionStart ?? 0;
     
-    const { word } = getWordAtCursor(text, pos);
+    const { word, start, end } = getWordAtCursor(text, pos);
     const clean = cleanWord(word);
     
     if (clean.base && isMisspelled(word)) {
       setActiveWord(word);
       setSuggestions(getSpellingSuggestions(word));
+      setActiveWordRange({ start, end });
     } else {
       setActiveWord('');
       setSuggestions([]);
+      setActiveWordRange(null);
     }
   }, [getWordAtCursor]);
 
@@ -119,10 +122,18 @@ export function useSpellingAssistant(
     const el = elementRef.current;
     if (!el) return;
 
+    let start = activeWordRange?.start;
+    let end = activeWordRange?.end;
+
+    if (start === undefined || end === undefined) {
+      const text = el.value;
+      const pos = el.selectionStart ?? 0;
+      const range = getWordAtCursor(text, pos);
+      start = range.start;
+      end = range.end;
+    }
+
     const text = el.value;
-    const pos = el.selectionStart ?? 0;
-    const { start, end } = getWordAtCursor(text, pos);
-    
     const clean = cleanWord(text.slice(start, end));
     // Keep original leading & trailing punctuation
     const fullReplacement = clean.leading + replacement + clean.trailing;
@@ -140,7 +151,7 @@ export function useSpellingAssistant(
       el.selectionStart = el.selectionEnd = newCursorPos;
       checkSpellingAtCursor(el);
     }, 0);
-  }, [onChange, getWordAtCursor, checkSpellingAtCursor]);
+  }, [onChange, activeWordRange, getWordAtCursor, checkSpellingAtCursor]);
 
   // Add misspelled active word to custom dictionary
   const addActiveWordToDictionary = useCallback((word: string) => {
