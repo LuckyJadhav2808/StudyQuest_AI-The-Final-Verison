@@ -538,9 +538,22 @@ export const SKILL_TREE_NODES: SkillNodeDef[] = [
 export const ADMIN_EMAILS = ['luckymanojjadhav@gmail.com'];
 
 // ----- Patch Notes -----
-export const CURRENT_PATCH_VERSION = '1.4.0';
+export const CURRENT_PATCH_VERSION = '1.5.0';
 
 export const PATCH_NOTES: PatchNote[] = [
+  {
+    version: '1.5.0',
+    title: 'The Scribe & Focus Update',
+    date: '2026-06-02',
+    entries: [
+      { type: 'feature', text: '✍️ Spellcheck & Autocorrect — Instantly correct spelling and punctuation as you write.' },
+      { type: 'feature', text: '📖 100k English Dictionary — A fast, offline-first 97,000+ word English dictionary loader.' },
+      { type: 'feature', text: '➕ Custom Dictionary — Whitelist custom words, slang, or subject terms dynamically.' },
+      { type: 'feature', text: '⏱️ Timer Recovery — Resumes your Pomodoro timer and stats across page reloads and tab closures.' },
+      { type: 'improvement', text: '⚡ Synced Correction — Autocorrect and custom words update instantly across AI Chat, Notes, and Tasks.' },
+      { type: 'improvement', text: '🎯 Background Completion — Auto-claims focus session XP, coins, and ingredient drops if the timer finishes while closed.' },
+    ],
+  },
   {
     version: '1.4.0',
     title: 'The Alchemist Update',
