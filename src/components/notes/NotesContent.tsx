@@ -98,8 +98,11 @@ export default function NotesContent() {
   const [quillSuggestions, setQuillSuggestions] = useState<string[]>([]);
   const [quillActiveWord, setQuillActiveWord] = useState('');
   const [quillActiveWordRange, setQuillActiveWordRange] = useState<{ start: number; end: number } | null>(null);
+  const isReplacingRef = useRef(false);
 
   const checkQuillSpelling = useCallback(() => {
+    if (isReplacingRef.current) return;
+
     const quill = quillRef.current?.getEditor();
     if (!quill) return;
 
@@ -142,9 +145,29 @@ export default function NotesContent() {
 
   const replaceQuillWord = useCallback((replacement: string) => {
     const quill = quillRef.current?.getEditor();
-    if (!quill || !quillActiveWordRange) return;
+    if (!quill) return;
 
-    const { start, end } = quillActiveWordRange;
+    // Get current selection dynamically (editor must be focused)
+    const range = quill.getSelection();
+    let start: number;
+    let end: number;
+
+    if (range) {
+      const pos = range.index;
+      const text = quill.getText();
+      start = pos;
+      while (start > 0 && !/\s/.test(text[start - 1])) start--;
+      end = pos;
+      while (end < text.length && !/\s/.test(text[end])) end++;
+    } else if (quillActiveWordRange) {
+      start = quillActiveWordRange.start;
+      end = quillActiveWordRange.end;
+    } else {
+      return;
+    }
+
+    isReplacingRef.current = true;
+
     const text = quill.getText(start, end - start);
     const clean = cleanWord(text);
 
@@ -153,10 +176,18 @@ export default function NotesContent() {
     quill.deleteText(start, end - start);
     quill.insertText(start, fullReplacement);
 
+    // Set selection after replacement
+    quill.setSelection(start + fullReplacement.length);
+
+    // Clear suggestions
+    setQuillActiveWord('');
+    setQuillSuggestions([]);
+    setQuillActiveWordRange(null);
+
     setTimeout(() => {
-      quill.setSelection(start + fullReplacement.length);
+      isReplacingRef.current = false;
       checkQuillSpelling();
-    }, 0);
+    }, 50);
   }, [quillActiveWordRange, checkQuillSpelling]);
 
   const addQuillWordToDictionary = useCallback((word: string) => {
@@ -674,7 +705,10 @@ export default function NotesContent() {
                                 <button
                                   key={`${suggestion}-${idx}`}
                                   type="button"
-                                  onClick={() => replaceQuillWord(suggestion)}
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    replaceQuillWord(suggestion);
+                                  }}
                                   className="text-purple-300 hover:text-white hover:underline transition-colors px-1 bg-purple-500/25 rounded cursor-pointer"
                                 >
                                   {suggestion}
@@ -683,7 +717,10 @@ export default function NotesContent() {
                               <span className="text-[var(--muted-foreground)]/30 mx-1">|</span>
                               <button
                                 type="button"
-                                onClick={() => addQuillWordToDictionary(quillActiveWord)}
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  addQuillWordToDictionary(quillActiveWord);
+                                }}
                                 className="text-purple-400 hover:text-purple-300 transition-colors font-bold underline cursor-pointer"
                               >
                                 ➕ Add "{quillActiveWord.replace(/^[^\w'-]+|[^\w'-]+$/g, '') || quillActiveWord}"

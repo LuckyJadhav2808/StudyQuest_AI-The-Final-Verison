@@ -309,7 +309,10 @@ export default function ChatContent() {
                 <button
                   key={`${suggestion}-${idx}`}
                   type="button"
-                  onClick={() => replaceActiveWord(suggestion)}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    replaceActiveWord(suggestion);
+                  }}
                   className="text-purple-300 hover:text-white hover:underline transition-colors px-1 bg-purple-500/25 rounded cursor-pointer"
                 >
                   {suggestion}
@@ -318,7 +321,10 @@ export default function ChatContent() {
               <span className="text-[var(--muted-foreground)]/30 mx-1">|</span>
               <button
                 type="button"
-                onClick={() => addActiveWordToDictionary(activeWord)}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  addActiveWordToDictionary(activeWord);
+                }}
                 className="text-purple-400 hover:text-purple-300 transition-colors font-bold underline cursor-pointer"
               >
                 ➕ Add "{activeWord.replace(/^[^\w'-]+|[^\w'-]+$/g, '') || activeWord}"

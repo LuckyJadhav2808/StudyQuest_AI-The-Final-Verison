@@ -155,7 +155,10 @@ export default function TaskModal({
                       <button
                         key={`${suggestion}-${idx}`}
                         type="button"
-                        onClick={() => replaceTitleWord(suggestion)}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          replaceTitleWord(suggestion);
+                        }}
                         className="text-purple-300 hover:text-white hover:underline transition-colors px-1 bg-purple-500/25 rounded cursor-pointer"
                       >
                         {suggestion}
@@ -164,7 +167,10 @@ export default function TaskModal({
                     <span className="text-[var(--muted-foreground)]/30 mx-1">|</span>
                     <button
                       type="button"
-                      onClick={() => addTitleWordToDictionary(titleActiveWord)}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        addTitleWordToDictionary(titleActiveWord);
+                      }}
                       className="text-purple-400 hover:text-purple-300 transition-colors font-bold underline cursor-pointer"
                     >
                       ➕ Add "{titleActiveWord.replace(/^[^\w'-]+|[^\w'-]+$/g, '') || titleActiveWord}"
@@ -190,7 +196,10 @@ export default function TaskModal({
                       <button
                         key={`${suggestion}-${idx}`}
                         type="button"
-                        onClick={() => replaceDescWord(suggestion)}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          replaceDescWord(suggestion);
+                        }}
                         className="text-purple-300 hover:text-white hover:underline transition-colors px-1 bg-purple-500/25 rounded cursor-pointer"
                       >
                         {suggestion}
@@ -199,7 +208,10 @@ export default function TaskModal({
                     <span className="text-[var(--muted-foreground)]/30 mx-1">|</span>
                     <button
                       type="button"
-                      onClick={() => addDescWordToDictionary(descActiveWord)}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        addDescWordToDictionary(descActiveWord);
+                      }}
                       className="text-purple-400 hover:text-purple-300 transition-colors font-bold underline cursor-pointer"
                     >
                       ➕ Add "{descActiveWord.replace(/^[^\w'-]+|[^\w'-]+$/g, '') || descActiveWord}"
