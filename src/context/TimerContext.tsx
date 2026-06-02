@@ -70,6 +70,14 @@ export const useTimerContext = () => {
   return ctx;
 };
 
+function isSameDay(t1: number, t2: number): boolean {
+  const d1 = new Date(t1);
+  const d2 = new Date(t2);
+  return d1.getFullYear() === d2.getFullYear() &&
+         d1.getMonth() === d2.getMonth() &&
+         d1.getDate() === d2.getDate();
+}
+
 export function TimerProvider({ children }: { children: React.ReactNode }) {
   const { awardXP } = useGamification();
   const { addIngredient } = useShop();
@@ -89,6 +97,96 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   });
   
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hasRestored = useRef(false);
+
+  // Load saved timer state on mount
+  useEffect(() => {
+    if (hasRestored.current) return;
+    
+    try {
+      const saved = localStorage.getItem('studyquest_timer_state');
+      if (saved) {
+        const state = JSON.parse(saved);
+        
+        const now = Date.now();
+        const sameDay = isSameDay(state.lastSavedTime, now);
+        
+        if (sameDay) {
+          // Same day: restore state & calculate elapsed countdown in background
+          let finalTimeLeft = state.timeLeft;
+          let finalTotalFocusToday = state.totalFocusToday;
+          let shouldAutoComplete = false;
+          
+          if (state.isRunning) {
+            const elapsedSeconds = Math.floor((now - state.lastSavedTime) / 1000);
+            if (elapsedSeconds > 0) {
+              if (state.timeLeft - elapsedSeconds > 0) {
+                finalTimeLeft = state.timeLeft - elapsedSeconds;
+                if (state.phase === 'focus') {
+                  finalTotalFocusToday += elapsedSeconds;
+                }
+              } else {
+                finalTimeLeft = 1; // set to 1s so the next tick completes naturally
+                if (state.phase === 'focus') {
+                  finalTotalFocusToday += state.timeLeft;
+                }
+                shouldAutoComplete = true;
+              }
+            }
+          }
+          
+          setPhase(state.phase);
+          setIsRunning(state.isRunning);
+          setTimeLeft(finalTimeLeft);
+          setSessions(state.sessions || 0);
+          setTotalFocusToday(finalTotalFocusToday);
+          if (state.durations) {
+            setDurations(state.durations);
+          }
+          
+          if (shouldAutoComplete) {
+            toast('🎯 Welcome back! Your focus session is complete.');
+          }
+        } else {
+          // Different day: reset daily sessions/focus stats
+          setPhase('focus');
+          setIsRunning(false);
+          setSessions(0);
+          setTotalFocusToday(0);
+          if (state.durations) {
+            setDurations(state.durations);
+            setTimeLeft(state.durations.focus * 60);
+          } else {
+            setTimeLeft(POMODORO_DEFAULTS.focus * 60);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Failed to restore timer state', e);
+    } finally {
+      hasRestored.current = true;
+    }
+  }, []);
+
+  // Save timer state on changes
+  useEffect(() => {
+    if (!hasRestored.current) return;
+    
+    try {
+      const state = {
+        phase,
+        timeLeft,
+        sessions,
+        totalFocusToday,
+        lastSavedTime: Date.now(),
+        isRunning,
+        durations,
+      };
+      localStorage.setItem('studyquest_timer_state', JSON.stringify(state));
+    } catch (e) {
+      console.error('Failed to save timer state to localStorage', e);
+    }
+  }, [phase, timeLeft, sessions, totalFocusToday, isRunning, durations]);
 
   const totalTime = phase === 'focus'
     ? durations.focus * 60
