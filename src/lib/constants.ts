@@ -552,6 +552,8 @@ export const PATCH_NOTES: PatchNote[] = [
       { type: 'feature', text: '⏱️ Timer Recovery — Resumes your Pomodoro timer and stats across page reloads and tab closures.' },
       { type: 'improvement', text: '⚡ Synced Correction — Autocorrect and custom words update instantly across AI Chat, Notes, and Tasks.' },
       { type: 'improvement', text: '🎯 Background Completion — Auto-claims focus session XP, coins, and ingredient drops if the timer finishes while closed.' },
+      { type: 'fix', text: '🔧 Spelling Suggestions — Clicked suggestions now replace the entire word with no leftover letters.' },
+      { type: 'fix', text: '🔧 Autocorrect Spacing — Corrected words no longer swallow your spaces or punctuation.' },
     ],
   },
   {
