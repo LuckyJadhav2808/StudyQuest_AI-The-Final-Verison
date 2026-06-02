@@ -94,15 +94,18 @@ export function useSpellingAssistant(
     // Apply correction
     const corrected = autocorrectWord(wordWithPunc);
     if (corrected !== wordWithPunc) {
-      e.preventDefault();
+      const appendChar = e.key === 'Enter' ? '' : e.key;
+      if (e.key !== 'Enter') {
+        e.preventDefault();
+      }
       
       const before = text.slice(0, start);
       const after = text.slice(end);
-      const newText = before + corrected + after;
+      const newText = before + corrected + appendChar + after;
       
       onChange(newText);
       
-      const lengthDiff = corrected.length - wordWithPunc.length;
+      const lengthDiff = (corrected.length + appendChar.length) - wordWithPunc.length;
       setTimeout(() => {
         el.value = newText;
         el.selectionStart = el.selectionEnd = pos + lengthDiff;
