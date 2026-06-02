@@ -99,6 +99,7 @@ export default function NotesContent() {
   const [quillActiveWord, setQuillActiveWord] = useState('');
   const [quillActiveWordRange, setQuillActiveWordRange] = useState<{ start: number; end: number } | null>(null);
   const isReplacingRef = useRef(false);
+  const lastSelectionIndexRef = useRef<number | null>(null);
 
   const checkQuillSpelling = useCallback(() => {
     if (isReplacingRef.current) return;
@@ -115,6 +116,7 @@ export default function NotesContent() {
     }
 
     const pos = range.index;
+    lastSelectionIndexRef.current = pos;
     const text = quill.getText();
 
     // Find start of current word
@@ -147,29 +149,43 @@ export default function NotesContent() {
     const quill = quillRef.current?.getEditor();
     if (!quill) return;
 
-    // Get current selection dynamically (editor must be focused)
-    const range = quill.getSelection();
+    // Use the active misspelled word range directly if available.
+    // This matches the exact indices of the misspelled word being corrected.
     let start: number;
     let end: number;
 
-    if (range) {
-      const pos = range.index;
-      const text = quill.getText();
-      start = pos;
-      while (start > 0 && !/\s/.test(text[start - 1])) start--;
-      end = pos;
-      while (end < text.length && !/\s/.test(text[end])) end++;
-    } else if (quillActiveWordRange) {
+    if (quillActiveWordRange) {
       start = quillActiveWordRange.start;
       end = quillActiveWordRange.end;
     } else {
-      return;
+      // Fallback: Get current selection dynamically (or fall back to last focused selection ref)
+      const range = quill.getSelection();
+      let pos = range ? range.index : lastSelectionIndexRef.current;
+      
+      if (pos === null || pos === undefined) {
+        return;
+      }
+
+      const text = quill.getText();
+      
+      // Find start of current word dynamically based on pos
+      start = pos;
+      while (start > 0 && !/\s/.test(text[start - 1])) {
+        start--;
+      }
+
+      // Find end of current word dynamically based on pos
+      end = pos;
+      while (end < text.length && !/\s/.test(text[end])) {
+        end++;
+      }
     }
 
     isReplacingRef.current = true;
 
-    const text = quill.getText(start, end - start);
-    const clean = cleanWord(text);
+    const text = quill.getText();
+    const wordText = text.slice(start, end);
+    const clean = cleanWord(wordText);
 
     const fullReplacement = clean.leading + replacement + clean.trailing;
     
@@ -179,10 +195,11 @@ export default function NotesContent() {
     // Set selection after replacement
     quill.setSelection(start + fullReplacement.length);
 
-    // Clear suggestions
+    // Clear suggestions and selection ref
     setQuillActiveWord('');
     setQuillSuggestions([]);
     setQuillActiveWordRange(null);
+    lastSelectionIndexRef.current = null;
 
     setTimeout(() => {
       isReplacingRef.current = false;
@@ -195,6 +212,7 @@ export default function NotesContent() {
     setQuillActiveWord('');
     setQuillSuggestions([]);
     setQuillActiveWordRange(null);
+    lastSelectionIndexRef.current = null;
 
     const quill = quillRef.current?.getEditor();
     if (quill) {
