@@ -20,6 +20,7 @@ import LevelUpOverlay from '@/components/gamification/LevelUpOverlay';
 import { usePresence } from '@/hooks/usePresence';
 import { useCustomization } from '@/hooks/useCustomization';
 import OfflineIndicator from '@/components/ui/OfflineIndicator';
+import PatchNotesModal from '@/components/ui/PatchNotesModal';
 
 /**
  * Animated SVG background grid — creates a subtle, immersive "command center" aesthetic.
@@ -118,6 +119,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Offline Deep Work Mode Indicator */}
         <OfflineIndicator />
+
+        {/* Patch Notes Modal (shows on new version) */}
+        <PatchNotesModal />
       </div>
     </AuthGuard>
   );

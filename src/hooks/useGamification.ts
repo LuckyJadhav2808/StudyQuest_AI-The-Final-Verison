@@ -32,7 +32,7 @@ interface UseGamificationReturn {
 }
 
 export function useGamification(): UseGamificationReturn {
-  const { user } = useAuthContext();
+  const { user, profile } = useAuthContext();
   const [gamification, setGamification] = useState<GamificationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [xpHistory, setXpHistory] = useState<Record<string, number>>({});
@@ -123,9 +123,9 @@ export function useGamification(): UseGamificationReturn {
         const leaderboardRef = doc(db, 'leaderboard', user.uid);
         await setDocument(leaderboardRef, {
           uid: user.uid,
-          displayName: user.displayName || 'Adventurer',
-          avatarSeed: user.uid,
-          avatarStyle: 'adventurer',
+          displayName: profile?.displayName || user.displayName || 'Adventurer',
+          avatarSeed: profile?.avatarSeed || user.uid,
+          avatarStyle: profile?.avatarStyle || 'adventurer',
           xp: finalXP,
           level: finalLevel,
           streak: g.streak || 0,

@@ -11,6 +11,7 @@ import {
   HiBookmark, HiCog, HiChevronLeft, HiChevronRight,
   HiLogout, HiSparkles, HiCollection, HiTerminal,
   HiAcademicCap, HiPencil, HiHeart, HiShoppingCart,
+  HiBeaker, HiShieldCheck,
 } from 'react-icons/hi';
 import { useAuthContext } from '@/context/AuthContext';
 import { useGamification } from '@/hooks/useGamification';
@@ -28,6 +29,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string; size?: n
   HiUserGroup, HiDatabase, HiCode, HiCubeTransparent,
   HiBookmark, HiCog, HiSparkles, HiCollection, HiTerminal,
   HiAcademicCap, HiPencil, HiHeart, HiShoppingCart,
+  HiBeaker, HiShieldCheck,
 };
 
 /* ============================================================
@@ -62,6 +64,7 @@ const NAV_SECTIONS = [
     items: [
       { label: 'My Pet', href: '/pets', icon: 'HiHeart' },
       { label: 'Item Shop', href: '/shop', icon: 'HiShoppingCart' },
+      { label: 'Alchemy Lab', href: '/alchemy', icon: 'HiBeaker' },
       { label: 'Skill Tree', href: '/skills', icon: 'HiSparkles' },
       { label: 'Study Groups', href: '/groups', icon: 'HiUserGroup' },
     ],
@@ -75,6 +78,12 @@ const NAV_SECTIONS = [
       { label: 'DSA Dungeon', href: '/dsa', icon: 'HiCubeTransparent' },
       { label: 'Spell Book', href: '/snippets', icon: 'HiBookmark' },
       { label: 'Typing Arcade', href: '/arcade', icon: 'HiSparkles' },
+    ],
+  },
+  {
+    title: 'Admin',
+    items: [
+      { label: 'Admin Panel', href: '/admin', icon: 'HiShieldCheck' },
     ],
   },
 ];

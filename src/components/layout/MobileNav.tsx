@@ -26,6 +26,8 @@ import {
   HiAcademicCap,
   HiPencil,
   HiSparkles,
+  HiBeaker,
+  HiShieldCheck,
 } from 'react-icons/hi';
 
 const MOBILE_QUICK = [
@@ -56,6 +58,8 @@ const ALL_NAV_ITEMS = [
   { label: 'DSA Dungeon', href: '/dsa', icon: HiCubeTransparent },
   { label: 'Spell Book', href: '/snippets', icon: HiBookmark },
   { label: 'Typing Arcade', href: '/arcade', icon: HiSparkles },
+  { label: 'Alchemy Lab', href: '/alchemy', icon: HiBeaker },
+  { label: 'Admin', href: '/admin', icon: HiShieldCheck },
   { label: 'Settings', href: '/settings', icon: HiCog },
 ];
 

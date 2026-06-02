@@ -12,6 +12,7 @@ import PageTransition from '@/components/layout/PageTransition';
 import PomodoroPet from '@/components/timer/PomodoroPet';
 import ZenMode from '@/components/timer/ZenMode';
 import LocalMusicPlayer from '@/components/timer/LocalMusicPlayer';
+import SessionCompleteOverlay from '@/components/timer/SessionCompleteOverlay';
 import { useTimerContext } from '@/context/TimerContext';
 import { XP_AWARDS } from '@/lib/constants';
 
@@ -35,7 +36,8 @@ export default function TimerContent() {
     toggleTimer, resetTimer, skipPhase, switchPhase, setDurations, setTimeLeft, setIsRunning,
     playlist, currentTrackIndex, isPlayingMusic, volume,
     handleFilesSelected, handlePlayPauseMusic, handleNextMusic, handlePrevMusic, setVolume,
-    removeTrack, playTrack
+    removeTrack, playTrack,
+    sessionCompleteData, dismissSessionComplete,
   } = useTimerContext();
 
   const { gamification } = useGamification();
@@ -280,6 +282,11 @@ export default function TimerContent() {
           <Card padding="md" hover={false}><p className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Goal</p><div className="flex items-center gap-2"><p className="text-2xl font-heading font-black">{sessions}/4</p>{sessions >= 4 && <Badge variant="teal" size="sm">Done!</Badge>}</div></Card>
         </div>
       </div>
+
+      {/* Session Complete Celebration */}
+      {sessionCompleteData && (
+        <SessionCompleteOverlay data={sessionCompleteData} onDismiss={dismissSessionComplete} />
+      )}
     </PageTransition>
   );
 }

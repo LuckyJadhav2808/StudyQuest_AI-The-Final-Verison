@@ -1,19 +1,22 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
-  HiUser, HiMail, HiKey, HiColorSwatch, HiSun, HiMoon,
+  HiUser, HiMail, HiKey, HiColorSwatch,
   HiClipboardCopy, HiCheck, HiSave, HiShieldCheck, HiLockClosed, HiViewGrid, HiHome,
+  HiDownload, HiUpload, HiDatabase, HiCurrencyDollar, HiExclamationCircle, HiFlag,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import { useAuthContext } from '@/context/AuthContext';
 import { useTheme, THEMES, Theme } from '@/context/ThemeContext';
 import { useGamification } from '@/hooks/useGamification';
+import { useShop } from '@/hooks/useShop';
 import { getProfileRef, setDocument } from '@/lib/firestore';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, increment, updateDoc, collection, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getAvatarUrl, DICEBEAR_STYLES } from '@/lib/constants';
+import { exportBackup, importBackup } from '@/lib/backup';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -25,6 +28,7 @@ export default function SettingsContent() {
   const { user, profile } = useAuthContext();
   const { theme, setTheme } = useTheme();
   const { gamification } = useGamification();
+  const { addCoins } = useShop();
 
   const [displayName, setDisplayName] = useState('');
   const [avatarSeed, setAvatarSeed] = useState('');
@@ -33,6 +37,20 @@ export default function SettingsContent() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Backup & Restore state
+  const [backingUp, setBackingUp] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreProgress, setRestoreProgress] = useState('');
+  const [claimingCoins, setClaimingCoins] = useState(false);
+  const [coinsClaimed, setCoinsClaimed] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Bug report state
+  const [showBugReport, setShowBugReport] = useState(false);
+  const [bugTitle, setBugTitle] = useState('');
+  const [bugDescription, setBugDescription] = useState('');
+  const [submittingBug, setSubmittingBug] = useState(false);
 
   const userLevel = gamification?.level || 0;
   const tier = getAvatarTier(userLevel);
@@ -73,13 +91,28 @@ export default function SettingsContent() {
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
+    const updatedName = displayName.trim() || 'Student';
     await setDocument(getProfileRef(user.uid), {
-      displayName: displayName.trim() || 'Student',
+      displayName: updatedName,
       avatarSeed,
       avatarStyle,
       openRouterKey: openRouterKey.trim(),
       updatedAt: Date.now(),
     });
+
+    // Sync to public leaderboard document
+    try {
+      const { doc, setDoc } = await import('firebase/firestore');
+      await setDoc(doc(db, 'leaderboard', user.uid), {
+        displayName: updatedName,
+        avatarSeed,
+        avatarStyle,
+        updatedAt: Date.now(),
+      }, { merge: true });
+    } catch (err) {
+      console.error('Failed to sync settings to leaderboard:', err);
+    }
+
     setSaving(false);
     setSaved(true);
     toast.success('Settings saved! ✨');
@@ -103,6 +136,64 @@ export default function SettingsContent() {
     }
     setTheme(themeId);
     toast.success(`${themeInfo?.emoji} ${themeInfo?.label} theme activated!`);
+  };
+
+  // ── Backup Handler ──
+  const handleBackup = async () => {
+    if (!user?.uid) return;
+    setBackingUp(true);
+    try {
+      await exportBackup(user.uid);
+      toast.success('✅ Backup downloaded successfully!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Backup failed. Please try again.');
+    } finally {
+      setBackingUp(false);
+    }
+  };
+
+  // ── Restore Handler ──
+  const handleRestoreFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.uid) return;
+    if (!file.name.endsWith('.json')) {
+      toast.error('Please select a valid .json backup file.');
+      return;
+    }
+    setRestoring(true);
+    setRestoreProgress('Starting restore...');
+    try {
+      await importBackup(user.uid, file, (msg) => setRestoreProgress(msg));
+      toast.success('🎉 Data restored successfully! Refresh to see all changes.');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Restore failed.');
+    } finally {
+      setRestoring(false);
+      setRestoreProgress('');
+      // Reset input so same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  // ── Claim Lost Coins ──
+  const handleClaimLostCoins = async () => {
+    if (!user?.uid || coinsClaimed) return;
+    setClaimingCoins(true);
+    try {
+      // Credits 1000 coins as compensation for database transition losses
+      const invRef = doc(db, 'users', user.uid, 'data', 'inventory');
+      await updateDoc(invRef, { coins: increment(1000) }).catch(async () => {
+        // If doc doesn't exist, create it
+        await setDoc(invRef, { coins: 1000, ownedItems: [], equippedItems: {}, gachaHistory: [] }, { merge: true });
+      });
+      setCoinsClaimed(true);
+      toast.success('🪙 1,000 coins restored to your wallet!');
+    } catch (err) {
+      toast.error('Could not restore coins. Try again.');
+    } finally {
+      setClaimingCoins(false);
+    }
   };
 
   const avatarUrl = getAvatarUrl(avatarSeed, avatarStyle);
@@ -451,6 +542,196 @@ export default function SettingsContent() {
               </span>
             </div>
           </div>
+        </Card>
+
+        {/* ── Data Management Card ── */}
+        <Card padding="lg" hover={false}>
+          <h2 className="text-sm font-heading font-bold mb-1 flex items-center gap-2">
+            <HiDatabase className="text-primary" /> Data Management
+          </h2>
+          <p className="text-xs text-[var(--muted-foreground)] mb-5">
+            Keep your progress safe. Export a full backup of all your data, or restore from a previous backup file.
+          </p>
+
+          {/* Backup & Restore buttons */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+            {/* BACKUP */}
+            <motion.button
+              onClick={handleBackup}
+              disabled={backingUp}
+              className="relative flex items-center gap-3 p-4 rounded-2xl border-2 border-[var(--card-border)] hover:border-primary/40 transition-all text-left group disabled:opacity-60"
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.97 }}
+            >
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
+                {backingUp
+                  ? <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }} className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full" />
+                  : <HiDownload className="text-primary" size={20} />}
+              </div>
+              <div>
+                <p className="text-sm font-heading font-bold">Export Backup</p>
+                <p className="text-[10px] text-[var(--muted-foreground)]">Download all your data as a .json file</p>
+              </div>
+            </motion.button>
+
+            {/* RESTORE */}
+            <motion.button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={restoring}
+              className="relative flex items-center gap-3 p-4 rounded-2xl border-2 border-[var(--card-border)] hover:border-teal/40 transition-all text-left group disabled:opacity-60"
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.97 }}
+            >
+              <div className="w-10 h-10 rounded-xl bg-teal/10 flex items-center justify-center flex-shrink-0 group-hover:bg-teal/20 transition-colors">
+                {restoring
+                  ? <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }} className="w-5 h-5 border-2 border-teal border-t-transparent rounded-full" />
+                  : <HiUpload className="text-teal" size={20} />}
+              </div>
+              <div>
+                <p className="text-sm font-heading font-bold">Restore Backup</p>
+                <p className="text-[10px] text-[var(--muted-foreground)]">
+                  {restoring ? restoreProgress || 'Restoring...' : 'Upload a .json backup file to restore'}
+                </p>
+              </div>
+            </motion.button>
+          </div>
+
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            onChange={handleRestoreFile}
+            className="hidden"
+          />
+
+          {/* Restore warning */}
+          <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 mb-5">
+            <HiExclamationCircle className="text-amber-400 flex-shrink-0 mt-0.5" size={16} />
+            <p className="text-[10px] text-amber-300/80 leading-relaxed">
+              <strong className="text-amber-400">Restore is non-destructive</strong> — it merges backup data with your current account.
+              Your API key and email are never exported for security.
+            </p>
+          </div>
+
+          {/* Claim Lost Coins */}
+          <div className="pt-4 border-t-2 border-[var(--card-border)]">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-heading font-bold flex items-center gap-2">
+                  <HiCurrencyDollar className="text-amber-400" /> Claim Lost Coins
+                </p>
+                <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5">
+                  Compensation for coins lost during the database transition. One-time claim of 1,000 🪙
+                </p>
+              </div>
+              <motion.button
+                onClick={handleClaimLostCoins}
+                disabled={claimingCoins || coinsClaimed}
+                className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-heading font-bold transition-all border-2 ${
+                  coinsClaimed
+                    ? 'border-teal/40 text-teal bg-teal/10 cursor-default'
+                    : 'border-amber-500/40 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 disabled:opacity-60'
+                }`}
+                whileHover={!coinsClaimed ? { scale: 1.05 } : undefined}
+                whileTap={!coinsClaimed ? { scale: 0.95 } : undefined}
+              >
+                {claimingCoins ? '...' : coinsClaimed ? '✅ Claimed!' : '🪙 Claim 1,000'}
+              </motion.button>
+            </div>
+          </div>
+        </Card>
+
+        {/* ── Bug Report Card ── */}
+        <Card padding="lg" hover={false}>
+          <h2 className="text-sm font-heading font-bold mb-1 flex items-center gap-2">
+            <HiFlag className="text-coral" /> Report a Bug
+          </h2>
+          <p className="text-xs text-[var(--muted-foreground)] mb-4">
+            Found something broken? Let the dev team know so we can fix it!
+          </p>
+
+          {showBugReport ? (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="space-y-3"
+            >
+              <input
+                type="text"
+                placeholder="Bug title (e.g. Skill Tree not loading)"
+                value={bugTitle}
+                onChange={(e) => setBugTitle(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl bg-[var(--background)] border-2 border-[var(--card-border)] text-sm font-semibold text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:border-primary/40"
+              />
+              <textarea
+                placeholder="Describe the bug in detail... What were you doing? What happened vs what you expected?"
+                value={bugDescription}
+                onChange={(e) => setBugDescription(e.target.value)}
+                rows={4}
+                className="w-full px-4 py-2.5 rounded-xl bg-[var(--background)] border-2 border-[var(--card-border)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:border-primary/40 resize-none"
+              />
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setShowBugReport(false); setBugTitle(''); setBugDescription(''); }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<HiFlag />}
+                  loading={submittingBug}
+                  onClick={async () => {
+                    if (!bugTitle.trim() || !bugDescription.trim()) {
+                      toast.error('Please fill in both title and description');
+                      return;
+                    }
+                    setSubmittingBug(true);
+                    try {
+                      await addDoc(collection(db, 'bugReports'), {
+                        uid: user?.uid || '',
+                        userName: profile?.displayName || 'Anonymous',
+                        userEmail: profile?.email || '',
+                        title: bugTitle.trim(),
+                        description: bugDescription.trim(),
+                        status: 'open',
+                        createdAt: Date.now(),
+                        updatedAt: Date.now(),
+                      });
+                      toast.success('Bug report submitted! Thanks for helping improve StudyQuest 💜');
+                      setShowBugReport(false);
+                      setBugTitle('');
+                      setBugDescription('');
+                    } catch {
+                      toast.error('Failed to submit bug report');
+                    } finally {
+                      setSubmittingBug(false);
+                    }
+                  }}
+                >
+                  Submit Report
+                </Button>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.button
+              onClick={() => setShowBugReport(true)}
+              className="flex items-center gap-3 p-4 rounded-2xl border-2 border-[var(--card-border)] hover:border-coral/40 transition-all text-left group w-full"
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.97 }}
+            >
+              <div className="w-10 h-10 rounded-xl bg-coral/10 flex items-center justify-center flex-shrink-0 group-hover:bg-coral/20 transition-colors">
+                <HiFlag className="text-coral" size={20} />
+              </div>
+              <div>
+                <p className="text-sm font-heading font-bold">Report a Bug</p>
+                <p className="text-[10px] text-[var(--muted-foreground)]">Help us fix issues and improve your experience</p>
+              </div>
+            </motion.button>
+          )}
         </Card>
 
         {/* Save button */}

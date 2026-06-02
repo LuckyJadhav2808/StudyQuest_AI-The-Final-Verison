@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { HiMail, HiLockClosed, HiUser, HiArrowRight } from 'react-icons/hi';
 import { FcGoogle } from 'react-icons/fc';
 import { useAuthContext } from '@/context/AuthContext';
+import toast from 'react-hot-toast';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 
@@ -19,8 +20,10 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { signIn, signUp, signInWithGoogle } = useAuthContext();
+  const { signIn, signUp, signInWithGoogle, resetPassword } = useAuthContext();
   const router = useRouter();
+  const [forgotMode, setForgotMode] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -279,11 +282,62 @@ export default function LoginPage() {
 
             {mode === 'login' && (
               <div className="text-right">
-                <button type="button" className="text-xs text-primary font-bold hover:underline">
-                  Forgot?
+                <button
+                  type="button"
+                  onClick={() => setForgotMode(!forgotMode)}
+                  className="text-xs text-primary font-bold hover:underline"
+                >
+                  {forgotMode ? 'Back to login' : 'Forgot password?'}
                 </button>
               </div>
             )}
+
+            <AnimatePresence mode="wait">
+              {forgotMode && mode === 'login' && (
+                <motion.div
+                  key="forgot"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="space-y-3"
+                >
+                  <Input
+                    label="Reset Email"
+                    type="email"
+                    placeholder="Enter your email for reset link"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    icon={<HiMail size={18} />}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="md"
+                    fullWidth
+                    onClick={async () => {
+                      if (!resetEmail.trim()) { setError('Please enter your email'); return; }
+                      setLoading(true);
+                      try {
+                        await resetPassword(resetEmail.trim());
+                        setForgotMode(false);
+                        setError('');
+                        setResetEmail('');
+                        toast.success('Password reset email sent! Check your inbox. 📧');
+                      } catch (err: unknown) {
+                        const msg = err instanceof Error ? err.message : 'Failed to send reset email';
+                        if (msg.includes('auth/user-not-found')) setError('No account found with this email');
+                        else setError(msg);
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    loading={loading}
+                  >
+                    Send Reset Link
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {error && (
               <motion.div

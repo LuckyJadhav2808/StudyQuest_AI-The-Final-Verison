@@ -2,7 +2,7 @@
 // StudyQuest AI — Constants & Configuration
 // ============================================================
 
-import { Achievement, GamificationData, ShopItem } from '@/types';
+import { Achievement, GamificationData, ShopItem, AlchemyIngredient, AlchemyRecipe, PatchNote } from '@/types';
 
 // ----- XP Awards -----
 export const XP_AWARDS = {
@@ -292,7 +292,78 @@ export const NAV_ITEMS = [
   { label: 'DSA', href: '/dsa', icon: 'HiCubeTransparent' },
   { label: 'Skill Tree', href: '/skills', icon: 'HiSparkles' },
   { label: 'Snippets', href: '/snippets', icon: 'HiBookmark' },
+  { label: 'Alchemy Lab', href: '/alchemy', icon: 'HiBeaker' },
+  { label: 'Admin', href: '/admin', icon: 'HiShieldCheck' },
   { label: 'Settings', href: '/settings', icon: 'HiCog' },
+];
+
+// ----- Alchemy Lab Ingredients -----
+export const ALCHEMY_INGREDIENTS: AlchemyIngredient[] = [
+  { id: 'starlight-dust', name: 'Starlight Dust', emoji: '✨', rarity: 'common', description: 'Glimmering particles gathered from completed focus sessions.', dropChance: 60 },
+  { id: 'lavender-bloom', name: 'Lavender Bloom', emoji: '🌺', rarity: 'common', description: 'A calming flower that grows with each task completed.', dropChance: 55 },
+  { id: 'mana-shard', name: 'Mana Shard', emoji: '🔮', rarity: 'rare', description: 'Concentrated magical energy from prolonged study.', dropChance: 30 },
+  { id: 'phoenix-feather', name: 'Phoenix Feather', emoji: '🪶', rarity: 'rare', description: 'A blazing feather dropped by maintaining streaks.', dropChance: 25 },
+  { id: 'dragon-scale', name: 'Dragon Scale', emoji: '🐉', rarity: 'epic', description: 'An ancient scale from trivia dungeon victories.', dropChance: 15 },
+  { id: 'void-essence', name: 'Void Essence', emoji: '🌑', rarity: 'legendary', description: 'The rarest substance — found only in perfect quiz scores.', dropChance: 5 },
+];
+
+// ----- Alchemy Recipes -----
+export const ALCHEMY_RECIPES: AlchemyRecipe[] = [
+  {
+    id: 'double-xp-potion',
+    name: 'Double XP Elixir',
+    emoji: '⚗️',
+    description: 'Doubles all XP earned for the next 2 hours.',
+    ingredients: { 'starlight-dust': 3, 'mana-shard': 1 },
+    effect: 'xp-double',
+    effectDescription: '2x XP for 2 hours',
+    duration: 120,
+    rarity: 'rare',
+  },
+  {
+    id: 'streak-shield',
+    name: 'Streak Shield Scroll',
+    emoji: '🛡️',
+    description: 'Protects your streak from breaking for 1 day.',
+    ingredients: { 'phoenix-feather': 2, 'lavender-bloom': 2 },
+    effect: 'streak-shield',
+    effectDescription: 'Streak protection for 24h',
+    duration: 1440,
+    rarity: 'epic',
+  },
+  {
+    id: 'coin-multiplier',
+    name: 'Gold Rush Tonic',
+    emoji: '🪙',
+    description: 'Triples coin earnings for 1 hour.',
+    ingredients: { 'starlight-dust': 2, 'dragon-scale': 1 },
+    effect: 'coin-triple',
+    effectDescription: '3x Coins for 1 hour',
+    duration: 60,
+    rarity: 'epic',
+  },
+  {
+    id: 'pet-mega-feast',
+    name: 'Mega Pet Feast',
+    emoji: '🍖',
+    description: 'Instantly maxes out your pet\'s hunger and happiness.',
+    ingredients: { 'lavender-bloom': 3, 'starlight-dust': 1 },
+    effect: 'pet-full-restore',
+    effectDescription: 'Full pet restore',
+    duration: 0,
+    rarity: 'common',
+  },
+  {
+    id: 'xp-burst',
+    name: 'XP Burst Bomb',
+    emoji: '💥',
+    description: 'Instantly grants 100 bonus XP.',
+    ingredients: { 'mana-shard': 2, 'void-essence': 1 },
+    effect: 'xp-instant-100',
+    effectDescription: '+100 XP instantly',
+    duration: 0,
+    rarity: 'legendary',
+  },
 ];
 
 // ----- Pomodoro Defaults -----
@@ -461,4 +532,39 @@ export const SKILL_TREE_NODES: SkillNodeDef[] = [
   { id: 'beast-2a', name: 'Iron Stomach', emoji: '🛡️', description: 'Pet loses hunger 50% slower.', branch: 'beast', tier: 2, cost: 2, requires: ['beast-1a'], effect: 'pet-hunger-slow-50' },
   { id: 'beast-2b', name: 'Bond of Friendship', emoji: '🤝', description: 'Pet earns double XP from your activities.', branch: 'beast', tier: 2, cost: 2, requires: ['beast-1b'], effect: 'pet-xp-double' },
   { id: 'beast-3', name: 'Alpha Tamer', emoji: '🦁', description: 'Pet never loses hunger. +10 coins per pet level-up. Ultimate perk.', branch: 'beast', tier: 3, cost: 3, requires: ['beast-2a', 'beast-2b'], effect: 'pet-ultimate' },
+];
+
+// ----- Admin Config -----
+export const ADMIN_EMAILS = ['luckymanojjadhav@gmail.com'];
+
+// ----- Patch Notes -----
+export const CURRENT_PATCH_VERSION = '1.4.0';
+
+export const PATCH_NOTES: PatchNote[] = [
+  {
+    version: '1.4.0',
+    title: 'The Alchemist Update',
+    date: '2026-06-02',
+    entries: [
+      { type: 'feature', text: '🧪 Alchemist Lab — Craft powerful potions from ingredients dropped during study!' },
+      { type: 'feature', text: '💾 Backup & Restore — Export and restore all your data from Settings.' },
+      { type: 'feature', text: '🛡️ Admin Dashboard — Full admin panel for managing users and bug reports.' },
+      { type: 'feature', text: '🪲 Bug Reporting — Report bugs directly from Settings.' },
+      { type: 'improvement', text: '✨ Focus session celebrations with XP, coins, and ingredient drops!' },
+      { type: 'fix', text: '🔑 Forgot Password now works on the login screen.' },
+      { type: 'fix', text: '🌳 Skill Tree crash when missing data has been fixed.' },
+      { type: 'fix', text: '🗺️ Quest Map in Hall of Fame is now scrollable.' },
+      { type: 'fix', text: '👤 Avatar and settings changes now update in real-time.' },
+    ],
+  },
+  {
+    version: '1.3.0',
+    title: 'The Multitask Update',
+    date: '2026-05-28',
+    entries: [
+      { type: 'feature', text: '📝 Notes split-screen with YouTube, AI Tutor, and Reference panels.' },
+      { type: 'feature', text: '🎮 Pet Catch minigame in the Arcade.' },
+      { type: 'improvement', text: '🎨 Lag-free resizable panels with direct DOM manipulation.' },
+    ],
+  },
 ];

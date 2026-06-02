@@ -283,6 +283,63 @@ export interface UserInventory {
   equippedItems: Record<string, string>;  // category → equipped item ID
   gachaHistory: string[];
   lastTreasureChestClaim?: string;        // ISO date YYYY-MM-DD — daily reward tracker
+  ingredients?: Record<string, number>;   // ingredient ID → quantity
+  activeEffects?: ActiveEffect[];         // currently active potions/buffs
+}
+
+// ----- Alchemy Lab (Crafting System) -----
+export interface AlchemyIngredient {
+  id: string;
+  name: string;
+  emoji: string;
+  rarity: ItemRarity;
+  description: string;
+  dropChance: number;       // 0-100 percentage
+}
+
+export interface AlchemyRecipe {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  ingredients: Record<string, number>;  // ingredient ID → required count
+  effect: string;                        // machine-readable effect key
+  effectDescription: string;             // human-readable effect
+  duration?: number;                     // duration in minutes (0 = instant)
+  rarity: ItemRarity;
+}
+
+export interface ActiveEffect {
+  recipeId: string;
+  effectKey: string;
+  expiresAt: number;        // timestamp when the effect ends
+}
+
+// ----- Bug Reports -----
+export interface BugReport {
+  id: string;
+  uid: string;
+  userName: string;
+  userEmail: string;
+  title: string;
+  description: string;
+  status: 'open' | 'in-progress' | 'resolved';
+  adminNote?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ----- Patch Notes -----
+export interface PatchNote {
+  version: string;
+  title: string;
+  date: string;                // ISO date
+  entries: PatchEntry[];
+}
+
+export interface PatchEntry {
+  type: 'fix' | 'feature' | 'improvement';
+  text: string;
 }
 
 // ----- Virtual Pet -----

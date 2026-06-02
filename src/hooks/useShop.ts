@@ -3,14 +3,16 @@ import { doc, increment } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { subscribeToDocument, setDocument, updateDocument } from '@/lib/firestore';
 import { useAuthContext } from '@/context/AuthContext';
-import { UserInventory, ShopItem } from '@/types';
-import { SHOP_ITEMS, TREASURE_CHEST_REWARDS, TreasureReward } from '@/lib/constants';
+import { UserInventory, ShopItem, ActiveEffect, AlchemyRecipe } from '@/types';
+import { SHOP_ITEMS, TREASURE_CHEST_REWARDS, TreasureReward, ALCHEMY_INGREDIENTS, ALCHEMY_RECIPES } from '@/lib/constants';
 
 const DEFAULT_INVENTORY: UserInventory = {
   coins: 0,
   ownedItems: [],
   equippedItems: {},
   gachaHistory: [],
+  ingredients: {},
+  activeEffects: [],
 };
 
 const GACHA_COST = 50;
@@ -189,5 +191,87 @@ export function useShop() {
     return reward;
   }, [getRef]);
 
-  return { inventory, loading, coins, buyItem, useItem, equipItem, unequipItem, addCoins, ownsItem, rollGacha, canClaimTreasureChest, claimTreasureChest };
+  // ── ADD INGREDIENT — drops a random ingredient based on rarity weights ──
+  const addIngredient = useCallback(async (source: 'focus' | 'task' | 'trivia' | 'quiz'): Promise<{ id: string; name: string; emoji: string } | null> => {
+    const ref = getRef();
+    if (!ref) return null;
+
+    // Filter available ingredients based on source-specific drop chances
+    const roll = Math.random() * 100;
+    const eligible = ALCHEMY_INGREDIENTS.filter(i => roll < i.dropChance);
+    if (eligible.length === 0) return null;
+
+    // Pick a random one from eligible
+    const ingredient = eligible[Math.floor(Math.random() * eligible.length)];
+    const current = inventoryRef.current;
+    const currentIngredients = current.ingredients || {};
+    const updated = {
+      ...current,
+      ingredients: {
+        ...currentIngredients,
+        [ingredient.id]: (currentIngredients[ingredient.id] || 0) + 1,
+      },
+    };
+    inventoryRef.current = updated;
+    await setDocument(ref, updated);
+    return { id: ingredient.id, name: ingredient.name, emoji: ingredient.emoji };
+  }, [getRef]);
+
+  // ── CRAFT ITEM — consume ingredients to create a potion/buff ──
+  const craftItem = useCallback(async (recipeId: string): Promise<boolean> => {
+    const ref = getRef();
+    if (!ref) return false;
+    const recipe = ALCHEMY_RECIPES.find(r => r.id === recipeId);
+    if (!recipe) return false;
+
+    const current = inventoryRef.current;
+    const currentIngredients = current.ingredients || {};
+
+    // Check if user has enough ingredients
+    for (const [ingId, required] of Object.entries(recipe.ingredients)) {
+      if ((currentIngredients[ingId] || 0) < required) return false;
+    }
+
+    // Consume ingredients
+    const newIngredients = { ...currentIngredients };
+    for (const [ingId, required] of Object.entries(recipe.ingredients)) {
+      newIngredients[ingId] = (newIngredients[ingId] || 0) - required;
+      if (newIngredients[ingId] <= 0) delete newIngredients[ingId];
+    }
+
+    // Apply effect
+    const activeEffects = [...(current.activeEffects || [])];
+    if (recipe.duration && recipe.duration > 0) {
+      activeEffects.push({
+        recipeId: recipe.id,
+        effectKey: recipe.effect,
+        expiresAt: Date.now() + recipe.duration * 60 * 1000,
+      });
+    }
+
+    const updated = {
+      ...current,
+      ingredients: newIngredients,
+      activeEffects,
+    };
+    inventoryRef.current = updated;
+    await setDocument(ref, updated);
+    return true;
+  }, [getRef]);
+
+  // ── CHECK ACTIVE EFFECT ──
+  const hasActiveEffect = useCallback((effectKey: string): boolean => {
+    const effects = inventoryRef.current.activeEffects || [];
+    return effects.some(e => e.effectKey === effectKey && e.expiresAt > Date.now());
+  }, []);
+
+  const ingredients = inventory.ingredients || {};
+  const activeEffects = (inventory.activeEffects || []).filter(e => e.expiresAt > Date.now());
+
+  return {
+    inventory, loading, coins, buyItem, useItem, equipItem, unequipItem, addCoins, ownsItem, rollGacha,
+    canClaimTreasureChest, claimTreasureChest,
+    // Alchemy
+    ingredients, addIngredient, craftItem, hasActiveEffect, activeEffects,
+  };
 }

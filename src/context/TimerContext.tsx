@@ -3,8 +3,17 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { useGamification } from '@/hooks/useGamification';
-import { POMODORO_DEFAULTS, XP_AWARDS } from '@/lib/constants';
+import { useShop } from '@/hooks/useShop';
+import { POMODORO_DEFAULTS, XP_AWARDS, COIN_AWARDS } from '@/lib/constants';
 import { playCelebration, playNotify } from '@/lib/sounds';
+
+export interface SessionCompleteData {
+  xpEarned: number;
+  coinsEarned: number;
+  sessionCount: number;
+  ingredientDrop: { id: string; name: string; emoji: string } | null;
+  isLongBreak: boolean;
+}
 
 export type TimerPhase = 'focus' | 'short-break' | 'long-break';
 
@@ -48,6 +57,9 @@ interface TimerContextValue {
   setVolume: (vol: number) => void;
   removeTrack: (index: number) => void;
   playTrack: (index: number) => void;
+  // Celebration state
+  sessionCompleteData: SessionCompleteData | null;
+  dismissSessionComplete: () => void;
 }
 
 const TimerContext = createContext<TimerContextValue | null>(null);
@@ -60,6 +72,7 @@ export const useTimerContext = () => {
 
 export function TimerProvider({ children }: { children: React.ReactNode }) {
   const { awardXP } = useGamification();
+  const { addIngredient } = useShop();
   
   // --- Timer State ---
   const [phase, setPhase] = useState<TimerPhase>('focus');
@@ -68,6 +81,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   const [sessions, setSessions] = useState(0);
   const [totalFocusToday, setTotalFocusToday] = useState(0);
   const [wasAbandoned, setWasAbandoned] = useState(false);
+  const [sessionCompleteData, setSessionCompleteData] = useState<SessionCompleteData | null>(null);
   const [durations, setDurations] = useState({
     focus: POMODORO_DEFAULTS.focus,
     shortBreak: POMODORO_DEFAULTS.shortBreak,
@@ -111,15 +125,31 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       setSessions(newSessions);
       
       const earnedXP = XP_AWARDS.POMODORO_COMPLETE;
+      const earnedCoins = COIN_AWARDS.POMODORO_COMPLETE;
       await awardXP(earnedXP, 'Completed a focus session! 🍅');
+
+      // Try to drop an alchemy ingredient
+      let ingredientDrop: { id: string; name: string; emoji: string } | null = null;
+      try {
+        ingredientDrop = await addIngredient('focus');
+      } catch { /* ingredient drop is best-effort */ }
       
-      if (newSessions % 4 === 0) {
+      const isLongBreak = newSessions % 4 === 0;
+
+      // Show celebration overlay
+      setSessionCompleteData({
+        xpEarned: earnedXP,
+        coinsEarned: earnedCoins,
+        sessionCount: newSessions,
+        ingredientDrop,
+        isLongBreak,
+      });
+
+      if (isLongBreak) {
         playCelebration();
-        toast('Great focus! Time for a long break 🌿');
         switchPhase('long-break');
       } else {
-        playNotify();
-        toast('Session complete! Take a short break ☕');
+        playCelebration();
         switchPhase('short-break');
       }
     } else {
@@ -127,7 +157,11 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       toast('Break over! Time to focus 🎯');
       switchPhase('focus');
     }
-  }, [phase, sessions, awardXP, switchPhase]);
+  }, [phase, sessions, awardXP, addIngredient, switchPhase]);
+
+  const dismissSessionComplete = useCallback(() => {
+    setSessionCompleteData(null);
+  }, []);
 
   const toggleTimer = () => {
     if (!isRunning) setWasAbandoned(false);
@@ -268,7 +302,8 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     phase, isRunning, timeLeft, totalTime, sessions, totalFocusToday, durations, progress, wasAbandoned,
     toggleTimer, resetTimer, skipPhase, switchPhase, setDurations, setTimeLeft, setIsRunning,
     playlist, currentTrackIndex, isPlayingMusic, volume,
-    handleFilesSelected, handlePlayPauseMusic, handleNextMusic, handlePrevMusic, setVolume, removeTrack, playTrack
+    handleFilesSelected, handlePlayPauseMusic, handleNextMusic, handlePrevMusic, setVolume, removeTrack, playTrack,
+    sessionCompleteData, dismissSessionComplete,
   };
 
   return (
