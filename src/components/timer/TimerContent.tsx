@@ -32,7 +32,7 @@ const PHASE_COLORS: Record<TimerPhase, { ring: string; bg: string; text: string 
 
 export default function TimerContent() {
   const { 
-    phase, isRunning, timeLeft, totalTime, sessions, totalFocusToday, durations, progress, wasAbandoned,
+    phase, isRunning, timeLeft, totalTime, sessions, totalFocusToday, formattedFocusToday, durations, progress, wasAbandoned,
     toggleTimer, resetTimer, skipPhase, switchPhase, setDurations, setTimeLeft, setIsRunning,
     playlist, currentTrackIndex, isPlayingMusic, volume,
     handleFilesSelected, handlePlayPauseMusic, handleNextMusic, handlePrevMusic, setVolume,
@@ -277,7 +277,7 @@ export default function TimerContent() {
         {/* Stats row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card padding="md" hover={false}><p className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Sessions</p><p className="text-2xl font-heading font-black">{sessions}</p></Card>
-          <Card padding="md" hover={false}><p className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Focus Today</p><p className="text-2xl font-heading font-black">{Math.floor(totalFocusToday / 60)}m</p></Card>
+          <Card padding="md" hover={false}><p className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Focus Today</p><p className="text-2xl font-heading font-black">{formattedFocusToday}</p></Card>
           <Card padding="md" hover={false}><p className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">XP Earned</p><p className="text-2xl font-heading font-black text-primary">{sessions * XP_AWARDS.POMODORO_COMPLETE}</p></Card>
           <Card padding="md" hover={false}><p className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Goal</p><div className="flex items-center gap-2"><p className="text-2xl font-heading font-black">{sessions}/4</p>{sessions >= 4 && <Badge variant="teal" size="sm">Done!</Badge>}</div></Card>
         </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { useGamification } from '@/hooks/useGamification';
 import { useShop } from '@/hooks/useShop';
@@ -30,6 +30,7 @@ interface TimerContextValue {
   totalTime: number;
   sessions: number;
   totalFocusToday: number;
+  formattedFocusToday: string;
   durations: { focus: number; shortBreak: number; longBreak: number };
   progress: number;
   wasAbandoned: boolean;
@@ -95,6 +96,15 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     shortBreak: POMODORO_DEFAULTS.shortBreak,
     longBreak: POMODORO_DEFAULTS.longBreak,
   });
+
+  const formattedFocusToday = useMemo(() => {
+    const hours = Math.floor(totalFocusToday / 3600);
+    const minutes = Math.floor((totalFocusToday % 3600) / 60);
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+  }, [totalFocusToday]);
   
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasRestored = useRef(false);
@@ -280,28 +290,35 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     handlePhaseComplete();
   };
 
+  const handlePhaseCompleteRef = useRef(handlePhaseComplete);
+  useEffect(() => {
+    handlePhaseCompleteRef.current = handlePhaseComplete;
+  }, [handlePhaseComplete]);
+
   // Timer Tick
   useEffect(() => {
-    if (isRunning && timeLeft > 0) {
-      intervalRef.current = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            handlePhaseComplete();
-            return 0;
-          }
-          return prev - 1;
-        });
-        
-        if (phase === 'focus') {
-          setTotalFocusToday((prev) => prev + 1); // Count in seconds
+    if (!isRunning) return;
+
+    intervalRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          setTimeout(() => {
+            handlePhaseCompleteRef.current();
+          }, 0);
+          return 0;
         }
-      }, 1000);
-    }
+        return prev - 1;
+      });
+      
+      if (phase === 'focus') {
+        setTotalFocusToday((prev) => prev + 1); // Count in seconds
+      }
+    }, 1000);
     
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isRunning, timeLeft, phase, handlePhaseComplete]);
+  }, [isRunning, phase]);
 
   // Update timeLeft when duration settings change (if timer is stopped)
   useEffect(() => {
@@ -397,7 +414,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = {
-    phase, isRunning, timeLeft, totalTime, sessions, totalFocusToday, durations, progress, wasAbandoned,
+    phase, isRunning, timeLeft, totalTime, sessions, totalFocusToday, formattedFocusToday, durations, progress, wasAbandoned,
     toggleTimer, resetTimer, skipPhase, switchPhase, setDurations, setTimeLeft, setIsRunning,
     playlist, currentTrackIndex, isPlayingMusic, volume,
     handleFilesSelected, handlePlayPauseMusic, handleNextMusic, handlePrevMusic, setVolume, removeTrack, playTrack,

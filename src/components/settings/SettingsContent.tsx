@@ -100,6 +100,18 @@ export default function SettingsContent() {
       updatedAt: Date.now(),
     });
 
+    // Sync to Firebase Auth profile (display name and photoURL)
+    try {
+      const { updateProfile } = await import('firebase/auth');
+      const avatarUrl = getAvatarUrl(avatarSeed, avatarStyle);
+      await updateProfile(user, {
+        displayName: updatedName,
+        photoURL: avatarUrl,
+      });
+    } catch (authErr) {
+      console.warn('Failed to sync changes to Firebase Auth profile:', authErr);
+    }
+
     // Sync to public leaderboard document
     try {
       const { doc, setDoc } = await import('firebase/firestore');

@@ -30,7 +30,17 @@ export function useDailyQuests(): UseDailyQuestsReturn {
   const [quests, setQuests] = useState<DailyQuest[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const today = getLocalDateString();
+  const [today, setToday] = useState(getLocalDateString());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentToday = getLocalDateString();
+      if (currentToday !== today) {
+        setToday(currentToday);
+      }
+    }, 10000); // Check every 10s
+    return () => clearInterval(interval);
+  }, [today]);
 
   useEffect(() => {
     if (!user) { setQuests([]); setLoading(false); return; }

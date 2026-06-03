@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiPlus, HiTrash, HiFire, HiCheck, HiX } from 'react-icons/hi';
 import toast from 'react-hot-toast';
@@ -62,9 +62,20 @@ export default function HabitsContent() {
   const [newColor, setNewColor] = useState(HABIT_COLORS[0]);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  const today = getLocalDateString();
-  const last30 = useMemo(() => getLastNDays(30), []);
-  const last7 = useMemo(() => getLastNDays(7), []);
+  const [today, setToday] = useState(getLocalDateString());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentToday = getLocalDateString();
+      if (currentToday !== today) {
+        setToday(currentToday);
+      }
+    }, 10000); // Check every 10s
+    return () => clearInterval(interval);
+  }, [today]);
+
+  const last30 = useMemo(() => getLastNDays(30), [today]);
+  const last7 = useMemo(() => getLastNDays(7), [today]);
 
   const handleAddHabit = async () => {
     if (!newTitle.trim()) return;

@@ -22,6 +22,7 @@ export function useSpellingAssistant(
   const activeWordRangeRef = useRef<{ start: number; end: number } | null>(null);
   const pendingCursorPosRef = useRef<number | null>(null);
   const isReplacingRef = useRef(false);
+  const suggestionsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Helper to find the word bounds around the cursor
   const getWordAtCursor = useCallback((text: string, cursorPos: number) => {
@@ -54,10 +55,20 @@ export function useSpellingAssistant(
     const { word, start, end } = getWordAtCursor(text, pos);
     const clean = cleanWord(word);
     
+    // Clear any pending suggestions calculation
+    if (suggestionsTimeoutRef.current) {
+      clearTimeout(suggestionsTimeoutRef.current);
+      suggestionsTimeoutRef.current = null;
+    }
+
     if (clean.base && isMisspelled(word)) {
       setActiveWord(word);
-      setSuggestions(getSpellingSuggestions(word));
       activeWordRangeRef.current = { start, end };
+      
+      // Debounce the heavy suggestions lookup (Levenshtein search over 97k words)
+      suggestionsTimeoutRef.current = setTimeout(() => {
+        setSuggestions(getSpellingSuggestions(word));
+      }, 150);
     } else {
       setActiveWord('');
       setSuggestions([]);
@@ -65,6 +76,15 @@ export function useSpellingAssistant(
       // blurs during suggestions selection, the click handler still has access to the range.
     }
   }, [getWordAtCursor]);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (suggestionsTimeoutRef.current) {
+        clearTimeout(suggestionsTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Defer selection restoration to post-render to avoid conflicts with React's controlled input updates
   useEffect(() => {

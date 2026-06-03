@@ -31,6 +31,10 @@ const BACKUP_COLLECTIONS = [
   'focusSessions',
   'timetable',
   'savedQueries',
+  'dailyQuests',
+  'chatMessages',
+  'xpLog',
+  'friends',
 ] as const;
 
 const BACKUP_DOCS = [
@@ -39,6 +43,7 @@ const BACKUP_DOCS = [
   'inventory',
   'preferences',
   'sqlPlayground',
+  'skillTree',
 ] as const;
 
 export interface StudyQuestBackup {

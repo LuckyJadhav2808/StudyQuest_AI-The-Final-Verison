@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiX, HiPlay, HiPause, HiRefresh, HiCheck } from 'react-icons/hi';
 import { usePet } from '@/hooks/usePet';
@@ -78,6 +78,15 @@ export default function ZenMode({
   const [scene, setScene] = useState<Scene>('sunset');
 
   const { pet, getMood } = usePet();
+
+  const formattedFocusToday = useMemo(() => {
+    const hours = Math.floor(totalFocusToday / 3600);
+    const minutes = Math.floor((totalFocusToday % 3600) / 60);
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+  }, [totalFocusToday]);
 
   const progress = totalTime > 0 ? 1 - timeLeft / totalTime : 0;
 
@@ -309,7 +318,7 @@ export default function ZenMode({
         </div>
         <div>
           <p className="text-[10px] uppercase tracking-wider font-bold text-white/40">Focus Today</p>
-          <p className="text-xl font-heading font-black text-white">{Math.floor(totalFocusToday / 60)}m</p>
+          <p className="text-xl font-heading font-black text-white">{formattedFocusToday}</p>
         </div>
         <div>
           <p className="text-[10px] uppercase tracking-wider font-bold text-white/40">XP Earned</p>

@@ -178,7 +178,8 @@ export default function DsaPage() {
       const xpAmount = XP_AWARDS.TASK_COMPLETE * XP_AWARDS.DAILY_CHALLENGE_MULTIPLIER;
       await awardXP(xpAmount, 'Daily Code Challenge completed!');
 
-      // Update daily challenge streak
+      // Update daily challenge streak. If lastDailyChallengeDate is empty (first time user),
+      // or if the user missed a day, the streak resets to 1. Otherwise it increments by 1.
       const yesterday = getLocalYesterdayDateString();
       const newStreak = gamification.lastDailyChallengeDate === yesterday
         ? (gamification.dailyChallengeStreak || 0) + 1

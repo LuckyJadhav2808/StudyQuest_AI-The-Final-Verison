@@ -22,21 +22,10 @@ function formatTimeLeft(expiresAt: number): string {
   const diff = Math.max(0, expiresAt - Date.now());
   const h = Math.floor(diff / 3600000);
   const m = Math.floor((diff % 3600000) / 60000);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
+  const s = Math.floor((diff % 60000) / 1000);
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  return `${m}m ${s}s`;
 }
-
-/* ── floating bubble keyframes via inline style ── */
-const bubbleStyle = (i: number) => ({
-  position: 'absolute' as const,
-  width: 6 + Math.random() * 8,
-  height: 6 + Math.random() * 8,
-  borderRadius: '50%',
-  background: `radial-gradient(circle, rgba(168,85,247,${0.15 + Math.random() * 0.2}), transparent)`,
-  left: `${10 + Math.random() * 80}%`,
-  bottom: -10,
-  animation: `alch-bubble ${3 + Math.random() * 4}s ease-in infinite ${i * 0.7}s`,
-});
 
 export default function AlchemyContent() {
   const { ingredients, craftItem, activeEffects, coins } = useShop();
@@ -44,10 +33,24 @@ export default function AlchemyContent() {
   const [brewing, setBrewing] = useState(false);
   const [successEmoji, setSuccessEmoji] = useState<string | null>(null);
   const [, setTick] = useState(0);
+  const [bubbles, setBubbles] = useState<{ width: number; height: number; left: string; duration: string; delay: string; opacity: number }[]>([]);
 
-  // Tick every 30s to refresh countdowns
+  // Generate bubble parameters only on client mount to avoid hydration mismatch
   useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 30000);
+    const generated = Array.from({ length: 8 }, (_, i) => ({
+      width: 6 + Math.random() * 8,
+      height: 6 + Math.random() * 8,
+      left: `${10 + Math.random() * 80}%`,
+      duration: `${3 + Math.random() * 4}s`,
+      delay: `${i * 0.7}s`,
+      opacity: 0.15 + Math.random() * 0.2,
+    }));
+    setBubbles(generated);
+  }, []);
+
+  // Tick every 1s to refresh countdowns live
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 1000);
     return () => clearInterval(id);
   }, []);
 
@@ -77,7 +80,21 @@ export default function AlchemyContent() {
 
       {/* ── Header ── */}
       <div className="relative mb-8 overflow-hidden rounded-2xl p-6" style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.15), rgba(99,102,241,0.1), rgba(14,165,233,0.08))' }}>
-        {[...Array(8)].map((_, i) => <div key={i} style={bubbleStyle(i)} />)}
+        {bubbles.map((bubble, i) => (
+          <div
+            key={i}
+            style={{
+              position: 'absolute',
+              width: bubble.width,
+              height: bubble.height,
+              borderRadius: '50%',
+              background: `radial-gradient(circle, rgba(168,85,247,${bubble.opacity}), transparent)`,
+              left: bubble.left,
+              bottom: -10,
+              animation: `alch-bubble ${bubble.duration} ease-in infinite ${bubble.delay}`,
+            }}
+          />
+        ))}
         <div className="relative z-10">
           <h1 className="text-3xl font-heading font-bold text-[var(--foreground)] flex items-center gap-3">
             🧪 Alchemist Lab <HiBeaker className="text-purple-400" />

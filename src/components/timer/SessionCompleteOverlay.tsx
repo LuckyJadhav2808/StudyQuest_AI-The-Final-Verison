@@ -91,12 +91,14 @@ function ProgressRing({ count }: { count: number }) {
 /* ---------- main overlay ---------- */
 export default function SessionCompleteOverlay({ data, onDismiss }: SessionCompleteOverlayProps) {
   const { xpEarned, coinsEarned, sessionCount, ingredientDrop, isLongBreak } = data;
+  const [hovered, setHovered] = useState(false);
 
   /* auto-dismiss */
   useEffect(() => {
+    if (hovered) return;
     const t = setTimeout(onDismiss, 8000);
     return () => clearTimeout(t);
-  }, [onDismiss]);
+  }, [onDismiss, hovered]);
 
   return (
     <AnimatePresence>
@@ -116,6 +118,8 @@ export default function SessionCompleteOverlay({ data, onDismiss }: SessionCompl
             borderColor: 'var(--card-border)',
             backdropFilter: 'blur(24px)',
           }}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
           initial={{ scale: 0.6, opacity: 0, y: 40 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.8, opacity: 0, y: 30 }}

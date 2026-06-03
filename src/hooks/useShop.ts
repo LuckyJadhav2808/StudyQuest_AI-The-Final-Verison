@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { doc, increment } from 'firebase/firestore';
+import { doc, increment, runTransaction } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { subscribeToDocument, setDocument, updateDocument } from '@/lib/firestore';
 import { useAuthContext } from '@/context/AuthContext';
@@ -73,80 +73,128 @@ export function useShop() {
   const buyItem = useCallback(async (itemId: string): Promise<boolean> => {
     const ref = getRef();
     if (!ref) return false;
-    const current = inventoryRef.current;
     const item = SHOP_ITEMS.find((i) => i.id === itemId);
     if (!item) return false;
-    if (current.coins < item.price) return false;
-    if (!item.consumable && current.ownedItems.includes(itemId)) return false;
 
-    const updated: UserInventory = {
-      ...current,
-      coins: current.coins - item.price,
-      ownedItems: [...current.ownedItems, itemId],
-    };
-    inventoryRef.current = updated; // optimistic update
-    await setDocument(ref, updated);
-    return true;
+    try {
+      const result = await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(ref);
+        const current = docSnap.exists() ? docSnap.data() as UserInventory : DEFAULT_INVENTORY;
+        
+        if (current.coins < item.price) return false;
+        if (!item.consumable && current.ownedItems.includes(itemId)) return false;
+
+        const updatedOwned = [...(current.ownedItems || []), itemId];
+        
+        transaction.update(ref, {
+          coins: current.coins - item.price,
+          ownedItems: updatedOwned,
+        });
+        return true;
+      });
+      return result;
+    } catch (e) {
+      console.error('buyItem transaction failed', e);
+      return false;
+    }
   }, [getRef]);
 
   // ── USE (consume) ITEM ──
   const useItem = useCallback(async (itemId: string) => {
     const ref = getRef();
     if (!ref) return;
-    const current = inventoryRef.current;
-    const idx = current.ownedItems.indexOf(itemId);
-    if (idx === -1) return;
-    const newOwned = [...current.ownedItems];
-    newOwned.splice(idx, 1);
-    const updated = { ...current, ownedItems: newOwned };
-    inventoryRef.current = updated;
-    await setDocument(ref, updated);
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(ref);
+        const current = docSnap.exists() ? docSnap.data() as UserInventory : DEFAULT_INVENTORY;
+        
+        const idx = current.ownedItems.indexOf(itemId);
+        if (idx === -1) return;
+        
+        const newOwned = [...current.ownedItems];
+        newOwned.splice(idx, 1);
+        
+        transaction.update(ref, { ownedItems: newOwned });
+      });
+    } catch (e) {
+      console.error('useItem transaction failed', e);
+    }
   }, [getRef]);
 
   // ── EQUIP ──
   const equipItem = useCallback(async (itemId: string, category: string) => {
     const ref = getRef();
     if (!ref) return;
-    const current = inventoryRef.current;
-    const updated = {
-      ...current,
-      equippedItems: { ...current.equippedItems, [category]: itemId },
-    };
-    inventoryRef.current = updated;
-    await setDocument(ref, updated);
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(ref);
+        const current = docSnap.exists() ? docSnap.data() as UserInventory : DEFAULT_INVENTORY;
+        
+        const updated = {
+          ...(current.equippedItems || {}),
+          [category]: itemId,
+        };
+        
+        transaction.update(ref, { equippedItems: updated });
+      });
+    } catch (e) {
+      console.error('equipItem transaction failed', e);
+    }
   }, [getRef]);
 
   // ── UNEQUIP ──
   const unequipItem = useCallback(async (category: string) => {
     const ref = getRef();
     if (!ref) return;
-    const current = inventoryRef.current;
-    const eq = { ...current.equippedItems };
-    delete eq[category];
-    const updated = { ...current, equippedItems: eq };
-    inventoryRef.current = updated;
-    await setDocument(ref, updated);
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(ref);
+        const current = docSnap.exists() ? docSnap.data() as UserInventory : DEFAULT_INVENTORY;
+        
+        const eq = { ...(current.equippedItems || {}) };
+        delete eq[category];
+        
+        transaction.update(ref, { equippedItems: eq });
+      });
+    } catch (e) {
+      console.error('unequipItem transaction failed', e);
+    }
   }, [getRef]);
 
   // ── GACHA ROLL ──
   const rollGacha = useCallback(async (): Promise<ShopItem | null> => {
     const ref = getRef();
     if (!ref) return null;
-    const current = inventoryRef.current;
-    if (current.coins < GACHA_COST) return null;
     const rarity = weightedRandom();
     const pool = SHOP_ITEMS.filter((i) => i.rarity === rarity && !i.consumable);
     if (pool.length === 0) return null;
     const item = pool[Math.floor(Math.random() * pool.length)];
-    const updated: UserInventory = {
-      ...current,
-      coins: current.coins - GACHA_COST,
-      ownedItems: [...current.ownedItems, item.id],
-      gachaHistory: [item.id, ...(current.gachaHistory || [])].slice(0, 10),
-    };
-    inventoryRef.current = updated;
-    await setDocument(ref, updated);
-    return item;
+
+    try {
+      const result = await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(ref);
+        const current = docSnap.exists() ? docSnap.data() as UserInventory : DEFAULT_INVENTORY;
+        
+        if (current.coins < GACHA_COST) return null;
+        
+        const newOwned = [...(current.ownedItems || []), item.id];
+        const newHistory = [item.id, ...(current.gachaHistory || [])].slice(0, 10);
+        
+        transaction.update(ref, {
+          coins: current.coins - GACHA_COST,
+          ownedItems: newOwned,
+          gachaHistory: newHistory,
+        });
+        return item;
+      });
+      return result;
+    } catch (e) {
+      console.error('rollGacha transaction failed', e);
+      return null;
+    }
   }, [getRef]);
 
   // ── Daily Treasure Chest ──
@@ -158,38 +206,47 @@ export function useShop() {
   const claimTreasureChest = useCallback(async (): Promise<TreasureReward | null> => {
     const ref = getRef();
     if (!ref) return null;
-    const current = inventoryRef.current;
     const today = getLocalDateString();
-    if (current.lastTreasureChestClaim === today) return null;
 
-    // Roll weighted random reward
-    const totalWeight = TREASURE_CHEST_REWARDS.reduce((sum, r) => sum + r.weight, 0);
-    let roll = Math.random() * totalWeight;
-    let selected = TREASURE_CHEST_REWARDS[0];
-    for (const entry of TREASURE_CHEST_REWARDS) {
-      roll -= entry.weight;
-      if (roll <= 0) { selected = entry; break; }
+    try {
+      const result = await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(ref);
+        const current = docSnap.exists() ? docSnap.data() as UserInventory : DEFAULT_INVENTORY;
+        
+        if (current.lastTreasureChestClaim === today) return null;
+
+        // Roll weighted random reward
+        const totalWeight = TREASURE_CHEST_REWARDS.reduce((sum, r) => sum + r.weight, 0);
+        let roll = Math.random() * totalWeight;
+        let selected = TREASURE_CHEST_REWARDS[0];
+        for (const entry of TREASURE_CHEST_REWARDS) {
+          roll -= entry.weight;
+          if (roll <= 0) { selected = entry; break; }
+        }
+
+        // Calculate random amounts within range
+        const rewardCoins = Math.floor(Math.random() * (selected.coinRange[1] - selected.coinRange[0] + 1)) + selected.coinRange[0];
+        const xp = selected.xpRange[1] > 0
+          ? Math.floor(Math.random() * (selected.xpRange[1] - selected.xpRange[0] + 1)) + selected.xpRange[0]
+          : 0;
+
+        const reward: TreasureReward = {
+          ...selected.reward,
+          coins: rewardCoins,
+          xp,
+        };
+
+        transaction.update(ref, {
+          coins: current.coins + rewardCoins,
+          lastTreasureChestClaim: today,
+        });
+        return reward;
+      });
+      return result;
+    } catch (e) {
+      console.error('claimTreasureChest transaction failed', e);
+      return null;
     }
-
-    // Calculate random amounts within range
-    const rewardCoins = Math.floor(Math.random() * (selected.coinRange[1] - selected.coinRange[0] + 1)) + selected.coinRange[0];
-    const xp = selected.xpRange[1] > 0
-      ? Math.floor(Math.random() * (selected.xpRange[1] - selected.xpRange[0] + 1)) + selected.xpRange[0]
-      : 0;
-
-    const reward: TreasureReward = {
-      ...selected.reward,
-      coins: rewardCoins,
-      xp,
-    };
-
-    // Use increment for coins to prevent race conditions
-    await updateDocument(ref, {
-      coins: increment(rewardCoins),
-      lastTreasureChestClaim: today,
-    });
-
-    return reward;
   }, [getRef]);
 
   // ── ADD INGREDIENT — drops a random ingredient based on rarity weights ──
@@ -204,18 +261,28 @@ export function useShop() {
 
     // Pick a random one from eligible
     const ingredient = eligible[Math.floor(Math.random() * eligible.length)];
-    const current = inventoryRef.current;
-    const currentIngredients = current.ingredients || {};
-    const updated = {
-      ...current,
-      ingredients: {
-        ...currentIngredients,
-        [ingredient.id]: (currentIngredients[ingredient.id] || 0) + 1,
-      },
-    };
-    inventoryRef.current = updated;
-    await setDocument(ref, updated);
-    return { id: ingredient.id, name: ingredient.name, emoji: ingredient.emoji };
+
+    try {
+      const result = await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(ref);
+        const current = docSnap.exists() ? docSnap.data() as UserInventory : DEFAULT_INVENTORY;
+        
+        const currentIngredients = current.ingredients || {};
+        const updatedIngredients = {
+          ...currentIngredients,
+          [ingredient.id]: (currentIngredients[ingredient.id] || 0) + 1,
+        };
+        
+        transaction.update(ref, {
+          ingredients: updatedIngredients,
+        });
+        return { id: ingredient.id, name: ingredient.name, emoji: ingredient.emoji };
+      });
+      return result;
+    } catch (e) {
+      console.error('addIngredient transaction failed', e);
+      return null;
+    }
   }, [getRef]);
 
   // ── CRAFT ITEM — consume ingredients to create a potion/buff ──
@@ -225,39 +292,46 @@ export function useShop() {
     const recipe = ALCHEMY_RECIPES.find(r => r.id === recipeId);
     if (!recipe) return false;
 
-    const current = inventoryRef.current;
-    const currentIngredients = current.ingredients || {};
+    try {
+      const result = await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(ref);
+        const current = docSnap.exists() ? docSnap.data() as UserInventory : DEFAULT_INVENTORY;
+        
+        const currentIngredients = current.ingredients || {};
 
-    // Check if user has enough ingredients
-    for (const [ingId, required] of Object.entries(recipe.ingredients)) {
-      if ((currentIngredients[ingId] || 0) < required) return false;
-    }
+        // Check if user has enough ingredients
+        for (const [ingId, required] of Object.entries(recipe.ingredients)) {
+          if ((currentIngredients[ingId] || 0) < required) return false;
+        }
 
-    // Consume ingredients
-    const newIngredients = { ...currentIngredients };
-    for (const [ingId, required] of Object.entries(recipe.ingredients)) {
-      newIngredients[ingId] = (newIngredients[ingId] || 0) - required;
-      if (newIngredients[ingId] <= 0) delete newIngredients[ingId];
-    }
+        // Consume ingredients
+        const newIngredients = { ...currentIngredients };
+        for (const [ingId, required] of Object.entries(recipe.ingredients)) {
+          newIngredients[ingId] = (newIngredients[ingId] || 0) - required;
+          if (newIngredients[ingId] <= 0) delete newIngredients[ingId];
+        }
 
-    // Apply effect
-    const activeEffects = [...(current.activeEffects || [])];
-    if (recipe.duration && recipe.duration > 0) {
-      activeEffects.push({
-        recipeId: recipe.id,
-        effectKey: recipe.effect,
-        expiresAt: Date.now() + recipe.duration * 60 * 1000,
+        // Apply effect
+        const activeEffects = [...(current.activeEffects || [])];
+        if (recipe.duration && recipe.duration > 0) {
+          activeEffects.push({
+            recipeId: recipe.id,
+            effectKey: recipe.effect,
+            expiresAt: Date.now() + recipe.duration * 60 * 1000,
+          });
+        }
+
+        transaction.update(ref, {
+          ingredients: newIngredients,
+          activeEffects,
+        });
+        return true;
       });
+      return result;
+    } catch (e) {
+      console.error('craftItem transaction failed', e);
+      return false;
     }
-
-    const updated = {
-      ...current,
-      ingredients: newIngredients,
-      activeEffects,
-    };
-    inventoryRef.current = updated;
-    await setDocument(ref, updated);
-    return true;
   }, [getRef]);
 
   // ── CHECK ACTIVE EFFECT ──
