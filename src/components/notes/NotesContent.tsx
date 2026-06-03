@@ -134,7 +134,14 @@ export default function NotesContent() {
       end++;
     }
 
-    const word = text.slice(start, end).trim();
+    const word = text.slice(start, end);
+    // Only check if we have a non-empty word (skip pure whitespace)
+    if (!word || !word.trim()) {
+      setQuillActiveWord('');
+      setQuillSuggestions([]);
+      setQuillActiveWordRange(null);
+      return;
+    }
     const clean = cleanWord(word);
 
     if (clean.base && isMisspelled(word)) {
@@ -154,7 +161,6 @@ export default function NotesContent() {
     if (!quill) return;
 
     // Use the active misspelled word range directly from ref if available.
-    // This matches the exact indices of the misspelled word being corrected.
     let start: number;
     let end: number;
 
@@ -164,7 +170,7 @@ export default function NotesContent() {
     } else {
       // Fallback: Get current selection dynamically (or fall back to last focused selection ref)
       const range = quill.getSelection();
-      let pos = range ? range.index : lastSelectionIndexRef.current;
+      const pos = range ? range.index : lastSelectionIndexRef.current;
       
       if (pos === null || pos === undefined) {
         return;
@@ -187,29 +193,22 @@ export default function NotesContent() {
 
     isReplacingRef.current = true;
 
+    // Re-read current text to ensure boundaries match
     const text = quill.getText();
+    
+    // Validate range against current text
+    if (start < 0 || end > text.length || start >= end) {
+      isReplacingRef.current = false;
+      return;
+    }
+
     const wordText = text.slice(start, end);
     const clean = cleanWord(wordText);
 
     const fullReplacement = clean.leading + replacement + clean.trailing;
     
-    // Calculate new cursor position based on original selection position
-    const originalRange = quill.getSelection();
-    const originalPos = originalRange ? originalRange.index : lastSelectionIndexRef.current;
-    const delta = fullReplacement.length - (end - start);
-    
-    let newCursorPos: number;
-    if (originalPos !== null && originalPos !== undefined) {
-      if (originalPos >= end) {
-        newCursorPos = originalPos + delta;
-      } else if (originalPos <= start) {
-        newCursorPos = originalPos;
-      } else {
-        newCursorPos = start + fullReplacement.length;
-      }
-    } else {
-      newCursorPos = start + fullReplacement.length;
-    }
+    // Always place cursor right after the replaced word
+    const newCursorPos = start + fullReplacement.length;
 
     // Perform update in a single atomic Delta operation
     quill.updateContents({
@@ -220,23 +219,24 @@ export default function NotesContent() {
       ]
     });
 
-    // Update selection immediately to update Quill and ReactQuill's internal state
+    // Update selection immediately
     quill.setSelection(newCursorPos);
 
     // Update React state synchronously to prevent controlled value override race conditions
     setEditContent(quill.root.innerHTML);
 
-    // Set selection and clear suggestions after a 50ms delay to prevent ReactQuill selection overrides
-    setTimeout(() => {
-      quill.setSelection(newCursorPos);
-      setQuillActiveWord('');
-      setQuillSuggestions([]);
-      setQuillActiveWordRange(null);
-      quillActiveWordRangeRef.current = null;
-      lastSelectionIndexRef.current = null;
-      isReplacingRef.current = false;
-      checkQuillSpelling();
-    }, 50);
+    // Clear suggestions and restore state after Quill finishes its internal update
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        quill.setSelection(newCursorPos);
+        setQuillActiveWord('');
+        setQuillSuggestions([]);
+        setQuillActiveWordRange(null);
+        quillActiveWordRangeRef.current = null;
+        lastSelectionIndexRef.current = null;
+        isReplacingRef.current = false;
+      }, 0);
+    });
   }, [checkQuillSpelling]);
 
   const addQuillWordToDictionary = useCallback((word: string) => {
@@ -297,15 +297,21 @@ export default function NotesContent() {
         const pos = range.index;
         const text = quill.getText(0, pos);
         
-        let start = pos - 1;
-        while (start > 0 && /\s/.test(text[start])) {
-          start--;
+        // Find the word immediately before the cursor
+        // First find the end of the word (skip trailing whitespace before cursor)
+        let wordEnd = pos;
+        while (wordEnd > 0 && /\s/.test(text[wordEnd - 1])) {
+          wordEnd--;
         }
-        while (start > 0 && !/\s/.test(text[start - 1])) {
-          start--;
+        // Now find the start of the word
+        let wordStart = wordEnd;
+        while (wordStart > 0 && !/\s/.test(text[wordStart - 1])) {
+          wordStart--;
         }
 
-        const wordWithPunc = text.slice(start, pos);
+        if (wordStart === wordEnd) return; // No word found
+
+        const wordWithPunc = text.slice(wordStart, wordEnd);
         const corrected = autocorrectWord(wordWithPunc);
         
         if (corrected !== wordWithPunc) {
@@ -317,24 +323,26 @@ export default function NotesContent() {
           // Use updateContents for atomic change
           quill.updateContents({
             ops: [
-              { retain: start },
-              { delete: pos - start },
+              { retain: wordStart },
+              { delete: wordEnd - wordStart },
               { insert: corrected + appendChar }
             ]
           });
 
-          const newCursorPos = start + corrected.length + appendChar.length;
+          const newCursorPos = wordStart + corrected.length + appendChar.length;
 
-          // Set selection immediately to update Quill and ReactQuill's internal state
+          // Set selection immediately
           quill.setSelection(newCursorPos);
 
           // Update React state synchronously to prevent controlled overwrite
           setEditContent(quill.root.innerHTML);
 
-          setTimeout(() => {
-            quill.setSelection(newCursorPos);
-            checkQuillSpelling();
-          }, 50);
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              quill.setSelection(newCursorPos);
+              checkQuillSpelling();
+            }, 0);
+          });
         }
       };
 

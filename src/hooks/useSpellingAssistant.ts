@@ -73,13 +73,15 @@ export function useSpellingAssistant(
       const targetPos = pendingCursorPosRef.current;
       pendingCursorPosRef.current = null;
 
-      setTimeout(() => {
-        el.focus();
-        el.selectionStart = el.selectionEnd = targetPos;
-        checkSpellingAtCursor(el);
-      }, 50);
+      // Use requestAnimationFrame + setTimeout to ensure React has fully reconciled the DOM
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          el.focus();
+          el.selectionStart = el.selectionEnd = targetPos;
+        }, 0);
+      });
     }
-  }, [value, checkSpellingAtCursor]);
+  }, [value]);
 
   // Hook into select/cursor change events
   const handleSelect = useCallback((e: React.SyntheticEvent<HTMLTextAreaElement | HTMLInputElement>) => {
@@ -104,17 +106,22 @@ export function useSpellingAssistant(
     const pos = el.selectionStart ?? 0;
     if (pos === 0) return;
 
-    // Find the word right before the cursor
-    let start = pos - 1;
-    while (start > 0 && /\s/.test(text[start])) {
-      start--;
+    // Find the word immediately before the cursor (scan backwards from pos)
+    // First, find the end of the word — it's at pos (cursor is right after the word)
+    let wordEnd = pos;
+    // Skip any whitespace immediately before cursor (shouldn't happen on keydown, but be safe)
+    while (wordEnd > 0 && /\s/.test(text[wordEnd - 1])) {
+      wordEnd--;
     }
-    while (start > 0 && !/\s/.test(text[start - 1])) {
-      start--;
+    // Now find the start of the word
+    let wordStart = wordEnd;
+    while (wordStart > 0 && !/\s/.test(text[wordStart - 1])) {
+      wordStart--;
     }
     
-    const end = pos;
-    const wordWithPunc = text.slice(start, end);
+    if (wordStart === wordEnd) return; // No word found
+
+    const wordWithPunc = text.slice(wordStart, wordEnd);
     
     // Apply correction
     const corrected = autocorrectWord(wordWithPunc);
@@ -124,18 +131,18 @@ export function useSpellingAssistant(
         e.preventDefault();
       }
       
-      const before = text.slice(0, start);
-      const after = text.slice(end);
+      const before = text.slice(0, wordStart);
+      const after = text.slice(wordEnd);
       const newText = before + corrected + appendChar + after;
       
-      const newCursorPos = start + corrected.length + appendChar.length;
+      const newCursorPos = wordStart + corrected.length + appendChar.length;
+
+      // Prevent spellcheck recalculation during this change
+      isReplacingRef.current = true;
 
       // Programmatically and synchronously update DOM to prevent React selection overrides
       el.value = newText;
       el.selectionStart = el.selectionEnd = newCursorPos;
-
-      // Prevent spellcheck recalculation during this change
-      isReplacingRef.current = true;
       
       // Update state and schedule cursor selection for post-render
       pendingCursorPosRef.current = newCursorPos;
@@ -143,7 +150,7 @@ export function useSpellingAssistant(
 
       setTimeout(() => {
         isReplacingRef.current = false;
-      }, 50);
+      }, 100);
     }
   }, [onChange, checkSpellingAtCursor]);
 
@@ -158,7 +165,12 @@ export function useSpellingAssistant(
 
     const { start, end } = range;
     const text = el.value;
-    const clean = cleanWord(text.slice(start, end));
+
+    // Verify the range is still valid for the current text
+    if (start < 0 || end > text.length || start >= end) return;
+
+    const originalWord = text.slice(start, end);
+    const clean = cleanWord(originalWord);
     // Keep original leading & trailing punctuation
     const fullReplacement = clean.leading + replacement + clean.trailing;
     
@@ -166,25 +178,15 @@ export function useSpellingAssistant(
     const after = text.slice(end);
     const newText = before + fullReplacement + after;
 
-    // Calculate new cursor position based on original cursor position
-    const originalPos = el.selectionStart ?? end;
-    const delta = fullReplacement.length - (end - start);
-    
-    let newCursorPos: number;
-    if (originalPos >= end) {
-      newCursorPos = originalPos + delta;
-    } else if (originalPos <= start) {
-      newCursorPos = originalPos;
-    } else {
-      newCursorPos = start + fullReplacement.length;
-    }
+    // Place cursor right after the replaced word
+    const newCursorPos = start + fullReplacement.length;
+
+    // Prevent spellcheck recalculation during this change
+    isReplacingRef.current = true;
 
     // Programmatically and synchronously update DOM to prevent React selection overrides
     el.value = newText;
     el.selectionStart = el.selectionEnd = newCursorPos;
-    
-    // Prevent spellcheck recalculation during this change
-    isReplacingRef.current = true;
     
     // Update state and schedule cursor selection for post-render
     pendingCursorPosRef.current = newCursorPos;
@@ -197,7 +199,7 @@ export function useSpellingAssistant(
 
     setTimeout(() => {
       isReplacingRef.current = false;
-    }, 50);
+    }, 100);
   }, [onChange]);
 
   // Add misspelled active word to custom dictionary
