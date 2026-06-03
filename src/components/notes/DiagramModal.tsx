@@ -164,12 +164,62 @@ export default function DiagramModal({ isOpen, onClose, onInsert }: DiagramModal
                 {/* VS Rows */}
                 {vsRows.map((row, i) => (
                   <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
-                    <div style={{ flex: 1, background: '#f5f0ff', borderRadius: 12, border: '2px solid #ede0ff' }}>
-                      <input value={row[0]} onChange={(e) => updateVs(i, 0, e.target.value)} placeholder="Point..." style={{ width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', outline: 'none', fontSize: 14, fontFamily: 'Inter, system-ui, sans-serif' }} />
+                    <div style={{ flex: 1, background: '#f5f0ff', borderRadius: 12, border: '2px solid #ede0ff', display: 'flex' }}>
+                      <textarea
+                        value={row[0]}
+                        onChange={(e) => updateVs(i, 0, e.target.value)}
+                        placeholder="Point..."
+                        rows={1}
+                        style={{
+                          width: '100%',
+                          padding: '10px 14px',
+                          background: 'transparent',
+                          border: 'none',
+                          outline: 'none',
+                          fontSize: 14,
+                          fontFamily: 'Inter, system-ui, sans-serif',
+                          color: '#222',
+                          resize: 'none',
+                          minHeight: '40px',
+                          height: 'auto',
+                          display: 'block',
+                          overflow: 'hidden',
+                        }}
+                        onInput={(e) => {
+                          const el = e.currentTarget;
+                          el.style.height = 'auto';
+                          el.style.height = el.scrollHeight + 'px';
+                        }}
+                      />
                     </div>
                     <div style={{ width: 50 }} />
-                    <div style={{ flex: 1, background: '#f0fdf4', borderRadius: 12, border: '2px solid #d1fae5' }}>
-                      <input value={row[1]} onChange={(e) => updateVs(i, 1, e.target.value)} placeholder="Point..." style={{ width: '100%', padding: '10px 14px', background: 'transparent', border: 'none', outline: 'none', fontSize: 14, fontFamily: 'Inter, system-ui, sans-serif' }} />
+                    <div style={{ flex: 1, background: '#f0fdf4', borderRadius: 12, border: '2px solid #d1fae5', display: 'flex' }}>
+                      <textarea
+                        value={row[1]}
+                        onChange={(e) => updateVs(i, 1, e.target.value)}
+                        placeholder="Point..."
+                        rows={1}
+                        style={{
+                          width: '100%',
+                          padding: '10px 14px',
+                          background: 'transparent',
+                          border: 'none',
+                          outline: 'none',
+                          fontSize: 14,
+                          fontFamily: 'Inter, system-ui, sans-serif',
+                          color: '#222',
+                          resize: 'none',
+                          minHeight: '40px',
+                          height: 'auto',
+                          display: 'block',
+                          overflow: 'hidden',
+                        }}
+                        onInput={(e) => {
+                          const el = e.currentTarget;
+                          el.style.height = 'auto';
+                          el.style.height = el.scrollHeight + 'px';
+                        }}
+                      />
                     </div>
                   </div>
                 ))}
