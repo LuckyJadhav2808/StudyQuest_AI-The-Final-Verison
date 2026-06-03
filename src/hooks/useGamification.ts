@@ -21,6 +21,7 @@ import {
   COIN_AWARDS,
 } from '@/lib/constants';
 import { useAuthContext } from '@/context/AuthContext';
+import { getLocalDateString, getLocalYesterdayDateString } from '@/lib/dateUtils';
 
 interface UseGamificationReturn {
   gamification: GamificationData | null;
@@ -136,7 +137,7 @@ export function useGamification(): UseGamificationReturn {
       }
 
       // Log daily XP for heatmap
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDateString();
       const dayLogRef = doc(db, 'users', user.uid, 'xpLog', today);
       try {
         await setDocument(dayLogRef, { totalXp: increment(amount), lastUpdated: Date.now() });
@@ -183,11 +184,11 @@ export function useGamification(): UseGamificationReturn {
     const g = gamRef.current;
     if (!user || !g) return;
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     if (g.lastActiveDate === today) return; // Already active today
 
     const ref = getGamificationRef(user.uid);
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const yesterday = getLocalYesterdayDateString();
 
     let newStreak: number;
     if (g.lastActiveDate === yesterday) {

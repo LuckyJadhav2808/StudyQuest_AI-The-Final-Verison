@@ -18,6 +18,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { useFriends } from '@/hooks/useFriends';
 import { useDailyQuests } from '@/hooks/useDailyQuests';
 import { getAvatarUrl, ACHIEVEMENTS, XP_AWARDS } from '@/lib/constants';
+import { getLocalDateString } from '@/lib/dateUtils';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -75,7 +76,11 @@ export default function DashboardContent() {
   const [showNotifs, setShowNotifs] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { checkStreak(); }, [checkStreak]);
+  useEffect(() => {
+    if (gamification) {
+      checkStreak();
+    }
+  }, [checkStreak, gamification]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -97,8 +102,8 @@ export default function DashboardContent() {
   const todayTasks = tasks.filter((t) => t.status !== 'done');
   const completedToday = tasks.filter((t) => {
     if (t.status !== 'done') return false;
-    const today = new Date().toISOString().split('T')[0];
-    return new Date(t.updatedAt).toISOString().split('T')[0] === today;
+    const today = getLocalDateString();
+    return getLocalDateString(new Date(t.updatedAt)) === today;
   });
 
   const streakMessage = gamification?.streak && gamification.streak >= 3

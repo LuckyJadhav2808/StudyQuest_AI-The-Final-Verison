@@ -15,6 +15,7 @@ import PageTransition from '@/components/layout/PageTransition';
 import { XP_AWARDS } from '@/lib/constants';
 import { playSuccess } from '@/lib/sounds';
 import { spawnXPFromEvent } from '@/components/gamification/FloatingXP';
+import { getLocalDateString, getLocalYesterdayDateString } from '@/lib/dateUtils';
 
 const HABIT_COLORS = [
   '#7C3AED', '#EC4899', '#10B981', '#FF6B6B', '#FFD166',
@@ -26,14 +27,14 @@ const HABIT_ICONS = ['💪', '📚', '🧘', '🏃', '💧', '🎯', '✍️', '
 function getStreakForHabit(completedDates: string[]): number {
   if (completedDates.length === 0) return 0;
   const sorted = [...completedDates].sort().reverse();
-  const today = new Date().toISOString().split('T')[0];
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const today = getLocalDateString();
+  const yesterday = getLocalYesterdayDateString();
   if (sorted[0] !== today && sorted[0] !== yesterday) return 0;
 
   let streak = 1;
   for (let i = 1; i < sorted.length; i++) {
-    const prev = new Date(sorted[i - 1]);
-    const curr = new Date(sorted[i]);
+    const prev = new Date(sorted[i - 1] + 'T12:00:00'); // Use noon to avoid timezone shifts during Date parsing
+    const curr = new Date(sorted[i] + 'T12:00:00');
     const diff = (prev.getTime() - curr.getTime()) / (1000 * 60 * 60 * 24);
     if (Math.round(diff) === 1) streak++;
     else break;
@@ -47,7 +48,7 @@ function getLastNDays(n: number): string[] {
   for (let i = n - 1; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    days.push(d.toISOString().split('T')[0]);
+    days.push(getLocalDateString(d));
   }
   return days;
 }
@@ -61,7 +62,7 @@ export default function HabitsContent() {
   const [newColor, setNewColor] = useState(HABIT_COLORS[0]);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateString();
   const last30 = useMemo(() => getLastNDays(30), []);
   const last7 = useMemo(() => getLastNDays(7), []);
 

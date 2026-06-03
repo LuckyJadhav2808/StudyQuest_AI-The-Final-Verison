@@ -17,6 +17,7 @@ import { executeCode } from '@/lib/codeRunner';
 import { XP_AWARDS } from '@/lib/constants';
 import { getGamificationRef, updateDocument } from '@/lib/firestore';
 import confetti from 'canvas-confetti';
+import { getLocalDateString, getLocalYesterdayDateString } from '@/lib/dateUtils';
 
 const PROBLEMS = [
   { id: 'two-sum', title: 'Two Sum', difficulty: 'easy' as const, category: 'Arrays', desc: 'Return indices of two numbers that add up to target.', template: 'function twoSum(nums, target) {\n  // Your solution\n  \n}\nconsole.log(twoSum([2,7,11,15], 9));' },
@@ -31,7 +32,7 @@ const DC = { easy: 'teal', medium: 'amber', hard: 'coral' } as const;
 
 // Deterministic daily challenge picker based on the current date
 function getDailyChallengeIndex(): number {
-  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  const today = getLocalDateString(); // YYYY-MM-DD
   let hash = 0;
   for (let i = 0; i < today.length; i++) {
     hash = ((hash << 5) - hash) + today.charCodeAt(i);
@@ -164,7 +165,7 @@ export default function DsaPage() {
   // Daily challenge logic
   const dailyChallengeIdx = useMemo(() => getDailyChallengeIndex(), []);
   const dailyProblem = PROBLEMS[dailyChallengeIdx];
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateString();
   const isDailyCompleted = gamification?.lastDailyChallengeDate === today;
   const dailyStreak = gamification?.dailyChallengeStreak || 0;
 
@@ -178,7 +179,7 @@ export default function DsaPage() {
       await awardXP(xpAmount, 'Daily Code Challenge completed!');
 
       // Update daily challenge streak
-      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      const yesterday = getLocalYesterdayDateString();
       const newStreak = gamification.lastDailyChallengeDate === yesterday
         ? (gamification.dailyChallengeStreak || 0) + 1
         : 1;

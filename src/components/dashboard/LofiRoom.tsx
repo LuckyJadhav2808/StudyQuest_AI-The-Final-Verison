@@ -11,6 +11,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { PET_SPECIES_CONFIG } from '@/lib/constants';
 import { playClick, playXP, playSuccess } from '@/lib/sounds';
 import toast from 'react-hot-toast';
+import { getLocalDateString } from '@/lib/dateUtils';
 import TreasureChestModal from './TreasureChestModal';
 import './LofiRoom.css';
 
@@ -86,10 +87,10 @@ export default function LofiRoom({ className = '' }: LofiRoomProps) {
 
   // Tasks completed today
   const completedToday = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     return tasks.filter((t) => {
       if (t.status !== 'done') return false;
-      return new Date(t.updatedAt).toISOString().split('T')[0] === today;
+      return getLocalDateString(new Date(t.updatedAt)) === today;
     }).length;
   }, [tasks]);
 

@@ -5,6 +5,7 @@ import { collection, doc, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuthContext } from '@/context/AuthContext';
 import { setDocument } from '@/lib/firestore';
+import { getLocalDateString } from '@/lib/dateUtils';
 
 export interface DailyQuest {
   id: string;
@@ -29,7 +30,7 @@ export function useDailyQuests(): UseDailyQuestsReturn {
   const [quests, setQuests] = useState<DailyQuest[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateString();
 
   useEffect(() => {
     if (!user) { setQuests([]); setLoading(false); return; }

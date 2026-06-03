@@ -2,6 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { getLocalDateString } from '@/lib/dateUtils';
 
 /* ============================================================
    StudyHeatmap — GitHub-style contribution heatmap
@@ -46,7 +47,7 @@ function generateDateRange(days: number): string[] {
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    dates.push(d.toISOString().split('T')[0]);
+    dates.push(getLocalDateString(d));
   }
   return dates;
 }

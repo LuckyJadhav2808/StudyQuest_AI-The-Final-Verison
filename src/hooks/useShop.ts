@@ -3,6 +3,7 @@ import { doc, increment } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { subscribeToDocument, setDocument, updateDocument } from '@/lib/firestore';
 import { useAuthContext } from '@/context/AuthContext';
+import { getLocalDateString } from '@/lib/dateUtils';
 import { UserInventory, ShopItem, ActiveEffect, AlchemyRecipe } from '@/types';
 import { SHOP_ITEMS, TREASURE_CHEST_REWARDS, TreasureReward, ALCHEMY_INGREDIENTS, ALCHEMY_RECIPES } from '@/lib/constants';
 
@@ -150,7 +151,7 @@ export function useShop() {
 
   // ── Daily Treasure Chest ──
   const canClaimTreasureChest = useCallback((): boolean => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     return inventoryRef.current.lastTreasureChestClaim !== today;
   }, []);
 
@@ -158,7 +159,7 @@ export function useShop() {
     const ref = getRef();
     if (!ref) return null;
     const current = inventoryRef.current;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     if (current.lastTreasureChestClaim === today) return null;
 
     // Roll weighted random reward

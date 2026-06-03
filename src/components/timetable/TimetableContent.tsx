@@ -14,6 +14,7 @@ import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import PageTransition from '@/components/layout/PageTransition';
 import { TimetableBlock, Task } from '@/types';
+import { getLocalDateString } from '@/lib/dateUtils';
 
 const DAYS = [
   { id: 'mon' as const, label: 'Mon', full: 'Monday' },
@@ -167,7 +168,7 @@ export default function TimetableContent() {
     const diff = targetDayIdx - currentDayIdx;
     const targetDate = new Date(now);
     targetDate.setDate(now.getDate() + diff);
-    const iso = targetDate.toISOString().split('T')[0];
+    const iso = getLocalDateString(targetDate);
     await updateTask(taskId, { dueDate: iso });
     toast.success(`Task scheduled for ${DAYS.find((d) => d.id === dayId)?.full}!`);
   };
