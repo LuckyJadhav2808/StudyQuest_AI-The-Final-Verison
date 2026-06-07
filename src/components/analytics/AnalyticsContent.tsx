@@ -331,7 +331,7 @@ export default function AnalyticsContent() {
                   🗺️ Quest Map
                   <Badge variant="primary" size="sm">Progression</Badge>
                 </h2>
-                <div className="max-h-[600px] overflow-y-auto overflow-x-hidden rounded-xl">
+                <div className="rounded-xl overflow-hidden">
                   <QuestMap />
                 </div>
               </Card>

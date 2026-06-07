@@ -538,9 +538,23 @@ export const SKILL_TREE_NODES: SkillNodeDef[] = [
 export const ADMIN_EMAILS = ['luckymanojjadhav@gmail.com'];
 
 // ----- Patch Notes -----
-export const CURRENT_PATCH_VERSION = '1.5.0';
+export const CURRENT_PATCH_VERSION = '1.6.0';
 
 export const PATCH_NOTES: PatchNote[] = [
+  {
+    version: '1.6.0',
+    title: 'The Jukebox & Hybrid Player Update',
+    date: '2026-06-08',
+    entries: [
+      { type: 'feature', text: '🎵 Online Streaming — Play millions of songs directly via JioSaavn streaming integration.' },
+      { type: 'feature', text: '📁 Local Jukebox — Load and stream local MP3/audio files from your own device.' },
+      { type: 'feature', text: '🗄️ IndexedDB Persistence — Offline cache for audio files and queue/player state recovery.' },
+      { type: 'feature', text: '☁️ Firebase Playlists — Save, load, rename, and sync your playlists across devices in Firestore.' },
+      { type: 'feature', text: '🔀 Queue Controls & Shuffle — Shuffle playlist queues and easily add songs to the play queue.' },
+      { type: 'feature', text: '💿 Dashboard Vinyl Widget — Spin the vinyl disc on your dashboard to search, play, and control music.' },
+      { type: 'improvement', text: '🧠 Similar Track Suggestions — Auto-suggests related music based on the genre/song currently playing.' },
+    ],
+  },
   {
     version: '1.5.0',
     title: 'The Scribe & Focus Update',

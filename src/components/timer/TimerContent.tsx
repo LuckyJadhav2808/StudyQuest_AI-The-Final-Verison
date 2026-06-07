@@ -36,7 +36,7 @@ export default function TimerContent() {
     toggleTimer, resetTimer, skipPhase, switchPhase, setDurations, setTimeLeft, setIsRunning,
     playlist, currentTrackIndex, isPlayingMusic, volume,
     handleFilesSelected, handlePlayPauseMusic, handleNextMusic, handlePrevMusic, setVolume,
-    removeTrack, playTrack,
+    removeTrack, playTrack, addOnlineTrack, clearQueue, shuffleQueue, loadPlaylistTracks,
     sessionCompleteData, dismissSessionComplete,
   } = useTimerContext();
 
@@ -109,7 +109,10 @@ export default function TimerContent() {
           onVolumeChange: setVolume,
           onFilesSelected: handleFilesSelected,
           removeTrack,
-          playTrack
+          playTrack,
+          addOnlineTrack,
+          clearQueue,
+          shuffleQueue,
         }}
       />
     );
@@ -262,6 +265,9 @@ export default function TimerContent() {
           onFilesSelected={handleFilesSelected}
           removeTrack={removeTrack}
           playTrack={playTrack}
+          addOnlineTrack={addOnlineTrack}
+          clearQueue={clearQueue}
+          shuffleQueue={shuffleQueue}
         />
 
         {/* Pomodoro Pet */}

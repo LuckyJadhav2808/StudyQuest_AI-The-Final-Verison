@@ -6,6 +6,19 @@ import { useGamification } from '@/hooks/useGamification';
 import { useShop } from '@/hooks/useShop';
 import { POMODORO_DEFAULTS, XP_AWARDS, COIN_AWARDS } from '@/lib/constants';
 import { playCelebration, playNotify } from '@/lib/sounds';
+import {
+  type MusicTrack,
+  saveTrack,
+  loadPlaylist as loadPlaylistFromDb,
+  loadPlaylistOrder,
+  savePlaylistOrder,
+  savePlayerState,
+  loadPlayerState,
+  removeTrackFromDb,
+  cacheAudioBlob,
+  createObjectUrlFromBlob,
+  generateTrackId,
+} from '@/lib/musicDb';
 
 export interface SessionCompleteData {
   xpEarned: number;
@@ -17,6 +30,7 @@ export interface SessionCompleteData {
 
 export type TimerPhase = 'focus' | 'short-break' | 'long-break';
 
+// Legacy compat — re-export so existing imports don't break
 export interface PlaylistItem {
   name: string;
   url: string;
@@ -44,11 +58,12 @@ interface TimerContextValue {
   setTimeLeft: React.Dispatch<React.SetStateAction<number>>;
   setIsRunning: React.Dispatch<React.SetStateAction<boolean>>;
   
-  // Music State
-  playlist: PlaylistItem[];
+  // Music State (hybrid — supports both local files and online JioSaavn)
+  playlist: MusicTrack[];
   currentTrackIndex: number;
   isPlayingMusic: boolean;
   volume: number;
+  musicReady: boolean;
   
   // Music Actions
   handleFilesSelected: (files: FileList) => void;
@@ -58,6 +73,11 @@ interface TimerContextValue {
   setVolume: (vol: number) => void;
   removeTrack: (index: number) => void;
   playTrack: (index: number) => void;
+  addOnlineTrack: (track: { id: string; name: string; artists: string; image: string; duration: number; streamUrl: string }) => void;
+  clearQueue: () => void;
+  shuffleQueue: () => void;
+  loadPlaylistTracks: (tracks: { id: string; name: string; artists: string; image: string; url: string; duration: number; isLocal: boolean }[]) => void;
+
   // Celebration state
   sessionCompleteData: SessionCompleteData | null;
   dismissSessionComplete: () => void;
@@ -206,12 +226,95 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 
   const progress = 1 - timeLeft / totalTime;
 
-  // --- Music State ---
-  const [playlist, setPlaylist] = useState<PlaylistItem[]>([]);
+  // ═══════════════════════════════════════════════════════════
+  // ═══ HYBRID MUSIC STATE (IndexedDB-Persisted) ═══════════
+  // ═══════════════════════════════════════════════════════════
+  const [playlist, setPlaylist] = useState<MusicTrack[]>([]);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isPlayingMusic, setIsPlayingMusic] = useState(false);
-  const [volume, setVolume] = useState(0.5);
+  const [volume, setVolumeState] = useState(0.5);
+  const [musicReady, setMusicReady] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const blobUrlsRef = useRef<Map<string, string>>(new Map());
+
+  // ── Restore playlist from IndexedDB on mount ──
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        // Load all tracks from IndexedDB
+        const tracks = await loadPlaylistFromDb();
+        const order = await loadPlaylistOrder();
+        const state = await loadPlayerState();
+
+        if (cancelled) return;
+
+        if (tracks.length > 0) {
+          // Re-order tracks according to saved order
+          let ordered: MusicTrack[];
+          if (order && order.length > 0) {
+            const trackMap = new Map(tracks.map(t => [t.id, t]));
+            ordered = order
+              .map(id => trackMap.get(id))
+              .filter((t): t is MusicTrack => !!t);
+            // Append any tracks not in the order (newly added)
+            const orderedIds = new Set(ordered.map(t => t.id));
+            for (const t of tracks) {
+              if (!orderedIds.has(t.id)) ordered.push(t);
+            }
+          } else {
+            ordered = tracks;
+          }
+
+          // Generate blob URLs for tracks with cached audio
+          for (const track of ordered) {
+            if (track.audioBlob) {
+              const blobUrl = createObjectUrlFromBlob(track.audioBlob);
+              blobUrlsRef.current.set(track.id, blobUrl);
+            }
+          }
+
+          setPlaylist(ordered);
+        }
+
+        if (state) {
+          setCurrentTrackIndex(state.currentTrackIndex || 0);
+          setVolumeState(state.volume ?? 0.5);
+          // Don't auto-play on restore — user should click play
+        }
+      } catch (e) {
+        console.error('Failed to restore music state from IndexedDB', e);
+      } finally {
+        if (!cancelled) setMusicReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── Persist playlist order & player state to IndexedDB on changes ──
+  useEffect(() => {
+    if (!musicReady) return;
+    const ids = playlist.map(t => t.id);
+    savePlaylistOrder(ids).catch(() => {});
+  }, [playlist, musicReady]);
+
+  useEffect(() => {
+    if (!musicReady) return;
+    savePlayerState({
+      currentTrackIndex,
+      volume,
+      isPlaying: false, // Never persist "playing" — always start paused
+    }).catch(() => {});
+  }, [currentTrackIndex, volume, musicReady]);
+
+  // ── Helper: get the audio source URL for a track ──
+  const getTrackAudioUrl = useCallback((track: MusicTrack): string => {
+    // 1. Check for a generated blob URL (local file or cached online)
+    const blobUrl = blobUrlsRef.current.get(track.id);
+    if (blobUrl) return blobUrl;
+    // 2. Use the streaming URL (online track)
+    return track.url;
+  }, []);
 
   // --- Timer Logic ---
   const switchPhase = useCallback((newPhase: TimerPhase) => {
@@ -330,94 +433,270 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     }
   }, [durations, isRunning, phase, timeLeft]);
 
-  // --- Music Logic ---
-  const handleFilesSelected = (files: FileList) => {
-    const newTracks = Array.from(files).map((file) => ({
-      name: file.name.replace(/\.[^/.]+$/, ""),
-      url: URL.createObjectURL(file)
-    }));
-    
-    setPlaylist(prev => [...prev, ...newTracks]);
-    
-    // Auto-play if this is the first batch of tracks
+  // ═══════════════════════════════════════════════════════════
+  // ═══ MUSIC LOGIC (Hybrid: Local Files + JioSaavn) ═══════
+  // ═══════════════════════════════════════════════════════════
+
+  /** Add local files from the file picker */
+  const handleFilesSelected = useCallback(async (files: FileList) => {
+    const newTracks: MusicTrack[] = [];
+
+    for (const file of Array.from(files)) {
+      const id = generateTrackId();
+      const blob = new Blob([await file.arrayBuffer()], { type: file.type });
+      const blobUrl = createObjectUrlFromBlob(blob);
+      blobUrlsRef.current.set(id, blobUrl);
+
+      const track: MusicTrack = {
+        id,
+        name: file.name.replace(/\.[^/.]+$/, ''),
+        artists: 'Local File',
+        image: '',
+        url: '',
+        duration: 0,
+        isLocal: true,
+        audioBlob: blob,
+      };
+
+      newTracks.push(track);
+      // Persist each track to IndexedDB (with audio blob)
+      saveTrack(track).catch(() => {});
+    }
+
+    setPlaylist(prev => {
+      const updated = [...prev, ...newTracks];
+      return updated;
+    });
+
+    // Auto-play if nothing was playing
     if (!isPlayingMusic && newTracks.length > 0 && playlist.length === 0) {
       setCurrentTrackIndex(0);
       setIsPlayingMusic(true);
     }
-  };
+  }, [isPlayingMusic, playlist.length]);
 
-  const handlePlayPauseMusic = () => {
+  /** Add an online track from JioSaavn search */
+  const addOnlineTrack = useCallback((trackData: {
+    id: string; name: string; artists: string; image: string; duration: number; streamUrl: string;
+  }) => {
+    // Check if already in queue
+    if (playlist.some(t => t.id === trackData.id)) {
+      toast('Already in queue! 🎵');
+      return;
+    }
+
+    const track: MusicTrack = {
+      id: trackData.id,
+      name: trackData.name,
+      artists: trackData.artists,
+      image: trackData.image,
+      url: trackData.streamUrl,
+      duration: trackData.duration,
+      isLocal: false,
+    };
+
+    setPlaylist(prev => [...prev, track]);
+    // Persist metadata (no audio blob yet — will cache when played)
+    saveTrack(track).catch(() => {});
+    toast.success(`Added "${trackData.name}" to queue 🎵`);
+
+    // Auto-play if nothing was playing
+    if (!isPlayingMusic && playlist.length === 0) {
+      setCurrentTrackIndex(0);
+      setIsPlayingMusic(true);
+    }
+  }, [isPlayingMusic, playlist]);
+
+  const handlePlayPauseMusic = useCallback(() => {
     if (playlist.length === 0) return;
-    setIsPlayingMusic(!isPlayingMusic);
-  };
+    setIsPlayingMusic(prev => !prev);
+  }, [playlist.length]);
 
-  const handleNextMusic = () => {
+  const handleNextMusic = useCallback(() => {
     if (playlist.length <= 1) return;
     setCurrentTrackIndex((prev) => (prev + 1) % playlist.length);
     setIsPlayingMusic(true);
-  };
+  }, [playlist.length]);
 
-  const handlePrevMusic = () => {
+  const handlePrevMusic = useCallback(() => {
     if (playlist.length <= 1) return;
     setCurrentTrackIndex((prev) => (prev - 1 + playlist.length) % playlist.length);
     setIsPlayingMusic(true);
-  };
+  }, [playlist.length]);
 
-  const removeTrack = (index: number) => {
-    // Revoke the blob URL to prevent memory leak
-    const removedUrl = playlist[index]?.url;
-    if (removedUrl) URL.revokeObjectURL(removedUrl);
-    
+  const setVolume = useCallback((vol: number) => {
+    setVolumeState(vol);
+  }, []);
+
+  const removeTrack = useCallback((index: number) => {
+    const track = playlist[index];
+    if (!track) return;
+
+    // Revoke blob URL
+    const blobUrl = blobUrlsRef.current.get(track.id);
+    if (blobUrl) {
+      URL.revokeObjectURL(blobUrl);
+      blobUrlsRef.current.delete(track.id);
+    }
+
+    // Remove from IndexedDB
+    removeTrackFromDb(track.id).catch(() => {});
+
     const updated = [...playlist];
     updated.splice(index, 1);
     
-    // If we removed the currently playing track
+    // Adjust current track index
     if (index === currentTrackIndex) {
       if (updated.length === 0) {
         setIsPlayingMusic(false);
         setCurrentTrackIndex(0);
       } else if (index >= updated.length) {
-        setCurrentTrackIndex(0); // Wrap around to first track
+        setCurrentTrackIndex(0);
       }
-    } 
-    // If we removed a track before the current one, adjust the index
-    else if (index < currentTrackIndex) {
+    } else if (index < currentTrackIndex) {
       setCurrentTrackIndex(prevIndex => prevIndex - 1);
     }
     
     setPlaylist(updated);
-  };
+  }, [playlist, currentTrackIndex]);
 
-  const playTrack = (index: number) => {
+  const playTrack = useCallback((index: number) => {
     setCurrentTrackIndex(index);
     setIsPlayingMusic(true);
-  };
+  }, []);
 
+  const clearQueue = useCallback(() => {
+    // Revoke all blob URLs
+    blobUrlsRef.current.forEach(url => {
+      try { URL.revokeObjectURL(url); } catch { /* ignore */ }
+    });
+    blobUrlsRef.current.clear();
+
+    setPlaylist([]);
+    setCurrentTrackIndex(0);
+    setIsPlayingMusic(false);
+
+    // Clear IndexedDB
+    import('@/lib/musicDb').then(m => m.clearPlaylist()).catch(() => {});
+    toast.success('Queue cleared 🗑️');
+  }, []);
+
+  /** Fisher-Yates shuffle — keeps current track at index 0 */
+  const shuffleQueue = useCallback(() => {
+    if (playlist.length <= 1) return;
+    const current = playlist[currentTrackIndex];
+    const rest = playlist.filter((_, i) => i !== currentTrackIndex);
+    // Fisher-Yates
+    for (let i = rest.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [rest[i], rest[j]] = [rest[j], rest[i]];
+    }
+    const shuffled = current ? [current, ...rest] : rest;
+    setPlaylist(shuffled);
+    setCurrentTrackIndex(0);
+    toast.success('Queue shuffled 🔀');
+  }, [playlist, currentTrackIndex]);
+
+  /** Load tracks from a saved Firebase playlist into the queue */
+  const loadPlaylistTracks = useCallback((tracks: { id: string; name: string; artists: string; image: string; url: string; duration: number; isLocal: boolean }[]) => {
+    const musicTracks: MusicTrack[] = tracks.map(t => ({
+      id: t.id,
+      name: t.name,
+      artists: t.artists,
+      image: t.image,
+      url: t.url,
+      duration: t.duration,
+      isLocal: t.isLocal,
+    }));
+    setPlaylist(musicTracks);
+    setCurrentTrackIndex(0);
+    setIsPlayingMusic(true);
+    // Persist to IndexedDB
+    for (const t of musicTracks) {
+      saveTrack(t).catch(() => {});
+    }
+    toast.success(`Loaded ${musicTracks.length} tracks 🎶`);
+  }, []);
+
+  // ── Listen for load-playlist events from the UI ──
   useEffect(() => {
-    if (!audioRef.current) return;
-    if (isPlayingMusic && playlist.length > 0) {
-      audioRef.current.volume = volume;
+    const handler = (e: Event) => {
+      const tracks = (e as CustomEvent).detail;
+      if (Array.isArray(tracks)) {
+        loadPlaylistTracks(tracks);
+      }
+    };
+    window.addEventListener('load-playlist', handler);
+    return () => window.removeEventListener('load-playlist', handler);
+  }, [loadPlaylistTracks]);
+
+  // ── Audio playback effect ──
+  useEffect(() => {
+    if (!audioRef.current || !musicReady) return;
+    const track = playlist[currentTrackIndex];
+    if (!track) {
+      audioRef.current.pause();
+      return;
+    }
+
+    const audioUrl = getTrackAudioUrl(track);
+    if (audioRef.current.src !== audioUrl) {
+      audioRef.current.src = audioUrl;
+    }
+
+    audioRef.current.volume = volume;
+
+    if (isPlayingMusic) {
       audioRef.current.play().catch(() => setIsPlayingMusic(false));
     } else {
       audioRef.current.pause();
     }
-  }, [isPlayingMusic, currentTrackIndex, playlist, volume]);
+  }, [isPlayingMusic, currentTrackIndex, playlist, volume, musicReady, getTrackAudioUrl]);
 
-  // Cleanup all blob URLs on unmount to prevent memory leaks
+  // ── Cache online audio after it finishes loading (for offline playback) ──
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const handleCanPlayThrough = async () => {
+      const track = playlist[currentTrackIndex];
+      if (!track || track.isLocal || track.audioBlob) return;
+      // Track is online and not yet cached — fetch and cache the audio blob
+      try {
+        const audioUrl = getTrackAudioUrl(track);
+        if (!audioUrl || audioUrl.startsWith('blob:')) return;
+        const response = await fetch(audioUrl);
+        if (response.ok) {
+          const blob = await response.blob();
+          await cacheAudioBlob(track.id, blob);
+          // Generate blob URL for future use
+          const blobUrl = createObjectUrlFromBlob(blob);
+          blobUrlsRef.current.set(track.id, blobUrl);
+        }
+      } catch {
+        // Caching is best-effort — don't block playback
+      }
+    };
+
+    audio.addEventListener('canplaythrough', handleCanPlayThrough);
+    return () => audio.removeEventListener('canplaythrough', handleCanPlayThrough);
+  }, [currentTrackIndex, playlist, getTrackAudioUrl]);
+
+  // Cleanup blob URLs on unmount
   useEffect(() => {
     return () => {
-      playlist.forEach((track) => {
-        try { URL.revokeObjectURL(track.url); } catch { /* ignore */ }
+      blobUrlsRef.current.forEach(url => {
+        try { URL.revokeObjectURL(url); } catch { /* ignore */ }
       });
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const value = {
     phase, isRunning, timeLeft, totalTime, sessions, totalFocusToday, formattedFocusToday, durations, progress, wasAbandoned,
     toggleTimer, resetTimer, skipPhase, switchPhase, setDurations, setTimeLeft, setIsRunning,
-    playlist, currentTrackIndex, isPlayingMusic, volume,
+    playlist, currentTrackIndex, isPlayingMusic, volume, musicReady,
     handleFilesSelected, handlePlayPauseMusic, handleNextMusic, handlePrevMusic, setVolume, removeTrack, playTrack,
+    addOnlineTrack, clearQueue, shuffleQueue, loadPlaylistTracks,
     sessionCompleteData, dismissSessionComplete,
   };
 
@@ -425,8 +704,8 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     <TimerContext.Provider value={value}>
       <audio 
         ref={audioRef}
-        src={playlist[currentTrackIndex]?.url}
         onEnded={handleNextMusic}
+        preload="auto"
       />
       {children}
     </TimerContext.Provider>

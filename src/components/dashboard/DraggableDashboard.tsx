@@ -10,6 +10,7 @@ const DEFAULT_ORDER = [
   'welcome',
   'daily-quests',
   'stat-cards',
+  'music-player',
   'heatmap',
   'motivation',
   'exam-countdown',

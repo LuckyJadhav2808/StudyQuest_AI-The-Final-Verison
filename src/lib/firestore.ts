@@ -43,6 +43,7 @@ export const getExamsCollection = (uid: string) => collection(db, 'users', uid, 
 export const getStickiesCollection = (uid: string) => collection(db, 'users', uid, 'stickies');
 export const getChatMessagesCollection = (uid: string) => collection(db, 'users', uid, 'chatMessages');
 export const getWhiteboardsCollection = (uid: string) => collection(db, 'users', uid, 'whiteboards');
+export const getPlaylistsCollection = (uid: string) => collection(db, 'users', uid, 'playlists');
 export const getUserPrefsRef = (uid: string) => doc(db, 'users', uid, 'data', 'preferences');
 export const getSqlDataRef = (uid: string) => doc(db, 'users', uid, 'data', 'sqlPlayground');
 

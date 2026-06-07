@@ -31,6 +31,7 @@ import TypewriterQuote from '@/components/dashboard/TypewriterQuote';
 import DraggableDashboard from '@/components/dashboard/DraggableDashboard';
 import LofiRoom from '@/components/dashboard/LofiRoom';
 import TreasureChestModal from '@/components/dashboard/TreasureChestModal';
+import MusicWidget from '@/components/dashboard/MusicWidget';
 import { useNotes } from '@/hooks/useNotes';
 import { useExams } from '@/hooks/useExams';
 import { useShop } from '@/hooks/useShop';
@@ -296,6 +297,11 @@ export default function DashboardContent() {
     /* ── Daily Motivation ── */
     'motivation': (
       <TypewriterQuote />
+    ),
+
+    /* ── Music Player Widget ── */
+    'music-player': (
+      <MusicWidget />
     ),
 
     /* ── Quick Actions + Recent Notes ── */

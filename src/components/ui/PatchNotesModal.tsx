@@ -8,6 +8,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
+import toast from 'react-hot-toast';
 
 const TYPE_CONFIG: Record<string, { emoji: string; color: string }> = {
   feature: { emoji: '🚀', color: 'text-teal' },
@@ -29,6 +30,10 @@ export default function PatchNotesModal() {
         const lastSeen = snap.data()?.lastSeenPatchVersion || '0.0.0';
         if (lastSeen !== CURRENT_PATCH_VERSION) {
           setShow(true);
+          toast.success(
+            `🎉 New Update Live: ${CURRENT_PATCH_VERSION} - ${PATCH_NOTES[0].title}!`,
+            { duration: 5000 }
+          );
         }
       } catch {
         // Silent fail

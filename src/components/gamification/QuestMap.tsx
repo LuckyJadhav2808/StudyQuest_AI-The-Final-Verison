@@ -88,7 +88,7 @@ function getNodePositions(count: number): { x: number; y: number }[] {
     // Zigzag pattern — alternates left and right
     const progress = i / (count - 1 || 1);
     const x = 50 + Math.sin(i * 0.8) * 28; // percentage from left
-    const y = (1 - progress) * 100; // bottom to top
+    const y = 8 + (1 - progress) * 84; // bottom to top (compressed to 8%-92% to avoid border clipping)
     positions.push({ x, y });
   }
 
