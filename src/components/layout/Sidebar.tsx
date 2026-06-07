@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,7 +16,7 @@ import {
 import { useAuthContext } from '@/context/AuthContext';
 import { useGamification } from '@/hooks/useGamification';
 import { useSidebar } from '@/context/SidebarContext';
-import { getAvatarUrl, TITLES } from '@/lib/constants';
+import { getAvatarUrl, TITLES, ADMIN_EMAILS } from '@/lib/constants';
 import XPBar from '@/components/gamification/XPBar';
 import LevelBadge from '@/components/gamification/LevelBadge';
 import StreakCounter from '@/components/gamification/StreakCounter';
@@ -97,6 +97,31 @@ export default function Sidebar() {
   const avatarUrl = profile
     ? getAvatarUrl(profile.avatarSeed, profile.avatarStyle)
     : '';
+
+  // Filter out Admin section for non-admin users
+  const visibleSections = useMemo(() => {
+    const isAdmin = profile?.email && ADMIN_EMAILS.includes(profile.email);
+    if (isAdmin) return NAV_SECTIONS;
+    return NAV_SECTIONS.filter((s) => s.title !== 'Admin');
+  }, [profile?.email]);
+
+  // Scroll indicators for nav
+  const navRef = useRef<HTMLElement>(null);
+  const [canScrollUp, setCanScrollUp] = useState(false);
+  const [canScrollDown, setCanScrollDown] = useState(false);
+
+  const handleNavScroll = useCallback(() => {
+    const el = navRef.current;
+    if (!el) return;
+    setCanScrollUp(el.scrollTop > 8);
+    setCanScrollDown(el.scrollTop + el.clientHeight < el.scrollHeight - 8);
+  }, []);
+
+  useEffect(() => {
+    // Check on mount and when collapsed changes
+    const t = setTimeout(handleNavScroll, 100);
+    return () => clearTimeout(t);
+  }, [collapsed, handleNavScroll]);
 
   return (
     <motion.aside
@@ -182,74 +207,92 @@ export default function Sidebar() {
         <QuestieMascot collapsed={collapsed} />
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-4 mt-1">
-        {NAV_SECTIONS.map((section) => (
-          <div key={section.title}>
-            <AnimatePresence>
-              {!collapsed && (
-                <motion.p
-                  className="text-[9px] uppercase tracking-[0.15em] font-bold text-[var(--muted-foreground)] px-3 mb-1.5"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  {section.title}
-                </motion.p>
-              )}
-            </AnimatePresence>
+      {/* Navigation with scroll indicators */}
+      <div className="flex-1 relative min-h-0">
+        {/* Top scroll fade */}
+        <div
+          className="absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-[var(--card-bg)] to-transparent z-10 pointer-events-none transition-opacity duration-300"
+          style={{ opacity: canScrollUp ? 1 : 0 }}
+        />
 
-            <div className="space-y-0.5">
-              {section.items.map((item) => {
-                const Icon = iconMap[item.icon];
-                const isActive = pathname === item.href;
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`
-                      flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold
-                      transition-all duration-200 relative group
-                      ${isActive
-                        ? 'text-white'
-                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--card-border)]/40'
-                      }
-                    `}
+        <nav
+          ref={navRef}
+          onScroll={handleNavScroll}
+          className="h-full overflow-y-auto py-2 px-2 space-y-4 mt-1"
+        >
+          {visibleSections.map((section) => (
+            <div key={section.title}>
+              <AnimatePresence>
+                {!collapsed && (
+                  <motion.p
+                    className="text-[9px] uppercase tracking-[0.15em] font-bold text-[var(--muted-foreground)] px-3 mb-1.5"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
                   >
-                    {/* Active pill with 3D shadow effect */}
-                    {isActive && (
-                      <motion.div
-                        className="absolute inset-0 bg-gradient-to-r from-primary to-secondary rounded-xl shadow-[0_4px_0_rgba(88,28,135,0.3)]"
-                        layoutId="sidebar-active"
-                        transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-                      />
-                    )}
+                    {section.title}
+                  </motion.p>
+                )}
+              </AnimatePresence>
 
-                    <span className="relative z-10 flex-shrink-0">
-                      {Icon && <Icon size={20} />}
-                    </span>
+              <div className="space-y-0.5">
+                {section.items.map((item) => {
+                  const Icon = iconMap[item.icon];
+                  const isActive = pathname === item.href;
 
-                    <AnimatePresence>
-                      {!collapsed && (
-                        <motion.span
-                          className="relative z-10 truncate"
-                          initial={{ opacity: 0, width: 0 }}
-                          animate={{ opacity: 1, width: 'auto' }}
-                          exit={{ opacity: 0, width: 0 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          {item.label}
-                        </motion.span>
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`
+                        flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold
+                        transition-all duration-200 relative group
+                        ${isActive
+                          ? 'text-white'
+                          : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--card-border)]/40'
+                        }
+                      `}
+                    >
+                      {/* Active pill with 3D shadow effect */}
+                      {isActive && (
+                        <motion.div
+                          className="absolute inset-0 bg-gradient-to-r from-primary to-secondary rounded-xl shadow-[0_4px_0_rgba(88,28,135,0.3)]"
+                          layoutId="sidebar-active"
+                          transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                        />
                       )}
-                    </AnimatePresence>
-                  </Link>
-                );
-              })}
+
+                      <span className="relative z-10 flex-shrink-0">
+                        {Icon && <Icon size={20} />}
+                      </span>
+
+                      <AnimatePresence>
+                        {!collapsed && (
+                          <motion.span
+                            className="relative z-10 truncate"
+                            initial={{ opacity: 0, width: 0 }}
+                            animate={{ opacity: 1, width: 'auto' }}
+                            exit={{ opacity: 0, width: 0 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            {item.label}
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
-      </nav>
+          ))}
+        </nav>
+
+        {/* Bottom scroll fade */}
+        <div
+          className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-[var(--card-bg)] to-transparent z-10 pointer-events-none transition-opacity duration-300"
+          style={{ opacity: canScrollDown ? 1 : 0 }}
+        />
+      </div>
 
       {/* Bottom actions */}
       <div className="p-2 border-t-2 border-[var(--card-border)] space-y-0.5">

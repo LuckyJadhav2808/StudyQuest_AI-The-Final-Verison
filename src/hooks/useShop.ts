@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { doc, increment, runTransaction } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { subscribeToDocument, setDocument, updateDocument } from '@/lib/firestore';
+import { subscribeToDocument, setDocument } from '@/lib/firestore';
 import { useAuthContext } from '@/context/AuthContext';
 import { getLocalDateString } from '@/lib/dateUtils';
 import { UserInventory, ShopItem, ActiveEffect, AlchemyRecipe } from '@/types';
@@ -66,7 +66,7 @@ export function useShop() {
   const addCoins = useCallback(async (amount: number) => {
     const ref = getRef();
     if (!ref) return;
-    await updateDocument(ref, { coins: increment(amount) });
+    await setDocument(ref, { coins: increment(amount) });
   }, [getRef]);
 
   // ── BUY ITEM ──
@@ -86,10 +86,10 @@ export function useShop() {
 
         const updatedOwned = [...(current.ownedItems || []), itemId];
         
-        transaction.update(ref, {
+        transaction.set(ref, {
           coins: current.coins - item.price,
           ownedItems: updatedOwned,
-        });
+        }, { merge: true });
         return true;
       });
       return result;
@@ -115,7 +115,7 @@ export function useShop() {
         const newOwned = [...current.ownedItems];
         newOwned.splice(idx, 1);
         
-        transaction.update(ref, { ownedItems: newOwned });
+        transaction.set(ref, { ownedItems: newOwned }, { merge: true });
       });
     } catch (e) {
       console.error('useItem transaction failed', e);
@@ -137,7 +137,7 @@ export function useShop() {
           [category]: itemId,
         };
         
-        transaction.update(ref, { equippedItems: updated });
+        transaction.set(ref, { equippedItems: updated }, { merge: true });
       });
     } catch (e) {
       console.error('equipItem transaction failed', e);
@@ -157,7 +157,7 @@ export function useShop() {
         const eq = { ...(current.equippedItems || {}) };
         delete eq[category];
         
-        transaction.update(ref, { equippedItems: eq });
+        transaction.set(ref, { equippedItems: eq }, { merge: true });
       });
     } catch (e) {
       console.error('unequipItem transaction failed', e);
@@ -183,11 +183,11 @@ export function useShop() {
         const newOwned = [...(current.ownedItems || []), item.id];
         const newHistory = [item.id, ...(current.gachaHistory || [])].slice(0, 10);
         
-        transaction.update(ref, {
+        transaction.set(ref, {
           coins: current.coins - GACHA_COST,
           ownedItems: newOwned,
           gachaHistory: newHistory,
-        });
+        }, { merge: true });
         return item;
       });
       return result;
@@ -236,10 +236,10 @@ export function useShop() {
           xp,
         };
 
-        transaction.update(ref, {
+        transaction.set(ref, {
           coins: current.coins + rewardCoins,
           lastTreasureChestClaim: today,
-        });
+        }, { merge: true });
         return reward;
       });
       return result;
@@ -273,9 +273,9 @@ export function useShop() {
           [ingredient.id]: (currentIngredients[ingredient.id] || 0) + 1,
         };
         
-        transaction.update(ref, {
+        transaction.set(ref, {
           ingredients: updatedIngredients,
-        });
+        }, { merge: true });
         return { id: ingredient.id, name: ingredient.name, emoji: ingredient.emoji };
       });
       return result;
@@ -321,10 +321,10 @@ export function useShop() {
           });
         }
 
-        transaction.update(ref, {
+        transaction.set(ref, {
           ingredients: newIngredients,
           activeEffects,
-        });
+        }, { merge: true });
         return true;
       });
       return result;

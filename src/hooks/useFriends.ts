@@ -7,6 +7,7 @@ import {
   where,
   getDocs,
   collection,
+  collectionGroup,
   onSnapshot,
   deleteDoc,
 } from 'firebase/firestore';
@@ -82,79 +83,92 @@ export function useFriends(): UseFriendsReturn {
   const sendRequest = useCallback(async (friendCode: string): Promise<{ success: boolean; error?: string }> => {
     if (!user || !profile) return { success: false, error: 'Not logged in' };
 
-    const code = friendCode.trim().toUpperCase();
-    if (code === profile.friendCode) {
-      return { success: false, error: "You can't add yourself!" };
-    }
-
-    // Find user by friendCode — query top-level users docs
-    const usersRef = collection(db, 'users');
-    const codeQuery = query(usersRef, where('friendCode', '==', code));
-    const codeSnap = await getDocs(codeQuery);
-
-    let targetUid: string | null = null;
-    let targetProfile: UserProfile | null = null;
-
-    if (codeSnap.empty) {
-      // Fallback: scan profile subcollections (for users created before the top-level write)
-      const allUsersSnap = await getDocs(usersRef);
-      for (const userDoc of allUsersSnap.docs) {
-        const profRef = doc(db, 'users', userDoc.id, 'data', 'profile');
-        const profSnap = await getDocument<UserProfile>(profRef);
-        if (profSnap && profSnap.friendCode === code) {
-          targetUid = userDoc.id;
-          targetProfile = profSnap;
-          // Backfill top-level doc so future lookups are fast
-          await setDocument(doc(db, 'users', userDoc.id), { friendCode: code, uid: userDoc.id });
-          break;
-        }
+    try {
+      const code = friendCode.trim().toUpperCase();
+      if (code === profile.friendCode) {
+        return { success: false, error: "You can't add yourself!" };
       }
-    } else {
-      // Found via direct query
-      const foundDoc = codeSnap.docs[0];
-      targetUid = foundDoc.id;
-      // Now fetch their full profile
-      const profRef = doc(db, 'users', targetUid, 'data', 'profile');
-      targetProfile = await getDocument<UserProfile>(profRef);
-    }
 
-    if (!targetUid || !targetProfile) {
-      return { success: false, error: 'No user found with that code' };
-    }
+      // Find user by friendCode — query top-level users docs
+      const usersRef = collection(db, 'users');
+      const codeQuery = query(usersRef, where('friendCode', '==', code));
+      const codeSnap = await getDocs(codeQuery);
 
-    // Check if already friends
-    const alreadyFriend = friends.find((f) => f.uid === targetUid);
-    if (alreadyFriend) {
-      return { success: false, error: 'Already friends!' };
-    }
+      let targetUid: string | null = null;
+      let targetProfile: UserProfile | null = null;
 
-    // Check for existing pending request
-    const existingOut = outgoingRequests.find((r) => r.toUid === targetUid);
-    if (existingOut) {
-      return { success: false, error: 'Request already sent!' };
-    }
+      if (codeSnap.empty) {
+        // Fallback: query profile subcollections using collectionGroup
+        try {
+          const profileQuery = query(
+            collectionGroup(db, 'data'),
+            where('friendCode', '==', code),
+          );
+          const profileSnap = await getDocs(profileQuery);
 
-    // Check for incoming request from them (auto-accept)
-    const existingIn = incomingRequests.find((r) => r.fromUid === targetUid);
-    if (existingIn) {
-      await acceptRequest(existingIn);
+          if (!profileSnap.empty) {
+            const profileDoc = profileSnap.docs[0];
+            // Path is: users/{uid}/data/profile — extract uid from the path
+            const pathParts = profileDoc.ref.path.split('/');
+            targetUid = pathParts[1]; // users/{uid}/data/profile
+            targetProfile = profileDoc.data() as UserProfile;
+            // Backfill top-level doc so future lookups are fast
+            await setDocument(doc(db, 'users', targetUid), { friendCode: code, uid: targetUid });
+          }
+        } catch {
+          // collectionGroup query may fail if index doesn't exist — that's ok
+          console.warn('Fallback friend code search failed');
+        }
+      } else {
+        // Found via direct query
+        const foundDoc = codeSnap.docs[0];
+        targetUid = foundDoc.id;
+        // Now fetch their full profile
+        const profRef = doc(db, 'users', targetUid, 'data', 'profile');
+        targetProfile = await getDocument<UserProfile>(profRef);
+      }
+
+      if (!targetUid || !targetProfile) {
+        return { success: false, error: 'No user found with that code' };
+      }
+
+      // Check if already friends
+      const alreadyFriend = friends.find((f) => f.uid === targetUid);
+      if (alreadyFriend) {
+        return { success: false, error: 'Already friends!' };
+      }
+
+      // Check for existing pending request
+      const existingOut = outgoingRequests.find((r) => r.toUid === targetUid);
+      if (existingOut) {
+        return { success: false, error: 'Request already sent!' };
+      }
+
+      // Check for incoming request from them (auto-accept)
+      const existingIn = incomingRequests.find((r) => r.fromUid === targetUid);
+      if (existingIn) {
+        await acceptRequest(existingIn);
+        return { success: true };
+      }
+
+      // Create friend request
+      const requestId = crypto.randomUUID();
+      await setDocument(doc(db, 'friendRequests', requestId), {
+        id: requestId,
+        fromUid: user.uid,
+        fromName: profile.displayName,
+        fromAvatar: profile.avatarSeed,
+        fromAvatarStyle: profile.avatarStyle,
+        toUid: targetUid,
+        status: 'pending',
+        createdAt: Date.now(),
+      }, false);
+
       return { success: true };
+    } catch (error) {
+      console.error('sendRequest failed:', error);
+      return { success: false, error: 'Something went wrong. Please try again.' };
     }
-
-    // Create friend request
-    const requestId = crypto.randomUUID();
-    await setDocument(doc(db, 'friendRequests', requestId), {
-      id: requestId,
-      fromUid: user.uid,
-      fromName: profile.displayName,
-      fromAvatar: profile.avatarSeed,
-      fromAvatarStyle: profile.avatarStyle,
-      toUid: targetUid,
-      status: 'pending',
-      createdAt: Date.now(),
-    }, false);
-
-    return { success: true };
   }, [user, profile, friends, outgoingRequests, incomingRequests]);
 
   // Accept a friend request

@@ -562,24 +562,26 @@ h4 { font-size: 1.125rem; }
 
 .speech-bubble {
   position: relative;
-  background: var(--color-sky);
-  color: #0B0D17;
-  border-radius: var(--radius-2xl);
-  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(168, 85, 247, 0.12));
+  color: var(--foreground);
+  border: 1px solid rgba(124, 58, 237, 0.25);
+  border-radius: var(--radius-lg);
+  padding: 0.4rem 0.65rem;
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
+  backdrop-filter: blur(8px);
 }
 
 .speech-bubble::after {
   content: '';
   position: absolute;
-  bottom: -8px;
-  left: 24px;
+  top: 10px;
+  left: -6px;
   width: 0;
   height: 0;
-  border-left: 10px solid transparent;
-  border-right: 10px solid transparent;
-  border-top: 10px solid var(--color-sky);
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-right: 6px solid rgba(124, 58, 237, 0.18);
 }
 
 /* ============================================================

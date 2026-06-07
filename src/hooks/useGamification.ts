@@ -10,7 +10,6 @@ import { db } from '@/lib/firebase';
 import {
   getGamificationRef,
   subscribeToDocument,
-  updateDocument,
   setDocument,
 } from '@/lib/firestore';
 import { GamificationData, XPEvent } from '@/types';
@@ -113,7 +112,7 @@ export function useGamification(): UseGamificationReturn {
       const finalXP = newXP + achievementBonusXP;
       const finalLevel = getLevelFromXP(finalXP);
 
-      await updateDocument(ref, {
+      await setDocument(ref, {
         xp: finalXP,
         level: finalLevel,
         achievements: [...g.achievements, ...newAchievements],
@@ -201,7 +200,7 @@ export function useGamification(): UseGamificationReturn {
 
     const longestStreak = Math.max(g.longestStreak, newStreak);
 
-    await updateDocument(ref, {
+    await setDocument(ref, {
       streak: newStreak,
       longestStreak,
       lastActiveDate: today,

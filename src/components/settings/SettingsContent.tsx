@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import {
   HiUser, HiMail, HiKey, HiColorSwatch,
   HiClipboardCopy, HiCheck, HiSave, HiShieldCheck, HiLockClosed, HiViewGrid, HiHome,
-  HiDownload, HiUpload, HiDatabase, HiCurrencyDollar, HiExclamationCircle, HiFlag,
+  HiDownload, HiUpload, HiDatabase, HiExclamationCircle, HiFlag, HiTrash,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import { useAuthContext } from '@/context/AuthContext';
@@ -13,7 +13,7 @@ import { useTheme, THEMES, Theme } from '@/context/ThemeContext';
 import { useGamification } from '@/hooks/useGamification';
 import { useShop } from '@/hooks/useShop';
 import { getProfileRef, setDocument } from '@/lib/firestore';
-import { doc, setDoc, getDoc, increment, updateDoc, collection, addDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getAvatarUrl, DICEBEAR_STYLES } from '@/lib/constants';
 import { exportBackup, importBackup } from '@/lib/backup';
@@ -25,7 +25,7 @@ import PageTransition from '@/components/layout/PageTransition';
 import AvatarBorder, { getAvatarTier } from '@/components/gamification/AvatarBorder';
 
 export default function SettingsContent() {
-  const { user, profile } = useAuthContext();
+  const { user, profile, deleteAccount } = useAuthContext();
   const { theme, setTheme } = useTheme();
   const { gamification } = useGamification();
   const { addCoins } = useShop();
@@ -42,8 +42,6 @@ export default function SettingsContent() {
   const [backingUp, setBackingUp] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [restoreProgress, setRestoreProgress] = useState('');
-  const [claimingCoins, setClaimingCoins] = useState(false);
-  const [coinsClaimed, setCoinsClaimed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Bug report state
@@ -51,6 +49,10 @@ export default function SettingsContent() {
   const [bugTitle, setBugTitle] = useState('');
   const [bugDescription, setBugDescription] = useState('');
   const [submittingBug, setSubmittingBug] = useState(false);
+
+  // Delete account state
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const userLevel = gamification?.level || 0;
   const tier = getAvatarTier(userLevel);
@@ -188,25 +190,7 @@ export default function SettingsContent() {
     }
   };
 
-  // ── Claim Lost Coins ──
-  const handleClaimLostCoins = async () => {
-    if (!user?.uid || coinsClaimed) return;
-    setClaimingCoins(true);
-    try {
-      // Credits 1000 coins as compensation for database transition losses
-      const invRef = doc(db, 'users', user.uid, 'data', 'inventory');
-      await updateDoc(invRef, { coins: increment(1000) }).catch(async () => {
-        // If doc doesn't exist, create it
-        await setDoc(invRef, { coins: 1000, ownedItems: [], equippedItems: {}, gachaHistory: [] }, { merge: true });
-      });
-      setCoinsClaimed(true);
-      toast.success('🪙 1,000 coins restored to your wallet!');
-    } catch (err) {
-      toast.error('Could not restore coins. Try again.');
-    } finally {
-      setClaimingCoins(false);
-    }
-  };
+
 
   const avatarUrl = getAvatarUrl(avatarSeed, avatarStyle);
 
@@ -626,32 +610,6 @@ export default function SettingsContent() {
             </p>
           </div>
 
-          {/* Claim Lost Coins */}
-          <div className="pt-4 border-t-2 border-[var(--card-border)]">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-heading font-bold flex items-center gap-2">
-                  <HiCurrencyDollar className="text-amber-400" /> Claim Lost Coins
-                </p>
-                <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5">
-                  Compensation for coins lost during the database transition. One-time claim of 1,000 🪙
-                </p>
-              </div>
-              <motion.button
-                onClick={handleClaimLostCoins}
-                disabled={claimingCoins || coinsClaimed}
-                className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-heading font-bold transition-all border-2 ${
-                  coinsClaimed
-                    ? 'border-teal/40 text-teal bg-teal/10 cursor-default'
-                    : 'border-amber-500/40 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 disabled:opacity-60'
-                }`}
-                whileHover={!coinsClaimed ? { scale: 1.05 } : undefined}
-                whileTap={!coinsClaimed ? { scale: 0.95 } : undefined}
-              >
-                {claimingCoins ? '...' : coinsClaimed ? '✅ Claimed!' : '🪙 Claim 1,000'}
-              </motion.button>
-            </div>
-          </div>
         </Card>
 
         {/* ── Bug Report Card ── */}
@@ -743,6 +701,87 @@ export default function SettingsContent() {
                 <p className="text-[10px] text-[var(--muted-foreground)]">Help us fix issues and improve your experience</p>
               </div>
             </motion.button>
+          )}
+        </Card>
+
+        {/* ── Danger Zone ── */}
+        <Card padding="lg" hover={false} className="border-coral/30">
+          <h2 className="text-sm font-heading font-bold mb-1 flex items-center gap-2 text-coral">
+            <HiExclamationCircle className="text-coral" /> Danger Zone
+          </h2>
+          <p className="text-xs text-[var(--muted-foreground)] mb-4">
+            Permanently delete your account and all associated data. This action cannot be undone.
+          </p>
+
+          {deleteConfirm !== 'CONFIRM' ? (
+            <div className="space-y-3">
+              <p className="text-[10px] text-[var(--muted-foreground)]">
+                Type <strong className="text-coral">CONFIRM</strong> below to enable the delete button.
+              </p>
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  value={deleteConfirm}
+                  onChange={(e) => setDeleteConfirm(e.target.value.toUpperCase())}
+                  placeholder="Type CONFIRM"
+                  className="flex-1 px-3 py-2 rounded-xl border-2 border-[var(--card-border)] bg-transparent text-sm font-bold text-coral placeholder:text-[var(--muted)] focus:outline-none focus:border-coral/50"
+                />
+                <Button
+                  variant="coral"
+                  size="sm"
+                  icon={<HiTrash />}
+                  disabled={deleteConfirm !== 'CONFIRM'}
+                >
+                  Delete Account
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-3"
+            >
+              <div className="flex items-start gap-2 p-3 rounded-xl bg-coral/10 border border-coral/20">
+                <HiExclamationCircle className="text-coral flex-shrink-0 mt-0.5" size={16} />
+                <p className="text-[10px] text-coral/80 leading-relaxed">
+                  <strong className="text-coral">This is permanent.</strong> All your notes, tasks, progress, XP, pets, and inventory will be permanently deleted.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setDeleteConfirm('')}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="coral"
+                  size="sm"
+                  icon={<HiTrash />}
+                  loading={deleting}
+                  onClick={async () => {
+                    setDeleting(true);
+                    try {
+                      await deleteAccount();
+                      toast.success('Account deleted. Goodbye, adventurer.');
+                    } catch (err: unknown) {
+                      const msg = err instanceof Error && err.message.includes('requires-recent-login')
+                        ? 'Please log out and log back in, then try again (security requirement).'
+                        : 'Failed to delete account. Please try again.';
+                      toast.error(msg);
+                    } finally {
+                      setDeleting(false);
+                    }
+                  }}
+                  className="flex-1"
+                >
+                  Permanently Delete My Account
+                </Button>
+              </div>
+            </motion.div>
           )}
         </Card>
 

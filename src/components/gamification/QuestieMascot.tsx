@@ -15,104 +15,104 @@ import { usePathname } from 'next/navigation';
 // ── Route-specific dialogue lines ──────────────────────────────
 const ROUTE_DIALOGUES: Record<string, string[]> = {
   '/': [
-    "🦉 Welcome back, adventurer!",
-    "🦉 Your dashboard awaits!",
-    "🦉 Ready to level up today?",
-    "🦉 Let's conquer some quests!",
+    "Welcome back, adventurer! 🦉",
+    "Your dashboard awaits! 🦉",
+    "Ready to level up today? 🦉",
+    "Let's conquer some quests! 🦉",
   ],
   '/tasks': [
-    "⚔️ Let's check off those quests!",
-    "📋 Focus on one quest at a time!",
-    "⚔️ Every task slain = XP gained!",
-    "🎯 What's the priority today?",
+    "Let's check off those quests! ⚔️",
+    "Focus on one quest at a time! 📋",
+    "Every task slain = XP gained! ⚔️",
+    "What's the priority today? 🎯",
   ],
   '/notes': [
-    "📜 Time to write some scrolls!",
-    "✍️ Knowledge is power, write it down!",
-    "📝 The pen is mightier...",
-    "📜 Capture those ideas!",
+    "Time to write some scrolls! 📜",
+    "Knowledge is power, write it down! ✍️",
+    "The pen is mightier... 📝",
+    "Capture those ideas! 📜",
   ],
   '/habits': [
-    "⚡ Daily quests keep you sharp!",
-    "🔥 Don't break the streak!",
-    "⚡ Small habits, big results!",
-    "💪 Consistency is your superpower!",
+    "Daily quests keep you sharp! ⚡",
+    "Don't break the streak! 🔥",
+    "Small habits, big results! ⚡",
+    "Consistency is your superpower! 💪",
   ],
   '/timer': [
-    "🤫 Shh... Focus mode engaged!",
-    "⏰ Deep work time. You got this!",
-    "🧘 Clear mind, sharp focus...",
-    "🤫 No distractions. Let's go!",
+    "Shh... Focus mode engaged! 🤫",
+    "Deep work time. You got this! ⏰",
+    "Clear mind, sharp focus... 🧘",
+    "No distractions. Let's go! 🤫",
   ],
   '/timetable': [
-    "📅 Planning is half the battle!",
-    "🗓️ A good schedule = a good life!",
-    "📅 What's on the agenda?",
+    "Planning is half the battle! 📅",
+    "A good schedule = a good life! 🗓️",
+    "What's on the agenda? 📅",
   ],
   '/resources': [
-    "📚 The vault of knowledge...",
-    "🔗 Save it now, thank yourself later!",
-    "📚 Organize and conquer!",
+    "The vault of knowledge... 📚",
+    "Save it now, thank yourself later! 🔗",
+    "Organize and conquer! 📚",
   ],
   '/chat': [
-    "💬 Ask me anything!",
-    "🤖 I'm here to help you learn!",
-    "💬 Let's chat and grow!",
+    "Ask me anything! 💬",
+    "I'm here to help you learn! 🤖",
+    "Let's chat and grow! 💬",
   ],
   '/analytics': [
-    "📊 Behold your achievements!",
-    "🏆 The Hall of Fame awaits!",
-    "📊 Data doesn't lie. You're awesome!",
+    "Behold your achievements! 📊",
+    "The Hall of Fame awaits! 🏆",
+    "Data doesn't lie. You're awesome! 📊",
   ],
   '/groups': [
-    "👥 Study together, grow together!",
-    "🤝 The guild is assembled!",
-    "👥 Teamwork makes the dream work!",
+    "Study together, grow together! 👥",
+    "The guild is assembled! 🤝",
+    "Teamwork makes the dream work! 👥",
   ],
   '/sql': [
-    "🗃️ SELECT * FROM knowledge;",
-    "💾 Database magic awaits!",
-    "🗃️ Let's query some data!",
+    "SELECT * FROM knowledge; 🗃️",
+    "Database magic awaits! 💾",
+    "Let's query some data! 🗃️",
   ],
   '/code': [
-    "💻 Time to write some spells!",
-    "⚡ Quick run. Rapid fire!",
-    "💻 Code fast, learn faster!",
+    "Time to write some spells! 💻",
+    "Quick run. Rapid fire! ⚡",
+    "Code fast, learn faster! 💻",
   ],
   '/ide': [
-    "🪄 Let's cast some code magic!",
-    "🏗️ Building something amazing?",
-    "🪄 The forge is hot. Let's build!",
+    "Let's cast some code magic! 🪄",
+    "Building something amazing? 🏗️",
+    "The forge is hot. Let's build! 🪄",
   ],
   '/dsa': [
-    "🧩 Algorithms are puzzles. Solve them!",
-    "🏰 Enter the DSA Dungeon!",
-    "🧩 Think. Code. Optimize. Repeat.",
+    "Algorithms are puzzles. Solve them! 🧩",
+    "Enter the DSA Dungeon! 🏰",
+    "Think. Code. Optimize. Repeat. 🧩",
   ],
   '/snippets': [
-    "📖 Your spell book of code!",
-    "✨ Saved spells at the ready!",
-    "📖 Reuse and conquer!",
+    "Your spell book of code! 📖",
+    "Saved spells at the ready! ✨",
+    "Reuse and conquer! 📖",
   ],
   '/settings': [
-    "⚙️ Tweaking the controls?",
-    "🔧 Make StudyQuest yours!",
-    "⚙️ Customization is key!",
+    "Tweaking the controls? ⚙️",
+    "Make StudyQuest yours! 🔧",
+    "Customization is key! ⚙️",
   ],
 };
 
 const IDLE_MESSAGES = [
-  "💤 *yawns* ...still there?",
-  "😴 Zzz... wake me when you're back...",
-  "💤 *snoring softly*",
-  "🦉 ...*blinks sleepily*...",
+  "*yawns* ...still there? 💤",
+  "Zzz... wake me when you're back... 😴",
+  "*snoring softly* 💤",
+  "...*blinks sleepily*... 🦉",
 ];
 
 const RETURN_MESSAGES = [
-  "🦉 Oh! You're back! Let's go!",
-  "🎉 Welcome back, adventurer!",
-  "🦉 Missed you! Ready to study?",
-  "⚡ Recharged? Let's do this!",
+  "Oh! You're back! Let's go! 🦉",
+  "Welcome back, adventurer! 🎉",
+  "Missed you! Ready to study? 🦉",
+  "Recharged? Let's do this! ⚡",
 ];
 
 function pickRandom(arr: string[]): string {
@@ -128,7 +128,7 @@ interface QuestieMascotProps {
 
 export default function QuestieMascot({ collapsed = false }: QuestieMascotProps) {
   const pathname = usePathname();
-  const [dialogue, setDialogue] = useState('🦉 Ready for a quest?');
+  const [dialogue, setDialogue] = useState('Ready for a quest? 🦉');
   const [mascotState, setMascotState] = useState<MascotState>('active');
   const [showDialogue, setShowDialogue] = useState(true);
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -330,13 +330,13 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
       <AnimatePresence>
         {!collapsed && showDialogue && (
           <motion.div
-            className="absolute left-12 top-0 z-50 min-w-[180px] max-w-[200px]"
+            className="absolute left-12 top-0 z-50 max-w-[160px]"
             initial={{ opacity: 0, x: -8, scale: 0.9 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: -8, scale: 0.9 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
           >
-            <div className="speech-bubble text-[11px] leading-relaxed">
+            <div className="speech-bubble leading-snug">
               {dialogue}
             </div>
           </motion.div>

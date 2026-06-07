@@ -128,7 +128,7 @@ export default function QuestMap() {
         </div>
         <div className="text-right">
           <p className="text-2xl font-heading font-black">Level {level}</p>
-          <p className="text-[10px] text-[var(--muted-foreground)]">
+          <p className="text-[11px] text-[var(--muted-foreground)]">
             {gamification?.xp?.toLocaleString() || 0} XP total
           </p>
         </div>
@@ -224,7 +224,7 @@ export default function QuestMap() {
 
                   {/* Label */}
                   <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap">
-                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-white shadow-lg">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary text-white shadow-lg">
                       Lv.{i} — YOU
                     </span>
                   </div>
@@ -241,7 +241,7 @@ export default function QuestMap() {
                 <>
                   {/* Regular node */}
                   <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center text-[7px] font-black transition-all ${
+                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-[9px] font-black transition-all ${
                       isPassed
                         ? 'bg-[var(--card-bg)] border-current text-current shadow-md'
                         : 'bg-[var(--card-bg)]/40 border-[var(--card-border)] text-[var(--muted)]'
@@ -255,7 +255,7 @@ export default function QuestMap() {
                   {i === getBiome(i).levelRange[0] && (
                     <div className="absolute -right-2 top-1/2 -translate-y-1/2 translate-x-full whitespace-nowrap hidden sm:block">
                       <span
-                        className="text-[7px] font-bold px-1.5 py-0.5 rounded-md border"
+                        className="text-[9px] font-bold px-2 py-0.5 rounded-md border"
                         style={{
                           borderColor: biome.pathColor,
                           color: biome.pathColor,
@@ -279,7 +279,7 @@ export default function QuestMap() {
             return (
               <span
                 key={b.name}
-                className={`text-[7px] font-bold px-1.5 py-0.5 rounded-full border transition-all ${
+                className={`text-[9px] font-bold px-2 py-0.5 rounded-full border transition-all ${
                   isActive ? 'scale-105' : 'opacity-50'
                 }`}
                 style={{
@@ -308,7 +308,7 @@ export default function QuestMap() {
               return (
                 <div
                   key={title.id}
-                  className={`px-2.5 py-1.5 rounded-xl border-2 text-[10px] font-bold transition-all ${
+                  className={`px-2.5 py-1.5 rounded-xl border-2 text-[11px] font-bold transition-all ${
                     unlocked
                       ? isEquipped
                         ? 'border-primary bg-primary/10 text-primary shadow-[0_0_10px_var(--color-primary-glow)]'
@@ -317,7 +317,7 @@ export default function QuestMap() {
                   }`}
                 >
                   {title.emoji} {title.name}
-                  {isEquipped && <span className="ml-1 text-[8px]">✦ EQUIPPED</span>}
+                  {isEquipped && <span className="ml-1 text-[9px]">✦ EQUIPPED</span>}
                 </div>
               );
             })}

@@ -14,6 +14,7 @@ import {
   signOut as firebaseSignOut,
   updateProfile,
   sendPasswordResetEmail,
+  deleteUser,
   User,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -23,6 +24,7 @@ import {
   getUserRef,
   getDocument,
   setDocument,
+  removeDocument,
 } from '@/lib/firestore';
 import { UserProfile, GamificationData } from '@/types';
 import { getAvatarUrl } from '@/lib/constants';
@@ -36,6 +38,7 @@ interface AuthContextValue {
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -188,9 +191,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await sendPasswordResetEmail(auth, email);
   };
 
+  const deleteAccount = async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error('No user logged in');
+
+    // Delete Firestore data first (best-effort)
+    try {
+      const uid = currentUser.uid;
+      // Delete known subcollection documents
+      await removeDocument(getProfileRef(uid)).catch(() => {});
+      await removeDocument(getGamificationRef(uid)).catch(() => {});
+      const invRef = (await import('firebase/firestore')).doc((await import('@/lib/firebase')).db, 'users', uid, 'data', 'inventory');
+      await removeDocument(invRef).catch(() => {});
+      const petRef = (await import('firebase/firestore')).doc((await import('@/lib/firebase')).db, 'users', uid, 'data', 'pet');
+      await removeDocument(petRef).catch(() => {});
+      // Delete top-level user doc
+      await removeDocument(getUserRef(uid)).catch(() => {});
+    } catch (e) {
+      console.warn('Non-critical: Failed to fully clean up Firestore data:', e);
+    }
+
+    // Delete the Firebase Auth account
+    await deleteUser(currentUser);
+    setProfile(null);
+    setUser(null);
+  };
+
   return (
     <AuthContext.Provider
-      value={{ user, profile, loading, signIn, signUp, signInWithGoogle, signOut, resetPassword }}
+      value={{ user, profile, loading, signIn, signUp, signInWithGoogle, signOut, resetPassword, deleteAccount }}
     >
       {children}
     </AuthContext.Provider>
