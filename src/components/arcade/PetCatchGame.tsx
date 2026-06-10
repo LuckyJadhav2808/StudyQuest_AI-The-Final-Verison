@@ -306,11 +306,16 @@ export default function PetCatchGame({ onExit }: PetCatchGameProps) {
     const xp = Math.max(5, Math.floor(finalScore * 0.8));
     const coins = Math.max(1, Math.floor(finalScore * 0.3));
 
-    await awardXP(xp, 'Pet Catch Game');
-    await addCoins(coins);
-    if (playWithPet) await playWithPet();
+    // Play sounds and show chimes instantly
     playCelebration();
     toast.success(`+${xp} XP  +${coins} Coins! 🎉`);
+
+    // Fire off database updates in the background (non-blocking)
+    awardXP(xp, 'Pet Catch Game').catch(() => {});
+    addCoins(coins).catch(() => {});
+    if (playWithPet) {
+      playWithPet().catch(() => {});
+    }
   };
 
   // ── Cleanup ──
@@ -341,9 +346,9 @@ export default function PetCatchGame({ onExit }: PetCatchGameProps) {
 
         <Card padding="lg">
           <div className="text-center py-6 space-y-5">
-            <motion.div className="text-7xl" animate={{ y: [0, -12, 0] }} transition={{ duration: 2, repeat: Infinity }}>
+            <div className="text-7xl animate-float-large">
               {petEmoji}
-            </motion.div>
+            </div>
             <div>
               <h3 className="text-lg font-heading font-bold mb-1">{pet?.name || 'Your Pet'} is hungry!</h3>
               <p className="text-sm text-[var(--muted-foreground)] max-w-xs mx-auto">

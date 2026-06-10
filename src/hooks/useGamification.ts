@@ -5,14 +5,14 @@
 // ============================================================
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { doc, collection, onSnapshot, increment } from 'firebase/firestore';
+import { doc, collection, onSnapshot, increment, runTransaction } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   getGamificationRef,
   subscribeToDocument,
   setDocument,
 } from '@/lib/firestore';
-import { GamificationData, XPEvent } from '@/types';
+import { GamificationData } from '@/types';
 import {
   getLevelFromXP,
   ACHIEVEMENTS,
@@ -75,107 +75,125 @@ export function useGamification(): UseGamificationReturn {
     return () => unsub();
   }, [user]);
 
-  // Award XP and check for level-ups & achievements
+  // Award XP and check for level-ups & achievements using Firestore Transactions
+  // to avoid client-side race conditions when multiple actions complete concurrently.
   const awardXP = useCallback(
     async (amount: number, reason: string): Promise<{ leveledUp: boolean; newAchievements: string[] }> => {
-      const g = gamRef.current; // always read latest from ref
-      if (!user || !g) return { leveledUp: false, newAchievements: [] };
+      if (!user) return { leveledUp: false, newAchievements: [] };
 
       const ref = getGamificationRef(user.uid);
-      const newXP = g.xp + amount;
-      const oldLevel = g.level;
-      const newLevel = getLevelFromXP(newXP);
-      const leveledUp = newLevel > oldLevel;
 
-      // Check for new achievements
-      const updatedData: GamificationData = {
-        ...g,
-        xp: newXP,
-        level: newLevel,
-      };
-
-      const newAchievements: string[] = [];
-      for (const achievement of ACHIEVEMENTS) {
-        if (
-          !g.achievements.includes(achievement.id) &&
-          achievement.condition(updatedData)
-        ) {
-          newAchievements.push(achievement.id);
-        }
-      }
-
-      const achievementBonusXP = newAchievements.reduce((sum, id) => {
-        const a = ACHIEVEMENTS.find((x) => x.id === id);
-        return sum + (a?.xpReward || 0);
-      }, 0);
-
-      const finalXP = newXP + achievementBonusXP;
-      const finalLevel = getLevelFromXP(finalXP);
-
-      await setDocument(ref, {
-        xp: finalXP,
-        level: finalLevel,
-        achievements: [...g.achievements, ...newAchievements],
-      });
-
-      // Sync public leaderboard entry
       try {
+        const result = await runTransaction(db, async (transaction) => {
+          const docSnap = await transaction.get(ref);
+          let g: GamificationData;
+
+          if (!docSnap.exists()) {
+            g = {
+              xp: 0,
+              level: 1,
+              streak: 0,
+              longestStreak: 0,
+              achievements: [],
+              lastActiveDate: '',
+              unlockedTitles: [],
+              totalTasksCompleted: 0,
+              totalFocusMinutes: 0,
+              totalNotesCreated: 0,
+              totalCodeRuns: 0,
+              nightOwlCount: 0,
+              dailyChallengeStreak: 0,
+              lastDailyChallengeDate: '',
+            };
+          } else {
+            g = docSnap.data() as GamificationData;
+          }
+
+          const newXP = g.xp + amount;
+          const oldLevel = g.level;
+          const newLevel = getLevelFromXP(newXP);
+          const leveledUp = newLevel > oldLevel;
+
+          const updatedData: GamificationData = {
+            ...g,
+            xp: newXP,
+            level: newLevel,
+          };
+
+          const newAchievements: string[] = [];
+          for (const achievement of ACHIEVEMENTS) {
+            if (
+              !g.achievements.includes(achievement.id) &&
+              achievement.condition(updatedData)
+            ) {
+              newAchievements.push(achievement.id);
+            }
+          }
+
+          const achievementBonusXP = newAchievements.reduce((sum, id) => {
+            const a = ACHIEVEMENTS.find((x) => x.id === id);
+            return sum + (a?.xpReward || 0);
+          }, 0);
+
+          const finalXP = newXP + achievementBonusXP;
+          const finalLevel = getLevelFromXP(finalXP);
+          const finalAchievements = [...g.achievements, ...newAchievements];
+
+          transaction.set(ref, {
+            xp: finalXP,
+            level: finalLevel,
+            achievements: finalAchievements,
+          }, { merge: true });
+
+          return { leveledUp, newAchievements, finalXP, finalLevel };
+        });
+
+        // Sync public leaderboard entry (non-blocking)
         const leaderboardRef = doc(db, 'leaderboard', user.uid);
-        await setDocument(leaderboardRef, {
+        setDocument(leaderboardRef, {
           uid: user.uid,
           displayName: profile?.displayName || user.displayName || 'Adventurer',
           avatarSeed: profile?.avatarSeed || user.uid,
           avatarStyle: profile?.avatarStyle || 'adventurer',
-          xp: finalXP,
-          level: finalLevel,
-          streak: g.streak || 0,
+          xp: result.finalXP,
+          level: result.finalLevel,
+          streak: gamRef.current?.streak || 0,
           updatedAt: Date.now(),
-        });
-      } catch {
-        // Leaderboard sync is best-effort, don't block XP award
-      }
+        }).catch(() => {});
 
-      // Log daily XP for heatmap
-      const today = getLocalDateString();
-      const dayLogRef = doc(db, 'users', user.uid, 'xpLog', today);
-      try {
-        await setDocument(dayLogRef, { totalXp: increment(amount), lastUpdated: Date.now() });
-      } catch {
-        // If doc doesn't exist yet, create it
-        await setDocument(dayLogRef, { totalXp: amount, lastUpdated: Date.now() }, false);
-      }
+        // Log daily XP for heatmap (non-blocking)
+        const today = getLocalDateString();
+        const dayLogRef = doc(db, 'users', user.uid, 'xpLog', today);
+        setDocument(dayLogRef, { totalXp: increment(amount), lastUpdated: Date.now() })
+          .catch(() => setDocument(dayLogRef, { totalXp: amount, lastUpdated: Date.now() }, false))
+          .catch(() => {});
 
-      // Award Quest Coins alongside XP (using increment to prevent overwrites)
-      try {
+        // Award Quest Coins alongside XP (non-blocking)
         const invRef = doc(db, 'users', user.uid, 'data', 'inventory');
-        // Determine coin amount based on reason
-        let coinAmount = Math.floor(amount / 5); // default: 1 coin per 5 XP
+        let coinAmount = Math.floor(amount / 5);
         if (reason.toLowerCase().includes('task')) coinAmount = COIN_AWARDS.TASK_COMPLETE;
         else if (reason.toLowerCase().includes('pomodoro') || reason.toLowerCase().includes('focus')) coinAmount = COIN_AWARDS.POMODORO_COMPLETE;
         else if (reason.toLowerCase().includes('note')) coinAmount = COIN_AWARDS.NOTE_CREATED;
         else if (reason.toLowerCase().includes('quiz')) coinAmount = COIN_AWARDS.QUIZ_CORRECT;
-        if (leveledUp) coinAmount += COIN_AWARDS.LEVEL_UP;
-        if (newAchievements.length > 0) coinAmount += COIN_AWARDS.ACHIEVEMENT_UNLOCK * newAchievements.length;
+        if (result.leveledUp) coinAmount += COIN_AWARDS.LEVEL_UP;
+        if (result.newAchievements.length > 0) coinAmount += COIN_AWARDS.ACHIEVEMENT_UNLOCK * result.newAchievements.length;
         if (coinAmount > 0) {
-          await setDocument(invRef, { coins: increment(coinAmount) });
+          setDocument(invRef, { coins: increment(coinAmount) }).catch(() => {});
         }
-      } catch {
-        // Coin award is best-effort
-      }
 
-      // Award Skill Points on level-up
-      if (leveledUp) {
-        try {
+        // Award Skill Points on level-up (non-blocking)
+        if (result.leveledUp) {
           const skillRef = doc(db, 'users', user.uid, 'data', 'skillTree');
-          await setDocument(skillRef, { skillPoints: increment(1) });
-        } catch {
-          // Skill point award is best-effort
+          setDocument(skillRef, { skillPoints: increment(1) }).catch(() => {});
         }
-      }
 
-      return { leveledUp, newAchievements };
+        return { leveledUp: result.leveledUp, newAchievements: result.newAchievements };
+      } catch (err) {
+        console.error('Failed to award XP:', err);
+        return { leveledUp: false, newAchievements: [] };
+      }
     },
-    [user], // Only depends on user — reads gamification from ref
+    [user, profile],
   );
 
   // Check and update daily streak

@@ -280,7 +280,7 @@ export default function DsaPage() {
               }`}
               style={!isDailyCompleted ? { boxShadow: '0 0 24px rgba(251,191,36,0.15)' } : {}}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${
                     isDailyCompleted ? 'bg-teal/15' : 'bg-amber-400/15'
@@ -304,7 +304,7 @@ export default function DsaPage() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
                   {dailyStreak > 0 && (
                     <div className="flex items-center gap-1 text-orange-500">
                       <HiFire size={16} />

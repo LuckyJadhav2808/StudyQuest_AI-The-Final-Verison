@@ -231,7 +231,7 @@ export default function TimerContent() {
         {/* Timer Ring */}
         <Card className={`relative overflow-hidden bg-gradient-to-br ${colors.bg}`} padding="lg" hover={false}>
           <div className="flex flex-col items-center py-8">
-            <div className="relative" style={{ width: size, height: size }}>
+            <div className="relative scale-[0.85] sm:scale-100 origin-center" style={{ width: size, height: size }}>
               <svg width={size} height={size} className="transform -rotate-90">
                 <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--card-border)" strokeWidth={stroke} opacity={0.3} />
                 <motion.circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={colors.ring} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={circumference} initial={{ strokeDashoffset: circumference }} animate={{ strokeDashoffset: dashOffset }} transition={{ duration: 0.5, ease: 'easeOut' }} />

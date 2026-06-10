@@ -141,7 +141,7 @@ export default function DraggableDashboard({ widgetMap }: DraggableDashboardProp
                             <div className="w-1 h-1 rounded-full bg-primary" />
                           </div>
                         )}
-                        <div {...(editMode ? {} : dragProvided.dragHandleProps)}>
+                        <div>
                           {widget}
                         </div>
                       </div>

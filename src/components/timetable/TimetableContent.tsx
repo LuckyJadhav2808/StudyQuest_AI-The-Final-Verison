@@ -279,7 +279,7 @@ export default function TimetableContent() {
 
         {/* Weekly Grid + Task Sidebar */}
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="flex gap-3">
+          <div className="flex flex-col lg:flex-row gap-3">
             {/* Main Grid */}
             <Card padding="none" hover={false} className="overflow-x-auto flex-1">
               <div className="min-w-[700px]">
@@ -391,7 +391,7 @@ export default function TimetableContent() {
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="w-56 flex-shrink-0 space-y-2"
+                className="w-full lg:w-56 flex-shrink-0 space-y-2"
               >
                 <div className="flex items-center justify-between mb-1">
                   <h3 className="text-xs font-heading font-bold flex items-center gap-1">

@@ -3,6 +3,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePathname } from 'next/navigation';
+import { useAuthContext } from '@/context/AuthContext';
+import { useGamification } from '@/hooks/useGamification';
+import { useTasks } from '@/hooks/useTasks';
+import { getLevelProgress } from '@/lib/constants';
 
 /* ============================================================
    Questie — The Animated StudyQuest Mascot 🦉
@@ -137,17 +141,87 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
   const lastActivityRef = useRef(Date.now());
   const wasIdleRef = useRef(false);
 
-  // ── Update dialogue when route changes ───────────────────────
+  const { user } = useAuthContext();
+  const { gamification } = useGamification();
+  const { tasks } = useTasks();
+
+  // ── Context-aware dialogue generator ────────────────────────
+  const getContextDialogues = useCallback(() => {
+    const customLines: string[] = [];
+    const todayStr = new Date().toDateString();
+    const hour = new Date().getHours();
+    
+    // 1. Check Night Owl hours (9PM - 5AM)
+    const isLateNight = hour >= 21 || hour < 5;
+    if (isLateNight) {
+      customLines.push(
+        "Night Owl Mode active! Let's conquer this midnight scroll! 🌙",
+        "Burning the midnight oil? I'm right here with you! 🦉",
+        "Studying late? Don't forget to take short water breaks! 💧"
+      );
+    }
+
+    // 2. Check Overdue Tasks
+    if (tasks && tasks.length > 0) {
+      const hasOverdue = tasks.some(t => {
+        if (t.status === 'done' || !t.dueDate) return false;
+        const dueDateObj = new Date(t.dueDate);
+        return dueDateObj.getTime() < Date.now() && dueDateObj.toDateString() !== todayStr;
+      });
+      if (hasOverdue) {
+        customLines.push(
+          "Let's tackle that urgent quest today! 🦉",
+          "Some quests are overdue! Don't let them gather dust! ⚔️",
+          "Time to check your quest log! Adventure waits for no one! 📋"
+        );
+      }
+    }
+
+    // 3. Check Level-up progress (>= 80% to next level)
+    if (gamification) {
+      const progress = getLevelProgress(gamification.xp);
+      if (progress >= 0.8) {
+        customLines.push(
+          "Incredible work! You're getting closer to leveling up! 🎉",
+          "Only a little bit of XP until your next level! ⚡",
+          "I smell a level up coming soon! Keep grinding! 🏆"
+        );
+      }
+
+      // 4. Streak celebrations
+      if (gamification.streak && gamification.streak >= 3) {
+        customLines.push(
+          `Your ${gamification.streak}-day study streak is burning hot! Keep it up! 🔥`,
+          `Streak multiplier active! You are on fire! 💥`
+        );
+      }
+    }
+
+    return customLines;
+  }, [tasks, gamification]);
+
+  // ── Update dialogue when route changes or data loads ───────────
   useEffect(() => {
-    const messages = ROUTE_DIALOGUES[pathname] || ROUTE_DIALOGUES['/'] || [];
-    if (messages.length > 0) {
-      setDialogue(pickRandom(messages));
+    const routeMessages = ROUTE_DIALOGUES[pathname] || ROUTE_DIALOGUES['/'] || [];
+    const contextMessages = getContextDialogues();
+    
+    let candidates = [...routeMessages];
+    if (contextMessages.length > 0) {
+      if (Math.random() < 0.6) {
+        candidates = [...contextMessages];
+      } else {
+        candidates = [...candidates, ...contextMessages];
+      }
+    }
+    
+    if (candidates.length > 0) {
+      setDialogue(pickRandom(candidates));
       setMascotState('active');
       setShowDialogue(true);
       wasIdleRef.current = false;
       lastActivityRef.current = Date.now();
     }
-  }, [pathname]);
+  }, [pathname, getContextDialogues]);
 
   // ── Blink animation (every 3-6 seconds) ─────────────────────
   const startBlinkCycle = useCallback(() => {
@@ -251,8 +325,19 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
       <motion.div
         className="relative w-10 h-10 flex-shrink-0 cursor-pointer select-none"
         onClick={() => {
-          const messages = ROUTE_DIALOGUES[pathname] || ROUTE_DIALOGUES['/'] || [];
-          setDialogue(pickRandom(messages));
+          const routeMessages = ROUTE_DIALOGUES[pathname] || ROUTE_DIALOGUES['/'] || [];
+          const contextMessages = getContextDialogues();
+          
+          let candidates = [...routeMessages];
+          if (contextMessages.length > 0) {
+            if (Math.random() < 0.6) {
+              candidates = [...contextMessages];
+            } else {
+              candidates = [...candidates, ...contextMessages];
+            }
+          }
+          
+          setDialogue(pickRandom(candidates));
           setShowDialogue(true);
           setMascotState('active');
         }}

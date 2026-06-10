@@ -74,18 +74,18 @@ export default function TasksContent() {
     const task = tasks.find((t) => t.id === taskId);
     if (!task || !user) return;
 
-    // Move to done
-    await moveTask(taskId, 'done');
-
-    // Increment task count
+    // Trigger Firestore writes in parallel
+    const p1 = moveTask(taskId, 'done');
     const gamRef = getGamificationRef(user.uid);
-    await updateDoc(gamRef, {
+    const p2 = updateDoc(gamRef, {
       totalTasksCompleted: increment(1),
     });
 
-    // Award XP
     const xpAmount = task.priority === 'urgent' ? XP_AWARDS.TASK_COMPLETE_URGENT : XP_AWARDS.TASK_COMPLETE;
-    const result = await awardXP(xpAmount, `Completed task: ${task.title}`);
+    const resultPromise = awardXP(xpAmount, `Completed task: ${task.title}`);
+
+    // Wait for all writes to finish concurrently
+    const [_, __, result] = await Promise.all([p1, p2, resultPromise]);
 
     // Fire confetti
     fireConfetti();

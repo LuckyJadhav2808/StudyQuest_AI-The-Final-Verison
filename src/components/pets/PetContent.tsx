@@ -81,7 +81,7 @@ export default function PetContent() {
             <p className="text-sm text-[var(--muted-foreground)] mt-2">Pick a species and name your new study buddy. They&apos;ll grow as you learn!</p>
           </div>
 
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {SPECIES_LIST.map((species) => {
               const config = PET_SPECIES_CONFIG[species];
               return (
@@ -188,7 +188,7 @@ export default function PetContent() {
         </Card>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {[
             { label: 'Happiness', value: pet!.happiness, color: 'bg-pink-500', icon: '💖' },
             { label: 'Energy', value: pet!.energy, color: 'bg-amber-500', icon: '⚡' },
@@ -224,7 +224,7 @@ export default function PetContent() {
         {/* Evolution Progress */}
         <Card padding="md" hover={false}>
           <h3 className="text-sm font-heading font-bold mb-3">🌟 Evolution Path</h3>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {PET_SPECIES_CONFIG[pet!.species].emoji.map((e, i) => (
               <div key={i} className="flex items-center gap-1">
                 <div className={`text-center px-2 py-1 rounded-xl ${i === pet!.stage ? 'bg-primary/10 border border-primary/30' : i < pet!.stage ? 'opacity-50' : 'opacity-30'}`}>

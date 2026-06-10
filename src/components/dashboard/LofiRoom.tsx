@@ -340,13 +340,9 @@ export default function LofiRoom({ className = '' }: LofiRoomProps) {
       >
         {chestAvailable ? '🎁' : '📦'}
         {chestAvailable && (
-          <motion.div
-            className="lofi-chest-sparkle"
-            animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 2, repeat: Infinity }}
-          >
+          <div className="lofi-chest-sparkle animate-pulse-scale">
             ✨
-          </motion.div>
+          </div>
         )}
       </motion.div>
 

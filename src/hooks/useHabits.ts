@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { doc } from 'firebase/firestore';
 import { useAuthContext } from '@/context/AuthContext';
 import {
@@ -17,11 +17,21 @@ export function useHabits() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Keep a ref to the latest habits so toggle callbacks never read stale state
+  const habitsRef = useRef<Habit[]>(habits);
+  habitsRef.current = habits;
+
+  // Track in-flight toggles to prevent concurrent write issues on the same habit
+  const togglingRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     if (!user) { setHabits([]); setLoading(false); return; }
     const unsub = subscribeToCollection<Habit>(
       getHabitsCollection(user.uid),
-      (items) => { setHabits(items); setLoading(false); },
+      (items) => { 
+        setHabits(items); 
+        setLoading(false); 
+      },
     );
     return () => unsub();
   }, [user]);
@@ -41,33 +51,61 @@ export function useHabits() {
 
   const toggleDate = useCallback(async (habitId: string, date: string) => {
     if (!user) return;
-    const habit = habits.find((h) => h.id === habitId);
-    if (!habit) return;
 
-    let newDates: string[];
-    if (habit.completedDates.includes(date)) {
-      newDates = habit.completedDates.filter((d) => d !== date);
-    } else {
-      newDates = [...habit.completedDates, date];
+    // Build a unique key for the habit + date toggle to prevent double-clicks
+    const toggleKey = `${habitId}-${date}`;
+    if (togglingRef.current.has(toggleKey)) return;
+    togglingRef.current.add(toggleKey);
+
+    try {
+      // Read from ref to avoid stale closures
+      const currentHabits = habitsRef.current;
+      const habit = currentHabits.find((h) => h.id === habitId);
+      if (!habit) return;
+
+      let newDates: string[];
+      if (habit.completedDates.includes(date)) {
+        newDates = habit.completedDates.filter((d) => d !== date);
+      } else {
+        newDates = [...habit.completedDates, date];
+      }
+
+      // Compute best streak
+      let maxStreak = 0;
+      if (newDates.length > 0) {
+        const sorted = [...newDates].sort();
+        let current = 1;
+        maxStreak = 1;
+        for (let i = 1; i < sorted.length; i++) {
+          const prev = new Date(sorted[i - 1]);
+          const curr = new Date(sorted[i]);
+          const diff = (curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24);
+          if (diff === 1) { current++; }
+          else { maxStreak = Math.max(maxStreak, current); current = 1; }
+        }
+        maxStreak = Math.max(maxStreak, current);
+      }
+
+      const finalBestStreak = Math.max(habit.bestStreak, maxStreak);
+
+      // Optimistic UI update
+      setHabits((prev) =>
+        prev.map((h) =>
+          h.id === habitId
+            ? { ...h, completedDates: newDates, bestStreak: finalBestStreak }
+            : h
+        )
+      );
+
+      // Persist to Firestore
+      await setDocument(doc(db, 'users', user.uid, 'habits', habitId), {
+        completedDates: newDates,
+        bestStreak: finalBestStreak,
+      });
+    } finally {
+      togglingRef.current.delete(toggleKey);
     }
-
-    // Compute best streak
-    const sorted = [...newDates].sort();
-    let maxStreak = 0, current = 1;
-    for (let i = 1; i < sorted.length; i++) {
-      const prev = new Date(sorted[i - 1]);
-      const curr = new Date(sorted[i]);
-      const diff = (curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24);
-      if (diff === 1) { current++; }
-      else { maxStreak = Math.max(maxStreak, current); current = 1; }
-    }
-    maxStreak = Math.max(maxStreak, current);
-
-    await setDocument(doc(db, 'users', user.uid, 'habits', habitId), {
-      completedDates: newDates,
-      bestStreak: Math.max(habit.bestStreak, maxStreak),
-    });
-  }, [user, habits]);
+  }, [user]);
 
   const deleteHabit = useCallback(async (habitId: string) => {
     if (!user) return;

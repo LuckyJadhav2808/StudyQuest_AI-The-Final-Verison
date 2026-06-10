@@ -537,6 +537,29 @@ export function addToCustomDictionary(word: string) {
 // ── Full English Dictionary Asynchronous Loader ──
 let DICTIONARY: Set<string> | null = null;
 let dictionaryLoaded = false;
+let DICTIONARY_BY_LETTER: Record<string, string[]> | null = null;
+let VOCABULARY_BY_LETTER: Record<string, string[]> | null = null;
+
+function buildLetterBuckets(words: Iterable<string>): Record<string, string[]> {
+  const buckets: Record<string, string[]> = {};
+  for (const word of words) {
+    const firstChar = word[0]?.toLowerCase();
+    if (firstChar) {
+      if (!buckets[firstChar]) {
+        buckets[firstChar] = [];
+      }
+      buckets[firstChar].push(word);
+    }
+  }
+  return buckets;
+}
+
+function getVocabularyBuckets(): Record<string, string[]> {
+  if (!VOCABULARY_BY_LETTER) {
+    VOCABULARY_BY_LETTER = buildLetterBuckets(VOCABULARY_LIST);
+  }
+  return VOCABULARY_BY_LETTER;
+}
 
 export function loadEnglishDictionary() {
   if (typeof window !== 'undefined' && !dictionaryLoaded) {
@@ -545,6 +568,7 @@ export function loadEnglishDictionary() {
       .then((res) => res.json())
       .then((words: string[]) => {
         DICTIONARY = new Set(words);
+        DICTIONARY_BY_LETTER = buildLetterBuckets(words);
         window.dispatchEvent(new Event('studyquest_custom_dict_update'));
       })
       .catch((err) => {
@@ -714,26 +738,49 @@ export function getSpellingSuggestions(word: string): string[] {
     loadCustomWords();
   }
   
-  // Search pool is custom words + loaded dictionary (or static vocabulary fallback)
-  const searchPool = DICTIONARY 
-    ? new Set([...DICTIONARY, ...customWordsSet]) 
-    : new Set([...VOCABULARY, ...customWordsSet]);
-  
-  // Search through our vocabulary set
-  for (const vocabWord of searchPool) {
-    // Heuristic optimization: only compare words with close lengths.
-    // If first letter matches, allow length difference up to 2. Else allow length difference up to 1.
+  const firstChar = base[0];
+  const buckets = DICTIONARY_BY_LETTER || getVocabularyBuckets();
+
+  const checkWord = (vocabWord: string, restrictDifferentFirstChar = false) => {
+    if (!vocabWord) return;
+    
+    // Heuristic: only compare words with close lengths.
     const lengthDiff = Math.abs(vocabWord.length - base.length);
-    if (vocabWord[0] === base[0]) {
-      if (lengthDiff > 2) continue;
-    } else {
-      if (lengthDiff > 1) continue;
+    if (lengthDiff > 2) return;
+    
+    const firstCharVocab = vocabWord[0];
+    if (firstChar !== firstCharVocab) {
+      if (restrictDifferentFirstChar) {
+        if (base.length > 4 || lengthDiff > 1) return;
+      }
     }
     
     const distance = getLevenshteinDistance(base, vocabWord);
     if (distance <= 2) {
       matches.push({ word: vocabWord, distance });
     }
+  };
+
+  // 1. Search the primary bucket (words starting with the same letter)
+  const primaryBucket = buckets[firstChar] || [];
+  for (const vocabWord of primaryBucket) {
+    checkWord(vocabWord, false);
+  }
+
+  // 2. Search other buckets only if word is short (length <= 4)
+  if (base.length <= 4) {
+    for (const char in buckets) {
+      if (char === firstChar) continue;
+      const otherBucket = buckets[char];
+      for (const vocabWord of otherBucket) {
+        checkWord(vocabWord, true);
+      }
+    }
+  }
+
+  // Search through custom dictionary
+  for (const vocabWord of customWordsSet) {
+    checkWord(vocabWord, true);
   }
 
   // Sort by smallest distance and then by string length similarity

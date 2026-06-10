@@ -538,9 +538,23 @@ export const SKILL_TREE_NODES: SkillNodeDef[] = [
 export const ADMIN_EMAILS = ['luckymanojjadhav@gmail.com'];
 
 // ----- Patch Notes -----
-export const CURRENT_PATCH_VERSION = '1.6.0';
+export const CURRENT_PATCH_VERSION = '1.7.0';
 
 export const PATCH_NOTES: PatchNote[] = [
+  {
+    version: '1.7.0',
+    title: 'The Butter-Smooth Performance & Companion Update',
+    date: '2026-06-11',
+    entries: [
+      { type: 'feature', text: '💬 Dynamic Questie Companion — The study owl mascot now reacts with context-aware advice about overdue tasks, late hours, and leveling milestones.' },
+      { type: 'feature', text: '🔔 Sequential Notification Queue — Replaced cluttered stacked toasts with a sequential, non-overlapping FIFO queue.' },
+      { type: 'improvement', text: '⚡ 75x Faster Spelling Suggestions — Pre-grouped dictionary lookups into letter buckets, reducing spellcheck scan time to <0.5ms.' },
+      { type: 'improvement', text: '🌙 Hardware-Accelerated Animations — Offloaded float and pulse loops to the GPU using translate3d/scale3d, eliminating animation stutter.' },
+      { type: 'improvement', text: '⚡ Optimistic Quest Operations — Quest completions, checklist toggling, and deletions occur instantly in the UI before network resolution.' },
+      { type: 'improvement', text: '☁️ Parallel Task Completes — Slashing task quests triggers concurrently using Promise.all, reducing completion latency by 4x.' },
+      { type: 'fix', text: '🔒 3-Day Quest Age Limit — Enforced a strict validation constraint preventing modification of daily quests older than 3 days.' },
+    ],
+  },
   {
     version: '1.6.0',
     title: 'The Jukebox & Hybrid Player Update',

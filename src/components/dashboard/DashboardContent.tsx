@@ -124,10 +124,10 @@ export default function DashboardContent() {
     setNewQuest('');
   };
 
-  const handleToggleQuest = async (id: string, wasCompleted: boolean) => {
-    await toggleQuest(id);
+  const handleToggleQuest = (id: string, wasCompleted: boolean) => {
+    toggleQuest(id).catch(() => {});
     if (!wasCompleted) {
-      await awardXP(XP_AWARDS.TASK_COMPLETE, 'Daily quest completed');
+      awardXP(XP_AWARDS.TASK_COMPLETE, 'Daily quest completed').catch(() => {});
       playSuccess();
       toast.success('+25 XP! Quest complete! ⚡');
     }
@@ -151,7 +151,7 @@ export default function DashboardContent() {
     'welcome': (
       <div className={`relative overflow-hidden rounded-[20px] bg-gradient-to-r ${timeOfDay.gradient} p-6 md:p-8 border-2 ${timeOfDay.border}`}>
         <div className="relative z-10 flex items-start gap-4">
-          <motion.div className="hidden sm:flex flex-shrink-0 w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary items-center justify-center text-3xl shadow-lg" animate={{ y: [0, -6, 0] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}>{timeOfDay.emoji}</motion.div>
+          <div className="hidden sm:flex flex-shrink-0 w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary items-center justify-center text-3xl shadow-lg animate-float">{timeOfDay.emoji}</div>
           <div className="flex-1">
             <h1 className="text-2xl md:text-3xl font-heading font-black mb-1">{timeOfDay.greeting}, {profile?.displayName?.split(' ')[0] || 'Adventurer'}! <span className={timeOfDay.accent}>{timeOfDay.tip}</span></h1>
             <p className="text-sm text-[var(--muted-foreground)] max-w-xl">{streakMessage}</p>
@@ -192,12 +192,10 @@ export default function DashboardContent() {
           <motion.button
             className={`hidden sm:flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all cursor-pointer ${
               chestAvailable
-                ? 'bg-amber-500/15 border-amber-400/30 hover:bg-amber-500/25'
+                ? 'bg-amber-500/15 border-amber-400/30 hover:bg-amber-500/25 animate-pulse-scale'
                 : 'bg-[var(--card-border)]/30 border-[var(--card-border)] opacity-60'
             }`}
             onClick={() => { playClick(); setShowTreasureChest(true); }}
-            animate={chestAvailable ? { scale: [1, 1.06, 1] } : {}}
-            transition={chestAvailable ? { duration: 2.5, repeat: Infinity, ease: 'easeInOut' } : {}}
             title={chestAvailable ? 'Open Daily Treasure Chest!' : 'Already claimed today'}
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.95 }}
@@ -209,10 +207,10 @@ export default function DashboardContent() {
             {chestAvailable && <span className="text-sm animate-pulse">✨</span>}
           </motion.button>
           {gamification && gamification.streak > 0 && (
-            <motion.div className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/15 border-2 border-orange-500/20" animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 2, repeat: Infinity }}>
+            <div className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/15 border-2 border-orange-500/20 animate-pulse-scale">
               <HiFire className="text-orange-500" size={24} />
               <p className="text-xs font-bold text-orange-500 uppercase tracking-wider">{gamification.streak} Day Streak</p>
-            </motion.div>
+            </div>
           )}
         </div>
         <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/10 rounded-full blur-2xl" />
@@ -323,7 +321,7 @@ export default function DashboardContent() {
           </div>
           {notes.length === 0 ? (
             <div className="text-center py-6">
-              <motion.span className="text-3xl mb-2 block" animate={{ y: [0, -4, 0] }} transition={{ duration: 2.5, repeat: Infinity }}>📝</motion.span>
+              <span className="text-3xl mb-2 block animate-float">📝</span>
               <p className="text-xs text-[var(--muted-foreground)] mb-2">No notes yet. Start writing!</p>
               <Link href="/notes"><Button variant="teal" size="sm" icon={<HiPlus />}>Create Note</Button></Link>
             </div>
@@ -356,7 +354,7 @@ export default function DashboardContent() {
         </div>
         {(!upcomingExams || upcomingExams.length === 0) ? (
           <div className="text-center py-6">
-            <motion.span className="text-3xl mb-2 block" animate={{ y: [0, -5, 0] }} transition={{ duration: 2.5, repeat: Infinity }}>📅</motion.span>
+            <span className="text-3xl mb-2 block animate-float">📅</span>
             <p className="text-xs text-[var(--muted-foreground)] mb-2">No upcoming exams scheduled.</p>
             <Link href="/exams"><Button variant="coral" size="sm" icon={<HiPlus />}>Add Exam</Button></Link>
           </div>
@@ -394,7 +392,7 @@ export default function DashboardContent() {
           </div>
           {todayTasks.length === 0 ? (
             <div className="text-center py-8">
-              <motion.span className="text-4xl mb-3 block" animate={{ y: [0, -6, 0] }} transition={{ duration: 2, repeat: Infinity }}>🎉</motion.span>
+              <span className="text-4xl mb-3 block animate-float">🎉</span>
               <p className="text-sm font-semibold mb-1">All caught up!</p>
               <p className="text-xs text-[var(--muted-foreground)]">You&apos;ve crushed all your tasks.</p>
             </div>

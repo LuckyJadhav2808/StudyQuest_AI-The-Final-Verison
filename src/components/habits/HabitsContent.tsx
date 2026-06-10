@@ -42,7 +42,7 @@ function getStreakForHabit(completedDates: string[]): number {
   return streak;
 }
 
-// Generate last N days for heatmap
+// Generate last N days for heatmap (oldest to newest, so Today is the last index)
 function getLastNDays(n: number): string[] {
   const days: string[] = [];
   for (let i = n - 1; i >= 0; i--) {
@@ -182,7 +182,7 @@ export default function HabitsContent() {
                           <h4 className={`text-sm font-heading font-bold ${isCompletedToday ? 'line-through opacity-60' : ''}`}>
                             {habit.title}
                           </h4>
-                          {streak >= 3 && (
+                          {streak > 0 && (
                             <Badge variant="amber" size="sm">
                               <HiFire className="inline" size={12} /> {streak}
                             </Badge>
@@ -241,20 +241,56 @@ export default function HabitsContent() {
                       <div className="flex flex-wrap gap-[3px]">
                         {last30.map((day) => {
                           const done = habit.completedDates.includes(day);
+                          const isToday = day === today;
+                          const isYesterday = day === getLocalYesterdayDateString();
+
+                          // Generate a friendly label for the hover tooltip
+                          const getFriendlyDateLabel = () => {
+                            if (isToday) return 'Today';
+                            if (isYesterday) return 'Yesterday';
+                            try {
+                              const d = new Date(day + 'T12:00:00');
+                              return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+                            } catch {
+                              return day;
+                            }
+                          };
+
                           return (
                             <motion.button
                               key={day}
-                              onClick={() => toggleDate(habit.id, day)}
-                              className="w-[18px] h-[18px] rounded-[3px] transition-colors"
+                              onClick={async (e) => {
+                                await toggleDate(habit.id, day);
+                                if (!done) {
+                                  await awardXP(XP_AWARDS.HABIT_CHECKED, 'Daily habit completed');
+                                  playSuccess();
+                                  spawnXPFromEvent(XP_AWARDS.HABIT_CHECKED, e);
+                                  toast.success('+10 XP! ⚡');
+                                }
+                              }}
+                              className={`w-[18px] h-[18px] rounded-[3px] transition-colors flex items-center justify-center relative ${
+                                isToday ? 'ring-2 ring-primary/40 ring-offset-1 dark:ring-offset-slate-900' : ''
+                              }`}
                               style={{
                                 backgroundColor: done ? habit.color : 'var(--card-border)',
                                 opacity: done ? 1 : 0.2,
                               }}
                               whileHover={{ scale: 1.4, opacity: 1 }}
-                              title={`${day}: ${done ? 'Done ✓' : 'Click to mark'}`}
-                            />
+                              title={`${getFriendlyDateLabel()}: ${done ? 'Done ✓' : 'Click to toggle'}`}
+                            >
+                              {/* Show a subtle dot indicator inside the "Today" square if not checked yet */}
+                              {isToday && !done && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-[var(--foreground)] opacity-60 animate-pulse" />
+                              )}
+                            </motion.button>
                           );
                         })}
+                      </div>
+                      <div className="flex items-center justify-between mt-2 text-[8px] uppercase tracking-wider font-bold text-[var(--muted-foreground)] select-none">
+                        <span>30 Days Ago</span>
+                        <span className="text-primary-light flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" /> Today
+                        </span>
                       </div>
                     </div>
                   </Card>

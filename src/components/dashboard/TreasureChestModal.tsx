@@ -69,9 +69,9 @@ export default function TreasureChestModal({ isOpen, onClose }: TreasureChestMod
         playXP();
       }
 
-      // Award XP if the reward includes any
+      // Award XP if the reward includes any (non-blocking)
       if (result.xp > 0) {
-        await awardXP(result.xp, 'Treasure Chest Daily Reward');
+        awardXP(result.xp, 'Treasure Chest Daily Reward').catch(() => {});
       }
     } catch (error) {
       console.error('Treasure Chest error:', error);

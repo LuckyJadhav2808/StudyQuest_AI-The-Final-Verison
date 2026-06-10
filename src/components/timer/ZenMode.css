@@ -414,6 +414,12 @@
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
+  .zen-timer-container {
+    transform: scale(0.8);
+    transform-origin: center center;
+    margin: 10px 0;
+  }
+
   .zen-music-player {
     bottom: 12px;
     left: 12px;

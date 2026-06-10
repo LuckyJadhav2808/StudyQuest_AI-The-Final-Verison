@@ -101,6 +101,7 @@ export default function NotesContent() {
   const quillActiveWordRangeRef = useRef<{ start: number; end: number } | null>(null);
   const isReplacingRef = useRef(false);
   const lastSelectionIndexRef = useRef<number | null>(null);
+  const quillSuggestionsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const checkQuillSpelling = useCallback(() => {
     if (isReplacingRef.current) return;
@@ -144,11 +145,21 @@ export default function NotesContent() {
     }
     const clean = cleanWord(word);
 
+    // Clear any pending suggestions calculation
+    if (quillSuggestionsTimeoutRef.current) {
+      clearTimeout(quillSuggestionsTimeoutRef.current);
+      quillSuggestionsTimeoutRef.current = null;
+    }
+
     if (clean.base && isMisspelled(word)) {
       setQuillActiveWord(word);
-      setQuillSuggestions(getSpellingSuggestions(word));
       setQuillActiveWordRange({ start, end });
       quillActiveWordRangeRef.current = { start, end };
+
+      // Debounce the heavy suggestions lookup (Levenshtein search over 97k words)
+      quillSuggestionsTimeoutRef.current = setTimeout(() => {
+        setQuillSuggestions(getSpellingSuggestions(word));
+      }, 150);
     } else {
       setQuillActiveWord('');
       setQuillSuggestions([]);
@@ -269,6 +280,15 @@ export default function NotesContent() {
       }
     };
   }, [checkQuillSpelling]);
+
+  // Clean up spelling suggestions timer on unmount
+  useEffect(() => {
+    return () => {
+      if (quillSuggestionsTimeoutRef.current) {
+        clearTimeout(quillSuggestionsTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Keydown listener for space and punctuation autocorrect in Quill
   useEffect(() => {

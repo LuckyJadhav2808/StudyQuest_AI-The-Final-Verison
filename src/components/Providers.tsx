@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { Toaster } from 'react-hot-toast';
+import { Toaster, ToastBar, useToasterStore, toast } from 'react-hot-toast';
 import { AuthProvider, useAuthContext } from '@/context/AuthContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { SidebarProvider, useSidebar } from '@/context/SidebarContext';
@@ -58,11 +58,21 @@ function AnimatedGrid() {
 
 function MainContent({ children }: { children: React.ReactNode }) {
   const { collapsed, focusMode } = useSidebar();
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  React.useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  const sidebarMargin = focusMode || isMobile ? 0 : collapsed ? 72 : 272;
 
   return (
     <div
-      className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out ${focusMode ? 'ml-0' : ''}`}
-      style={focusMode ? { marginLeft: 0 } : { marginLeft: collapsed ? 72 : 272 }}
+      className="flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out"
+      style={{ marginLeft: sidebarMargin }}
     >
       {!focusMode && <Header />}
       <main className={`flex-1 overflow-y-auto relative z-10 ${focusMode ? 'p-0' : 'p-4 md:p-6 pb-20 md:pb-6'}`}>
@@ -127,6 +137,86 @@ function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function QueueToaster() {
+  const { toasts } = useToasterStore();
+  const currentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentToastIdRef = useRef<string | null>(null);
+
+  const visibleToasts = toasts.filter((t) => t.visible);
+  const activeToast = visibleToasts[0];
+
+  useEffect(() => {
+    if (!activeToast) {
+      if (currentTimerRef.current) {
+        clearTimeout(currentTimerRef.current);
+        currentTimerRef.current = null;
+      }
+      currentToastIdRef.current = null;
+      return;
+    }
+
+    if (currentToastIdRef.current !== activeToast.id) {
+      if (currentTimerRef.current) {
+        clearTimeout(currentTimerRef.current);
+      }
+      currentToastIdRef.current = activeToast.id;
+
+      const duration = (activeToast.duration && activeToast.duration !== Infinity && activeToast.duration < 999999)
+        ? activeToast.duration
+        : 3500;
+
+      currentTimerRef.current = setTimeout(() => {
+        toast.dismiss(activeToast.id);
+      }, duration);
+    }
+  }, [activeToast]);
+
+  useEffect(() => {
+    return () => {
+      if (currentTimerRef.current) {
+        clearTimeout(currentTimerRef.current);
+      }
+    };
+  }, []);
+
+  return (
+    <Toaster
+      position="top-right"
+      toastOptions={{
+        duration: Infinity,
+        style: {
+          borderRadius: '16px',
+          background: 'var(--card-bg)',
+          color: 'var(--foreground)',
+          border: '2px solid var(--card-border)',
+          fontSize: '13px',
+          fontWeight: 600,
+          fontFamily: 'var(--font-heading)',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+        },
+        success: { iconTheme: { primary: '#10B981', secondary: '#fff' } },
+        error: { iconTheme: { primary: '#FF6B6B', secondary: '#fff' } },
+      }}
+    >
+      {(t) => {
+        if (activeToast?.id !== t.id) {
+          return <div style={{ display: 'none' }} />;
+        }
+        return (
+          <ToastBar toast={t}>
+            {({ icon, message }) => (
+              <>
+                {icon}
+                {message}
+              </>
+            )}
+          </ToastBar>
+        );
+      }}
+    </Toaster>
+  );
+}
+
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
@@ -137,24 +227,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
             <FloatingTimerWidget />
           </TimerProvider>
         </SidebarProvider>
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 3000,
-            style: {
-              borderRadius: '16px',
-              background: 'var(--card-bg)',
-              color: 'var(--foreground)',
-              border: '2px solid var(--card-border)',
-              fontSize: '13px',
-              fontWeight: 600,
-              fontFamily: 'var(--font-heading)',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-            },
-            success: { iconTheme: { primary: '#10B981', secondary: '#fff' } },
-            error: { iconTheme: { primary: '#FF6B6B', secondary: '#fff' } },
-          }}
-        />
+        <QueueToaster />
       </ThemeProvider>
     </AuthProvider>
   );
