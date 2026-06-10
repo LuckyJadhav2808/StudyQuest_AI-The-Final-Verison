@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import {
   HiUser, HiMail, HiKey, HiColorSwatch,
   HiClipboardCopy, HiCheck, HiSave, HiShieldCheck, HiLockClosed, HiViewGrid, HiHome,
-  HiDownload, HiUpload, HiDatabase, HiExclamationCircle, HiFlag, HiTrash,
+  HiDownload, HiUpload, HiDatabase, HiExclamationCircle, HiFlag, HiTrash, HiSparkles,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import { useAuthContext } from '@/context/AuthContext';
@@ -26,7 +26,7 @@ import AvatarBorder, { getAvatarTier } from '@/components/gamification/AvatarBor
 
 export default function SettingsContent() {
   const { user, profile, deleteAccount } = useAuthContext();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, reduceMotion, setReduceMotion } = useTheme();
   const { gamification } = useGamification();
   const { addCoins } = useShop();
 
@@ -492,6 +492,44 @@ export default function SettingsContent() {
                 </div>
               )}
             </motion.button>
+          </div>
+        </Card>
+
+        {/* Accessibility & Performance */}
+        <Card padding="lg" hover={false}>
+          <h2 className="text-sm font-heading font-bold mb-2 flex items-center gap-2">
+            <HiSparkles className="text-amber" /> Accessibility & Performance
+          </h2>
+          <p className="text-xs text-[var(--muted-foreground)] mb-4">
+            Optimize your experience. Turn off visual effects if you notice lag.
+          </p>
+
+          <div className="flex items-center justify-between p-4 rounded-2xl border-2 border-[var(--card-border)] bg-[var(--background)]/10">
+            <div>
+              <p className="text-sm font-heading font-bold">Reduce Motion (Zen Mode)</p>
+              <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5 max-w-sm">
+                Disables screen transitions, background drifting particles, and animated mascots for maximum speed and accessibility.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setReduceMotion(!reduceMotion);
+                toast.success(
+                  !reduceMotion
+                    ? 'Zen Mode activated! animations disabled. 🧘'
+                    : 'Standard animations restored! ✨'
+                );
+              }}
+              className={`w-12 h-6 rounded-full p-1 transition-colors duration-200 focus:outline-none ${
+                reduceMotion ? 'bg-primary' : 'bg-[var(--card-border)]'
+              }`}
+            >
+              <div
+                className={`w-4 h-4 rounded-full bg-white transition-transform duration-200 ${
+                  reduceMotion ? 'translate-x-6' : 'translate-x-0'
+                }`}
+              />
+            </button>
           </div>
         </Card>
 

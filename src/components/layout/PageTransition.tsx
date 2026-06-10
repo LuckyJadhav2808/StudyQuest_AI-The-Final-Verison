@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useTheme } from '@/context/ThemeContext';
 
 interface PageTransitionProps {
   children: React.ReactNode;
@@ -12,30 +13,36 @@ const pageVariants = {
   show: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.06,
-      delayChildren: 0.05,
+      staggerChildren: 0.04,
+      delayChildren: 0.02,
     },
   },
   exit: {
     opacity: 0,
-    transition: { duration: 0.15 },
+    transition: { duration: 0.1 },
   },
 };
 
 // Each direct child of PageTransition gets this waterfall effect
 const childVariants = {
-  hidden: { opacity: 0, y: 18 },
+  hidden: { opacity: 0, y: 8 },
   show: {
     opacity: 1,
     y: 0,
     transition: {
-      duration: 0.35,
+      duration: 0.25,
       ease: 'easeOut' as const,
     },
   },
 };
 
 export default function PageTransition({ children }: PageTransitionProps) {
+  const { reduceMotion } = useTheme();
+
+  if (reduceMotion) {
+    return <>{children}</>;
+  }
+
   // Wrap each direct child in a motion.div for staggered entry
   const childArray = React.Children.toArray(children);
 

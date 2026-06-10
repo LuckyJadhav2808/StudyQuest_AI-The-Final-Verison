@@ -538,9 +538,22 @@ export const SKILL_TREE_NODES: SkillNodeDef[] = [
 export const ADMIN_EMAILS = ['luckymanojjadhav@gmail.com'];
 
 // ----- Patch Notes -----
-export const CURRENT_PATCH_VERSION = '1.7.0';
+export const CURRENT_PATCH_VERSION = '1.8.0';
 
 export const PATCH_NOTES: PatchNote[] = [
+  {
+    version: '1.8.0',
+    title: 'The Silky Smooth Motion & Performance Update',
+    date: '2026-06-11',
+    entries: [
+      { type: 'feature', text: '🧘 Reduce Motion (Zen Mode) — Turn off layout transitions, mascot animations, and background drifting particles from the new settings toggle.' },
+      { type: 'improvement', text: '🎮 Canvas-Based Pet Catch Game — Gameplay physics rendering has been moved to a hardware-accelerated HTML5 Canvas, completely bypassing 60fps React state updates.' },
+      { type: 'improvement', text: '⚡ Synced Sidebar Transition — Sidebar expansion and content margin adjustments are now perfectly synchronized at 250ms with instant snapping in Zen Mode.' },
+      { type: 'improvement', text: '🚀 Snappier Page Transitions — Entry transitions are 30% faster with reduced layout jumping, and are fully bypassed in Reduce Motion mode.' },
+      { type: 'fix', text: '🌍 DST-Safe Daily Quests — Corrected daily quest age limits using Math.round to safely handle 23/25 hour daylight saving transitions.' },
+      { type: 'fix', text: '🔧 SSR Hydration Fix — Resolved a server-side rendering crash by ensuring ThemeContext is always available during build prerendering.' },
+    ],
+  },
   {
     version: '1.7.0',
     title: 'The Butter-Smooth Performance & Companion Update',

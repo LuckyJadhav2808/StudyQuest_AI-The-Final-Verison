@@ -2,6 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { useTheme } from '@/context/ThemeContext';
 
 /**
  * ParticleBackground — Floating, softly glowing orbs that drift across the app.
@@ -57,7 +58,12 @@ function generateParticles(): Particle[] {
 }
 
 export default function ParticleBackground() {
+  const { reduceMotion } = useTheme();
   const particles = useMemo(() => generateParticles(), []);
+
+  if (reduceMotion) {
+    return null;
+  }
 
   return (
     <div

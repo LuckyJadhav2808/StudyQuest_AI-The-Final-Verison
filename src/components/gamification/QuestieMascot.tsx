@@ -7,6 +7,7 @@ import { useAuthContext } from '@/context/AuthContext';
 import { useGamification } from '@/hooks/useGamification';
 import { useTasks } from '@/hooks/useTasks';
 import { getLevelProgress } from '@/lib/constants';
+import { useTheme } from '@/context/ThemeContext';
 
 /* ============================================================
    Questie — The Animated StudyQuest Mascot 🦉
@@ -132,6 +133,7 @@ interface QuestieMascotProps {
 
 export default function QuestieMascot({ collapsed = false }: QuestieMascotProps) {
   const pathname = usePathname();
+  const { reduceMotion } = useTheme();
   const [dialogue, setDialogue] = useState('Ready for a quest? 🦉');
   const [mascotState, setMascotState] = useState<MascotState>('active');
   const [showDialogue, setShowDialogue] = useState(true);
@@ -342,21 +344,25 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
           setMascotState('active');
         }}
         animate={
-          mascotState === 'sleeping'
+          reduceMotion
+            ? { rotate: 0, y: 0 }
+            : mascotState === 'sleeping'
             ? { rotate: [0, -5, 0, -5, 0], y: [0, 2, 0] }
             : mascotState === 'looking'
             ? { rotate: [0, -8, 8, 0] }
             : { rotate: 0, y: 0 }
         }
         transition={
-          mascotState === 'sleeping'
+          reduceMotion
+            ? { duration: 0 }
+            : mascotState === 'sleeping'
             ? { duration: 3, repeat: Infinity, ease: 'easeInOut' }
             : mascotState === 'looking'
             ? { duration: 1.5, ease: 'easeInOut' }
             : { duration: 0.3 }
         }
-        whileHover={{ scale: 1.15, rotate: [0, -10, 10, 0] }}
-        whileTap={{ scale: 0.9 }}
+        whileHover={reduceMotion ? undefined : { scale: 1.15, rotate: [0, -10, 10, 0] }}
+        whileTap={reduceMotion ? undefined : { scale: 0.9 }}
       >
         {/* Owl body */}
         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber to-amber-dark flex items-center justify-center relative overflow-hidden shadow-[0_3px_0_rgba(0,0,0,0.2)]">
@@ -373,7 +379,7 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
 
           {/* Sleep Zzz particles */}
           <AnimatePresence>
-            {mascotState === 'sleeping' && (
+            {mascotState === 'sleeping' && !reduceMotion && (
               <>
                 {[0, 1, 2].map((i) => (
                   <motion.span
@@ -402,7 +408,7 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
         </div>
 
         {/* Active glow ring */}
-        {mascotState === 'active' && (
+        {mascotState === 'active' && !reduceMotion && (
           <motion.div
             className="absolute inset-0 rounded-full border-2 border-primary/30"
             animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0, 0.5] }}

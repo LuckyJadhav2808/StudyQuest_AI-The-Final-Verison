@@ -22,6 +22,7 @@ import LevelBadge from '@/components/gamification/LevelBadge';
 import StreakCounter from '@/components/gamification/StreakCounter';
 import QuestieMascot from '@/components/gamification/QuestieMascot';
 import AvatarBorder from '@/components/gamification/AvatarBorder';
+import { useTheme } from '@/context/ThemeContext';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string; size?: number }>> = {
   HiHome, HiClipboardCheck, HiPencilAlt, HiLightningBolt,
@@ -90,6 +91,7 @@ const NAV_SECTIONS = [
 
 export default function Sidebar() {
   const { collapsed, setCollapsed } = useSidebar();
+  const { reduceMotion } = useTheme();
   const pathname = usePathname();
   const { profile, signOut } = useAuthContext();
   const { gamification } = useGamification();
@@ -127,7 +129,7 @@ export default function Sidebar() {
     <motion.aside
       className="hidden md:flex flex-col h-screen bg-[var(--card-bg)] border-r-2 border-[var(--card-border)] fixed left-0 top-0 z-40 overflow-hidden"
       animate={{ width: collapsed ? 72 : 272 }}
-      transition={{ duration: 0.25, ease: 'easeInOut' }}
+      transition={reduceMotion ? { duration: 0 } : { duration: 0.25, ease: 'easeInOut' }}
     >
       {/* Header - Avatar + Profile */}
       <div className="p-4 border-b-2 border-[var(--card-border)]">

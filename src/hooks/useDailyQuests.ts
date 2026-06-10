@@ -108,7 +108,7 @@ export function useDailyQuests(): UseDailyQuestsReturn {
           const todayStart = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate());
           
           const diffTime = todayStart.getTime() - questDate.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
           
           if (diffDays > 3) {
             toast.error("Quests older than 3 days cannot be modified! 🔒");

@@ -77,31 +77,45 @@ interface ThemeContextValue {
   theme: Theme;
   toggleTheme: () => void;
   setTheme: (theme: Theme) => void;
+  reduceMotion: boolean;
+  setReduceMotion: (reduce: boolean) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('dark');
+  const [reduceMotion, setReduceMotionState] = useState<boolean>(false);
   const [mounted, setMounted] = useState(false);
   const { user } = useAuthContext();
 
-  // Load theme: Firebase > localStorage > system preference
+  // Load theme & motion: Firebase > localStorage > system preference
   useEffect(() => {
-    const loadTheme = async () => {
+    const loadPrefs = async () => {
       // 1. Try Firebase first (if logged in)
       if (user?.uid) {
         try {
           const prefsRef = doc(db, 'users', user.uid, 'data', 'preferences');
           const snap = await getDoc(prefsRef);
-          if (snap.exists() && snap.data().theme) {
-            const fbTheme = snap.data().theme as Theme;
-            if (THEMES.some((t) => t.id === fbTheme)) {
-              setThemeState(fbTheme);
-              window.localStorage.setItem('sq-theme', fbTheme);
-              setMounted(true);
-              return;
+          let fbThemeLoaded = false;
+          if (snap.exists()) {
+            const data = snap.data();
+            if (data.theme) {
+              const fbTheme = data.theme as Theme;
+              if (THEMES.some((t) => t.id === fbTheme)) {
+                setThemeState(fbTheme);
+                window.localStorage.setItem('sq-theme', fbTheme);
+                fbThemeLoaded = true;
+              }
             }
+            if (data.reduceMotion !== undefined) {
+              setReduceMotionState(!!data.reduceMotion);
+              window.localStorage.setItem('sq-reduce-motion', data.reduceMotion ? 'true' : 'false');
+            }
+          }
+          if (fbThemeLoaded) {
+            setMounted(true);
+            return;
           }
         } catch { /* fall through to localStorage */ }
       }
@@ -112,9 +126,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
         setThemeState('light');
       }
+
+      const savedMotion = window.localStorage.getItem('sq-reduce-motion');
+      if (savedMotion !== null) {
+        setReduceMotionState(savedMotion === 'true');
+      }
+
       setMounted(true);
     };
-    loadTheme();
+    loadPrefs();
   }, [user?.uid]);
 
   useEffect(() => {
@@ -135,13 +155,21 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       root.classList.remove('dark');
     }
 
+    if (reduceMotion) {
+      root.classList.add('reduce-motion');
+    } else {
+      root.classList.remove('reduce-motion');
+    }
+
     window.localStorage.setItem('sq-theme', theme);
+    window.localStorage.setItem('sq-reduce-motion', reduceMotion ? 'true' : 'false');
+
     // Sync to Firebase
     if (user?.uid) {
       const prefsRef = doc(db, 'users', user.uid, 'data', 'preferences');
-      setDoc(prefsRef, { theme, updatedAt: Date.now() }, { merge: true }).catch(() => {});
+      setDoc(prefsRef, { theme, reduceMotion, updatedAt: Date.now() }, { merge: true }).catch(() => {});
     }
-  }, [theme, mounted, user?.uid]);
+  }, [theme, reduceMotion, mounted, user?.uid]);
 
   const toggleTheme = useCallback(() => {
     setThemeState((prev) => (prev === 'dark' ? 'light' : 'dark'));
@@ -151,13 +179,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setThemeState(t);
   }, []);
 
-  if (!mounted) {
-    return <div style={{ visibility: 'hidden' }}>{children}</div>;
-  }
+  const setReduceMotion = useCallback((reduce: boolean) => {
+    setReduceMotionState(reduce);
+  }, []);
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
-      {children}
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme, reduceMotion, setReduceMotion }}>
+      {mounted ? (
+        children
+      ) : (
+        <div style={{ visibility: 'hidden' }}>{children}</div>
+      )}
     </ThemeContext.Provider>
   );
 }

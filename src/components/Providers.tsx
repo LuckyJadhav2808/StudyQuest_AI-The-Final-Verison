@@ -3,8 +3,9 @@
 import React, { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { Toaster, ToastBar, useToasterStore, toast } from 'react-hot-toast';
+import { MotionConfig } from 'framer-motion';
 import { AuthProvider, useAuthContext } from '@/context/AuthContext';
-import { ThemeProvider } from '@/context/ThemeContext';
+import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { SidebarProvider, useSidebar } from '@/context/SidebarContext';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
@@ -58,6 +59,7 @@ function AnimatedGrid() {
 
 function MainContent({ children }: { children: React.ReactNode }) {
   const { collapsed, focusMode } = useSidebar();
+  const { reduceMotion } = useTheme();
   const [isMobile, setIsMobile] = React.useState(false);
 
   React.useEffect(() => {
@@ -71,7 +73,7 @@ function MainContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div
-      className="flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out"
+      className={`flex-1 flex flex-col min-h-screen ${reduceMotion ? '' : 'transition-[margin-left] duration-250 ease-in-out'}`}
       style={{ marginLeft: sidebarMargin }}
     >
       {!focusMode && <Header />}
@@ -86,6 +88,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLoginPage = pathname === '/login';
   const { focusMode } = useSidebar();
+  const { reduceMotion } = useTheme();
 
   // Start broadcasting online presence (heartbeat)
   usePresence();
@@ -94,45 +97,51 @@ function AppShell({ children }: { children: React.ReactNode }) {
   useCustomization();
 
   if (isLoginPage) {
-    return <>{children}</>;
+    return (
+      <MotionConfig reducedMotion={reduceMotion ? 'always' : 'user'}>
+        {children}
+      </MotionConfig>
+    );
   }
 
   return (
     <AuthGuard>
-      <div className="flex h-screen overflow-hidden relative">
-        {/* Animated Background Grid */}
-        <AnimatedGrid />
+      <MotionConfig reducedMotion={reduceMotion ? 'always' : 'user'}>
+        <div className="flex h-screen overflow-hidden relative">
+          {/* Animated Background Grid */}
+          <AnimatedGrid />
 
-        {/* Floating Particle Background */}
-        <ParticleBackground />
+          {/* Floating Particle Background */}
+          <ParticleBackground />
 
-        {/* Sidebar (Desktop) — hidden in focus mode */}
-        {!focusMode && <Sidebar />}
+          {/* Sidebar (Desktop) — hidden in focus mode */}
+          {!focusMode && <Sidebar />}
 
-        {/* Main Content — margin adjusts with sidebar */}
-        <MainContent>{children}</MainContent>
+          {/* Main Content — margin adjusts with sidebar */}
+          <MainContent>{children}</MainContent>
 
-        {/* Mobile Nav — hidden in focus mode */}
-        {!focusMode && <MobileNav />}
+          {/* Mobile Nav — hidden in focus mode */}
+          {!focusMode && <MobileNav />}
 
-        {/* Global Command Palette (Ctrl+K) */}
-        <CommandPalette />
+          {/* Global Command Palette (Ctrl+K) */}
+          <CommandPalette />
 
-        {/* Floating XP Particles */}
-        <FloatingXPContainer />
+          {/* Floating XP Particles */}
+          <FloatingXPContainer />
 
-        {/* Cinematic Level-Up Overlay */}
-        <LevelUpOverlay />
+          {/* Cinematic Level-Up Overlay */}
+          <LevelUpOverlay />
 
-        {/* Global Sticky Notes */}
-        <StickyNotesOverlay />
+          {/* Global Sticky Notes */}
+          <StickyNotesOverlay />
 
-        {/* Offline Deep Work Mode Indicator */}
-        <OfflineIndicator />
+          {/* Offline Deep Work Mode Indicator */}
+          <OfflineIndicator />
 
-        {/* Patch Notes Modal (shows on new version) */}
-        <PatchNotesModal />
-      </div>
+          {/* Patch Notes Modal (shows on new version) */}
+          <PatchNotesModal />
+        </div>
+      </MotionConfig>
     </AuthGuard>
   );
 }
