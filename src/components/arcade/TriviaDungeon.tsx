@@ -12,6 +12,8 @@ import { useShop } from '@/hooks/useShop';
 import { useNotes } from '@/hooks/useNotes';
 import { useAuthContext } from '@/context/AuthContext';
 import { playClick, playSuccess, playXP, playCelebration } from '@/lib/sounds';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import './TriviaDungeon.css';
 
 // ── Types ──
@@ -47,7 +49,7 @@ const MONSTERS: Monster[] = [
 
 const PLAYER_MAX_HP = 100;
 const PLAYER_ATTACK = 20;
-const TIMER_SECONDS = 10;
+const TIMER_SECONDS = 30; // Increased from 10s to 30s so users can read comprehensive questions
 const CRIT_CHANCE = 0.2;
 
 // ── Dungeon particles ──
@@ -172,13 +174,25 @@ const FALLBACK_QUESTIONS: QuizQuestion[] = [
   }
 ];
 
-// ── Generate question via AI ──
-async function generateQuestion(noteContents: string[], apiKey: string): Promise<QuizQuestion | null> {
+// ── Generate questions batch via AI ──
+async function generateQuestionsBatch(
+  noteContents: string[],
+  apiKey: string,
+  seenQuestionTexts: string[],
+  count: number = 6
+): Promise<QuizQuestion[] | null> {
   const stripped = noteContents.map(c => c.replace(/<[^>]*>/g, '')).join('\n\n').slice(0, 3000);
-  const prompt = `Based on these study notes, generate exactly 1 multiple-choice question.
-Test understanding, not just recall. Make it challenging but fair.
-Return ONLY valid JSON, no markdown, no code fences, no other text:
-{"question": "...", "options": ["A) ...", "B) ...", "C) ...", "D) ..."], "correctIndex": 0, "explanation": "..."}
+  
+  const seenStr = seenQuestionTexts.length > 0
+    ? `Do NOT repeat or generate any of the following questions that the user has already answered or seen:\n${seenQuestionTexts.map(q => `- "${q}"`).join('\n')}`
+    : '';
+
+  const prompt = `Based on these study notes, generate exactly ${count} multiple-choice questions.
+Test understanding, not just recall. Make them challenging but fair.
+${seenStr}
+
+Return ONLY a valid JSON array, no markdown, no code fences, no other text:
+[{"question": "...", "options": ["A) ...", "B) ...", "C) ...", "D) ..."], "correctIndex": 0, "explanation": "..."}]
 
 Notes:
 ${stripped}`;
@@ -193,7 +207,7 @@ ${stripped}`;
       },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
-        max_tokens: 1024,
+        max_tokens: 2048,
         messages: [{ role: 'user', content: prompt }],
       }),
     });
@@ -204,15 +218,15 @@ ${stripped}`;
       return null;
     }
     const text = data.choices?.[0]?.message?.content || '';
-    // Extract JSON from response (handle possible markdown fences)
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    // Extract JSON array from response
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
-      console.warn('AI response did not contain a valid JSON block:', text);
+      console.warn('AI response did not contain a valid JSON array:', text);
       return null;
     }
-    return JSON.parse(jsonMatch[0]) as QuizQuestion;
+    return JSON.parse(jsonMatch[0]) as QuizQuestion[];
   } catch (err) {
-    console.error('Failed to generate question:', err);
+    console.error('Failed to generate questions batch:', err);
     return null;
   }
 }
@@ -223,8 +237,8 @@ interface TriviaDungeonProps {
 }
 
 export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
-  const { profile } = useAuthContext();
-  const { awardXP } = useGamification();
+  const { user, profile } = useAuthContext();
+  const { gamification, awardXP } = useGamification();
   const { addCoins } = useShop();
   const { notes } = useNotes();
 
@@ -235,6 +249,7 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
   const [monsterHp, setMonsterHp] = useState(0);
   const [playerHp, setPlayerHp] = useState(PLAYER_MAX_HP);
   const [floor, setFloor] = useState(1);
+  const [startFloor, setStartFloor] = useState(1);
   const [question, setQuestion] = useState<QuizQuestion | null>(null);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
@@ -242,6 +257,25 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
   const [floatingDmg, setFloatingDmg] = useState<{ id: number; value: string; type: string } | null>(null);
+
+  // Pre-loaded questions batch
+  const [dungeonQuestions, setDungeonQuestions] = useState<QuizQuestion[]>([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+
+  // Track seen question texts to avoid repetitions
+  const [seenQuestionTexts, setSeenQuestionTexts] = useState<string[]>([]);
+
+  // Log of all answered questions during this run
+  const [answeredQuestionsLog, setAnsweredQuestionsLog] = useState<{
+    question: QuizQuestion;
+    selectedOption: number;
+    isCorrect: boolean;
+  }[]>([]);
+
+  const questionRef = useRef<QuizQuestion | null>(null);
+  useEffect(() => {
+    questionRef.current = question;
+  }, [question]);
 
   // Stats
   const [totalCorrect, setTotalCorrect] = useState(0);
@@ -253,11 +287,40 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
   const noteContentsRef = useRef<string[]>([]);
 
   const apiKey = profile?.openRouterKey;
+  const highestReachedFloor = gamification?.triviaDungeonFloor || 1;
+
+  // Sync startFloor with user's highestReachedFloor when gamification data loads
+  useEffect(() => {
+    if (gamification && phase === 'note-select') {
+      setStartFloor(gamification.triviaDungeonFloor || 1);
+    }
+  }, [gamification, phase]);
+
+  // Automatically track seen questions to prevent duplicates
+  useEffect(() => {
+    if (question) {
+      setSeenQuestionTexts(prev => {
+        if (prev.includes(question.question)) return prev;
+        return [...prev, question.question];
+      });
+    }
+  }, [question]);
 
   // Clean up timer on unmount
   useEffect(() => {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
+
+  // Save floor progress to Firestore database
+  const saveHighestFloor = async (floorNum: number) => {
+    if (!user?.uid) return;
+    try {
+      const ref = doc(db, 'users', user.uid, 'data', 'gamification');
+      await setDoc(ref, { triviaDungeonFloor: floorNum }, { merge: true });
+    } catch (err) {
+      console.error('Failed to save dungeon floor:', err);
+    }
+  };
 
   // Toggle note selection
   const toggleNote = (noteId: string) => {
@@ -272,58 +335,88 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
     const contents = notes.filter(n => selectedNotes.includes(n.id)).map(n => n.content);
     noteContentsRef.current = contents;
     setPlayerHp(PLAYER_MAX_HP);
-    setFloor(1);
+    setFloor(startFloor);
     setTotalCorrect(0);
     setTotalQuestions(0);
     setTotalXpEarned(0);
     setTotalCoinsEarned(0);
-    spawnMonster();
-  }, [notes, selectedNotes]);
+    setDungeonQuestions([]);
+    setCurrentQuestionIndex(0);
+    setAnsweredQuestionsLog([]); // Reset answered questions log when entering/restarting
+    spawnMonster(contents, startFloor);
+  }, [notes, selectedNotes, startFloor]);
 
   // Spawn a new monster
-  const spawnMonster = () => {
+  const spawnMonster = async (contents?: string[], startFromFloor?: number) => {
     const m = pickMonster();
     setMonster(m);
     setMonsterHp(m.maxHp);
     setPhase('battle');
-    generateNextQuestion();
+    await prepareQuestionsForBattle(contents || noteContentsRef.current);
   };
 
-  // Generate next question
-  const generateNextQuestion = async () => {
+  // Prepare questions batch (AI or fallback)
+  const prepareQuestionsForBattle = async (noteTexts: string[]) => {
+    setLoading(true);
+    setQuestion(null);
     setSelectedOption(null);
     setIsCorrect(null);
 
-    // If there is no API key or no notes selected, run fallback CS trivia directly
-    if (!apiKey || noteContentsRef.current.length === 0) {
-      setLoading(true);
-      setTimeout(() => {
-        const fallbackQ = FALLBACK_QUESTIONS[Math.floor(Math.random() * FALLBACK_QUESTIONS.length)];
-        setQuestion(fallbackQ);
-        setPhase('answering');
-        setTimerLeft(TIMER_SECONDS);
-        startTimer();
-        setLoading(false);
-      }, 800);
-      return;
+    let questionsBatch: QuizQuestion[] | null = null;
+
+    if (apiKey && noteTexts.length > 0) {
+      questionsBatch = await generateQuestionsBatch(noteTexts, apiKey, seenQuestionTexts, 6);
     }
 
-    setLoading(true);
-    const q = await generateQuestion(noteContentsRef.current, apiKey);
-    if (q) {
-      setQuestion(q);
+    if (questionsBatch && questionsBatch.length > 0) {
+      setDungeonQuestions(questionsBatch);
+      setQuestion(questionsBatch[0]);
+      setCurrentQuestionIndex(0);
       setPhase('answering');
       setTimerLeft(TIMER_SECONDS);
       startTimer();
     } else {
-      const fallbackQ = FALLBACK_QUESTIONS[Math.floor(Math.random() * FALLBACK_QUESTIONS.length)];
+      // Pick 6 random fallback questions that the user has not seen yet
+      const availableFallback = FALLBACK_QUESTIONS.filter(q => !seenQuestionTexts.includes(q.question));
+      const pool = availableFallback.length >= 6 ? availableFallback : FALLBACK_QUESTIONS;
+      const shuffled = [...pool].sort(() => Math.random() - 0.5);
+      const selectedFallback = shuffled.slice(0, 6);
+      
+      setDungeonQuestions(selectedFallback);
+      setQuestion(selectedFallback[0]);
+      setCurrentQuestionIndex(0);
+      setPhase('answering');
+      setTimerLeft(TIMER_SECONDS);
+      startTimer();
+      if (apiKey && noteTexts.length > 0) {
+        toast('Using Study Guild Trivia (AI Offline)', { icon: '💡' });
+      }
+    }
+    setLoading(false);
+  };
+
+  // Load next question from pre-generated batch
+  const loadNextQuestion = () => {
+    setSelectedOption(null);
+    setIsCorrect(null);
+
+    const nextIdx = currentQuestionIndex + 1;
+    if (nextIdx < dungeonQuestions.length) {
+      setCurrentQuestionIndex(nextIdx);
+      setQuestion(dungeonQuestions[nextIdx]);
+      setPhase('answering');
+      setTimerLeft(TIMER_SECONDS);
+      startTimer();
+    } else {
+      // If user answers more than 6 questions, fall back to random general trivia questions
+      const availableFallback = FALLBACK_QUESTIONS.filter(q => !seenQuestionTexts.includes(q.question));
+      const pool = availableFallback.length > 0 ? availableFallback : FALLBACK_QUESTIONS;
+      const fallbackQ = pool[Math.floor(Math.random() * pool.length)];
       setQuestion(fallbackQ);
       setPhase('answering');
       setTimerLeft(TIMER_SECONDS);
       startTimer();
-      toast('Using Study Guild Trivia (AI Offline)', { icon: '💡' });
     }
-    setLoading(false);
   };
 
   // Start countdown timer
@@ -349,65 +442,45 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
     setTotalQuestions(prev => prev + 1);
     const correct = index === question.correctIndex;
     setIsCorrect(correct);
+    setAnsweredQuestionsLog(prev => [...prev, { question, selectedOption: index, isCorrect: correct }]);
 
     if (correct) {
       playSuccess();
       setTotalCorrect(prev => prev + 1);
       const isCrit = Math.random() < CRIT_CHANCE;
       const dmg = isCrit ? Math.floor(PLAYER_ATTACK * 1.5) : PLAYER_ATTACK;
-      const newHp = Math.max(0, monsterHp - dmg);
-      setMonsterHp(newHp);
+      setMonsterHp(prev => Math.max(0, prev - dmg));
       setShake(true);
       setFloatingDmg({ id: Date.now(), value: isCrit ? `${dmg} CRIT!` : `${dmg}`, type: isCrit ? 'crit' : 'monster-damage' });
       setTimeout(() => setShake(false), 400);
       setTimeout(() => setFloatingDmg(null), 1200);
-
-      // Check monster death
-      if (newHp <= 0) {
-        setTimeout(() => handleVictory(), 1000);
-        return;
-      }
     } else {
       handlePlayerDamage();
     }
-
-    // Next question after delay
-    setTimeout(() => {
-      if (correct || playerHp - (monster?.attack || 0) > 0) {
-        generateNextQuestion();
-      }
-    }, 2000);
   };
 
   // Handle timeout
   const handleTimeout = () => {
     if (selectedOption !== null) return;
+    const currentQ = questionRef.current;
+    if (!currentQ) return;
+
     setSelectedOption(-1);
     setIsCorrect(false);
     setTotalQuestions(prev => prev + 1);
+    setAnsweredQuestionsLog(prev => [...prev, { question: currentQ, selectedOption: -1, isCorrect: false }]);
     handlePlayerDamage();
-
-    setTimeout(() => {
-      if (playerHp - (monster?.attack || 0) > 0) {
-        generateNextQuestion();
-      }
-    }, 2000);
   };
 
   // Monster attacks player
   const handlePlayerDamage = () => {
     if (!monster) return;
     const dmg = monster.attack;
-    const newHp = Math.max(0, playerHp - dmg);
-    setPlayerHp(newHp);
+    setPlayerHp(prev => Math.max(0, prev - dmg));
     setShake(true);
     setFloatingDmg({ id: Date.now(), value: `${dmg}`, type: 'player-damage' });
     setTimeout(() => setShake(false), 400);
     setTimeout(() => setFloatingDmg(null), 1200);
-
-    if (newHp <= 0) {
-      setTimeout(() => handleDefeat(), 1000);
-    }
   };
 
   // Victory
@@ -423,6 +496,12 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
     await awardXP(xp, 'Trivia Dungeon victory');
     await addCoins(coins);
     toast.success(`+${xp} XP  +${coins} Coins! 🎉`);
+
+    // Save highest floor progress
+    const nextF = floor + 1;
+    if (nextF > highestReachedFloor) {
+      await saveHighestFloor(nextF);
+    }
   };
 
   // Defeat
@@ -436,8 +515,74 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
 
   // Next floor
   const nextFloor = () => {
-    setFloor(prev => prev + 1);
+    const nextF = floor + 1;
+    setFloor(nextF);
     spawnMonster();
+  };
+
+  // Battle review log renderer
+  const renderBattleReview = () => {
+    if (answeredQuestionsLog.length === 0) return null;
+    return (
+      <div className="mt-6 text-left border-t border-[var(--card-border)] pt-6 max-w-xl mx-auto space-y-4">
+        <h3 className="text-sm font-heading font-black flex items-center gap-1.5 text-[var(--foreground)] uppercase tracking-wider">
+          <span>📜</span> Battle Review Log ({answeredQuestionsLog.length})
+        </h3>
+        <div className="space-y-3 max-h-[260px] overflow-y-auto pr-2 custom-scrollbar">
+          {answeredQuestionsLog.map((log, idx) => {
+            const { question: q, selectedOption, isCorrect } = log;
+            const correctOpt = q.options[q.correctIndex];
+            const selectedOptStr = selectedOption === -1 ? 'Timeout' : q.options[selectedOption];
+
+            return (
+              <div 
+                key={idx} 
+                className={`p-4 rounded-xl border text-xs space-y-2 bg-[var(--card-bg)]/40 ${
+                  isCorrect 
+                    ? 'border-emerald-500/20 hover:border-emerald-500/30' 
+                    : 'border-rose-500/20 hover:border-rose-500/30'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="font-bold text-[var(--foreground)]">Q{idx + 1}: {q.question}</span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase flex-shrink-0 ${
+                    isCorrect 
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                      : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                  }`}>
+                    {isCorrect ? 'Correct' : selectedOption === -1 ? 'Timeout' : 'Incorrect'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-[var(--card-border)]/50">
+                  <div>
+                    <span className="text-[10px] text-[var(--muted-foreground)] block font-bold uppercase">Your Answer</span>
+                    <span className={`font-semibold ${isCorrect ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {selectedOptStr}
+                    </span>
+                  </div>
+                  {!isCorrect && (
+                    <div>
+                      <span className="text-[10px] text-[var(--muted-foreground)] block font-bold uppercase">Correct Answer</span>
+                      <span className="font-semibold text-emerald-400">
+                        {correctOpt}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {q.explanation && (
+                  <div className="mt-2 p-2 rounded bg-white/5 text-[11px] text-white/70 italic flex gap-1.5">
+                    <span className="flex-shrink-0">💡</span>
+                    <span>{q.explanation}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
   };
 
   // Health bar helper
@@ -449,23 +594,54 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
   const timerCircumference = 2 * Math.PI * timerRadius;
   const timerOffset = timerCircumference * (1 - timerLeft / TIMER_SECONDS);
 
-  // ═══════════════════════════════════════════════
-  // RENDER: Note Selection
-  // ═══════════════════════════════════════════════
+  // ─── Note Selection Render ───
   if (phase === 'note-select') {
     return (
       <div className="dungeon-container space-y-6">
-        <div className="flex items-center gap-3">
-          <button onClick={onExit} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors">
-            <HiArrowLeft size={18} />
-          </button>
-          <div>
-            <h1 className="text-2xl font-heading font-black flex items-center gap-2">
-              <span>⚔️</span> Trivia Dungeon
-            </h1>
-            <p className="text-sm text-[var(--muted-foreground)]">Select up to 3 notes to battle with</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={onExit} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors">
+              <HiArrowLeft size={18} />
+            </button>
+            <div>
+              <h1 className="text-2xl font-heading font-black flex items-center gap-2">
+                <span>⚔️</span> Trivia Dungeon
+              </h1>
+              <p className="text-sm text-[var(--muted-foreground)]">Select up to 3 notes to battle with</p>
+            </div>
           </div>
         </div>
+
+        {/* Global Starting Floor Selector */}
+        <Card padding="md" className="border-primary/20 bg-primary/5">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <h4 className="text-sm font-heading font-bold text-[var(--foreground)] flex items-center gap-1.5">
+                <span>🏰</span> Choose Starting Floor
+              </h4>
+              <p className="text-[10px] text-[var(--muted-foreground)] max-w-md">
+                Select your starting floor. You can review previous floors or jump straight to your highest reached floor (Max: Floor {highestReachedFloor}).
+              </p>
+            </div>
+            <div className="flex items-center gap-2 bg-[var(--card-bg)] px-3 py-1.5 rounded-xl border border-[var(--card-border)]">
+              <button 
+                onClick={() => { playClick(); setStartFloor(prev => Math.max(1, prev - 1)); }}
+                disabled={startFloor <= 1}
+                className="w-8 h-8 rounded-lg border-2 border-[var(--card-border)] bg-[var(--card-bg)] hover:bg-[var(--card-border)] font-bold disabled:opacity-40 transition-colors flex items-center justify-center text-sm"
+              >
+                -
+              </button>
+              <span className="text-base font-black px-3 select-none w-10 text-center">Floor {startFloor}</span>
+              <button 
+                onClick={() => { playClick(); setStartFloor(prev => Math.min(highestReachedFloor, prev + 1)); }}
+                disabled={startFloor >= highestReachedFloor}
+                className="w-8 h-8 rounded-lg border-2 border-[var(--card-border)] bg-[var(--card-bg)] hover:bg-[var(--card-border)] font-bold disabled:opacity-40 transition-colors flex items-center justify-center text-sm"
+              >
+                +
+              </button>
+            </div>
+          </div>
+        </Card>
 
         {!apiKey ? (
           <Card padding="lg">
@@ -483,11 +659,13 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
                   onClick={() => {
                     noteContentsRef.current = [];
                     setPlayerHp(PLAYER_MAX_HP);
-                    setFloor(1);
+                    setFloor(startFloor);
                     setTotalCorrect(0);
                     setTotalQuestions(0);
                     setTotalXpEarned(0);
                     setTotalCoinsEarned(0);
+                    setDungeonQuestions([]);
+                    setCurrentQuestionIndex(0);
                     spawnMonster();
                   }}
                 >
@@ -513,11 +691,13 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
                   onClick={() => {
                     noteContentsRef.current = [];
                     setPlayerHp(PLAYER_MAX_HP);
-                    setFloor(1);
+                    setFloor(startFloor);
                     setTotalCorrect(0);
                     setTotalQuestions(0);
                     setTotalXpEarned(0);
                     setTotalCoinsEarned(0);
+                    setDungeonQuestions([]);
+                    setCurrentQuestionIndex(0);
                     spawnMonster();
                   }}
                 >
@@ -559,11 +739,13 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
                   onClick={() => {
                     noteContentsRef.current = [];
                     setPlayerHp(PLAYER_MAX_HP);
-                    setFloor(1);
+                    setFloor(startFloor);
                     setTotalCorrect(0);
                     setTotalQuestions(0);
                     setTotalXpEarned(0);
                     setTotalCoinsEarned(0);
+                    setDungeonQuestions([]);
+                    setCurrentQuestionIndex(0);
                     spawnMonster();
                   }}
                 >
@@ -621,7 +803,10 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
               </div>
             </div>
 
-            <div className="flex gap-3 justify-center">
+            {/* Battle Review Log */}
+            {renderBattleReview()}
+
+            <div className="flex gap-3 justify-center pt-4">
               <Button variant="primary" icon={<HiLightningBolt />} onClick={nextFloor}>Next Floor ⚔️</Button>
               <Button variant="ghost" icon={<HiArrowLeft />} onClick={onExit}>Leave Dungeon</Button>
             </div>
@@ -662,7 +847,10 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
               </div>
             </div>
 
-            <div className="flex gap-3 justify-center">
+            {/* Battle Review Log */}
+            {renderBattleReview()}
+
+            <div className="flex gap-3 justify-center pt-4">
               <Button variant="coral" icon={<HiLightningBolt />} onClick={startDungeon}>Try Again</Button>
               <Button variant="ghost" icon={<HiArrowLeft />} onClick={onExit}>Leave Dungeon</Button>
             </div>
@@ -787,12 +975,50 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
             {/* Explanation after answering */}
             {selectedOption !== null && question.explanation && (
               <motion.p
-                className="text-xs text-white/50 text-center mt-3 italic"
+                className="text-xs text-white/50 text-center mt-3 italic animate-fade-in"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
               >
                 💡 {question.explanation}
               </motion.p>
+            )}
+
+            {/* Next Question / Finish Battle Button */}
+            {selectedOption !== null && (
+              <motion.div 
+                className="flex justify-center mt-4"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+              >
+                {monsterHp <= 0 ? (
+                  <Button 
+                    variant="teal" 
+                    size="md" 
+                    icon={<HiStar />} 
+                    onClick={handleVictory}
+                  >
+                    Finish Battle ⚔️
+                  </Button>
+                ) : playerHp <= 0 ? (
+                  <Button 
+                    variant="coral" 
+                    size="md" 
+                    icon={<HiArrowLeft />} 
+                    onClick={handleDefeat}
+                  >
+                    Accept Defeat 💀
+                  </Button>
+                ) : (
+                  <Button 
+                    variant="primary" 
+                    size="md" 
+                    onClick={loadNextQuestion}
+                  >
+                    Next Question ➔
+                  </Button>
+                )}
+              </motion.div>
             )}
 
             {/* Timer */}

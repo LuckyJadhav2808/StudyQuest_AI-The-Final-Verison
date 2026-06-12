@@ -19,7 +19,16 @@ const TYPE_CONFIG: Record<string, { emoji: string; color: string }> = {
 export default function PatchNotesModal() {
   const { user } = useAuthContext();
   const [show, setShow] = useState(false);
-  const [patchNote, setPatchNote] = useState(PATCH_NOTES[0]);
+
+  // Dynamically sort patch notes to guarantee we identify the latest version
+  const sortedNotes = React.useMemo(() => {
+    return [...PATCH_NOTES].sort((a, b) =>
+      b.version.localeCompare(a.version, undefined, { numeric: true })
+    );
+  }, []);
+
+  const latestPatchNote = sortedNotes[0] || PATCH_NOTES[0];
+  const [patchNote] = useState(latestPatchNote);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -28,10 +37,12 @@ export default function PatchNotesModal() {
         const prefsRef = doc(db, 'users', user.uid, 'data', 'preferences');
         const snap = await getDoc(prefsRef);
         const lastSeen = snap.data()?.lastSeenPatchVersion || '0.0.0';
-        if (lastSeen !== CURRENT_PATCH_VERSION) {
+        
+        // Show update modal if the user hasn't seen the latest patch note
+        if (lastSeen !== latestPatchNote.version) {
           setShow(true);
           toast.success(
-            `🎉 New Update Live: ${CURRENT_PATCH_VERSION} - ${PATCH_NOTES[0].title}!`,
+            `🎉 New Update Live: v${latestPatchNote.version} - ${latestPatchNote.title}!`,
             { duration: 5000 }
           );
         }
@@ -42,14 +53,14 @@ export default function PatchNotesModal() {
     // Delay to avoid showing instantly on page load
     const t = setTimeout(check, 2000);
     return () => clearTimeout(t);
-  }, [user?.uid]);
+  }, [user?.uid, latestPatchNote.version, latestPatchNote.title]);
 
   const dismiss = async () => {
     setShow(false);
     if (user?.uid) {
       try {
         const prefsRef = doc(db, 'users', user.uid, 'data', 'preferences');
-        await setDoc(prefsRef, { lastSeenPatchVersion: CURRENT_PATCH_VERSION }, { merge: true });
+        await setDoc(prefsRef, { lastSeenPatchVersion: latestPatchNote.version }, { merge: true });
       } catch { /* best effort */ }
     }
   };

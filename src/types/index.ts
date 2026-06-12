@@ -57,6 +57,7 @@ export interface GamificationData {
   nightOwlCount: number;     // for Night Owl title
   dailyChallengeStreak: number;       // consecutive days of daily challenge
   lastDailyChallengeDate: string;     // ISO date YYYY-MM-DD
+  triviaDungeonFloor?: number;        // user's highest reached floor in Trivia Dungeon
 }
 
 export interface Achievement {

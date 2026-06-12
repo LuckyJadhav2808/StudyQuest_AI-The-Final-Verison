@@ -404,6 +404,61 @@ export default function NotesContent() {
     };
   }, [isEditing, checkQuillSpelling]);
 
+  // Dynamically inject native HTML title tooltips for Quill toolbar elements to guide users
+  useEffect(() => {
+    if (!isEditing) return;
+
+    let attempts = 0;
+    const injectTooltips = () => {
+      const quill = quillRef.current?.getEditor();
+      if (!quill) {
+        if (attempts < 20) {
+          attempts++;
+          setTimeout(injectTooltips, 100);
+        }
+        return;
+      }
+
+      const toolbar = quill.getModule('toolbar');
+      if (toolbar && toolbar.container) {
+        const container = toolbar.container;
+        const tooltips: Record<string, string> = {
+          'ql-bold': 'Bold (Ctrl+B) — Style text thicker',
+          'ql-italic': 'Italic (Ctrl+I) — Slant text for emphasis',
+          'ql-underline': 'Underline (Ctrl+U) — Add underline to text',
+          'ql-strike': 'Strikethrough (Ctrl+Shift+S) — Cross out text',
+          'ql-list[value="ordered"]': 'Numbered List (Ctrl+Shift+7) — Create list of items with numbers',
+          'ql-list[value="bullet"]': 'Bulleted List (Ctrl+Shift+8) — Create list of items with bullets',
+          'ql-indent[value="-1"]': 'Outdent (Shift+Tab) — Move text margins outwards',
+          'ql-indent[value="+1"]': 'Indent (Tab) — Move text margins inwards',
+          'ql-blockquote': 'Blockquote — Highlight a quote or reference block',
+          'ql-code-block': 'Code Block — Write syntax-highlighted code',
+          'ql-link': 'Insert Link (Ctrl+K) — Hyperlink selected text',
+          'ql-image': 'Insert Image — Embed images in notes',
+          'ql-clean': 'Clear Formatting — Strip styles back to plain text',
+          'ql-header': 'Heading Level (Ctrl+1/2/3) — Change title/heading size',
+          'ql-size': 'Font Size — Make text small, normal, large, or huge',
+          'ql-color': 'Text Color — Change writing color',
+          'ql-background': 'Text Highlight Color — Change background highlight color',
+          'ql-align': 'Text Alignment — Left, center, right, or justified alignment'
+        };
+
+        Object.entries(tooltips).forEach(([selector, tooltip]) => {
+          const query = selector.startsWith('ql-') ? `.${selector}` : selector;
+          const elements = container.querySelectorAll(query);
+          elements.forEach((el: any) => {
+            if (el) {
+              el.setAttribute('title', tooltip);
+              el.setAttribute('aria-label', tooltip);
+            }
+          });
+        });
+      }
+    };
+
+    injectTooltips();
+  }, [isEditing, selectedNote]);
+
   // Markdown import
   const [showMarkdownImport, setShowMarkdownImport] = useState(false);
   const [markdownInput, setMarkdownInput] = useState('');
@@ -805,7 +860,7 @@ export default function NotesContent() {
                         onChange={handleContentChange}
                         modules={QUILL_MODULES}
                         formats={QUILL_FORMATS}
-                        placeholder="Start writing your note..."
+                        placeholder="Start typing your study notes here... 💡 Hint: Use the toolbar above to customize font sizes, format bold/italic styles, align text, insert lists, blockquotes, code blocks, color-highlights, links, or images!"
                         preserveWhitespace={true}
                         useSemanticHTML={false}
                       />
