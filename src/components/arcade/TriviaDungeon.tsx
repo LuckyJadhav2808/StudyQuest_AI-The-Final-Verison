@@ -68,6 +68,110 @@ function pickMonster(): Monster {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+// ── Fallback Trivia Question Bank (General Computer Science) ──
+const FALLBACK_QUESTIONS: QuizQuestion[] = [
+  {
+    question: "What is the time complexity of searching in a balanced binary search tree (BST)?",
+    options: ["A) O(1)", "B) O(log n)", "C) O(n)", "D) O(n log n)"],
+    correctIndex: 1,
+    explanation: "A balanced BST, like an AVL or Red-Black tree, keeps its height bounded by log n, so search, insert, and delete take O(log n) time."
+  },
+  {
+    question: "Which of the following is NOT a fundamental concept of Object-Oriented Programming (OOP)?",
+    options: ["A) Encapsulation", "B) Inheritance", "C) Compilation", "D) Polymorphism"],
+    correctIndex: 2,
+    explanation: "Compilation is a build process. The four pillars of OOP are Encapsulation, Inheritance, Polymorphism, and Abstraction."
+  },
+  {
+    question: "What does HTML stand for?",
+    options: ["A) Hyper Text Markup Language", "B) High Text Markup Language", "C) Hyper Tabular Markup Language", "D) None of the above"],
+    correctIndex: 0,
+    explanation: "HTML stands for Hyper Text Markup Language. It is the standard markup language for documents designed to be displayed in a web browser."
+  },
+  {
+    question: "Which HTTP status code represents 'Internal Server Error'?",
+    options: ["A) 400", "B) 403", "C) 404", "D) 500"],
+    correctIndex: 3,
+    explanation: "500 is the standard HTTP status code for a generic internal server error."
+  },
+  {
+    question: "In computer network routing, what does IP stand for?",
+    options: ["A) Internet Protocol", "B) Information Path", "C) Intranet Port", "D) Instant Packet"],
+    correctIndex: 0,
+    explanation: "IP stands for Internet Protocol, which is the principal communications protocol in the Internet protocol suite for routing packets."
+  },
+  {
+    question: "Which data structure operates on a Last In, First Out (LIFO) basis?",
+    options: ["A) Queue", "B) Stack", "C) Heap", "D) Hash Table"],
+    correctIndex: 1,
+    explanation: "A Stack adds and removes elements from the same end, making it Last In, First Out (LIFO)."
+  },
+  {
+    question: "What is the primary purpose of the 'git clone' command?",
+    options: ["A) Copy an existing repository to a new directory", "B) Merge two branches", "C) Delete a repository", "D) Stage files for a commit"],
+    correctIndex: 0,
+    explanation: "git clone is used to target an existing repository and copy (clone) it locally."
+  },
+  {
+    question: "Which SQL clause is used to filter records based on group summaries?",
+    options: ["A) WHERE", "B) HAVING", "C) GROUP BY", "D) ORDER BY"],
+    correctIndex: 1,
+    explanation: "The HAVING clause was added to SQL because the WHERE keyword cannot be used with aggregate functions."
+  },
+  {
+    question: "What is the main advantage of using a Hash Map?",
+    options: ["A) It maintains insertion order", "B) It sorts keys automatically", "C) It provides O(1) average time complexity for lookup", "D) It uses less memory than an array"],
+    correctIndex: 2,
+    explanation: "Hash maps use hashing to map keys to bucket indices, providing O(1) average time complexity for search, insert, and delete."
+  },
+  {
+    question: "Which of the following is a CSS layout model designed for one-dimensional layouts?",
+    options: ["A) CSS Grid", "B) Flexbox", "C) Position Absolute", "D) Float Table"],
+    correctIndex: 1,
+    explanation: "Flexbox (Flexible Box Layout) is designed as a one-dimensional layout model (row or column), whereas CSS Grid is designed for two dimensions."
+  },
+  {
+    question: "What is the output of 'typeof null' in JavaScript?",
+    options: ["A) 'null'", "B) 'undefined'", "C) 'object'", "D) 'number'"],
+    correctIndex: 2,
+    explanation: "In JavaScript, 'typeof null' returns 'object'. This is a well-known, historical bug in the language implementation."
+  },
+  {
+    question: "In database design, what does 'ACID' properties stand for?",
+    options: [
+      "A) Atomicity, Consistency, Isolation, Durability",
+      "B) Access, Control, Index, Data",
+      "C) Allocation, Concurrency, Integrity, Distribution",
+      "D) None of the above"
+    ],
+    correctIndex: 0,
+    explanation: "ACID stands for Atomicity, Consistency, Isolation, and Durability, ensuring reliable database transaction processing."
+  },
+  {
+    question: "Which sorting algorithm has a worst-case time complexity of O(n^2)?",
+    options: ["A) Merge Sort", "B) Quick Sort", "C) Heap Sort", "D) Radix Sort"],
+    correctIndex: 1,
+    explanation: "Quick Sort has a worst-case time complexity of O(n^2) when the pivot selection consistently selects the smallest or largest element, though its average case is O(n log n)."
+  },
+  {
+    question: "What is the purpose of the Event Loop in JavaScript?",
+    options: [
+      "A) To run code synchronously line-by-line",
+      "B) To compile code to binary format",
+      "C) To monitor the call stack and callback queue for asynchronous execution",
+      "D) To manage connections to database systems"
+    ],
+    correctIndex: 2,
+    explanation: "The Event Loop monitors the call stack and callback queue, pushing callbacks onto the stack when the stack is empty."
+  },
+  {
+    question: "What does DNS stand for in internet terminology?",
+    options: ["A) Data Name Service", "B) Domain Name System", "C) Digital Network Security", "D) Distributed Node Server"],
+    correctIndex: 1,
+    explanation: "DNS stands for Domain Name System. It acts as the phonebook of the internet, translating domain names (like google.com) into IP addresses."
+  }
+];
+
 // ── Generate question via AI ──
 async function generateQuestion(noteContents: string[], apiKey: string): Promise<QuizQuestion | null> {
   const stripped = noteContents.map(c => c.replace(/<[^>]*>/g, '')).join('\n\n').slice(0, 3000);
@@ -174,10 +278,24 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
 
   // Generate next question
   const generateNextQuestion = async () => {
-    if (!apiKey) return;
-    setLoading(true);
     setSelectedOption(null);
     setIsCorrect(null);
+
+    // If there is no API key or no notes selected, run fallback CS trivia directly
+    if (!apiKey || noteContentsRef.current.length === 0) {
+      setLoading(true);
+      setTimeout(() => {
+        const fallbackQ = FALLBACK_QUESTIONS[Math.floor(Math.random() * FALLBACK_QUESTIONS.length)];
+        setQuestion(fallbackQ);
+        setPhase('answering');
+        setTimerLeft(TIMER_SECONDS);
+        startTimer();
+        setLoading(false);
+      }, 800);
+      return;
+    }
+
+    setLoading(true);
     const q = await generateQuestion(noteContentsRef.current, apiKey);
     if (q) {
       setQuestion(q);
@@ -185,8 +303,12 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
       setTimerLeft(TIMER_SECONDS);
       startTimer();
     } else {
-      toast.error('Failed to generate question. Try again!');
-      setPhase('battle');
+      const fallbackQ = FALLBACK_QUESTIONS[Math.floor(Math.random() * FALLBACK_QUESTIONS.length)];
+      setQuestion(fallbackQ);
+      setPhase('answering');
+      setTimerLeft(TIMER_SECONDS);
+      startTimer();
+      toast('Using Study Guild Trivia (AI Offline)', { icon: '💡' });
     }
     setLoading(false);
   };
@@ -336,9 +458,30 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
           <Card padding="lg">
             <div className="text-center py-8">
               <span className="text-5xl block mb-4">🔑</span>
-              <h3 className="text-lg font-heading font-bold mb-2">API Key Required</h3>
-              <p className="text-sm text-[var(--muted-foreground)] mb-4">Add your OpenRouter API key in Settings to generate AI questions.</p>
-              <Button variant="primary" size="sm" onClick={() => window.location.href = '/settings'}>Go to Settings</Button>
+              <h3 className="text-lg font-heading font-bold mb-2">OpenRouter API Key Optional</h3>
+              <p className="text-sm text-[var(--muted-foreground)] mb-6 max-w-md mx-auto">
+                Add an OpenRouter API key in Settings to generate custom trivia from your own study notes. Otherwise, enter directly to play with general CS trivia!
+              </p>
+              <div className="flex gap-3 justify-center">
+                <Button
+                  variant="coral"
+                  size="sm"
+                  icon={<HiLightningBolt />}
+                  onClick={() => {
+                    noteContentsRef.current = [];
+                    setPlayerHp(PLAYER_MAX_HP);
+                    setFloor(1);
+                    setTotalCorrect(0);
+                    setTotalQuestions(0);
+                    setTotalXpEarned(0);
+                    setTotalCoinsEarned(0);
+                    spawnMonster();
+                  }}
+                >
+                  Enter Dungeon (CS Trivia) ⚔️
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => window.location.href = '/settings'}>Go to Settings</Button>
+              </div>
             </div>
           </Card>
         ) : notes.length === 0 ? (
@@ -346,8 +489,29 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
             <div className="text-center py-8">
               <span className="text-5xl block mb-4">📝</span>
               <h3 className="text-lg font-heading font-bold mb-2">No Notes Found</h3>
-              <p className="text-sm text-[var(--muted-foreground)] mb-4">Create some study notes first — the dungeon generates questions from them!</p>
-              <Button variant="teal" size="sm" onClick={() => window.location.href = '/notes'}>Create Notes</Button>
+              <p className="text-sm text-[var(--muted-foreground)] mb-6 max-w-md mx-auto">
+                Create study notes to generate custom AI questions, or enter now to play with general CS trivia!
+              </p>
+              <div className="flex gap-3 justify-center">
+                <Button
+                  variant="coral"
+                  size="sm"
+                  icon={<HiLightningBolt />}
+                  onClick={() => {
+                    noteContentsRef.current = [];
+                    setPlayerHp(PLAYER_MAX_HP);
+                    setFloor(1);
+                    setTotalCorrect(0);
+                    setTotalQuestions(0);
+                    setTotalXpEarned(0);
+                    setTotalCoinsEarned(0);
+                    spawnMonster();
+                  }}
+                >
+                  Enter Dungeon (CS Trivia) ⚔️
+                </Button>
+                <Button variant="teal" size="sm" onClick={() => window.location.href = '/notes'}>Create Notes</Button>
+              </div>
             </div>
           </Card>
         ) : (
@@ -375,15 +539,33 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
 
             <div className="flex items-center justify-between">
               <p className="text-xs text-[var(--muted-foreground)] font-semibold">{selectedNotes.length}/3 notes selected</p>
-              <Button
-                variant="coral"
-                size="lg"
-                icon={<HiLightningBolt />}
-                onClick={startDungeon}
-                disabled={selectedNotes.length === 0}
-              >
-                Enter Dungeon ⚔️
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    noteContentsRef.current = [];
+                    setPlayerHp(PLAYER_MAX_HP);
+                    setFloor(1);
+                    setTotalCorrect(0);
+                    setTotalQuestions(0);
+                    setTotalXpEarned(0);
+                    setTotalCoinsEarned(0);
+                    spawnMonster();
+                  }}
+                >
+                  Play CS Trivia ⚔️
+                </Button>
+                <Button
+                  variant="coral"
+                  size="lg"
+                  icon={<HiLightningBolt />}
+                  onClick={startDungeon}
+                  disabled={selectedNotes.length === 0}
+                >
+                  Enter Dungeon ⚔️
+                </Button>
+              </div>
             </div>
           </>
         )}
