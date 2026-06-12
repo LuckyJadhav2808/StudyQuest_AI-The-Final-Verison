@@ -101,7 +101,7 @@ export default function CodeAIPanel({ code, fileName = '', language }: CodeAIPan
           'HTTP-Referer': window.location.origin,
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.0-flash-001',
+          model: 'google/gemini-2.5-flash',
           messages: [
             { role: 'system', content: 'You are Questie 🦉, a helpful coding assistant inside the StudyQuest IDE. Be concise, clear, and friendly. Use emojis sparingly. Format with markdown.' },
             { role: 'user', content: systemPrompt },

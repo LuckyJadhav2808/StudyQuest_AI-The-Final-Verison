@@ -65,7 +65,7 @@ export default function QuizModal({ isOpen, onClose, noteTitle, noteContent }: Q
           'HTTP-Referer': window.location.origin,
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.0-flash-001',
+          model: 'google/gemini-2.5-flash',
           max_tokens: 2048,
           messages: [
             {

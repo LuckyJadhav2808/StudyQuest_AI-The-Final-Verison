@@ -186,20 +186,33 @@ ${stripped}`;
   try {
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      headers: { 
+        'Authorization': `Bearer ${apiKey}`, 
+        'Content-Type': 'application/json',
+        'HTTP-Referer': window.location.origin,
+      },
       body: JSON.stringify({
-        model: 'google/gemini-2.0-flash-001',
+        model: 'google/gemini-2.5-flash',
         max_tokens: 1024,
         messages: [{ role: 'user', content: prompt }],
       }),
     });
     const data = await res.json();
+    if (data.error) {
+      console.error('OpenRouter API Error Details:', JSON.stringify(data.error, null, 2));
+      console.error('OpenRouter Full Response:', data);
+      return null;
+    }
     const text = data.choices?.[0]?.message?.content || '';
     // Extract JSON from response (handle possible markdown fences)
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
+    if (!jsonMatch) {
+      console.warn('AI response did not contain a valid JSON block:', text);
+      return null;
+    }
     return JSON.parse(jsonMatch[0]) as QuizQuestion;
-  } catch {
+  } catch (err) {
+    console.error('Failed to generate question:', err);
     return null;
   }
 }

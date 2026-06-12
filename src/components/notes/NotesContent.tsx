@@ -662,7 +662,7 @@ export default function NotesContent() {
       const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${profile.openRouterKey}`, 'HTTP-Referer': window.location.origin },
         body: JSON.stringify({
-          model: 'google/gemini-2.0-flash-001',
+          model: 'google/gemini-2.5-flash',
           messages: [{ role: 'system', content: 'You are a study assistant. Summarize the following notes concisely into key points with bullet points. Keep it focused and useful for revision.' }, { role: 'user', content: selectedNote.content }],
           max_tokens: 1024,
         }),
@@ -686,7 +686,7 @@ export default function NotesContent() {
       const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${profile.openRouterKey}`, 'HTTP-Referer': window.location.origin },
         body: JSON.stringify({
-          model: 'google/gemini-2.0-flash-001',
+          model: 'google/gemini-2.5-flash',
           messages: [{ role: 'system', content: 'Create 5-8 flashcards from the following notes. Return ONLY valid JSON array with objects having "question" and "answer" fields. No markdown, no explanation, just JSON.' }, { role: 'user', content: selectedNote.content }],
           max_tokens: 1024,
         }),

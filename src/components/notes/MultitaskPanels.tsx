@@ -154,7 +154,7 @@ export function AITutorPanel({ onClose, onInsertText, noteContent, apiKey }: AIT
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({
-          model: 'google/gemini-2.0-flash-001',
+          model: 'google/gemini-2.5-flash',
           max_tokens: 1024,
           messages: [
             { role: 'system', content: `You are a friendly study tutor helping a student understand their notes. Be concise and clear. Use simple language. Here are their current notes for context:\n\n${strippedNotes}` },
