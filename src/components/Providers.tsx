@@ -22,6 +22,10 @@ import { usePresence } from '@/hooks/usePresence';
 import { useCustomization } from '@/hooks/useCustomization';
 import OfflineIndicator from '@/components/ui/OfflineIndicator';
 import PatchNotesModal from '@/components/ui/PatchNotesModal';
+import { usePet } from '@/hooks/usePet';
+import { useGamification } from '@/hooks/useGamification';
+import { playSuccess } from '@/lib/sounds';
+import { PET_STAGES } from '@/lib/constants';
 
 /**
  * Animated SVG background grid — creates a subtle, immersive "command center" aesthetic.
@@ -95,6 +99,31 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
   // Apply shop customizations (custom cursors, borders, sounds)
   useCustomization();
+
+  // Global background pet evolution check
+  const { pet, hasPet, checkEvolution } = usePet();
+  const { gamification } = useGamification();
+
+  useEffect(() => {
+    if (!hasPet || !pet || pet.stage >= 4 || !gamification) return;
+    checkEvolution(gamification).then((evolved) => {
+      if (evolved) {
+        playSuccess();
+        toast.success(`🌟 Your companion ${pet.name} evolved to ${PET_STAGES[pet.stage + 1]?.name ?? 'Legendary'}!`, { duration: 6000 });
+      }
+    });
+  }, [
+    gamification?.totalTasksCompleted,
+    gamification?.totalFocusMinutes,
+    gamification?.streak,
+    pet?.totalFeedings,
+    pet?.totalPlaySessions,
+    pet?.equippedAccessories?.length,
+    hasPet,
+    pet?.stage,
+    checkEvolution,
+    gamification
+  ]);
 
   if (isLoginPage) {
     return (

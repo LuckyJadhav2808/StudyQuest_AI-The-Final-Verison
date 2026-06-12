@@ -1,7 +1,10 @@
 /**
  * StudyQuest Sound Effects — Web Audio API
- * No audio files needed, generates synth tones in-browser
+ * Supports swappable sound packs from the Item Shop.
+ * No audio files needed, generates synth tones in-browser.
  */
+
+import { getActiveSoundPack } from '@/hooks/useCustomization';
 
 let audioCtx: AudioContext | null = null;
 
@@ -30,38 +33,43 @@ function playTone(frequency: number, duration: number, type: OscillatorType = 's
 
 /** Quick ascending chime — task complete, quest done, habit toggled */
 export function playSuccess() {
-  const ctx = getCtx();
-  [523, 659, 784].forEach((freq, i) => {
+  const pack = getActiveSoundPack();
+  pack.successFreqs.forEach((freq, i) => {
     setTimeout(() => playTone(freq, 0.15, 'sine', 0.12), i * 80);
   });
 }
 
 /** Celebratory fanfare — Pomodoro complete, level up */
 export function playCelebration() {
-  [523, 659, 784, 1047].forEach((freq, i) => {
+  const pack = getActiveSoundPack();
+  pack.celebrationFreqs.forEach((freq, i) => {
     setTimeout(() => playTone(freq, 0.25, 'triangle', 0.1), i * 120);
   });
 }
 
 /** Soft click — toggle, selection */
 export function playClick() {
-  playTone(800, 0.05, 'sine', 0.08);
+  const pack = getActiveSoundPack();
+  playTone(pack.clickFreq, 0.05, pack.clickWave, 0.08);
 }
 
 /** Notification ping — alerts, friend requests */
 export function playNotify() {
-  playTone(880, 0.1, 'sine', 0.1);
-  setTimeout(() => playTone(1100, 0.15, 'sine', 0.08), 100);
+  const pack = getActiveSoundPack();
+  playTone(pack.notifyFreqs[0], 0.1, 'sine', 0.1);
+  setTimeout(() => playTone(pack.notifyFreqs[1], 0.15, 'sine', 0.08), 100);
 }
 
 /** Error buzz */
 export function playError() {
-  playTone(200, 0.15, 'sawtooth', 0.06);
+  const pack = getActiveSoundPack();
+  playTone(pack.errorFreq, 0.15, pack.errorWave, 0.06);
 }
 
 /** XP award sparkle */
 export function playXP() {
-  [1047, 1319, 1568].forEach((freq, i) => {
+  const pack = getActiveSoundPack();
+  pack.xpFreqs.forEach((freq, i) => {
     setTimeout(() => playTone(freq, 0.1, 'sine', 0.06), i * 60);
   });
 }

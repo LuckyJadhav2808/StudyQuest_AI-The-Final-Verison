@@ -483,14 +483,67 @@ export const SHOP_ITEMS: ShopItem[] = [
   { id: 'cursor-sword', name: 'Pixel Sword', description: 'An RPG sword cursor.', category: 'cursor', price: 35, emoji: '⚔️', rarity: 'rare', effect: 'cursor-sword' },
 ];
 
-// ----- Pet Evolution Config -----
-export const PET_STAGES = [
-  { stage: 0, name: 'Egg', requirement: 'Just created!' },
-  { stage: 1, name: 'Baby', requirement: 'Complete 5 tasks to hatch' },
-  { stage: 2, name: 'Teen', requirement: 'Reach Level 5' },
-  { stage: 3, name: 'Adult', requirement: 'Reach Level 10' },
-  { stage: 4, name: 'Legendary', requirement: 'Reach Level 20' },
-] as const;
+// ----- Pet Evolution Config (Multi-Path System) -----
+// Each stage has MULTIPLE evolution paths — the user only needs to satisfy ONE to evolve.
+// This makes evolution feel diverse, rewarding, and visible.
+
+export interface EvolutionPathDef {
+  key: 'tasks' | 'focus' | 'streak' | 'care' | 'style';
+  label: string;
+  emoji: string;
+  description: string;
+  target: number;
+}
+
+export interface PetStageDef {
+  stage: number;
+  name: string;
+  title: string;       // RPG-style title for this stage
+  paths: EvolutionPathDef[];  // multiple ways to reach NEXT stage
+}
+
+export const PET_STAGES: PetStageDef[] = [
+  {
+    stage: 0, name: 'Egg', title: 'Dormant',
+    paths: [
+      { key: 'tasks', label: 'Task Hatcher', emoji: '✅', description: 'Complete 3 tasks', target: 3 },
+      { key: 'focus', label: 'Focus Hatcher', emoji: '⏱️', description: 'Focus for 30 minutes', target: 30 },
+      { key: 'care', label: 'Nurture Hatcher', emoji: '🍎', description: 'Feed your egg 5 times', target: 5 },
+    ],
+  },
+  {
+    stage: 1, name: 'Baby', title: 'Newborn',
+    paths: [
+      { key: 'tasks', label: 'Task Grower', emoji: '✅', description: 'Complete 15 total tasks', target: 15 },
+      { key: 'focus', label: 'Focus Grower', emoji: '⏱️', description: 'Focus for 120 minutes total', target: 120 },
+      { key: 'streak', label: 'Streak Grower', emoji: '🔥', description: 'Reach a 5-day streak', target: 5 },
+      { key: 'care', label: 'Care Grower', emoji: '💖', description: 'Play with your pet 15 times', target: 15 },
+    ],
+  },
+  {
+    stage: 2, name: 'Teen', title: 'Apprentice',
+    paths: [
+      { key: 'tasks', label: 'Task Evolver', emoji: '✅', description: 'Complete 40 total tasks', target: 40 },
+      { key: 'focus', label: 'Focus Evolver', emoji: '⏱️', description: 'Focus for 300 minutes total', target: 300 },
+      { key: 'streak', label: 'Streak Evolver', emoji: '🔥', description: 'Reach a 10-day streak', target: 10 },
+      { key: 'style', label: 'Style Evolver', emoji: '🎀', description: 'Equip 3 accessories at once', target: 3 },
+      { key: 'care', label: 'Bond Evolver', emoji: '💖', description: 'Feed 30 times + Play 30 times', target: 60 },
+    ],
+  },
+  {
+    stage: 3, name: 'Adult', title: 'Champion',
+    paths: [
+      { key: 'tasks', label: 'Task Legend', emoji: '✅', description: 'Complete 100 total tasks', target: 100 },
+      { key: 'focus', label: 'Focus Legend', emoji: '⏱️', description: 'Focus for 600 minutes total', target: 600 },
+      { key: 'streak', label: 'Streak Legend', emoji: '🔥', description: 'Reach a 21-day streak', target: 21 },
+      { key: 'style', label: 'Fashion Legend', emoji: '👑', description: 'Equip 5 accessories at once', target: 5 },
+    ],
+  },
+  {
+    stage: 4, name: 'Legendary', title: 'Mythical',
+    paths: [], // max stage — no further evolution
+  },
+];
 
 export const PET_SPECIES_CONFIG = {
   owl:    { name: 'Owl',    emoji: ['🥚', '🐣', '🐥', '🦅', '🦉'], color: '#8B5CF6' },
@@ -538,9 +591,25 @@ export const SKILL_TREE_NODES: SkillNodeDef[] = [
 export const ADMIN_EMAILS = ['luckymanojjadhav@gmail.com'];
 
 // ----- Patch Notes -----
-export const CURRENT_PATCH_VERSION = '1.8.0';
+export const CURRENT_PATCH_VERSION = '1.9.0';
 
 export const PATCH_NOTES: PatchNote[] = [
+  {
+    version: '1.9.0',
+    title: 'The Companion Evolution & Living Items Update',
+    date: '2026-06-12',
+    entries: [
+      { type: 'feature', text: '🌟 Multi-Path Pet Evolution — Pets now evolve through 5 different paths: Tasks, Focus Time, Streaks, Pet Care, or Style. Complete ANY one path to trigger evolution!' },
+      { type: 'feature', text: '👗 Pet Wardrobe — New tab on the Pet page to view, equip, and unequip accessories you\'ve purchased from the Item Shop.' },
+      { type: 'feature', text: '🪄 Working Custom Cursors — Equipping Magic Wand or Pixel Sword from the shop now actually replaces your cursor across the entire app.' },
+      { type: 'feature', text: '💎 Working Profile Borders — Crystal, Flame, and Celestial borders now visually override your avatar border in the sidebar, settings, and quest map.' },
+      { type: 'feature', text: '🎵 Working Sound Packs — Retro 8-bit and Nature sound packs now change ALL sound effects app-wide when equipped (clicks, success chimes, XP sparkles, etc.).' },
+      { type: 'improvement', text: '🏠 Lofi Room Pet Accessories — Equipped accessories now appear on your pet in the Lofi Study Room dashboard.' },
+      { type: 'improvement', text: '🛒 Shop Pet Accessory UX — Pet accessories in the shop now say "Owned — Equip in Pet" and link directly to your pet\'s wardrobe.' },
+      { type: 'improvement', text: '📊 Evolution Progress Bars — Each evolution path shows a live progress bar with percentage, so you always know how close you are.' },
+      { type: 'fix', text: '🔧 Evolution Auto-Check — Pet evolution now triggers automatically when you complete tasks, focus, or reach streaks — no manual checking needed.' },
+    ],
+  },
   {
     version: '1.8.0',
     title: 'The Silky Smooth Motion & Performance Update',

@@ -346,6 +346,18 @@ export interface PatchEntry {
 export type PetSpecies = 'owl' | 'cat' | 'dragon' | 'fox' | 'bunny';
 export type PetStage = 0 | 1 | 2 | 3 | 4; // egg → baby → teen → adult → legendary
 
+// Evolution can be triggered by multiple activity paths
+export type EvolutionPathKey = 'tasks' | 'focus' | 'streak' | 'care' | 'style';
+
+export interface EvolutionRequirement {
+  key: EvolutionPathKey;
+  label: string;
+  emoji: string;
+  description: string;
+  current: number;       // current progress
+  target: number;        // required to satisfy this path
+}
+
 export interface PetData {
   id: string;
   name: string;
@@ -360,6 +372,9 @@ export interface PetData {
   lastPlayedAt: number;
   hatchedAt: number | null;
   createdAt: number;
+  // Evolution tracking — multiple paths
+  totalFeedings: number;
+  totalPlaySessions: number;
 }
 
 // ----- Auto-Quiz -----

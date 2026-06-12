@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { HiShoppingCart, HiSparkles, HiCheck, HiGift, HiStar } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import Button from '@/components/ui/Button';
@@ -40,6 +41,7 @@ export default function ShopContent() {
   const [confirmItem, setConfirmItem] = useState<ShopItem | null>(null);
   const [gachaResult, setGachaResult] = useState<ShopItem | null>(null);
   const [gachaSpinning, setGachaSpinning] = useState(false);
+  const router = useRouter();
 
   const filteredItems = activeCategory === 'all'
     ? SHOP_ITEMS
@@ -197,16 +199,26 @@ export default function ShopContent() {
                     </div>
                     <div className="mt-3">
                       {owned && !item.consumable ? (
-                        <button
-                          onClick={() => handleEquipToggle(item)}
-                          className={`w-full px-3 py-1.5 rounded-xl text-xs font-bold transition-all border-2 ${
-                            equipped
-                              ? 'bg-teal text-white border-teal'
-                              : 'border-teal/30 text-teal hover:bg-teal/10'
-                          }`}
-                        >
-                          {equipped ? <><HiCheck className="inline mr-1" /> Equipped</> : 'Equip'}
-                        </button>
+                        item.category === 'petAccessory' ? (
+                          /* Pet accessories equip on the Pet page, not here */
+                          <button
+                            onClick={() => { playClick(); router.push('/pets'); }}
+                            className="w-full px-3 py-1.5 rounded-xl text-xs font-bold transition-all border-2 border-teal/30 text-teal hover:bg-teal/10"
+                          >
+                            <HiCheck className="inline mr-1" /> Owned — Equip in 🐾 Pet
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleEquipToggle(item)}
+                            className={`w-full px-3 py-1.5 rounded-xl text-xs font-bold transition-all border-2 ${
+                              equipped
+                                ? 'bg-teal text-white border-teal'
+                                : 'border-teal/30 text-teal hover:bg-teal/10'
+                            }`}
+                          >
+                            {equipped ? <><HiCheck className="inline mr-1" /> Equipped</> : 'Equip'}
+                          </button>
+                        )
                       ) : (
                         <button
                           onClick={() => setConfirmItem(item)}

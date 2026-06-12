@@ -8,7 +8,7 @@ import { useGamification } from '@/hooks/useGamification';
 import { useTasks } from '@/hooks/useTasks';
 import { useShop } from '@/hooks/useShop';
 import { useTheme } from '@/context/ThemeContext';
-import { PET_SPECIES_CONFIG } from '@/lib/constants';
+import { PET_SPECIES_CONFIG, SHOP_ITEMS } from '@/lib/constants';
 import { playClick, playXP, playSuccess } from '@/lib/sounds';
 import toast from 'react-hot-toast';
 import { getLocalDateString } from '@/lib/dateUtils';
@@ -507,6 +507,31 @@ export default function LofiRoom({ className = '' }: LofiRoomProps) {
             }}
           >
             {petEmoji}
+            {/* Equipped accessories floating around the pet */}
+            {(pet?.equippedAccessories || []).map((accId, idx) => {
+              const item = SHOP_ITEMS.find((i) => i.id === accId);
+              if (!item) return null;
+              // Position accessories in a circle around the pet
+              const angle = (idx * (360 / Math.max((pet?.equippedAccessories || []).length, 1))) * (Math.PI / 180);
+              const radius = 22;
+              return (
+                <span
+                  key={accId}
+                  className="lofi-pet-accessory"
+                  style={{
+                    position: 'absolute',
+                    top: `calc(50% + ${Math.sin(angle) * radius - 10}px)`,
+                    left: `calc(50% + ${Math.cos(angle) * radius - 6}px)`,
+                    fontSize: '14px',
+                    filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
+                    pointerEvents: 'none',
+                    zIndex: 2,
+                  }}
+                >
+                  {item.emoji}
+                </span>
+              );
+            })}
             <motion.div
               key={moodEmoji}
               className="lofi-pet-mood"

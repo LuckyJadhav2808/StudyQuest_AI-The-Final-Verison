@@ -5,8 +5,8 @@ import { doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { subscribeToDocument, setDocument } from '@/lib/firestore';
 import { useAuthContext } from '@/context/AuthContext';
-import { PetData, PetSpecies, PetStage } from '@/types';
-import { PET_SPECIES_CONFIG } from '@/lib/constants';
+import { PetData, PetSpecies, PetStage, GamificationData, EvolutionRequirement } from '@/types';
+import { PET_SPECIES_CONFIG, PET_STAGES } from '@/lib/constants';
 
 const DEFAULT_PET: PetData = {
   id: '',
@@ -22,6 +22,8 @@ const DEFAULT_PET: PetData = {
   lastPlayedAt: Date.now(),
   hatchedAt: null,
   createdAt: 0,
+  totalFeedings: 0,
+  totalPlaySessions: 0,
 };
 
 export function usePet() {
@@ -38,6 +40,11 @@ export function usePet() {
     if (!user?.uid) { setLoading(false); return; }
     const ref = doc(db, 'users', user.uid, 'data', 'pet');
     const unsub = subscribeToDocument<PetData>(ref, (data) => {
+      // Backfill new fields for existing users
+      if (data) {
+        if (data.totalFeedings === undefined) data.totalFeedings = 0;
+        if (data.totalPlaySessions === undefined) data.totalPlaySessions = 0;
+      }
       setPet(data);
       petRef.current = data;
       setLoading(false);
@@ -78,7 +85,7 @@ export function usePet() {
     await setDocument(ref, updated);
   }, [getRef]);
 
-  // Feed pet (used by shop system)
+  // Feed pet (used by shop system) — now tracks total feedings
   const feedPet = useCallback(async (hungerAmount: number, happinessAmount: number = 0) => {
     const current = petRef.current;
     if (!current) return;
@@ -86,10 +93,11 @@ export function usePet() {
       hunger: Math.min(100, current.hunger + hungerAmount),
       happiness: Math.min(100, current.happiness + happinessAmount),
       lastFedAt: Date.now(),
+      totalFeedings: (current.totalFeedings || 0) + 1,
     });
   }, [updatePet]);
 
-  // Play with pet
+  // Play with pet — now tracks total play sessions
   const playWithPet = useCallback(async () => {
     const current = petRef.current;
     if (!current) return;
@@ -97,6 +105,7 @@ export function usePet() {
       happiness: Math.min(100, current.happiness + 15),
       energy: Math.max(0, current.energy - 10),
       lastPlayedAt: Date.now(),
+      totalPlaySessions: (current.totalPlaySessions || 0) + 1,
     });
   }, [updatePet]);
 
@@ -109,18 +118,55 @@ export function usePet() {
     await updatePet({ xp: newXP, happiness: newHappiness });
   }, [updatePet]);
 
-  // Check and trigger evolution
-  const checkEvolution = useCallback(async (userLevel: number, tasksCompleted: number) => {
+  // ── Get the live progress for each evolution path at the current stage ──
+  const getEvolutionProgress = useCallback((gamificationData: GamificationData | null): EvolutionRequirement[] => {
     const current = petRef.current;
-    if (!current) return false;
-    let newStage: PetStage = current.stage;
+    if (!current || current.stage >= 4) return [];
+    const stageDef = PET_STAGES[current.stage];
+    if (!stageDef || !stageDef.paths) return [];
 
-    if (current.stage === 0 && tasksCompleted >= 5) newStage = 1;
-    else if (current.stage === 1 && userLevel >= 5) newStage = 2;
-    else if (current.stage === 2 && userLevel >= 10) newStage = 3;
-    else if (current.stage === 3 && userLevel >= 20) newStage = 4;
+    return stageDef.paths.map((path) => {
+      let currentValue = 0;
+      switch (path.key) {
+        case 'tasks':
+          currentValue = gamificationData?.totalTasksCompleted ?? 0;
+          break;
+        case 'focus':
+          currentValue = gamificationData?.totalFocusMinutes ?? 0;
+          break;
+        case 'streak':
+          currentValue = gamificationData?.streak ?? 0;
+          break;
+        case 'care':
+          // For care paths: feedings + play sessions combined
+          currentValue = (current.totalFeedings || 0) + (current.totalPlaySessions || 0);
+          break;
+        case 'style':
+          currentValue = (current.equippedAccessories || []).length;
+          break;
+      }
+      return {
+        key: path.key,
+        label: path.label,
+        emoji: path.emoji,
+        description: path.description,
+        current: currentValue,
+        target: path.target,
+      };
+    });
+  }, []);
 
-    if (newStage !== current.stage) {
+  // ── Multi-path evolution check ──
+  // Returns true if evolved. The pet evolves when ANY single path is satisfied.
+  const checkEvolution = useCallback(async (gamificationData: GamificationData | null): Promise<boolean> => {
+    const current = petRef.current;
+    if (!current || current.stage >= 4) return false;
+
+    const paths = getEvolutionProgress(gamificationData);
+    const satisfied = paths.some((p) => p.current >= p.target);
+
+    if (satisfied) {
+      const newStage = (current.stage + 1) as PetStage;
       await updatePet({
         stage: newStage,
         hatchedAt: current.stage === 0 && newStage === 1 ? Date.now() : current.hatchedAt,
@@ -131,7 +177,7 @@ export function usePet() {
       return true; // evolved!
     }
     return false;
-  }, [updatePet]);
+  }, [updatePet, getEvolutionProgress]);
 
   // Decay system — call on page load
   const applyDecay = useCallback(async () => {
@@ -191,6 +237,7 @@ export function usePet() {
     playWithPet,
     awardPetXP,
     checkEvolution,
+    getEvolutionProgress,
     applyDecay,
     equipAccessory,
     unequipAccessory,

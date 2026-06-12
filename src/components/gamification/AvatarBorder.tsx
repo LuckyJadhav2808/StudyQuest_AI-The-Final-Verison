@@ -1,13 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 
 /* ============================================================
-   AvatarBorder — Glowing border around avatar based on level
-   
-   Bronze (1-4), Silver (5-9), Gold (10-14),
-   Diamond (15-19), Legendary (20+)
+   AvatarBorder — Glowing border around avatar based on level.
+   If a custom shop border is equipped (Crystal/Flame/Celestial),
+   it overrides the level-based tier with the shop cosmetic.
    ============================================================ */
 
 interface AvatarBorderProps {
@@ -25,7 +24,32 @@ interface TierInfo {
   animate?: boolean;
 }
 
-function getTier(level: number): TierInfo {
+// ── Shop border overrides ──
+const SHOP_BORDER_TIERS: Record<string, TierInfo> = {
+  'border-crystal': {
+    name: 'Crystal',
+    colors: 'linear-gradient(135deg, #3B82F6, #60A5FA, #93C5FD, #3B82F6)',
+    glow: '0 0 12px rgba(59, 130, 246, 0.5), 0 0 24px rgba(59, 130, 246, 0.2)',
+    shadowColor: 'rgba(59, 130, 246, 0.3)',
+    animate: true,
+  },
+  'border-flame': {
+    name: 'Flame',
+    colors: 'linear-gradient(135deg, #EF4444, #F97316, #FBBF24, #EF4444)',
+    glow: '0 0 14px rgba(239, 68, 68, 0.5), 0 0 28px rgba(239, 68, 68, 0.2)',
+    shadowColor: 'rgba(239, 68, 68, 0.4)',
+    animate: true,
+  },
+  'border-celestial': {
+    name: 'Celestial',
+    colors: 'linear-gradient(135deg, #F59E0B, #FBBF24, #FDE68A, #D97706, #F59E0B)',
+    glow: '0 0 16px rgba(245, 158, 11, 0.6), 0 0 32px rgba(245, 158, 11, 0.3)',
+    shadowColor: 'rgba(245, 158, 11, 0.4)',
+    animate: true,
+  },
+};
+
+function getLevelTier(level: number): TierInfo {
   if (level >= 20) {
     return {
       name: 'Legendary',
@@ -69,11 +93,32 @@ function getTier(level: number): TierInfo {
 }
 
 export function getAvatarTier(level: number) {
-  return getTier(level);
+  return getLevelTier(level);
 }
 
 export default function AvatarBorder({ level, size = 48, children, className = '' }: AvatarBorderProps) {
-  const tier = getTier(level);
+  // Read the custom border from the HTML data attribute (set by useCustomization)
+  const [customBorderId, setCustomBorderId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Read initial value
+    const id = document.documentElement.getAttribute('data-custom-border');
+    setCustomBorderId(id);
+
+    // Observe changes to the data attribute
+    const observer = new MutationObserver(() => {
+      const newId = document.documentElement.getAttribute('data-custom-border');
+      setCustomBorderId(newId);
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-custom-border'] });
+    return () => observer.disconnect();
+  }, []);
+
+  // Use shop border if equipped, otherwise fall back to level tier
+  const tier = (customBorderId && SHOP_BORDER_TIERS[customBorderId])
+    ? SHOP_BORDER_TIERS[customBorderId]
+    : getLevelTier(level);
+
   const borderWidth = 3;
   const outerSize = size + borderWidth * 2;
 
