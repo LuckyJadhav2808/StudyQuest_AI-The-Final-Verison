@@ -118,6 +118,7 @@ export interface Note {
   id: string;
   title: string;
   content: string; // markdown/HTML
+  markdownSource?: string; // raw markdown source (preserved for re-editing)
   folder: string;
   tags: string[];
   createdAt: number;

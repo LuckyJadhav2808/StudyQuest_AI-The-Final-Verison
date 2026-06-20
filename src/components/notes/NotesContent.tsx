@@ -459,9 +459,10 @@ export default function NotesContent() {
     injectTooltips();
   }, [isEditing, selectedNote]);
 
-  // Markdown import
+  // Markdown import / edit
   const [showMarkdownImport, setShowMarkdownImport] = useState(false);
   const [markdownInput, setMarkdownInput] = useState('');
+  const [isEditingMarkdown, setIsEditingMarkdown] = useState(false);
 
   // AI states
   const [aiLoading, setAiLoading] = useState(false);
@@ -579,29 +580,110 @@ export default function NotesContent() {
   const openNote = (note: Note) => { setSelectedNote(note); setEditContent(note.content); setEditTitle(note.title); setIsEditing(false); setPreview(false); setViewMode(false); setSaveStatus('idle'); };
   const backToList = () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current); setSelectedNote(null); setIsEditing(false); setPreview(false); setViewMode(false); setSaveStatus('idle'); };
 
-  // Convert markdown to HTML and save into the note
+  // Convert markdown to HTML (with Mermaid diagram rendering) and save into the note
   const handleMarkdownImport = async () => {
     if (!markdownInput.trim() || !selectedNote) return;
-    const html = await marked.parse(markdownInput);
-    
+    let html = await marked.parse(markdownInput);
+
+    // ── Render Mermaid code blocks into SVG images ──
+    // marked.parse() turns ```mermaid ... ``` into <pre><code class="language-mermaid">...</code></pre>
+    // We find each one, compile it with mermaid, and replace with an inline <img> of the SVG.
+    const mermaidBlockRegex = /<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/gi;
+    const mermaidMatches = [...html.matchAll(mermaidBlockRegex)];
+
+    if (mermaidMatches.length > 0) {
+      try {
+        const mermaid = (await import('mermaid')).default;
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: 'dark',
+          themeVariables: {
+            primaryColor: '#7C3AED',
+            primaryTextColor: '#fff',
+            primaryBorderColor: '#a78bfa',
+            lineColor: '#a78bfa',
+            secondaryColor: '#EC4899',
+            tertiaryColor: '#10B981',
+            background: '#1a1a2e',
+            mainBkg: '#1a1a2e',
+            nodeBorder: '#a78bfa',
+            fontFamily: 'system-ui, sans-serif',
+          },
+          securityLevel: 'loose',
+        });
+
+        for (let i = 0; i < mermaidMatches.length; i++) {
+          const match = mermaidMatches[i];
+          const fullMatch = match[0];
+          // Decode HTML entities back to plain text for the mermaid compiler
+          const rawCode = match[1]
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .trim();
+
+          try {
+            const diagramId = `mermaid-import-${Date.now()}-${i}`;
+            const { svg } = await mermaid.render(diagramId, rawCode);
+            // Convert the SVG string to a base64 data URL so it embeds cleanly in Quill
+            const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+            const dataUrl = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(svgBlob);
+            });
+            const imgTag = `<p><img src="${dataUrl}" alt="Mermaid Diagram" style="max-width:100%;border-radius:12px;margin:12px 0;background:#1a1a2e;padding:16px;" /></p>`;
+            html = html.replace(fullMatch, imgTag);
+          } catch (mermaidErr) {
+            console.warn(`Mermaid render failed for block ${i}:`, mermaidErr);
+            // Leave the code block as-is if rendering fails
+          }
+        }
+      } catch (importErr) {
+        console.warn('Failed to load mermaid library:', importErr);
+      }
+    }
+
+    // Save the raw markdown source so users can re-edit it later
+    const rawSource = markdownInput;
+
     const quill = quillRef.current?.getEditor();
-    if (quill) {
-      const length = quill.getLength();
-      quill.clipboard.dangerouslyPasteHTML(length - 1, html);
-      const newContent = quill.root.innerHTML;
-      setEditContent(newContent);
-      await updateNote(selectedNote.id, { content: newContent });
-      setSelectedNote({ ...selectedNote, content: newContent, updatedAt: Date.now() });
+    if (isEditingMarkdown) {
+      // Editing existing markdown — replace entire content
+      if (quill) {
+        quill.root.innerHTML = html;
+        const newContent = quill.root.innerHTML;
+        setEditContent(newContent);
+        await updateNote(selectedNote.id, { content: newContent, markdownSource: rawSource });
+        setSelectedNote({ ...selectedNote, content: newContent, markdownSource: rawSource, updatedAt: Date.now() });
+      } else {
+        setEditContent(html);
+        await updateNote(selectedNote.id, { content: html, markdownSource: rawSource });
+        setSelectedNote({ ...selectedNote, content: html, markdownSource: rawSource, updatedAt: Date.now() });
+      }
     } else {
-      const newContent = (editContent || '') + html;
-      setEditContent(newContent);
-      await updateNote(selectedNote.id, { content: newContent });
-      setSelectedNote({ ...selectedNote, content: newContent, updatedAt: Date.now() });
+      // First import — append to existing content
+      if (quill) {
+        const length = quill.getLength();
+        quill.clipboard.dangerouslyPasteHTML(length - 1, html);
+        const newContent = quill.root.innerHTML;
+        setEditContent(newContent);
+        await updateNote(selectedNote.id, { content: newContent, markdownSource: rawSource });
+        setSelectedNote({ ...selectedNote, content: newContent, markdownSource: rawSource, updatedAt: Date.now() });
+      } else {
+        const newContent = (editContent || '') + html;
+        setEditContent(newContent);
+        await updateNote(selectedNote.id, { content: newContent, markdownSource: rawSource });
+        setSelectedNote({ ...selectedNote, content: newContent, markdownSource: rawSource, updatedAt: Date.now() });
+      }
     }
     
     setMarkdownInput('');
     setShowMarkdownImport(false);
-    toast.success('Markdown imported! 📄');
+    setIsEditingMarkdown(false);
+    toast.success(isEditingMarkdown ? 'Markdown updated! ✅' : 'Markdown imported! 📄');
   };
 
   // Insert diagram image into note content
@@ -799,7 +881,8 @@ export default function NotesContent() {
               ) : (
                 <>
                   <Button variant="teal" size="sm" icon={<HiEye size={14} />} onClick={() => setViewMode(true)}>View Mode</Button>
-                  <Button variant="ghost" size="sm" icon={<HiClipboardCopy size={14} />} onClick={() => setShowMarkdownImport(true)}>Import MD</Button>
+                  <Button variant="ghost" size="sm" icon={<HiClipboardCopy size={14} />} onClick={() => { setIsEditingMarkdown(false); setMarkdownInput(''); setShowMarkdownImport(true); }}>Import MD</Button>
+                  {selectedNote?.markdownSource && <Button variant="ghost" size="sm" icon={<HiCode size={14} />} onClick={() => { setIsEditingMarkdown(true); setMarkdownInput(selectedNote.markdownSource || ''); setShowMarkdownImport(true); }}>Edit MD Source</Button>}
                   <Button variant="primary" size="sm" icon={<HiPencil size={14} />} onClick={() => setIsEditing(true)}>Edit</Button>
                   <button onClick={() => setConfirmDelete(selectedNote.id)} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-coral/30 hover:text-coral transition-colors"><HiTrash size={18} /></button>
                 </>
@@ -1135,19 +1218,31 @@ export default function NotesContent() {
           />
         )}
 
-        {/* Markdown / README Import Modal */}
-        <Modal isOpen={showMarkdownImport} onClose={() => { setShowMarkdownImport(false); setMarkdownInput(''); }} title="Import Markdown / README">
+        {/* Markdown / README Import & Edit Modal */}
+        <Modal isOpen={showMarkdownImport} onClose={() => { setShowMarkdownImport(false); setMarkdownInput(''); setIsEditingMarkdown(false); }} title={isEditingMarkdown ? 'Edit Markdown Source' : 'Import Markdown / README'}>
           <div className="space-y-4">
-            <p className="text-xs text-[var(--muted-foreground)]">Paste raw Markdown or README.md content below. It will be converted to rich text and appended to this note.</p>
+            <p className="text-xs text-[var(--muted-foreground)]">
+              {isEditingMarkdown
+                ? 'Edit the raw Markdown source below. Mermaid diagrams (```mermaid) will be re-rendered. This will replace the entire note content.'
+                : 'Paste raw Markdown or README.md content below. It will be converted to rich text and appended to this note. Mermaid diagrams (```mermaid) will be rendered as visual diagrams.'}
+            </p>
             <textarea
               value={markdownInput}
               onChange={(e) => setMarkdownInput(e.target.value)}
-              placeholder={`# My README\n\nPaste your markdown here...\n\n## Features\n- Feature 1\n- Feature 2\n\n\`\`\`js\nconsole.log("Hello!");\n\`\`\``}
-              className="w-full h-64 p-4 rounded-xl border-2 border-[var(--card-border)] bg-[var(--card-bg)] text-sm font-mono focus:border-primary focus:outline-none transition-colors resize-none"
+              placeholder={`# My README\n\nPaste your markdown here...\n\n## Features\n- Feature 1\n- Feature 2\n\n\`\`\`mermaid\ngraph TD\n  A[Start] --> B[Process]\n  B --> C{Decision}\n  C -->|Yes| D[Done]\n\`\`\`\n\n\`\`\`js\nconsole.log("Hello!");\n\`\`\``}
+              className="w-full h-80 p-4 rounded-xl border-2 border-[var(--card-border)] bg-[var(--card-bg)] text-sm font-mono focus:border-primary focus:outline-none transition-colors resize-y"
             />
+            {isEditingMarkdown && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                <HiLightningBolt className="text-amber-500 flex-shrink-0" size={14} />
+                <p className="text-[10px] text-amber-500 font-semibold">This will replace the entire note content with the re-rendered markdown.</p>
+              </div>
+            )}
             <div className="flex gap-2">
-              <Button variant="ghost" onClick={() => { setShowMarkdownImport(false); setMarkdownInput(''); }} className="flex-1">Cancel</Button>
-              <Button variant="primary" onClick={handleMarkdownImport} className="flex-1" icon={<HiDocumentText size={14} />} disabled={!markdownInput.trim()}>Import &amp; Render</Button>
+              <Button variant="ghost" onClick={() => { setShowMarkdownImport(false); setMarkdownInput(''); setIsEditingMarkdown(false); }} className="flex-1">Cancel</Button>
+              <Button variant="primary" onClick={handleMarkdownImport} className="flex-1" icon={<HiDocumentText size={14} />} disabled={!markdownInput.trim()}>
+                {isEditingMarkdown ? 'Update & Render' : 'Import & Render'}
+              </Button>
             </div>
           </div>
         </Modal>
