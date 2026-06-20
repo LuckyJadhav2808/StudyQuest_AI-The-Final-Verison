@@ -55,9 +55,9 @@ export default function Card({
         glass && 'card-glass',
         !glass && 'bg-[var(--card-bg)] border border-[var(--card-border)]',
         hover && 'hover:shadow-lg',
-        padding === 'sm' && 'p-3',
-        padding === 'md' && 'p-5',
-        padding === 'lg' && 'p-7',
+        padding === 'sm' && 'p-2.5 sm:p-3',
+        padding === 'md' && 'p-4 sm:p-5',
+        padding === 'lg' && 'p-4 sm:p-7',
         padding === 'none' && 'p-0',
         className,
       )}

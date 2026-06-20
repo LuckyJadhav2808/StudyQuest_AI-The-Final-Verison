@@ -87,7 +87,7 @@ export default function SkillTreeContent() {
         </div>
 
         {/* Branch Tabs */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {BRANCHES.map((branch) => {
             const prog = getBranchProgress(branch.id);
             const isActive = activeBranch === branch.id;
@@ -141,7 +141,7 @@ export default function SkillTreeContent() {
 
           <div className="relative z-10">
             {/* Tier labels */}
-            <div className="grid grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
               {TIER_LABELS.map((label, i) => (
                 <div key={label} className="text-center">
                   <Badge variant={i === 3 ? 'amber' : i === 2 ? 'primary' : i === 1 ? 'teal' : 'muted'} size="sm">
@@ -152,7 +152,7 @@ export default function SkillTreeContent() {
             </div>
 
             {/* Skill nodes by tier */}
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
               {[0, 1, 2, 3].map((tier) => {
                 const tierNodes = branchNodes.filter(n => n.tier === tier);
                 return (

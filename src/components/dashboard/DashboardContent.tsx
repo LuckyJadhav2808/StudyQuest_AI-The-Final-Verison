@@ -153,7 +153,7 @@ export default function DashboardContent() {
             <div className="hidden sm:flex flex-shrink-0 w-14 h-14 rounded-full bg-gradient-to-br from-primary to-secondary items-center justify-center text-2xl shadow-lg animate-float">{timeOfDay.emoji}</div>
             <div className="flex-1 min-w-0">
               <h1 className="text-xl md:text-3xl font-heading font-black mb-1 leading-tight">{timeOfDay.greeting}, {profile?.displayName?.split(' ')[0] || 'Adventurer'}! <span className={timeOfDay.accent}>{timeOfDay.tip}</span></h1>
-              <p className="text-sm text-[var(--muted-foreground)] truncate md:whitespace-normal">{streakMessage}</p>
+              <p className="text-xs md:text-sm text-[var(--muted-foreground)]">{streakMessage}</p>
             </div>
             {/* Notification Bell */}
             <div className="relative flex-shrink-0" ref={notifRef}>
@@ -231,7 +231,7 @@ export default function DashboardContent() {
             {todayTotal > 0 && (<Badge variant={todayCompleted >= todayTotal ? 'teal' : 'amber'} size="sm">{todayCompleted}/{todayTotal}</Badge>)}
           </div>
           <div className="flex gap-2 mb-3">
-            <input type="text" placeholder="Add a quest for today..." value={newQuest} onChange={(e) => setNewQuest(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddQuest()} className="flex-1 px-3 py-2 rounded-xl border-2 border-[var(--card-border)] bg-transparent text-sm font-medium focus:border-primary focus:outline-none transition-colors" />
+            <input type="text" placeholder="Add a quest for today..." value={newQuest} onChange={(e) => setNewQuest(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddQuest()} className="flex-1 min-w-0 px-3 py-2 rounded-xl border-2 border-[var(--card-border)] bg-transparent text-sm font-medium focus:border-primary focus:outline-none transition-colors" />
             <Button variant="primary" size="sm" icon={<HiPlus />} onClick={handleAddQuest}>Add</Button>
           </div>
           {quests.length === 0 ? (
@@ -309,7 +309,7 @@ export default function DashboardContent() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-1">
           <h2 className="text-xs uppercase tracking-[0.15em] font-bold text-[var(--muted-foreground)] mb-3">Quick Actions</h2>
-          <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-2 lg:flex lg:flex-col gap-2">
             <Link href="/tasks"><Button variant="primary" size="sm" icon={<HiPlus />} className="w-full justify-start">New Quest</Button></Link>
             <Link href="/timer"><Button variant="coral" size="sm" icon={<HiPlay />} className="w-full justify-start">Focus Session</Button></Link>
             <Link href="/notes"><Button variant="teal" size="sm" icon={<HiPlus />} className="w-full justify-start">New Scroll</Button></Link>
@@ -494,7 +494,7 @@ export default function DashboardContent() {
                   {todayTotal > 0 && (<Badge variant={todayCompleted >= todayTotal ? 'teal' : 'amber'} size="sm">{todayCompleted}/{todayTotal}</Badge>)}
                 </div>
                 <div className="flex gap-2 mb-3">
-                  <input type="text" placeholder="Add a quest for today..." value={newQuest} onChange={(e) => setNewQuest(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddQuest()} className="flex-1 px-3 py-2 rounded-xl border-2 border-[var(--card-border)] bg-transparent text-sm font-medium focus:border-primary focus:outline-none transition-colors" />
+                  <input type="text" placeholder="Add a quest for today..." value={newQuest} onChange={(e) => setNewQuest(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddQuest()} className="flex-1 min-w-0 px-3 py-2 rounded-xl border-2 border-[var(--card-border)] bg-transparent text-sm font-medium focus:border-primary focus:outline-none transition-colors" />
                   <Button variant="primary" size="sm" icon={<HiPlus />} onClick={handleAddQuest}>Add</Button>
                 </div>
                 {quests.length === 0 ? (
@@ -515,12 +515,14 @@ export default function DashboardContent() {
               </Card>
 
               {/* Quick Actions */}
-              <div className="space-y-3">
-                <h2 className="text-xs uppercase tracking-[0.15em] font-bold text-[var(--muted-foreground)]">Quick Actions</h2>
-                <Link href="/tasks"><Button variant="primary" size="sm" icon={<HiPlus />} className="w-full justify-start">New Quest</Button></Link>
-                <Link href="/timer"><Button variant="coral" size="sm" icon={<HiPlay />} className="w-full justify-start">Focus Session</Button></Link>
-                <Link href="/notes"><Button variant="teal" size="sm" icon={<HiPlus />} className="w-full justify-start">New Scroll</Button></Link>
-                <Link href="/habits"><Button variant="amber" size="sm" icon={<HiLightningBolt />} className="w-full justify-start">Daily Quests</Button></Link>
+              <div>
+                <h2 className="text-xs uppercase tracking-[0.15em] font-bold text-[var(--muted-foreground)] mb-3">Quick Actions</h2>
+                <div className="grid grid-cols-2 lg:flex lg:flex-col gap-2">
+                  <Link href="/tasks"><Button variant="primary" size="sm" icon={<HiPlus />} className="w-full justify-start">New Quest</Button></Link>
+                  <Link href="/timer"><Button variant="coral" size="sm" icon={<HiPlay />} className="w-full justify-start">Focus Session</Button></Link>
+                  <Link href="/notes"><Button variant="teal" size="sm" icon={<HiPlus />} className="w-full justify-start">New Scroll</Button></Link>
+                  <Link href="/habits"><Button variant="amber" size="sm" icon={<HiLightningBolt />} className="w-full justify-start">Daily Quests</Button></Link>
+                </div>
               </div>
             </div>
 

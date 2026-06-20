@@ -77,7 +77,7 @@ function MainContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div
-      className={`flex-1 flex flex-col min-h-screen ${reduceMotion ? '' : 'transition-[margin-left] duration-250 ease-in-out'}`}
+      className={`flex-1 flex flex-col min-h-screen min-w-0 ${reduceMotion ? '' : 'transition-[margin-left] duration-250 ease-in-out'}`}
       style={{ marginLeft: sidebarMargin }}
     >
       {!focusMode && <Header />}

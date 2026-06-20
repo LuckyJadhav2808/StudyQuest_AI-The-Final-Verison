@@ -81,7 +81,7 @@ function LeaderboardTab() {
     <div className="space-y-3">
       {/* Top 3 Podium */}
       {leaders.length >= 3 && (
-        <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
           {[1, 0, 2].map((podiumIdx) => {
             const entry = leaders[podiumIdx];
             const rank = podiumIdx + 1;
@@ -96,20 +96,20 @@ function LeaderboardTab() {
                 <Card
                   padding="md"
                   hover={false}
-                  className={`text-center relative overflow-hidden ${
+                  className={`text-center relative overflow-hidden p-2 sm:p-5 ${
                     isCurrentUser ? 'ring-2 ring-primary shadow-[0_0_16px_var(--color-primary-glow)]' : ''
                   }`}
                   gradient={rank <= 3 ? `linear-gradient(135deg, ${rank === 1 ? 'rgba(251,191,36,0.1)' : rank === 2 ? 'rgba(148,163,184,0.1)' : 'rgba(251,146,60,0.1)'}, transparent)` : undefined}
                 >
-                  <div className="text-3xl mb-1">{RANK_MEDALS[rank]}</div>
+                  <div className="text-xl sm:text-3xl mb-1">{RANK_MEDALS[rank]}</div>
                   <img
                     src={getAvatarUrl(entry.avatarSeed || entry.uid, entry.avatarStyle || 'adventurer')}
                     alt={entry.displayName}
-                    className="w-12 h-12 rounded-full mx-auto mb-2 border-2 border-[var(--card-border)]"
+                    className="w-8 h-8 sm:w-12 sm:h-12 rounded-full mx-auto mb-1.5 sm:mb-2 border border-[var(--card-border)] sm:border-2"
                   />
-                  <p className="text-xs font-heading font-bold truncate">{entry.displayName}</p>
-                  <p className="text-lg font-heading font-black text-primary">{entry.xp.toLocaleString()}</p>
-                  <p className="text-[9px] text-[var(--muted-foreground)] uppercase tracking-wider font-bold">XP • Level {entry.level}</p>
+                  <p className="text-[10px] sm:text-xs font-heading font-bold truncate">{entry.displayName}</p>
+                  <p className="text-sm sm:text-lg font-heading font-black text-primary">{entry.xp.toLocaleString()}</p>
+                  <p className="text-[8px] sm:text-[9px] text-[var(--muted-foreground)] uppercase tracking-wider font-bold">XP • Lv.{entry.level}</p>
                   {isCurrentUser && (
                     <Badge variant="primary" size="sm" className="mt-1">You</Badge>
                   )}

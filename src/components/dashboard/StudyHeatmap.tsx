@@ -163,12 +163,10 @@ export default function StudyHeatmap({ xpByDate, days = 180 }: StudyHeatmapProps
                   const level = getLevel(xp, maxXp);
 
                   return (
-                    <motion.div
+                    <div
                       key={dateStr}
-                      className="flex-shrink-0 rounded-[2px] cursor-pointer relative group"
+                      className="flex-shrink-0 rounded-[2px] cursor-pointer relative group transition-all duration-150 hover:scale-150 hover:z-10"
                       style={{ width: CELL, height: CELL, backgroundColor: LEVEL_COLORS[level] }}
-                      whileHover={{ scale: 1.6, zIndex: 10 }}
-                      transition={{ duration: 0.15 }}
                     >
                       {/* Tooltip */}
                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 pointer-events-none">
@@ -186,7 +184,7 @@ export default function StudyHeatmap({ xpByDate, days = 180 }: StudyHeatmapProps
                           }}
                         />
                       )}
-                    </motion.div>
+                    </div>
                   );
                 })}
               </div>

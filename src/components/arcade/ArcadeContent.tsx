@@ -272,12 +272,12 @@ export default function ArcadeContent() {
             <motion.div whileHover={{ y: -4 }} whileTap={{ scale: 0.98 }} className="md:col-span-2">
               <Card padding="lg" hover className="cursor-pointer h-full relative overflow-hidden" onClick={() => setActiveGame('catch')}>
                 <div className="absolute inset-0 bg-gradient-to-br from-teal/10 via-transparent to-amber/10 pointer-events-none" />
-                <div className="flex items-center gap-6 relative z-10">
+                <div className="flex flex-col sm:flex-row items-center text-center sm:text-left gap-4 sm:gap-6 relative z-10">
                   <motion.span className="text-6xl block flex-shrink-0" animate={{ y: [0, -8, 0] }} transition={{ duration: 1.8, repeat: Infinity }}>🐾</motion.span>
                   <div className="flex-1">
                     <h2 className="text-xl font-heading font-black">Pet Catch</h2>
                     <p className="text-sm text-[var(--muted-foreground)] mt-1">Move your pet to catch falling food & treats. Avoid bombs!</p>
-                    <div className="flex gap-2 mt-2 flex-wrap">
+                    <div className="flex gap-2 mt-2 flex-wrap justify-center sm:justify-start">
                       <Badge variant="teal" size="sm">❤️ 3 Lives</Badge>
                       <Badge variant="amber" size="sm">🔥 Combos</Badge>
                       <Badge variant="primary" size="sm">🐾 Pet Mood</Badge>
@@ -356,7 +356,7 @@ export default function ArcadeContent() {
 
         {/* Stats Bar */}
         {results.length > 0 && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             <Card padding="sm" hover={false}>
               <div className="text-center">
                 <p className="text-[9px] uppercase tracking-wider text-[var(--muted-foreground)] font-bold">Avg WPM</p>
@@ -473,7 +473,7 @@ export default function ArcadeContent() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-3 gap-4 max-w-sm mx-auto">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 max-w-sm mx-auto">
                 <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
                   <HiLightningBolt className="text-primary mx-auto mb-1" size={20} />
                   <p className="text-xl font-heading font-black text-primary">{lastResult.wpm}</p>

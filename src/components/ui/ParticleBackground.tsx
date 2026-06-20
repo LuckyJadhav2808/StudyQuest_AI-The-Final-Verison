@@ -10,7 +10,7 @@ import { useTheme } from '@/context/ThemeContext';
  * Pointer-events: none, aria-hidden for zero interaction.
  */
 
-const PARTICLE_COUNT = 22;
+const PARTICLE_COUNT = 8;
 
 interface Particle {
   id: number;
@@ -83,6 +83,7 @@ export default function ParticleBackground() {
             background: `radial-gradient(circle, ${p.color}, ${p.color}88)`,
             filter: `blur(${p.blur}px)`,
             opacity: p.opacity,
+            willChange: 'transform, opacity',
           }}
           animate={{
             x: [0, p.driftX, -p.driftX * 0.5, p.driftX * 0.3, 0],

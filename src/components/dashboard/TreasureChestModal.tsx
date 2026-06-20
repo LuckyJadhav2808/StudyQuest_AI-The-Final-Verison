@@ -105,8 +105,9 @@ export default function TreasureChestModal({ isOpen, onClose }: TreasureChestMod
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'rgba(0, 0, 0, 0.7)',
-            backdropFilter: 'blur(8px)',
+            background: 'rgba(0, 0, 0, 0.8)',
+            backdropFilter: 'blur(3px)',
+            willChange: 'opacity',
           }}
         >
           <motion.div
@@ -188,6 +189,7 @@ export default function TreasureChestModal({ isOpen, onClose }: TreasureChestMod
                   width: '100%',
                   height: '100%',
                   filter: !canClaim && phase === 'ready' ? 'grayscale(0.7) opacity(0.5)' : 'none',
+                  willChange: 'transform',
                 }}
               >
                 {phase === 'reveal' ? reward?.emoji : '🎁'}
@@ -214,6 +216,7 @@ export default function TreasureChestModal({ isOpen, onClose }: TreasureChestMod
                       pointerEvents: 'none',
                       marginLeft: '-8px',
                       marginTop: '-8px',
+                      willChange: 'transform, opacity',
                     }}
                   >
                     {p.emoji}
