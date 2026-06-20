@@ -149,7 +149,7 @@ export default function TimerContent() {
             <AnimatePresence>
               {showSettings && (
                 <motion.div
-                  className="absolute right-0 top-12 w-72 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-2xl shadow-xl z-50 overflow-hidden"
+                  className="absolute right-0 top-12 w-[min(288px,calc(100vw-2rem))] bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-2xl shadow-xl z-50 overflow-hidden"
                   initial={{ opacity: 0, y: -10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -10, scale: 0.95 }}

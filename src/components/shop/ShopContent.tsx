@@ -121,7 +121,7 @@ export default function ShopContent() {
 
         {/* Gacha Section */}
         <Card padding="lg" hover={false}>
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center gap-4 md:gap-6">
             <motion.button
               onClick={handleGacha}
               disabled={gachaSpinning || coins < 50}

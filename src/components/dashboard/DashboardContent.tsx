@@ -48,7 +48,7 @@ function getTimeOfDay() {
 
 export default function DashboardContent() {
   const { user, profile } = useAuthContext();
-  const { gamification, checkStreak, awardXP, xpHistory } = useGamification();
+  const { gamification, awardXP, xpHistory } = useGamification();
   const { tasks } = useTasks();
   const { friends, incomingRequests, acceptRequest, rejectRequest } = useFriends();
   const { quests, addQuest, toggleQuest, deleteQuest, todayCompleted, todayTotal } = useDailyQuests();
@@ -77,11 +77,8 @@ export default function DashboardContent() {
   const [showNotifs, setShowNotifs] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (gamification) {
-      checkStreak();
-    }
-  }, [checkStreak, gamification]);
+
+
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -149,69 +146,74 @@ export default function DashboardContent() {
   const widgetMap = useMemo(() => ({
     /* ── Welcome Banner ── */
     'welcome': (
-      <div className={`relative overflow-hidden rounded-[20px] bg-gradient-to-r ${timeOfDay.gradient} p-6 md:p-8 border-2 ${timeOfDay.border}`}>
-        <div className="relative z-10 flex items-start gap-4">
-          <div className="hidden sm:flex flex-shrink-0 w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary items-center justify-center text-3xl shadow-lg animate-float">{timeOfDay.emoji}</div>
-          <div className="flex-1">
-            <h1 className="text-2xl md:text-3xl font-heading font-black mb-1">{timeOfDay.greeting}, {profile?.displayName?.split(' ')[0] || 'Adventurer'}! <span className={timeOfDay.accent}>{timeOfDay.tip}</span></h1>
-            <p className="text-sm text-[var(--muted-foreground)] max-w-xl">{streakMessage}</p>
-          </div>
-          {/* Notification Bell */}
-          <div className="relative" ref={notifRef}>
-            <motion.button onClick={() => setShowNotifs(!showNotifs)} className={`p-2.5 rounded-xl border-2 transition-colors relative ${showNotifs ? 'border-primary bg-primary/10' : 'border-[var(--card-border)] hover:border-primary/30'}`} whileTap={{ scale: 0.9 }}>
-              <HiBell size={20} />
-              {incomingRequests.length > 0 && (<span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-coral text-white text-[9px] font-bold flex items-center justify-center">{incomingRequests.length}</span>)}
-            </motion.button>
-            <AnimatePresence>
-              {showNotifs && (
-                <motion.div className="absolute right-0 top-12 w-72 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-2xl shadow-xl z-50 overflow-hidden" initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }}>
-                  <div className="px-4 py-3 border-b-2 border-[var(--card-border)]"><p className="text-xs font-heading font-bold">Notifications</p></div>
-                  {incomingRequests.length === 0 ? (
-                    <div className="p-4 text-center"><p className="text-xs text-[var(--muted-foreground)]">All clear! No new notifications 🎉</p></div>
-                  ) : (
-                    <div className="max-h-60 overflow-y-auto">
-                      {incomingRequests.map((req) => (
-                        <div key={req.id} className="px-4 py-3 border-b border-[var(--card-border)]/50 last:border-0">
-                          <div className="flex items-center gap-2 mb-2">
-                            <img src={getAvatarUrl(req.fromAvatar, req.fromAvatarStyle)} alt="" className="w-7 h-7 rounded-full" />
-                            <p className="text-xs font-semibold flex-1">{req.fromName} wants to be friends!</p>
-                          </div>
-                          <div className="flex gap-1.5">
-                            <button onClick={() => { acceptRequest(req); toast.success(`You and ${req.fromName} are now friends!`); }} className="flex-1 px-2 py-1 bg-teal/15 text-teal text-[10px] font-bold rounded-lg hover:bg-teal/25 transition-colors">Accept</button>
-                            <button onClick={() => { rejectRequest(req.id); toast('Request declined'); }} className="flex-1 px-2 py-1 bg-coral/15 text-coral text-[10px] font-bold rounded-lg hover:bg-coral/25 transition-colors">Decline</button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-          {/* Treasure Chest Button */}
-          <motion.button
-            className={`hidden sm:flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all cursor-pointer ${
-              chestAvailable
-                ? 'bg-amber-500/15 border-amber-400/30 hover:bg-amber-500/25 animate-pulse-scale'
-                : 'bg-[var(--card-border)]/30 border-[var(--card-border)] opacity-60'
-            }`}
-            onClick={() => { playClick(); setShowTreasureChest(true); }}
-            title={chestAvailable ? 'Open Daily Treasure Chest!' : 'Already claimed today'}
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <span className="text-lg">{chestAvailable ? '🎁' : '📦'}</span>
-            <p className={`text-xs font-bold uppercase tracking-wider ${chestAvailable ? 'text-amber-500' : 'text-[var(--muted-foreground)]'}`}>
-              {chestAvailable ? 'Daily Chest!' : 'Claimed'}
-            </p>
-            {chestAvailable && <span className="text-sm animate-pulse">✨</span>}
-          </motion.button>
-          {gamification && gamification.streak > 0 && (
-            <div className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/15 border-2 border-orange-500/20 animate-pulse-scale">
-              <HiFire className="text-orange-500" size={24} />
-              <p className="text-xs font-bold text-orange-500 uppercase tracking-wider">{gamification.streak} Day Streak</p>
+      <div className={`relative overflow-hidden rounded-[20px] bg-gradient-to-r ${timeOfDay.gradient} p-4 md:p-8 border-2 ${timeOfDay.border}`}>
+        <div className="relative z-10">
+          {/* Top row: emoji + greeting + bell */}
+          <div className="flex items-start gap-3">
+            <div className="hidden sm:flex flex-shrink-0 w-14 h-14 rounded-full bg-gradient-to-br from-primary to-secondary items-center justify-center text-2xl shadow-lg animate-float">{timeOfDay.emoji}</div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl md:text-3xl font-heading font-black mb-1 leading-tight">{timeOfDay.greeting}, {profile?.displayName?.split(' ')[0] || 'Adventurer'}! <span className={timeOfDay.accent}>{timeOfDay.tip}</span></h1>
+              <p className="text-sm text-[var(--muted-foreground)] truncate md:whitespace-normal">{streakMessage}</p>
             </div>
-          )}
+            {/* Notification Bell */}
+            <div className="relative flex-shrink-0" ref={notifRef}>
+              <motion.button onClick={() => setShowNotifs(!showNotifs)} className={`p-2.5 rounded-xl border-2 transition-colors relative ${showNotifs ? 'border-primary bg-primary/10' : 'border-[var(--card-border)] hover:border-primary/30'}`} whileTap={{ scale: 0.9 }}>
+                <HiBell size={20} />
+                {incomingRequests.length > 0 && (<span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-coral text-white text-[9px] font-bold flex items-center justify-center">{incomingRequests.length}</span>)}
+              </motion.button>
+              <AnimatePresence>
+                {showNotifs && (
+                  <motion.div className="absolute right-0 top-12 w-[min(288px,calc(100vw-2rem))] bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-2xl shadow-xl z-50 overflow-hidden" initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }}>
+                    <div className="px-4 py-3 border-b-2 border-[var(--card-border)]"><p className="text-xs font-heading font-bold">Notifications</p></div>
+                    {incomingRequests.length === 0 ? (
+                      <div className="p-4 text-center"><p className="text-xs text-[var(--muted-foreground)]">All clear! No new notifications 🎉</p></div>
+                    ) : (
+                      <div className="max-h-60 overflow-y-auto">
+                        {incomingRequests.map((req) => (
+                          <div key={req.id} className="px-4 py-3 border-b border-[var(--card-border)]/50 last:border-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <img src={getAvatarUrl(req.fromAvatar, req.fromAvatarStyle)} alt="" className="w-7 h-7 rounded-full" />
+                              <p className="text-xs font-semibold flex-1">{req.fromName} wants to be friends!</p>
+                            </div>
+                            <div className="flex gap-1.5">
+                              <button onClick={() => { acceptRequest(req); toast.success(`You and ${req.fromName} are now friends!`); }} className="flex-1 px-2 py-1 bg-teal/15 text-teal text-[10px] font-bold rounded-lg hover:bg-teal/25 transition-colors">Accept</button>
+                              <button onClick={() => { rejectRequest(req.id); toast('Request declined'); }} className="flex-1 px-2 py-1 bg-coral/15 text-coral text-[10px] font-bold rounded-lg hover:bg-coral/25 transition-colors">Decline</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+          {/* Bottom row: Chest + Streak — always visible on mobile */}
+          <div className="flex items-center gap-2 mt-3 flex-wrap">
+            <motion.button
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border-2 transition-all cursor-pointer ${
+                chestAvailable
+                  ? 'bg-amber-500/15 border-amber-400/30 hover:bg-amber-500/25 animate-pulse-scale'
+                  : 'bg-[var(--card-border)]/30 border-[var(--card-border)] opacity-60'
+              }`}
+              onClick={() => { playClick(); setShowTreasureChest(true); }}
+              title={chestAvailable ? 'Open Daily Treasure Chest!' : 'Already claimed today'}
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <span className="text-base">{chestAvailable ? '🎁' : '📦'}</span>
+              <p className={`text-xs font-bold uppercase tracking-wider ${chestAvailable ? 'text-amber-500' : 'text-[var(--muted-foreground)]'}`}>
+                {chestAvailable ? 'Daily Chest!' : 'Claimed'}
+              </p>
+              {chestAvailable && <span className="text-sm animate-pulse">✨</span>}
+            </motion.button>
+            {gamification && gamification.streak > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-500/15 border-2 border-orange-500/20 animate-pulse-scale">
+                <HiFire className="text-orange-500" size={18} />
+                <p className="text-xs font-bold text-orange-500 uppercase tracking-wider">{gamification.streak} Day Streak</p>
+              </div>
+            )}
+          </div>
         </div>
         <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/10 rounded-full blur-2xl" />
         <div className="absolute -bottom-10 right-20 w-32 h-32 bg-secondary/10 rounded-full blur-2xl" />

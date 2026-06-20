@@ -199,7 +199,7 @@ export default function TimetableContent() {
               <AnimatePresence>
                 {showSettings && (
                   <motion.div
-                    className="absolute right-0 top-12 w-64 bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-2xl shadow-xl z-50 overflow-hidden"
+                    className="absolute right-0 top-12 w-[min(256px,calc(100vw-2rem))] bg-[var(--card-bg)] border-2 border-[var(--card-border)] rounded-2xl shadow-xl z-50 overflow-hidden"
                     initial={{ opacity: 0, y: -10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -10, scale: 0.95 }}
@@ -282,6 +282,10 @@ export default function TimetableContent() {
           <div className="flex flex-col lg:flex-row gap-3">
             {/* Main Grid */}
             <Card padding="none" hover={false} className="overflow-x-auto flex-1">
+              {/* Mobile scroll hint */}
+              <p className="md:hidden text-[10px] text-[var(--muted-foreground)] text-center py-1.5 border-b border-[var(--card-border)]/50">
+                ← Swipe left/right to see all days →
+              </p>
               <div className="min-w-[700px]">
                 {/* Day headers */}
                 <div className="grid grid-cols-8 border-b-2 border-[var(--card-border)]">

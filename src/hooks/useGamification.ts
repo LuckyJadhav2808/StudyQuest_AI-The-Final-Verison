@@ -205,54 +205,79 @@ export function useGamification(): UseGamificationReturn {
   const xpHistoryRef = useRef<Record<string, number>>({});
   useEffect(() => { xpHistoryRef.current = xpHistory; }, [xpHistory]);
 
-  // Check and update daily streak with self-healing dynamic calculation
+  // Guard: prevent redundant checkStreak calls within the same calendar day
+  const checkedTodayRef = useRef<string>('');
+
+  /**
+   * Check and update the user's daily streak.
+   *
+   * Rules:
+   * - A "day" is defined by the user's local calendar date (see dateUtils).
+   * - A streak continues if the user was active yesterday.
+   * - "Active" means: visited any page (lastActiveDate) OR earned XP (xpLog).
+   * - If neither happened yesterday, the streak resets to 1.
+   * - Uses a Firestore transaction to prevent race conditions.
+   */
   const checkStreak = useCallback(async () => {
     const g = gamRef.current;
     if (!user || !g || !xpHistoryLoaded) return;
 
     const today = getLocalDateString();
-    
-    // If already active today, check if we need to heal the specific user's streak
+
+    // Skip if we've already checked today in this session
+    if (checkedTodayRef.current === today) return;
+
+    // Already processed today (persisted in Firestore)
     if (g.lastActiveDate === today) {
-      if (user.uid === 'CRnW5ZkYAuXKJStdkQsVZtYZkP53' && g.streak < 17) {
-        const ref = getGamificationRef(user.uid);
-        await setDocument(ref, {
-          streak: 17,
-          longestStreak: Math.max(g.longestStreak || 0, 17),
-        }).catch(err => console.error('Failed to heal streak:', err));
-      }
-      return; // Already active today
+      checkedTodayRef.current = today;
+      return;
     }
 
     const ref = getGamificationRef(user.uid);
     const yesterday = getLocalYesterdayDateString();
     const history = xpHistoryRef.current;
 
-    // Active yesterday if they logged in/visited OR earned study XP yesterday
-    const wasActiveYesterday = g.lastActiveDate === yesterday || (history[yesterday] || 0) > 0;
+    // Determine if the user was active yesterday:
+    // 1. They visited a page (lastActiveDate was set to yesterday), OR
+    // 2. They earned XP yesterday (xpLog has an entry for yesterday)
+    const wasActiveYesterday =
+      g.lastActiveDate === yesterday || (history[yesterday] || 0) > 0;
 
     let newStreak: number;
     if (wasActiveYesterday) {
       newStreak = (g.streak || 0) + 1;
     } else if (!g.lastActiveDate) {
+      // Brand-new user, first ever session
       newStreak = 1;
     } else {
-      newStreak = 1; // Streak broken
-    }
-
-    // Direct manual recovery override for this user's streak of 16 days + today
-    if (user.uid === 'CRnW5ZkYAuXKJStdkQsVZtYZkP53' && newStreak < 17) {
-      newStreak = 17;
+      // Streak broken — missed yesterday entirely
+      newStreak = 1;
     }
 
     const longestStreak = Math.max(g.longestStreak || 0, newStreak);
 
-    if (g.streak !== newStreak || g.lastActiveDate !== today) {
-      await setDocument(ref, {
-        streak: newStreak,
-        longestStreak,
-        lastActiveDate: today,
-      }).catch(err => console.error('Failed to save streak:', err));
+    // Use a transaction so concurrent calls (multiple tabs, Providers + Dashboard)
+    // don't double-increment or clobber each other's writes.
+    try {
+      await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(ref);
+        if (!docSnap.exists()) return;
+
+        const current = docSnap.data() as GamificationData;
+
+        // Another call (tab/component) may have already updated today
+        if (current.lastActiveDate === today) return;
+
+        transaction.set(ref, {
+          streak: newStreak,
+          longestStreak: Math.max(current.longestStreak || 0, newStreak),
+          lastActiveDate: today,
+        }, { merge: true });
+      });
+
+      checkedTodayRef.current = today;
+    } catch (err) {
+      console.error('Failed to update streak:', err);
     }
   }, [user, xpHistoryLoaded]);
 
@@ -265,3 +290,4 @@ export function useGamification(): UseGamificationReturn {
     checkStreak 
   };
 }
+
