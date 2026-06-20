@@ -102,7 +102,13 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
   // Global background pet evolution check
   const { pet, hasPet, checkEvolution } = usePet();
-  const { gamification } = useGamification();
+  const { gamification, checkStreak } = useGamification();
+
+  useEffect(() => {
+    if (gamification && checkStreak) {
+      checkStreak();
+    }
+  }, [checkStreak, gamification]);
 
   useEffect(() => {
     if (!hasPet || !pet || pet.stage >= 4 || !gamification) return;

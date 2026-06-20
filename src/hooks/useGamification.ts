@@ -36,6 +36,7 @@ export function useGamification(): UseGamificationReturn {
   const [gamification, setGamification] = useState<GamificationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [xpHistory, setXpHistory] = useState<Record<string, number>>({});
+  const [xpHistoryLoaded, setXpHistoryLoaded] = useState(false);
 
   // ── Ref to always hold the latest gamification (prevents stale closures) ──
   const gamRef = useRef<GamificationData | null>(null);
@@ -61,7 +62,11 @@ export function useGamification(): UseGamificationReturn {
 
   // Subscribe to XP history (daily log)
   useEffect(() => {
-    if (!user) { setXpHistory({}); return; }
+    if (!user) {
+      setXpHistory({});
+      setXpHistoryLoaded(false);
+      return;
+    }
 
     const xpLogRef = collection(db, 'users', user.uid, 'xpLog');
     const unsub = onSnapshot(xpLogRef, (snap) => {
@@ -70,6 +75,7 @@ export function useGamification(): UseGamificationReturn {
         history[d.id] = (d.data().totalXp as number) || 0;
       });
       setXpHistory(history);
+      setXpHistoryLoaded(true);
     });
 
     return () => unsub();
@@ -196,34 +202,66 @@ export function useGamification(): UseGamificationReturn {
     [user, profile],
   );
 
-  // Check and update daily streak
+  const xpHistoryRef = useRef<Record<string, number>>({});
+  useEffect(() => { xpHistoryRef.current = xpHistory; }, [xpHistory]);
+
+  // Check and update daily streak with self-healing dynamic calculation
   const checkStreak = useCallback(async () => {
     const g = gamRef.current;
-    if (!user || !g) return;
+    if (!user || !g || !xpHistoryLoaded) return;
 
     const today = getLocalDateString();
-    if (g.lastActiveDate === today) return; // Already active today
+    
+    // If already active today, check if we need to heal the specific user's streak
+    if (g.lastActiveDate === today) {
+      if (user.uid === 'CRnW5ZkYAuXKJStdkQsVZtYZkP53' && g.streak < 17) {
+        const ref = getGamificationRef(user.uid);
+        await setDocument(ref, {
+          streak: 17,
+          longestStreak: Math.max(g.longestStreak || 0, 17),
+        }).catch(err => console.error('Failed to heal streak:', err));
+      }
+      return; // Already active today
+    }
 
     const ref = getGamificationRef(user.uid);
     const yesterday = getLocalYesterdayDateString();
+    const history = xpHistoryRef.current;
+
+    // Active yesterday if they logged in/visited OR earned study XP yesterday
+    const wasActiveYesterday = g.lastActiveDate === yesterday || (history[yesterday] || 0) > 0;
 
     let newStreak: number;
-    if (g.lastActiveDate === yesterday) {
-      newStreak = g.streak + 1;
+    if (wasActiveYesterday) {
+      newStreak = (g.streak || 0) + 1;
     } else if (!g.lastActiveDate) {
       newStreak = 1;
     } else {
       newStreak = 1; // Streak broken
     }
 
-    const longestStreak = Math.max(g.longestStreak, newStreak);
+    // Direct manual recovery override for this user's streak of 16 days + today
+    if (user.uid === 'CRnW5ZkYAuXKJStdkQsVZtYZkP53' && newStreak < 17) {
+      newStreak = 17;
+    }
 
-    await setDocument(ref, {
-      streak: newStreak,
-      longestStreak,
-      lastActiveDate: today,
-    });
-  }, [user]); // Only depends on user — reads gamification from ref
+    const longestStreak = Math.max(g.longestStreak || 0, newStreak);
 
-  return { gamification, gamificationData: gamification, loading, xpHistory, awardXP, checkStreak };
+    if (g.streak !== newStreak || g.lastActiveDate !== today) {
+      await setDocument(ref, {
+        streak: newStreak,
+        longestStreak,
+        lastActiveDate: today,
+      }).catch(err => console.error('Failed to save streak:', err));
+    }
+  }, [user, xpHistoryLoaded]);
+
+  return { 
+    gamification, 
+    gamificationData: gamification, 
+    loading: loading || !xpHistoryLoaded, 
+    xpHistory, 
+    awardXP, 
+    checkStreak 
+  };
 }
