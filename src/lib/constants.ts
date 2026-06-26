@@ -591,9 +591,23 @@ export const SKILL_TREE_NODES: SkillNodeDef[] = [
 export const ADMIN_EMAILS = ['luckymanojjadhav@gmail.com'];
 
 // ----- Patch Notes -----
-export const CURRENT_PATCH_VERSION = '1.9.0';
+export const CURRENT_PATCH_VERSION = '2.0.0';
 
 export const PATCH_NOTES: PatchNote[] = [
+  {
+    version: '2.0.0',
+    title: 'The Smart Notes, KaTeX Math & Voice Update',
+    date: '2026-06-26',
+    entries: [
+      { type: 'feature', text: '🎙️ Voice Dictation & Formatting — Hands-free notes dictation with smart commands (header 1, bold, italic, bullet) and spoken punctuation (full stop, question mark, comma, colon, semicolon, next line).' },
+      { type: 'feature', text: '🧮 ∑ Math Palette & Clicks — Categorized math formula palette to insert LaTeX equations. Click any equation in the editor to re-open the palette and edit it in place.' },
+      { type: 'feature', text: '📊 Smart Comparisons — Type or dictate "compare A versus B" or "/compare A vs B" to instantly insert AI-generated aspect-by-aspect comparison blocks.' },
+      { type: 'feature', text: '✨ Selection Beautification — Format highlighted portions of text with AI, leaving the rest of the document untouched.' },
+      { type: 'improvement', text: '📄 95% Smaller PDFs — PDF note exports now use compressed JPEG instead of lossless PNG, reducing file sizes from 52MB to ~1.5MB.' },
+      { type: 'improvement', text: '✂️ Smart PDF Page Breaks — Automatically detects layout page splits and inserts spacers to prevent text lines and formulas from being cut in half.' },
+      { type: 'improvement', text: '📏 Larger Writing Canvas — Expanded the notes editor vertical dimensions for a roomier, more comfortable writing experience.' },
+    ],
+  },
   {
     version: '1.9.0',
     title: 'The Companion Evolution & Living Items Update',

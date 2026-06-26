@@ -131,7 +131,7 @@ export default function LevelUpOverlay() {
             <motion.h2
               className="text-5xl md:text-7xl font-heading font-black tracking-tight"
               style={{
-                background: 'linear-gradient(135deg, #FFD166, #FF6B6B, #EC4899, #7C3AED)',
+                backgroundImage: 'linear-gradient(135deg, #FFD166, #FF6B6B, #EC4899, #7C3AED)',
                 backgroundClip: 'text',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',

@@ -666,15 +666,15 @@ h4 { font-size: 1.125rem; }
   border: none;
   font-family: 'Inter', system-ui, sans-serif;
   font-size: 14px;
-  min-height: 400px;
-  max-height: 65vh;
+  min-height: 550px;
+  max-height: 75vh;
   overflow-y: auto;
 }
 
 .quill-wrapper .ql-editor {
   padding: 24px;
   line-height: 1.8;
-  min-height: 400px;
+  min-height: 550px;
   color: var(--foreground);
 }
 
@@ -1562,3 +1562,120 @@ pre[contenteditable], code[contenteditable] {
   background: var(--card-bg);
 }
 
+/* ============================================================
+   KaTeX Math Formula Rendering
+   ============================================================ */
+
+.katex-block {
+  text-align: center;
+  margin: 16px 0;
+  padding: 12px 8px;
+  font-size: 1.25em;
+  overflow-x: auto;
+}
+
+.katex-inline .katex {
+  font-size: 1em;
+}
+
+.katex-block .katex {
+  font-size: 1.3em;
+}
+
+/* Ensure KaTeX doesn't break layout */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* ============================================================
+   Comparison Tables (from /compare command & AI Beautify)
+   ============================================================ */
+
+.studyquest-markdown table,
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 0.85em;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid var(--card-border, rgba(255,255,255,0.08));
+}
+
+.studyquest-markdown table thead th,
+.prose table thead th {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(99, 102, 241, 0.1));
+  padding: 10px 14px;
+  text-align: left;
+  font-weight: 700;
+  font-size: 0.8em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid var(--card-border, rgba(255,255,255,0.08));
+  color: var(--foreground);
+}
+
+.studyquest-markdown table tbody td,
+.prose table tbody td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--card-border, rgba(255,255,255,0.05));
+  color: var(--foreground);
+  line-height: 1.5;
+}
+
+.studyquest-markdown table tbody tr:nth-child(even),
+.prose table tbody tr:nth-child(even) {
+  background: rgba(124, 58, 237, 0.03);
+}
+
+.studyquest-markdown table tbody tr:hover,
+.prose table tbody tr:hover {
+  background: rgba(124, 58, 237, 0.08);
+  transition: background 0.15s ease;
+}
+
+.studyquest-markdown table tbody tr:last-child td,
+.prose table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ============================================================
+   Math Embed Capsule styling (Stitch Premium Aesthetic)
+   ============================================================ */
+.studyquest-math-embed {
+  display: inline-block;
+  cursor: pointer;
+  background: var(--card-bg);
+  border: 1.5px solid var(--card-border);
+  border-radius: var(--radius-sm, 8px);
+  padding: 2px 8px;
+  margin: 0 4px;
+  color: var(--foreground) !important;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.95em;
+  font-weight: 600;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: all;
+  vertical-align: middle;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.studyquest-math-embed:hover {
+  background: rgba(124, 58, 237, 0.08);
+  border-color: var(--color-primary);
+  box-shadow: 0 4px 12px var(--color-primary-glow);
+  transform: translateY(-1px);
+}
+
+.dark .studyquest-math-embed:hover,
+.ocean .studyquest-math-embed:hover,
+.cyberpunk .studyquest-math-embed:hover,
+.forest .studyquest-math-embed:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* Fix list positioning */
+li .studyquest-math-embed {
+  margin-bottom: 2px;
+}

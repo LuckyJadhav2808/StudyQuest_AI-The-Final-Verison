@@ -9,13 +9,171 @@ import {
   HiChevronLeft, HiClock, HiDownload, HiSparkles,
   HiLightningBolt, HiRefresh, HiInformationCircle, HiShare,
   HiClipboardCopy, HiX, HiReply, HiCheck, HiAcademicCap,
+  HiBeaker, HiMicrophone,
 } from 'react-icons/hi';
 import QuizModal from '@/components/notes/QuizModal';
 import { marked } from 'marked';
 import 'react-quill-new/dist/quill.snow.css';
 import { autocorrectWord, isMisspelled, getSpellingSuggestions, cleanWord, addToCustomDictionary } from '@/lib/spellcheck';
 
-const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false, loading: () => <div className="h-[400px] flex items-center justify-center text-sm text-[var(--muted-foreground)]">Loading editor...</div> }) as any;
+const sanitizeHtmlForQuill = (html: string): string => {
+  if (!html) return '';
+  // Quick pre-check: if it has no elements/classes that could crash Quill, return as-is
+  if (!html.includes('katex') && !html.includes('studyquest-math-embed') && !html.includes('math-field')) {
+    return html;
+  }
+
+  if (typeof window === 'undefined') return html;
+
+  try {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+
+    // 1. Clean up studyquest-math-embed / math-field: strip all internal children so it's a clean leaf
+    const mathEmbeds = tempDiv.querySelectorAll('.studyquest-math-embed, math-field');
+    mathEmbeds.forEach((el) => {
+      el.innerHTML = '';
+    });
+
+    // 2. Remove standard KaTeX rendered elements (which may have been pasted or saved)
+    const katexElements = tempDiv.querySelectorAll('.katex');
+    katexElements.forEach((el) => {
+      const annotation = el.querySelector('annotation[encoding="application/x-tex"]');
+      if (annotation && annotation.textContent) {
+        const latex = annotation.textContent.trim();
+        const parent = el.parentElement;
+        const isBlock = parent?.classList.contains('katex-block') || parent?.classList.contains('katex-display') || el.classList.contains('katex-display');
+
+        const newText = isBlock ? `$$${latex}$$` : `$${latex}$`;
+        const textNode = document.createTextNode(newText);
+        el.parentNode?.replaceChild(textNode, el);
+      } else {
+        el.parentNode?.removeChild(el);
+      }
+    });
+
+    // 3. Remove other loose KaTeX wraps
+    const katexWraps = tempDiv.querySelectorAll('.katex-block, .katex-inline, .katex-display');
+    katexWraps.forEach((el) => {
+      if (el.parentNode) {
+        if (!el.textContent?.trim()) {
+          el.parentNode.removeChild(el);
+        } else {
+          const textNode = document.createTextNode(el.textContent);
+          el.parentNode.replaceChild(textNode, el);
+        }
+      }
+    });
+
+    return tempDiv.innerHTML;
+  } catch (e) {
+    console.warn('Failed to sanitize HTML for Quill:', e);
+    return html;
+  }
+};
+
+const ReactQuill = dynamic(
+  async () => {
+    const module = await import('react-quill-new');
+    const Quill = module.default.Quill || (module as any).Quill;
+    const Embed = Quill.import('blots/embed') as any;
+
+    class MathEmbed extends Embed {
+      static blotName = 'math';
+      static tagName = 'math-field';
+
+      static create(value: any) {
+        const node = value instanceof HTMLElement ? value : super.create(value);
+        let latex = '';
+        let isBlock = false;
+
+        if (value instanceof HTMLElement) {
+          latex = value.getAttribute('data-latex') || '';
+          isBlock = value.getAttribute('data-block') === 'true';
+        } else if (value && typeof value === 'object') {
+          latex = value.latex || '';
+          isBlock = value.isBlock === true;
+        } else if (typeof value === 'string') {
+          latex = value;
+        }
+
+        node.setAttribute('data-latex', latex);
+        node.setAttribute('data-block', isBlock ? 'true' : 'false');
+        node.className = 'studyquest-math-embed';
+        node.contentEditable = 'false';
+
+        // Check if shadow root already exists (to avoid duplicate attachment)
+        let shadow = node.shadowRoot;
+        let container;
+        if (!shadow && node.attachShadow) {
+          shadow = node.attachShadow({ mode: 'open' });
+          
+          // Load KaTeX stylesheet inside shadow root
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css';
+          shadow.appendChild(link);
+
+          // Inline styles for display layouts and color inheritance
+          const style = document.createElement('style');
+          style.textContent = `
+            .katex-display {
+              margin: 8px 0;
+              display: block;
+            }
+            .studyquest-math-container {
+              display: inline-block;
+              color: inherit !important;
+            }
+            .katex {
+              color: inherit !important;
+            }
+          `;
+          shadow.appendChild(style);
+
+          container = document.createElement('span');
+          container.className = 'studyquest-math-container';
+          shadow.appendChild(container);
+        } else if (shadow) {
+          container = shadow.querySelector('.studyquest-math-container');
+        }
+
+        if (container) {
+          // Render KaTeX
+          import('katex').then((katexMod) => {
+            const katex = katexMod.default;
+            try {
+              katex.render(latex, container, {
+                displayMode: isBlock,
+                throwOnError: false,
+              });
+            } catch {
+              container.textContent = latex;
+            }
+          });
+        } else if (!node.attachShadow) {
+          // Fallback
+          node.textContent = latex;
+        }
+        return node;
+      }
+
+      static value(node: HTMLElement) {
+        return {
+          latex: node.getAttribute('data-latex') || '',
+          isBlock: node.getAttribute('data-block') === 'true',
+        };
+      }
+    }
+
+    Quill.register(MathEmbed, true);
+    return module.default;
+  },
+  {
+    ssr: false,
+    loading: () => <div className="h-[400px] flex items-center justify-center text-sm text-[var(--muted-foreground)]">Loading editor...</div>
+  }
+) as any;
 
 const QUILL_MODULES = {
   toolbar: [
@@ -30,6 +188,7 @@ const QUILL_MODULES = {
     [{ color: [] }, { background: [] }],
     ['clean'],
   ],
+  table: true,
   history: { delay: 500, maxStack: 100, userOnly: true },
   keyboard: {
     bindings: {
@@ -40,7 +199,12 @@ const QUILL_MODULES = {
     },
   },
 };
-const QUILL_FORMATS = ['header', 'size', 'bold', 'italic', 'underline', 'strike', 'list', 'indent', 'align', 'blockquote', 'code-block', 'link', 'image', 'color', 'background'];
+const QUILL_FORMATS = [
+  'header', 'size', 'bold', 'italic', 'underline', 'strike',
+  'list', 'indent', 'align', 'blockquote', 'code-block',
+  'link', 'image', 'color', 'background',
+  'table', 'math'
+];
 import toast from 'react-hot-toast';
 import { useNotes } from '@/hooks/useNotes';
 import { useGamification } from '@/hooks/useGamification';
@@ -52,6 +216,7 @@ import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import PageTransition from '@/components/layout/PageTransition';
 import DiagramModal from '@/components/notes/DiagramModal';
+import MathPalette from '@/components/notes/MathPalette';
 import { YouTubePanel, AITutorPanel, ReferenceViewerPanel, ResizableSplitLayout } from '@/components/notes/MultitaskPanels';
 import { useGroups, useGroupResources } from '@/hooks/useGroups';
 import { XP_AWARDS } from '@/lib/constants';
@@ -481,6 +646,24 @@ export default function NotesContent() {
   const [showQuiz, setShowQuiz] = useState(false);
   const [multitaskPanel, setMultitaskPanel] = useState<'youtube' | 'tutor' | 'reference' | null>(null);
 
+  // ── AI Beautify states ──
+  const [showBeautifyPreview, setShowBeautifyPreview] = useState(false);
+  const [beautifyResult, setBeautifyResult] = useState('');
+  const [beautifyBeforeHtml, setBeautifyBeforeHtml] = useState('');
+  const [beautifyLoading, setBeautifyLoading] = useState(false);
+  const [beautifySavedImages, setBeautifySavedImages] = useState<string[]>([]);
+  const [beautifySelectionRange, setBeautifySelectionRange] = useState<{ index: number; length: number } | null>(null);
+
+  // ── Voice Dictation states ──
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  // ── Math Palette state ──
+  const [showMathPalette, setShowMathPalette] = useState(false);
+  const [mathPaletteEditNode, setMathPaletteEditNode] = useState<HTMLElement | null>(null);
+  const [mathPaletteEditLatex, setMathPaletteEditLatex] = useState('');
+  const [mathPaletteEditIsBlock, setMathPaletteEditIsBlock] = useState(false);
+
   const { groups } = useGroups();
 
   const noteRef = useRef<HTMLDivElement>(null);
@@ -539,6 +722,32 @@ export default function NotesContent() {
     autosaveTimer.current = setTimeout(() => {
       triggerAutosave(content, editTitle);
     }, 5000);
+
+    // ── Detect compare/slash compare command ──
+    const quill = quillRef.current?.getEditor();
+    if (quill) {
+      const text = quill.getText();
+      const range = quill.getSelection();
+      if (range) {
+        const compareRegex = /(?:^|\n)(?:\/)?compare\s+(.+?)\s+(?:vs|and|versus|with)\s+([^\r\n]+)(?:\r?\n)/i;
+        const match = text.match(compareRegex);
+        if (match) {
+          const commandText = match[0].trim();
+          const topicA = match[1].trim();
+          const topicB = match[2].trim();
+          if (topicA && topicB) {
+            // Immediately replace the command text with a placeholder
+            const matchStart = text.lastIndexOf(commandText, range.index);
+            if (matchStart !== -1) {
+              const placeholderText = `⏳ Generating comparison: ${topicA} vs ${topicB}...`;
+              quill.deleteText(matchStart, commandText.length);
+              quill.insertText(matchStart, placeholderText);
+              handleCompareCommand(topicA, topicB, placeholderText);
+            }
+          }
+        }
+      }
+    }
   }, [editTitle, triggerAutosave]);
 
   // Cleanup autosave timer
@@ -547,6 +756,33 @@ export default function NotesContent() {
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     };
   }, []);
+
+
+
+  // Listen to clicks inside the editor to allow editing math equations
+  useEffect(() => {
+    const quill = quillRef.current?.getEditor();
+    if (!quill) return;
+
+    const handleEditorClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const mathNode = target.closest('.studyquest-math-embed');
+      if (mathNode) {
+        const latex = mathNode.getAttribute('data-latex') || '';
+        const isBlock = mathNode.getAttribute('data-block') === 'true';
+
+        setMathPaletteEditNode(mathNode as HTMLElement);
+        setMathPaletteEditLatex(latex);
+        setMathPaletteEditIsBlock(isBlock);
+        setShowMathPalette(true);
+      }
+    };
+
+    quill.root.addEventListener('click', handleEditorClick);
+    return () => {
+      quill.root.removeEventListener('click', handleEditorClick);
+    };
+  }, [selectedNote, isEditing]);
 
   // Undo / Redo via Quill history (accessed through DOM)
   const getQuillEditor = useCallback(() => {
@@ -717,11 +953,12 @@ export default function NotesContent() {
     setShowPdfModal(false);
 
     const qualityScale = pdfQuality === 'low' ? 1 : pdfQuality === 'medium' ? 2 : 3;
+    const jpegQuality = pdfQuality === 'low' ? 0.5 : pdfQuality === 'medium' ? 0.75 : 0.85;
 
     const toastId = toast.loading('Generating PDF...');
     try {
       const html2canvas = (await import('html2canvas')).default;
-      const { jsPDF } = await import('jspdf');
+      const { jsPDF } = (await import('jspdf')) as any;
 
       // Create offscreen rendering element — match editor styling exactly
       const container = document.createElement('div');
@@ -743,25 +980,89 @@ export default function NotesContent() {
         ul, ol { padding-left: 1.5em; margin: 8px 0; }
         li { margin: 4px 0; }
         img { max-width: 100%; border-radius: 8px; margin: 8px 0; }
+        .katex-display { margin: 8px 0; display: block; text-align: center; }
+        .katex-inline { display: inline-block; }
       `;
       container.appendChild(styleTag);
+
+      // 1. Process $...$ and $$...$$ math delimiters in note content
+      let processedContent = await renderMathInHtml(selectedNote.content);
+
+      // 2. Setup the HTML inside the PDF export container
       container.innerHTML += `<h1 style="font-size:24px;font-weight:800;margin-bottom:8px;">${selectedNote.title}</h1>
         <p style="font-size:10px;color:#888;margin-bottom:20px;">Exported from StudyQuest AI · ${new Date().toLocaleDateString()}</p>
-        <div style="line-height:1.8;white-space:pre-wrap;">${selectedNote.content}</div>`;
+        <div style="line-height:1.8;white-space:pre-wrap;">${processedContent}</div>`;
       document.body.appendChild(container);
 
-      const canvas = await html2canvas(container, { scale: qualityScale, useCORS: true, backgroundColor: '#ffffff' });
-      document.body.removeChild(container);
+      // 3. Render all <math-field> tags (custom embeds) statically using KaTeX
+      const katexMod = await import('katex');
+      const katex = katexMod.default;
+      const mathFields = container.querySelectorAll('math-field, .studyquest-math-embed');
+      mathFields.forEach((el) => {
+        const latex = el.getAttribute('data-latex') || '';
+        const isBlock = el.getAttribute('data-block') === 'true';
+        try {
+          const renderedSpan = document.createElement(isBlock ? 'div' : 'span');
+          renderedSpan.className = isBlock ? 'katex-block' : 'katex-inline';
+          renderedSpan.innerHTML = katex.renderToString(latex, {
+            throwOnError: false,
+            displayMode: isBlock,
+          });
+          el.parentNode?.replaceChild(renderedSpan, el);
+        } catch {
+          el.textContent = latex;
+        }
+      });
 
-      const pdf = new jsPDF('p', 'mm', pdfPageSize);
+      // 4. Remove empty blockquotes (which render as empty purple boxes)
+      const emptyBlockquotes = container.querySelectorAll('blockquote');
+      emptyBlockquotes.forEach((el) => {
+        const text = el.textContent?.trim() || '';
+        if (!text) {
+          el.parentNode?.removeChild(el);
+        }
+      });
+
+      // 5. Avoid splitting elements across pages by dynamically inserting spacers
+      const pdf = new jsPDF('p', 'mm', pdfPageSize) as any;
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 10;
       const imgWidth = pageWidth - margin * 2;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const usableHeight = pageHeight - 32;
+      
+      const pagePixelHeight = (usableHeight * 794) / imgWidth;
+      const contentDiv = container.querySelector('div');
+      if (contentDiv) {
+        const blocks = Array.from(contentDiv.querySelectorAll('p, li, h1, h2, h3, blockquote, pre, .studyquest-math-embed, .katex-block, .katex-display'));
+        for (let i = 0; i < blocks.length; i++) {
+          const block = blocks[i] as HTMLElement;
+          const rect = block.getBoundingClientRect();
+          const containerRect = container.getBoundingClientRect();
+          const top = rect.top - containerRect.top;
+          const bottom = rect.bottom - containerRect.top;
+          
+          const pageIndex = Math.floor(top / pagePixelHeight);
+          const endPageIndex = Math.floor(bottom / pagePixelHeight);
+          
+          if (endPageIndex > pageIndex) {
+            const pageBoundary = (pageIndex + 1) * pagePixelHeight;
+            const spacerHeight = pageBoundary - top;
+            // Only add spacer if it fits within a page
+            if (spacerHeight > 0 && block.offsetHeight < pagePixelHeight) {
+              const spacer = document.createElement('div');
+              spacer.style.height = `${spacerHeight}px`;
+              spacer.className = 'pdf-page-spacer';
+              block.parentNode?.insertBefore(spacer, block);
+            }
+          }
+        }
+      }
 
-      // Paginate
-      const usableHeight = pageHeight - margin * 2;
+      const canvas = await html2canvas(container, { scale: qualityScale, useCORS: true, backgroundColor: '#ffffff' });
+      document.body.removeChild(container);
+
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
       const totalPages = Math.ceil(imgHeight / usableHeight);
 
       for (let page = 0; page < totalPages; page++) {
@@ -772,13 +1073,50 @@ export default function NotesContent() {
         sliceCanvas.width = canvas.width;
         sliceCanvas.height = srcH;
         sliceCanvas.getContext('2d')!.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
-        const sliceData = sliceCanvas.toDataURL('image/png');
+        const sliceData = sliceCanvas.toDataURL('image/jpeg', jpegQuality);
         const sliceHeight = (srcH * imgWidth) / canvas.width;
-        pdf.addImage(sliceData, 'PNG', margin, margin, imgWidth, sliceHeight);
-        // Page number
-        pdf.setFontSize(8);
-        pdf.setTextColor(150);
-        pdf.text(`Page ${page + 1} of ${totalPages}`, pageWidth / 2, pageHeight - 5, { align: 'center' });
+        
+        // Draw note content centered vertically within usable area
+        pdf.addImage(sliceData, 'JPEG', margin, 16, imgWidth, sliceHeight, undefined, 'FAST');
+
+        // ══════════ DRAW BEAUTIFIED BORDERS & BRANDING ══════════
+        
+        // 1. Draw outer page border (soft rounded lavender border)
+        pdf.setDrawColor(220, 210, 235); // Soft lavender-grey
+        pdf.setLineWidth(0.3);
+        pdf.roundedRect(6, 6, pageWidth - 12, pageHeight - 12, 4, 4, 'D');
+
+        // 2. Draw Header
+        pdf.setFont("Helvetica", "bold");
+        pdf.setFontSize(7);
+        pdf.setTextColor(124, 58, 237); // Purple primary
+        pdf.text("STUDYQUEST AI", 12, 11);
+
+        pdf.setFont("Helvetica", "normal");
+        pdf.setFontSize(7);
+        pdf.setTextColor(100, 100, 100);
+        const titleText = selectedNote.title.length > 50 ? selectedNote.title.substring(0, 47) + '...' : selectedNote.title;
+        pdf.text(`·  ${titleText.toUpperCase()}`, 38, 11);
+
+        pdf.text(new Date().toLocaleDateString(), pageWidth - 12, 11, { align: "right" });
+
+        // Header separator line
+        pdf.setDrawColor(235, 230, 245);
+        pdf.line(12, 13, pageWidth - 12, 13);
+
+        // 3. Draw Footer
+        // Footer separator line
+        pdf.setDrawColor(235, 230, 245);
+        pdf.line(12, pageHeight - 13, pageWidth - 12, pageHeight - 13);
+
+        pdf.setFont("Helvetica", "italic");
+        pdf.setFontSize(6.5);
+        pdf.setTextColor(140, 140, 140);
+        pdf.text("Level Up Your Learning · studyquest.ai", 12, pageHeight - 9);
+
+        pdf.setFont("Helvetica", "normal");
+        pdf.setFontSize(7);
+        pdf.text(`Page ${page + 1} of ${totalPages}`, pageWidth - 12, pageHeight - 9, { align: "right" });
       }
 
       pdf.save(`${selectedNote.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
@@ -788,6 +1126,171 @@ export default function NotesContent() {
       toast.error('PDF export failed', { id: toastId });
     }
   };
+
+  // =================== VOICE DICTATION ===================
+  const handleVoiceInput = async (transcript: string) => {
+    const quill = quillRef.current?.getEditor();
+    if (!quill) return;
+
+    const range = quill.getSelection();
+    const index = range ? range.index : quill.getLength() - 1;
+
+    // Replace spoken punctuation names with actual characters
+    let processedTranscript = transcript
+      .replace(/\b(?:full\s*stop|period)\b/gi, '.')
+      .replace(/\bquestion\s*marks?\b/gi, '?')
+      .replace(/\bcomma\b/gi, ',')
+      .replace(/\bexclamation\s*(?:mark|point)\b/gi, '!')
+      .replace(/\bcolon\b/gi, ':')
+      .replace(/\bsemi\s*colon\b/gi, ';')
+      .replace(/\b(?:next\s*line|new\s*line|newline)\b/gi, '\n');
+
+    // Clean up spaces before punctuation
+    processedTranscript = processedTranscript.replace(/\s+([.,!?:;\n])/g, '$1');
+    // Remove space right before or after a newline character
+    processedTranscript = processedTranscript.replace(/\s*\n\s*/g, '\n');
+    // Remove punctuation at the start of a newline (often speech recognition artifacts)
+    processedTranscript = processedTranscript.replace(/\n[.,!?:;]+/g, '\n');
+
+    // Trim leading/trailing spaces but PRESERVE leading/trailing newlines!
+    const cleanTranscript = processedTranscript.replace(/^[ \t\r]+|[ \t\r]+$/g, '');
+
+    // If it consists only of newlines (e.g. user said "next line")
+    if (/^\n+$/.test(cleanTranscript)) {
+      quill.insertText(index, cleanTranscript);
+      quill.setSelection(index + cleanTranscript.length);
+      return;
+    }
+
+    if (!cleanTranscript) return;
+
+    // 1. "header 1 [topic]"
+    const headerMatch = cleanTranscript.match(/^header\s+1\s+(.+)$/i);
+    if (headerMatch) {
+      const topicName = headerMatch[1].replace(/[.?]+$/, '').trim();
+      quill.insertText(index, `\n${topicName}\n`);
+      quill.formatLine(index + 1, topicName.length, 'header', 1);
+      quill.setSelection(index + topicName.length + 2);
+      toast.success(`Formatted header: "${topicName}" 🎙️`);
+      return;
+    }
+
+    // 2. "compare [A] vs [B]"
+    const compareMatch = cleanTranscript.match(/^(?:please\s+)?compare\s+(.+?)\s+(?:vs|versus|and|with)\s+(.+?)[.?]?$/i);
+    if (compareMatch) {
+      const topicA = compareMatch[1].replace(/^[^\w'-]+|[^\w'-]+$/g, '').trim();
+      const topicB = compareMatch[2].replace(/^[^\w'-]+|[^\w'-]+$/g, '').trim();
+      const placeholderText = `⏳ Generating comparison: ${topicA} vs ${topicB}...`;
+      
+      quill.insertText(index, placeholderText + '\n');
+      quill.setSelection(index + placeholderText.length + 1);
+      
+      await handleCompareCommand(topicA, topicB, placeholderText);
+      return;
+    }
+
+    // 3. "bold [text]" / "write bold [text]" / "bold the [text]"
+    const boldMatch = cleanTranscript.match(/^(?:write\s+)?bold\s+(?:the\s+)?(.+)$/i);
+    if (boldMatch) {
+      const textToBold = boldMatch[1].replace(/[.?]+$/, '').trim();
+      quill.insertText(index, textToBold);
+      quill.formatText(index, textToBold.length, 'bold', true);
+      quill.insertText(index + textToBold.length, ' ');
+      quill.formatText(index + textToBold.length, 1, 'bold', false);
+      quill.setSelection(index + textToBold.length + 1);
+      toast.success('Formatted bold text 🎙️');
+      return;
+    }
+
+    // 4. "italic [text]" / "write italic [text]" / "italic the [text]"
+    const italicMatch = cleanTranscript.match(/^(?:write\s+)?italic\s+(?:the\s+)?(.+)$/i);
+    if (italicMatch) {
+      const textToItalic = italicMatch[1].replace(/[.?]+$/, '').trim();
+      quill.insertText(index, textToItalic);
+      quill.formatText(index, textToItalic.length, 'italic', true);
+      quill.insertText(index + textToItalic.length, ' ');
+      quill.formatText(index + textToItalic.length, 1, 'italic', false);
+      quill.setSelection(index + textToItalic.length + 1);
+      toast.success('Formatted italic text 🎙️');
+      return;
+    }
+
+    // 5. "bullet [text]" / "bullet point [text]" / "write bullet [text]"
+    const bulletMatch = cleanTranscript.match(/^(?:write\s+)?bullet\s+(?:point\s+)?(.+)$/i);
+    if (bulletMatch) {
+      const listItemText = bulletMatch[1].replace(/[.?]+$/, '').trim();
+      quill.insertText(index, `\n${listItemText}\n`);
+      quill.formatLine(index + 1, listItemText.length, 'list', 'bullet');
+      quill.setSelection(index + listItemText.length + 2);
+      toast.success('Added bullet point 🎙️');
+      return;
+    }
+
+    // 6. Default: normal dictation
+    const insertSuffix = cleanTranscript.endsWith('\n') ? '' : ' ';
+    quill.insertText(index, cleanTranscript + insertSuffix);
+    quill.setSelection(index + cleanTranscript.length + insertSuffix.length);
+  };
+
+  const toggleListening = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      toast('Microphone turned off', { icon: '🎙️' });
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error('Voice dictation is not supported in this browser. Please use Chrome, Edge, or Safari.');
+      return;
+    }
+
+    const rec = new SpeechRecognition();
+    rec.continuous = true;
+    rec.interimResults = false;
+    rec.lang = 'en-US';
+
+    rec.onstart = () => {
+      setIsListening(true);
+      toast.success('Listening... Start speaking! 🎙️', { id: 'dictation' });
+    };
+
+    rec.onresult = (event: any) => {
+      const resultIndex = event.resultIndex;
+      const result = event.results[resultIndex];
+      if (result.isFinal) {
+        const transcript = result[0].transcript;
+        handleVoiceInput(transcript);
+      }
+    };
+
+    rec.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      if (event.error === 'not-allowed') {
+        toast.error('Microphone permission blocked. Please enable it in browser settings.', { id: 'dictation' });
+      } else {
+        toast.error('Dictation encountered an error.', { id: 'dictation' });
+      }
+      setIsListening(false);
+    };
+
+    rec.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = rec;
+    rec.start();
+  };
+
+  // Clean up voice recognition on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, []);
 
   // =================== AI SUMMARIZE ===================
   const aiSummarize = async () => {
@@ -843,6 +1346,384 @@ export default function NotesContent() {
     } catch { toast.error('Failed to generate flashcards'); }
     finally { setAiLoading(false); }
   };
+
+  // =================== AI BEAUTIFY NOTES ===================
+  const aiBeautify = async () => {
+    if (!selectedNote) return;
+    if (!profile?.openRouterKey) { toast.error('Set your API key in Settings first'); return; }
+
+    const quill = quillRef.current?.getEditor();
+    let currentHtml = quill ? quill.root.innerHTML : (editContent || selectedNote.content || '');
+    let range: { index: number; length: number } | null = null;
+
+    if (quill) {
+      const sel = quill.getSelection();
+      if (sel && sel.length > 0) {
+        range = sel;
+        // Convert selected Delta to HTML using a temporary Quill editor
+        const QuillClass = quill.constructor;
+        const tempDiv = document.createElement('div');
+        const tempQuill = new (QuillClass as any)(tempDiv);
+        tempQuill.setContents(quill.getContents(sel.index, sel.length));
+        currentHtml = tempQuill.root.innerHTML;
+      }
+    }
+
+    // Extract the plain text and check if note/selection is empty
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = currentHtml;
+
+    const hasImages = tempDiv.querySelectorAll('img').length > 0;
+    const checkText = tempDiv.textContent || tempDiv.innerText || '';
+
+    if (!checkText.trim() && !hasImages) {
+      toast.error(range ? 'Selected text appears empty' : 'Note appears empty');
+      return;
+    }
+
+    setBeautifyLoading(true);
+    try {
+      // Find all images and replace them with placeholders
+      const savedImages: string[] = [];
+      const imgElements = tempDiv.querySelectorAll('img');
+      imgElements.forEach((img, idx) => {
+        savedImages.push(img.outerHTML);
+        const placeholderText = `[[IMG_PLACEHOLDER_${idx}]]`;
+        const placeholderNode = document.createTextNode(placeholderText);
+        img.parentNode?.replaceChild(placeholderNode, img);
+      });
+
+      // HTML content with placeholders to send to AI
+      const contentWithPlaceholders = tempDiv.innerHTML;
+
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${profile.openRouterKey}`, 'HTTP-Referer': window.location.origin },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [{
+            role: 'system',
+            content: `You are a note formatting assistant for a rich text editor (Quill.js).
+
+Your job is to take note content (or a selected portion of it) in HTML format and return a beautifully structured, clean HTML version.
+
+CRITICAL RULES:
+1. DO NOT remove, omit, or skip ANY content from the original notes. Every single word, fact, formula, and detail must be preserved.
+2. DO NOT delete, alter, or relocate any image placeholders like [[IMG_PLACEHOLDER_0]]. They must remain exactly where they were in the flow of the text.
+3. Use ONLY these HTML tags for formatting:
+   - <h1>, <h2>, <h3> for headings (only if appropriate for structure)
+   - <strong> for bold key terms and definitions
+   - <em> for emphasis
+   - <ul><li> for unordered lists (bullet points)
+   - <ol><li> for ordered/numbered lists
+   - <blockquote> for important quotes, definitions, or comparison cards
+   - <pre class="ql-syntax"> for code blocks
+   - <code> for inline code
+   - <p> for paragraphs
+4. DO NOT use Markdown syntax (no #, no *, no -). Use only HTML tags.
+5. DO NOT use <table>, <tr>, <td> tags. Format any comparisons using separate blockquotes for aspect titles, followed by bulleted lists. DO NOT nest lists or other tags inside blockquotes.
+6. Identify natural groupings and add appropriate headings or list styling.
+7. Bold key terms, definitions, and important concepts.
+8. Convert any list-like content into proper <ul> or <ol> lists.
+9. Preserve any existing math formulas wrapped in $ or $$ delimiters exactly as they are.
+10. DO NOT use <br> tags.
+
+Return ONLY the formatted HTML. No explanations, no markdown, no wrapper.`
+          }, {
+            role: 'user',
+            content: `Here are the notes (in HTML format) to beautify:\n\n${contentWithPlaceholders}`
+          }],
+          max_tokens: 4096,
+        }),
+      });
+      const data = await res.json();
+      let result = data.choices?.[0]?.message?.content || '';
+
+      // Strip markdown code fences if the AI wrapped it
+      result = result.replace(/^```html?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+
+      if (result) {
+        // Restore images
+        let finalResult = result;
+        savedImages.forEach((imgHtml, idx) => {
+          const placeholder = `[[IMG_PLACEHOLDER_${idx}]]`;
+          if (finalResult.includes(placeholder)) {
+            finalResult = finalResult.replaceAll(placeholder, imgHtml);
+          } else {
+            // Case-insensitive regex replacement in case AI changed case
+            const escapedPlaceholder = placeholder.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const regex = new RegExp(escapedPlaceholder, 'gi');
+            finalResult = finalResult.replace(regex, imgHtml);
+          }
+        });
+
+        // Defensive check: append any images that were completely deleted by AI
+        let missingImagesHtml = '';
+        savedImages.forEach((imgHtml, idx) => {
+          const placeholder = `[[IMG_PLACEHOLDER_${idx}]]`;
+          const escapedPlaceholder = placeholder.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+          const regex = new RegExp(escapedPlaceholder, 'i');
+          if (!regex.test(result)) {
+            missingImagesHtml += `<p>${imgHtml}</p>`;
+          }
+        });
+        if (missingImagesHtml) {
+          finalResult += `<p><br></p>${missingImagesHtml}`;
+        }
+
+        setBeautifyResult(finalResult);
+        setBeautifyBeforeHtml(currentHtml);
+        setBeautifySelectionRange(range);
+        setShowBeautifyPreview(true);
+      } else {
+        toast.error('Could not beautify notes');
+      }
+    } catch { toast.error('Failed to beautify notes'); }
+    finally { setBeautifyLoading(false); }
+  };
+
+  const applyBeautify = async () => {
+    if (!beautifyResult || !selectedNote) return;
+    const quill = quillRef.current?.getEditor();
+    if (quill) {
+      if (beautifySelectionRange) {
+        const { index, length } = beautifySelectionRange;
+        quill.deleteText(index, length);
+        quill.clipboard.dangerouslyPasteHTML(index, beautifyResult);
+      } else {
+        quill.root.innerHTML = beautifyResult;
+      }
+      const newContent = quill.root.innerHTML;
+      setEditContent(newContent);
+      await updateNote(selectedNote.id, { content: newContent });
+      setSelectedNote({ ...selectedNote, content: newContent, updatedAt: Date.now() });
+    } else {
+      setEditContent(beautifyResult);
+      await updateNote(selectedNote.id, { content: beautifyResult });
+      setSelectedNote({ ...selectedNote, content: beautifyResult, updatedAt: Date.now() });
+    }
+    setShowBeautifyPreview(false);
+    setBeautifyResult('');
+    setBeautifyBeforeHtml('');
+    setBeautifySelectionRange(null);
+    toast.success('Notes beautified! ✨');
+  };
+
+  // =================== /COMPARE SLASH COMMAND ===================
+  const handleCompareCommand = async (topicA: string, topicB: string, placeholderText: string) => {
+    if (!profile?.openRouterKey) {
+      toast.error('Set your API key in Settings first');
+      // Remove placeholder on failure
+      const quill = quillRef.current?.getEditor();
+      if (quill) {
+        const fullText = quill.getText();
+        const start = fullText.indexOf(placeholderText);
+        if (start !== -1) {
+          quill.deleteText(start, placeholderText.length);
+        }
+      }
+      return false;
+    }
+
+    toast.loading(`Generating comparison: ${topicA} vs ${topicB}...`, { id: 'compare' });
+
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${profile.openRouterKey}`, 'HTTP-Referer': window.location.origin },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [{
+            role: 'system',
+            content: `You are a study assistant. Generate a beautifully structured comparison block comparing two topics.
+
+Return ONLY valid HTML using this structure:
+<h3>📊 Comparison: [Topic A] vs [Topic B]</h3>
+<blockquote>🔍 Aspect 1: [Name of Aspect]</blockquote>
+<ul>
+  <li><strong>[Topic A]</strong>: [Explanation for Topic A, max 2 sentences]</li>
+  <li><strong>[Topic B]</strong>: [Explanation for Topic B, max 2 sentences]</li>
+</ul>
+<blockquote>🔍 Aspect 2: [Name of Aspect]</blockquote>
+<ul>
+  <li><strong>[Topic A]</strong>: [Explanation for Topic A, max 2 sentences]</li>
+  <li><strong>[Topic B]</strong>: [Explanation for Topic B, max 2 sentences]</li>
+</ul>
+... (Include 5-7 key comparison aspects)
+
+Rules:
+- DO NOT use Markdown (no #, no *, no -). Use only the specified HTML tags.
+- DO NOT use <table>, <tr>, <td> tags.
+- DO NOT use <br> tags.
+- DO NOT nest lists or other elements inside <blockquote>. Use <blockquote> ONLY for the aspect header lines.
+- Keep comparisons concise and highly informative.
+- Return ONLY the HTML code. No explanation or code fences.`
+          }, {
+            role: 'user',
+            content: `Compare: ${topicA} vs ${topicB}`
+          }],
+          max_tokens: 2048,
+        }),
+      });
+
+      const data = await res.json();
+      let tableHtml = data.choices?.[0]?.message?.content || '';
+      tableHtml = tableHtml.replace(/^```html?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+
+      if (!tableHtml.includes('<blockquote')) {
+        toast.error('Could not generate comparison card', { id: 'compare' });
+        // Clean up placeholder
+        const quill = quillRef.current?.getEditor();
+        if (quill) {
+          const fullText = quill.getText();
+          const start = fullText.indexOf(placeholderText);
+          if (start !== -1) {
+            quill.deleteText(start, placeholderText.length);
+          }
+        }
+        return false;
+      }
+
+      // Remove the placeholder and insert the comparison HTML
+      const quill = quillRef.current?.getEditor();
+      if (quill) {
+        const fullText = quill.getText();
+        const matchStart = fullText.indexOf(placeholderText);
+        if (matchStart !== -1) {
+          quill.deleteText(matchStart, placeholderText.length);
+          quill.clipboard.dangerouslyPasteHTML(matchStart, `<p><br></p>${tableHtml}<p><br></p>`);
+          const newContent = quill.root.innerHTML;
+          setEditContent(newContent);
+          if (selectedNote) {
+            await updateNote(selectedNote.id, { content: newContent });
+            setSelectedNote({ ...selectedNote, content: newContent, updatedAt: Date.now() });
+          }
+        }
+      }
+
+      toast.success('Comparison card inserted! 📊', { id: 'compare' });
+      return true;
+    } catch {
+      toast.error('Failed to generate comparison', { id: 'compare' });
+      // Clean up placeholder on error
+      const quill = quillRef.current?.getEditor();
+      if (quill) {
+        const fullText = quill.getText();
+        const start = fullText.indexOf(placeholderText);
+        if (start !== -1) {
+          quill.deleteText(start, placeholderText.length);
+        }
+      }
+      return false;
+    }
+  };
+
+  // =================== MATH FORMULA INSERT ===================
+  const handleInsertMath = (latex: string, isBlock: boolean, nodeToEdit?: HTMLElement | null) => {
+    const quill = quillRef.current?.getEditor();
+    if (!quill) return;
+
+    if (nodeToEdit) {
+      // Editing an existing node
+      nodeToEdit.setAttribute('data-latex', latex);
+      nodeToEdit.setAttribute('data-block', isBlock ? 'true' : 'false');
+
+      // Re-render KaTeX in that node
+      import('katex').then((katexMod) => {
+        katexMod.default.render(latex, nodeToEdit, {
+          displayMode: isBlock,
+          throwOnError: false,
+        });
+
+        // Sync editor state
+        const newContent = quill.root.innerHTML;
+        setEditContent(newContent);
+        if (selectedNote) {
+          updateNote(selectedNote.id, { content: newContent });
+          setSelectedNote({ ...selectedNote, content: newContent, updatedAt: Date.now() });
+        }
+      });
+      toast.success('Formula updated! 🧮');
+    } else {
+      // Inserting a new node
+      const range = quill.getSelection();
+      const index = range ? range.index : quill.getLength() - 1;
+
+      quill.insertText(index, ' ');
+      quill.insertEmbed(index + 1, 'math', { latex, isBlock });
+      quill.insertText(index + 2, ' ');
+      quill.setSelection(index + 3, 0);
+
+      const newContent = quill.root.innerHTML;
+      setEditContent(newContent);
+      if (selectedNote) {
+        updateNote(selectedNote.id, { content: newContent });
+        setSelectedNote({ ...selectedNote, content: newContent, updatedAt: Date.now() });
+      }
+      toast.success('Formula inserted! 🧮');
+    }
+  };
+
+  // =================== KATEX RENDERING HELPER ===================
+  /**
+   * Post-process HTML to render $...$ (inline) and $$...$$ (block) math
+   * formulas using KaTeX. Returns a promise since we dynamically import KaTeX.
+   */
+  const renderMathInHtml = useCallback(async (html: string): Promise<string> => {
+    // Quick check: does the HTML contain any $ delimiters?
+    if (!html.includes('$')) return html;
+
+    try {
+      const katex = (await import('katex')).default;
+
+      // First render block math: $$...$$
+      html = html.replace(/\$\$([\s\S]*?)\$\$/g, (_match, latex) => {
+        try {
+          // Decode HTML entities that Quill may have inserted
+          const decoded = latex
+            .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
+            .replace(/<[^>]*>/g, '').trim();
+          return `<div class="katex-block" style="text-align:center;margin:12px 0;font-size:1.2em;">${katex.renderToString(decoded, { throwOnError: false, displayMode: true, output: 'html' })}</div>`;
+        } catch {
+          return _match;
+        }
+      });
+
+      // Then render inline math: $...$  (but not $$ which was already handled)
+      html = html.replace(/(?<!\$)\$(?!\$)((?:[^$\\]|\\.)+?)\$(?!\$)/g, (_match, latex) => {
+        try {
+          const decoded = latex
+            .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
+            .replace(/<[^>]*>/g, '').trim();
+          return `<span class="katex-inline">${katex.renderToString(decoded, { throwOnError: false, displayMode: false, output: 'html' })}</span>`;
+        } catch {
+          return _match;
+        }
+      });
+
+      return html;
+    } catch {
+      return html;
+    }
+  }, []);
+
+  // ── State for rendered math content in view mode ──
+  const [renderedViewContent, setRenderedViewContent] = useState('');
+  const [mathRenderKey, setMathRenderKey] = useState(0);
+
+  // Re-render math when note content changes or view mode is entered
+  useEffect(() => {
+    if (!selectedNote?.content) { setRenderedViewContent(''); return; }
+    if (!isEditing || viewMode) {
+      let cancelled = false;
+      renderMathInHtml(selectedNote.content).then((rendered) => {
+        if (!cancelled) setRenderedViewContent(rendered);
+      });
+      return () => { cancelled = true; };
+    }
+  }, [selectedNote?.content, isEditing, viewMode, renderMathInHtml, mathRenderKey]);
 
   // ----- Note Detail View -----
   if (selectedNote) {
@@ -921,7 +1802,18 @@ export default function NotesContent() {
                   📄 Reference
                 </button>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
+                <Button variant="amber" size="sm" icon={<HiSparkles size={14} />} onClick={aiBeautify} loading={beautifyLoading}>✨ Beautify</Button>
+                <Button variant="primary" size="sm" onClick={() => setShowMathPalette(true)}>∑ Math</Button>
+                <Button 
+                  variant={isListening ? "coral" : "ghost"} 
+                  size="sm" 
+                  icon={<HiMicrophone size={14} className={isListening ? "animate-pulse text-white" : "text-primary"} />} 
+                  onClick={toggleListening}
+                  title="Voice Dictation (dictate notes, bold formatting, compare)"
+                >
+                  {isListening ? 'Listening...' : 'Dictate'}
+                </Button>
                 <button onClick={() => setShowShortcuts(!showShortcuts)} className={`p-2 rounded-xl border-2 transition-all text-xs ${showShortcuts ? 'border-primary bg-primary/10 text-primary' : 'border-[var(--card-border)] hover:border-primary/30 text-[var(--muted-foreground)]'}`} title="Keyboard Shortcuts"><HiInformationCircle size={18} /></button>
                 <Button variant="coral" size="sm" icon={<HiCode size={14} />} onClick={() => setShowDiagram(true)}>Insert Diagram</Button>
               </div>
@@ -939,11 +1831,11 @@ export default function NotesContent() {
                         key={selectedNote?.id || 'new'}
                         ref={quillRef}
                         theme="snow"
-                        defaultValue={selectedNote?.content || ''}
+                        defaultValue={sanitizeHtmlForQuill(selectedNote?.content || '')}
                         onChange={handleContentChange}
                         modules={QUILL_MODULES}
                         formats={QUILL_FORMATS}
-                        placeholder="Start typing your study notes here... 💡 Hint: Use the toolbar above to customize font sizes, format bold/italic styles, align text, insert lists, blockquotes, code blocks, color-highlights, links, or images!"
+                        placeholder="Start typing your study notes here... 💡 Hint: Type '/compare Topic A vs Topic B' and press Enter to instantly generate a comparison card, or use the 🎙️ Dictate button for voice commands!"
                         preserveWhitespace={true}
                         useSemanticHTML={false}
                       />
@@ -1001,7 +1893,7 @@ export default function NotesContent() {
                           <span className="text-xs text-[var(--muted-foreground)]"><HiClock className="inline mr-1" size={12} />{timeAgo(selectedNote.updatedAt)}</span>
                         </div>
                         {selectedNote.content && selectedNote.content !== '<p><br></p>' ? (
-                          <div className="prose prose-lg max-w-none dark:prose-invert leading-relaxed studyquest-markdown" dangerouslySetInnerHTML={{ __html: selectedNote.content }} />
+                          <div className="prose prose-lg max-w-none dark:prose-invert leading-relaxed studyquest-markdown" dangerouslySetInnerHTML={{ __html: renderedViewContent || selectedNote.content }} />
                         ) : (
                           <p className="text-sm text-[var(--muted-foreground)] italic">This note is empty.</p>
                         )}
@@ -1010,7 +1902,7 @@ export default function NotesContent() {
                   ) : (
                     <div className="p-6 min-h-[300px]">
                       {selectedNote.content && selectedNote.content !== '<p><br></p>' ? (
-                        <div className="prose prose-sm max-w-none dark:prose-invert text-sm leading-relaxed studyquest-markdown" dangerouslySetInnerHTML={{ __html: selectedNote.content }} />
+                        <div className="prose prose-sm max-w-none dark:prose-invert text-sm leading-relaxed studyquest-markdown" dangerouslySetInnerHTML={{ __html: renderedViewContent || selectedNote.content }} />
                       ) : (
                         <div className="text-center py-12">
                           <span className="text-4xl mb-3 block">📝</span>
@@ -1107,6 +1999,20 @@ export default function NotesContent() {
                         <kbd className="text-[9px] font-mono bg-[var(--card-border)]/50 px-1.5 py-0.5 rounded-md border border-[var(--card-border)] font-semibold whitespace-nowrap">{key}</kbd>
                       </div>
                     ))}
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-[var(--card-border)]">
+                    <h5 className="text-[10px] font-heading font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-2">💡 StudyQuest Commands</h5>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] text-[var(--muted-foreground)]">AI Topic Comparison</span>
+                        <kbd className="text-[9px] font-mono bg-[var(--card-border)]/50 px-1.5 py-0.5 rounded-md border border-[var(--card-border)] font-semibold whitespace-nowrap">/compare Topic A vs Topic B</kbd>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] text-[var(--muted-foreground)]">Voice Command Trigger</span>
+                        <span className="text-[9px] font-medium text-purple-400">🎙️ Say "compare Topic A versus Topic B"</span>
+                      </div>
+                    </div>
                   </div>
                 </Card>
               </motion.div>
@@ -1246,6 +2152,62 @@ export default function NotesContent() {
             </div>
           </div>
         </Modal>
+
+        {/* AI Beautify Preview Modal */}
+        <Modal isOpen={showBeautifyPreview} onClose={() => { setShowBeautifyPreview(false); setBeautifyResult(''); setBeautifyBeforeHtml(''); setBeautifySelectionRange(null); }} title="✨ Beautify Preview">
+          <div className="space-y-4">
+            <p className="text-xs text-[var(--muted-foreground)]">
+              {beautifySelectionRange 
+                ? 'Review the formatted version of your selected text below. Only the highlighted selection will be updated.'
+                : 'Review the formatted version below. All your content has been preserved — only the formatting has been improved using Quill-native styles (headers, bold, bullets, tables).'}
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Before */}
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted-foreground)] block mb-1.5">📄 Before</span>
+                <div className="p-3 rounded-xl border-2 border-[var(--card-border)] max-h-[300px] overflow-y-auto bg-red-500/5">
+                  <div className="prose prose-sm max-w-none dark:prose-invert text-xs leading-relaxed" dangerouslySetInnerHTML={{ __html: beautifyBeforeHtml }} />
+                </div>
+              </div>
+              {/* After */}
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-teal block mb-1.5">✨ After</span>
+                <div className="p-3 rounded-xl border-2 border-teal/30 max-h-[300px] overflow-y-auto bg-teal/5">
+                  <div className="prose prose-sm max-w-none dark:prose-invert text-xs leading-relaxed" dangerouslySetInnerHTML={{ __html: beautifyResult }} />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
+              <HiLightningBolt className="text-amber-500 flex-shrink-0" size={14} />
+              <p className="text-[10px] text-amber-500 font-semibold">
+                {beautifySelectionRange 
+                  ? 'This will replace only the selected text range in your editor. The rest of the note remains untouched.' 
+                  : 'This will replace the current note formatting. The content itself is preserved.'}
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => { setShowBeautifyPreview(false); setBeautifyResult(''); setBeautifyBeforeHtml(''); setBeautifySelectionRange(null); }} className="flex-1">Cancel</Button>
+              <Button variant="primary" onClick={applyBeautify} className="flex-1" icon={<HiSparkles size={14} />}>Apply Beautify</Button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Math Formula Palette */}
+        <MathPalette
+          isOpen={showMathPalette}
+          onClose={() => {
+            setShowMathPalette(false);
+            setMathPaletteEditNode(null);
+            setMathPaletteEditLatex('');
+            setMathPaletteEditIsBlock(false);
+          }}
+          onInsert={(latex, isBlock) => handleInsertMath(latex, isBlock, mathPaletteEditNode)}
+          editLatex={mathPaletteEditLatex}
+          editIsBlock={mathPaletteEditIsBlock}
+        />
 
         {/* Share to Group Modal */}
         <Modal isOpen={showShareGroup} onClose={() => setShowShareGroup(false)} title="Share to Group">

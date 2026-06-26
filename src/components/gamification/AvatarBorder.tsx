@@ -128,7 +128,7 @@ export default function AvatarBorder({ level, size = 48, children, className = '
       <motion.div
         className="absolute inset-0 rounded-full"
         style={{
-          background: tier.colors,
+          backgroundImage: tier.colors,
           backgroundSize: tier.animate ? '200% 200%' : undefined,
           boxShadow: tier.glow,
         }}
