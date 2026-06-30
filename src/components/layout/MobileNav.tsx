@@ -28,6 +28,7 @@ import {
   HiSparkles,
   HiBeaker,
   HiShieldCheck,
+  HiBookOpen,
 } from 'react-icons/hi';
 
 const MOBILE_QUICK = [
@@ -46,6 +47,7 @@ const ALL_NAV_ITEMS = [
   { label: 'Focus Timer', href: '/timer', icon: HiClock },
   { label: 'Timetable', href: '/timetable', icon: HiCalendar },
   { label: 'Resources', href: '/resources', icon: HiCollection },
+  { label: 'Doc Reader', href: '/reader', icon: HiBookOpen },
   { label: 'Whiteboard', href: '/whiteboard', icon: HiPencil },
   { label: 'Questie Chat', href: '/chat', icon: HiChatAlt2 },
   { label: 'Hall of Fame', href: '/analytics', icon: HiChartBar },

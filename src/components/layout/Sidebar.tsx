@@ -11,7 +11,7 @@ import {
   HiBookmark, HiCog, HiChevronLeft, HiChevronRight,
   HiLogout, HiSparkles, HiCollection, HiTerminal,
   HiAcademicCap, HiPencil, HiHeart, HiShoppingCart,
-  HiBeaker, HiShieldCheck,
+  HiBeaker, HiShieldCheck, HiBookOpen,
 } from 'react-icons/hi';
 import { useAuthContext } from '@/context/AuthContext';
 import { useGamification } from '@/hooks/useGamification';
@@ -30,7 +30,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string; size?: n
   HiUserGroup, HiDatabase, HiCode, HiCubeTransparent,
   HiBookmark, HiCog, HiSparkles, HiCollection, HiTerminal,
   HiAcademicCap, HiPencil, HiHeart, HiShoppingCart,
-  HiBeaker, HiShieldCheck,
+  HiBeaker, HiShieldCheck, HiBookOpen,
 };
 
 /* ============================================================
@@ -55,6 +55,7 @@ const NAV_SECTIONS = [
       { label: 'Focus Timer', href: '/timer', icon: 'HiClock' },
       { label: 'Timetable', href: '/timetable', icon: 'HiCalendar' },
       { label: 'Resources', href: '/resources', icon: 'HiCollection' },
+      { label: 'Doc Reader', href: '/reader', icon: 'HiBookOpen' },
       { label: 'Whiteboard', href: '/whiteboard', icon: 'HiPencil' },
       { label: 'Questie Chat', href: '/chat', icon: 'HiChatAlt2' },
       { label: 'Hall of Fame', href: '/analytics', icon: 'HiChartBar' },
