@@ -18,7 +18,7 @@ import { PetSpecies, EvolutionRequirement } from '@/types';
 import { playSuccess, playClick } from '@/lib/sounds';
 import { PixelPetSprite } from '@/components/dashboard/PixelPet';
 
-const SPECIES_LIST: PetSpecies[] = ['owl', 'cat', 'dragon', 'fox', 'bunny'];
+const SPECIES_LIST: PetSpecies[] = ['owl', 'cat', 'dragon'];
 
 type PetTab = 'overview' | 'wardrobe' | 'evolution';
 
