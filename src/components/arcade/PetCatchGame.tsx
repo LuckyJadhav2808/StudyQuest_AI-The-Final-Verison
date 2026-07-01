@@ -12,6 +12,7 @@ import { useShop } from '@/hooks/useShop';
 import { useGamification } from '@/hooks/useGamification';
 import { PET_SPECIES_CONFIG } from '@/lib/constants';
 import { playClick, playSuccess, playXP, playCelebration } from '@/lib/sounds';
+import { getCroppedCanvas } from '@/components/dashboard/PixelPet';
 import './PetCatchGame.css';
 
 // ── Falling item types ──
@@ -98,6 +99,25 @@ export default function PetCatchGame({ onExit }: PetCatchGameProps) {
 
   // Pet emoji
   const petEmoji = pet ? PET_SPECIES_CONFIG[pet.species]?.emoji[pet.stage] || '🐣' : '🐣';
+
+  // Pixel pet canvas ref for drawing inside the HTML5 game loop
+  const petCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    if (!pet) return;
+    const skinMap: Record<string, string> = {
+      cat: '/pet_cat.png',
+      owl: '/pet_owl.png',
+      dragon: '/pet_dino.png',
+      fox: '/pet_dino.png',
+      bunny: '/pet_dino.png',
+    };
+    const src = skinMap[pet.species] || '/pet_cat.png';
+
+    getCroppedCanvas(src).then((processedCanvas) => {
+      petCanvasRef.current = processedCanvas;
+    }).catch(() => { /* fallback */ });
+  }, [pet]);
 
   // ── Mouse / Touch movement ──
   const handleMove = useCallback((clientX: number) => {
@@ -332,10 +352,17 @@ export default function PetCatchGame({ onExit }: PetCatchGameProps) {
     ctx.fill();
 
     // 8. Draw Pet Mascot
-    ctx.font = '44px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    ctx.fillText(petEmoji, petPx, groundY - 2);
+    if (petCanvasRef.current) {
+      const width = 48; // custom drawing width
+      const height = (petCanvasRef.current.height / petCanvasRef.current.width) * width;
+      ctx.imageSmoothingEnabled = false; // preserve crisp retro pixels
+      ctx.drawImage(petCanvasRef.current, petPx - width / 2, groundY - height, width, height);
+    } else {
+      ctx.font = '44px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(petEmoji, petPx, groundY - 2);
+    }
 
     // 9. Draw Items
     itemsRef.current.forEach(item => {

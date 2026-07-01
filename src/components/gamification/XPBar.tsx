@@ -10,6 +10,9 @@ interface XPBarProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
+// Module-level cache flag to ensure the fill bar only animates from 0 on the very first render
+let hasAnimatedOnce = false;
+
 export default function XPBar({ xp, showLabel = true, size = 'md' }: XPBarProps) {
   const level = getLevelFromXP(xp);
   const progress = getLevelProgress(xp);
@@ -17,6 +20,10 @@ export default function XPBar({ xp, showLabel = true, size = 'md' }: XPBarProps)
   const nextThreshold = LEVEL_THRESHOLDS[level + 1] || LEVEL_THRESHOLDS[level];
   const xpInLevel = xp - currentThreshold;
   const xpNeeded = nextThreshold - currentThreshold;
+
+  React.useEffect(() => {
+    hasAnimatedOnce = true;
+  }, []);
 
   const heights = { sm: 'h-1.5', md: 'h-2.5', lg: 'h-4' };
 
@@ -35,7 +42,7 @@ export default function XPBar({ xp, showLabel = true, size = 'md' }: XPBarProps)
       <div className={`xp-bar-track ${heights[size]}`}>
         <motion.div
           className="xp-bar-fill"
-          initial={{ width: 0 }}
+          initial={hasAnimatedOnce ? { width: `${Math.min(progress * 100, 100)}%` } : { width: 0 }}
           animate={{ width: `${Math.min(progress * 100, 100)}%` }}
           transition={{ duration: 1, ease: 'easeOut' }}
         />

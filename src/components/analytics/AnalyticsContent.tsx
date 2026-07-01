@@ -310,7 +310,7 @@ export default function AnalyticsContent() {
                   <div className="flex-1">
                     <p className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Level Journey</p>
                     <h2 className="text-3xl font-heading font-bold mb-2">Level {level}</h2>
-                    <XPBar xp={xp} size="md" />
+                    {gamification && <XPBar xp={gamification.xp} size="md" />}
                     <div className="flex items-center justify-between mt-2">
                       <span className="text-[10px] font-semibold text-[var(--muted-foreground)]">
                         {xp.toLocaleString()} / {nextLevelXP.toLocaleString()} XP

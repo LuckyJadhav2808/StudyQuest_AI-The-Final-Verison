@@ -16,6 +16,7 @@ import { useGamification } from '@/hooks/useGamification';
 import { PET_SPECIES_CONFIG, PET_STAGES, SHOP_ITEMS } from '@/lib/constants';
 import { PetSpecies, EvolutionRequirement } from '@/types';
 import { playSuccess, playClick } from '@/lib/sounds';
+import { PixelPetSprite } from '@/components/dashboard/PixelPet';
 
 const SPECIES_LIST: PetSpecies[] = ['owl', 'cat', 'dragon', 'fox', 'bunny'];
 
@@ -136,7 +137,7 @@ export default function PetContent() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <span className="text-4xl">{config.emoji[3]}</span>
+                  <span className="w-12 h-12 block"><PixelPetSprite species={species} stage={3} className="w-12 h-12" /></span>
                   <span className="text-xs font-bold">{config.name}</span>
                 </motion.button>
               );
@@ -164,7 +165,7 @@ export default function PetContent() {
                 {PET_SPECIES_CONFIG[selectedSpecies].emoji.map((e, i) => (
                   <div key={i} className="flex items-center gap-2">
                     <div className="text-center">
-                      <span className="text-2xl block">{e}</span>
+                      <span className="w-10 h-10 block"><PixelPetSprite species={selectedSpecies} stage={i} className="w-10 h-10" /></span>
                       <span className="text-[9px] text-[var(--muted-foreground)]">{PET_STAGES[i].name}</span>
                     </div>
                     {i < 4 && <span className="text-[var(--muted-foreground)]">→</span>}
@@ -228,13 +229,13 @@ export default function PetContent() {
               exit={{ opacity: 0, scale: 0.8 }}
               className="rounded-2xl border-2 border-amber-400/50 bg-gradient-to-r from-amber-400/10 via-primary/10 to-purple-500/10 p-6 text-center"
             >
-              <motion.span
-                className="text-6xl block mb-3"
+              <motion.div
+                className="w-24 h-24 mx-auto mb-3"
                 animate={{ scale: [1, 1.3, 1], rotate: [0, 10, -10, 0] }}
                 transition={{ duration: 1.5, repeat: 2 }}
               >
-                {config.emoji[pet!.stage]}
-              </motion.span>
+                <PixelPetSprite species={pet!.species} stage={pet!.stage} className="w-24 h-24" />
+              </motion.div>
               <h2 className="text-xl font-heading font-black text-amber-400">✨ Evolution Complete! ✨</h2>
               <p className="text-sm text-[var(--muted-foreground)] mt-1">{pet!.name} evolved to <strong>{stageInfo.name}</strong>!</p>
             </motion.div>
@@ -257,7 +258,7 @@ export default function PetContent() {
                   }
                   transition={{ duration: mood === 'happy' ? 1 : 2, repeat: Infinity }}
                 >
-                  <span className="text-[100px] block">{config.emoji[pet!.stage]}</span>
+                  <span className="w-36 h-36 block"><PixelPetSprite species={pet!.species} stage={pet!.stage} className="w-36 h-36" /></span>
                   {/* Accessories */}
                   {(pet!.equippedAccessories || []).map((accId, idx) => {
                     const item = SHOP_ITEMS.find((i) => i.id === accId);
@@ -371,8 +372,8 @@ export default function PetContent() {
           <>
             <Card padding="lg" hover={false}>
               <div className="flex flex-col items-center py-4">
-                <span className="text-[80px] block relative">
-                  {config.emoji[pet!.stage]}
+                <span className="w-28 h-28 block relative">
+                  <PixelPetSprite species={pet!.species} stage={pet!.stage} className="w-28 h-28" />
                   {(pet!.equippedAccessories || []).map((accId, idx) => {
                     const item = SHOP_ITEMS.find((i) => i.id === accId);
                     return item ? (
@@ -518,7 +519,7 @@ export default function PetContent() {
                       animate={i === pet!.stage ? { scale: [1, 1.05, 1] } : {}}
                       transition={{ duration: 2, repeat: Infinity }}
                     >
-                      <span className="text-2xl block">{e}</span>
+                      <span className="w-10 h-10 block"><PixelPetSprite species={pet!.species} stage={i} className="w-10 h-10" /></span>
                       <span className="text-[9px] font-bold block">{PET_STAGES[i].name}</span>
                       <span className="text-[8px] text-[var(--muted-foreground)]">{PET_STAGES[i].title}</span>
                     </motion.div>
@@ -598,7 +599,7 @@ export default function PetContent() {
               <div className="space-y-2">
                 {PET_STAGES.slice(0, pet!.stage + 1).map((stage, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs">
-                    <span className="text-lg">{PET_SPECIES_CONFIG[pet!.species].emoji[i]}</span>
+                    <span className="w-6 h-6 block"><PixelPetSprite species={pet!.species} stage={i} className="w-6 h-6" /></span>
                     <div>
                       <span className="font-bold">{stage.name}</span>
                       <span className="text-[var(--muted-foreground)] ml-1">— {stage.title}</span>

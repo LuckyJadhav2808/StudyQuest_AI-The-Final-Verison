@@ -26,6 +26,8 @@ import { usePet } from '@/hooks/usePet';
 import { useGamification } from '@/hooks/useGamification';
 import { playSuccess } from '@/lib/sounds';
 import { PET_STAGES } from '@/lib/constants';
+import { useShop } from '@/hooks/useShop';
+import PixelPet from '@/components/dashboard/PixelPet';
 
 /**
  * Animated SVG background grid — creates a subtle, immersive "command center" aesthetic.
@@ -93,6 +95,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const isLoginPage = pathname === '/login';
   const { focusMode } = useSidebar();
   const { reduceMotion } = useTheme();
+  const { coins, addCoins } = useShop();
 
   // Start broadcasting online presence (heartbeat)
   usePresence();
@@ -175,6 +178,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
           {/* Patch Notes Modal (shows on new version) */}
           <PatchNotesModal />
+
+          {/* Global Pixel Pet Companion */}
+          <PixelPet coins={coins} addCoins={addCoins} />
         </div>
       </MotionConfig>
     </AuthGuard>

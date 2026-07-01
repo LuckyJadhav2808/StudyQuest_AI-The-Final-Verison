@@ -73,8 +73,8 @@
 
   /* ---- Shadows ---- */
   --shadow-glow: 0 0 20px var(--color-primary-glow);
-  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.08);
-  --shadow-card-hover: 0 8px 32px rgba(0, 0, 0, 0.14);
+  --shadow-card: var(--shadow-card);
+  --shadow-card-hover: var(--shadow-card-hover);
   --shadow-btn-3d: 0 4px 0 var(--color-primary-dark);
   --shadow-btn-3d-pressed: 0 2px 0 var(--color-primary-dark);
 }
@@ -84,13 +84,15 @@
    ============================================================ */
 
 :root {
-  --background: var(--color-surface-50);
-  --foreground: #1D1A24;
+  --background: #F8F6FC;
+  --foreground: #1A1721;
   --card-bg: #ffffff;
-  --card-border: #E8DFEE;
-  --muted: #CCC3D8;
-  --muted-foreground: #4A4455;
-  --outline: #7B7487;
+  --card-border: rgba(124, 58, 237, 0.08);
+  --muted: #EDE9F4;
+  --muted-foreground: #5C556A;
+  --outline: #948AAB;
+  --shadow-card: 0 10px 30px -10px rgba(124, 58, 237, 0.05), 0 1px 3px rgba(124, 58, 237, 0.02);
+  --shadow-card-hover: 0 20px 40px -15px rgba(124, 58, 237, 0.12), 0 1px 3px rgba(124, 58, 237, 0.04);
 }
 
 .dark {
@@ -101,6 +103,8 @@
   --muted: var(--color-surface-600);
   --muted-foreground: #9ca3af;
   --outline: #7B7487;
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.3);
+  --shadow-card-hover: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 /* ---- Ocean Breeze Theme 🌊 ---- */
@@ -193,6 +197,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.3s ease, color 0.3s ease;
   overflow-x: hidden;
+}
+
+:root:not(.dark):not(.ocean):not(.cyberpunk) body {
+  background-image: radial-gradient(at 0% 0%, rgba(124, 58, 237, 0.03) 0px, transparent 50%),
+                    radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.03) 0px, transparent 50%);
 }
 
 /* Typography — Lexend ExtraBold headlines per Stitch spec */
@@ -1679,3 +1688,123 @@ pre[contenteditable], code[contenteditable] {
 li .studyquest-math-embed {
   margin-bottom: 2px;
 }
+
+/* ============================================================
+   Modern Dashboard Redesign Styles (Reference Image Spec)
+   ============================================================ */
+.modern-dashboard-bg {
+  background-color: #F8FAFC;
+  min-height: 100vh;
+  color: #1E293B;
+  transition: background-color 0.3s ease;
+}
+
+.dark .modern-dashboard-bg {
+  background-color: #0B0D17;
+  color: #F1F5F9;
+}
+
+.modern-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 24px;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dark .modern-card {
+  background: #111328;
+  border-color: #1F2937;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.2);
+}
+
+.modern-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+}
+
+.dark .modern-card:hover {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+/* Horizontal Calendar Capsule Today Highlight */
+.calendar-capsule-today {
+  background-color: #0F172A;
+  color: #FFFFFF !important;
+  border-radius: 9999px;
+  box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.3);
+}
+
+.dark .calendar-capsule-today {
+  background-color: #7C3AED;
+  box-shadow: 0 10px 15px -3px rgba(124, 58, 237, 0.3);
+}
+
+/* Custom progress bar indicators */
+.modern-progress-bar {
+  height: 4px;
+  border-radius: 2px;
+  background-color: #F1F5F9;
+  overflow: hidden;
+}
+
+.dark .modern-progress-bar {
+  background-color: #1F2937;
+}
+
+.modern-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #3B82F6, #8B5CF6);
+  transition: width 0.4s ease;
+}
+
+/* Modern dashboard entrance animation */
+.modern-dashboard-bg > div {
+  animation: modernFadeIn 0.5s ease-out both;
+}
+
+.modern-dashboard-bg > div:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+@keyframes modernFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Hero banner shimmer */
+.modern-dashboard-bg .from-blue-600 {
+  background-size: 200% 100%;
+  animation: heroShimmer 6s ease-in-out infinite;
+}
+
+@keyframes heroShimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Smooth scrollbar for quest lists */
+.modern-card ::-webkit-scrollbar {
+  width: 4px;
+}
+
+.modern-card ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modern-card ::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 2px;
+}
+
+.dark .modern-card ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
