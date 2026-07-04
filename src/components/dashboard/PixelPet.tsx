@@ -316,9 +316,63 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
     ];
   };
 
+  // Sleep / Inactivity State
+  const [isSleeping, setIsSleeping] = useState(false);
+  const lastActivityRef = useRef<number>(Date.now());
+  const isSleepingRef = useRef<boolean>(false);
+  useEffect(() => { isSleepingRef.current = isSleeping; }, [isSleeping]);
+
+  // User Inactivity & Sleep Mode Detection Effect
+  useEffect(() => {
+    const updateActivity = () => {
+      lastActivityRef.current = Date.now();
+      if (isSleepingRef.current) {
+        setIsSleeping(false);
+        const wakeMsgs = [
+          "Yawn... I'm wide awake and ready to study! 🌅",
+          "Stretch... let's get back to work! 🐾",
+          "Hello! Ready to conquer more quests! ⚡",
+        ];
+        setDialogue(wakeMsgs[Math.floor(Math.random() * wakeMsgs.length)]);
+        setShowBubble(true);
+        triggerJump();
+      }
+    };
+
+    window.addEventListener('mousemove', updateActivity);
+    window.addEventListener('keydown', updateActivity);
+    window.addEventListener('click', updateActivity);
+    window.addEventListener('scroll', updateActivity);
+    window.addEventListener('touchstart', updateActivity);
+
+    // Check idle status every 10 seconds: sleep after 2 minutes of inactivity or late night hours
+    const checkIdleInterval = setInterval(() => {
+      const now = Date.now();
+      const hour = new Date().getHours();
+      const isLateNight = hour >= 23 || hour < 5;
+      const isIdle = now - lastActivityRef.current > 120000; // 2 minutes
+
+      if ((isIdle || isLateNight) && !isSleepingRef.current) {
+        setIsSleeping(true);
+        setDialogue("Zzz... taking a cozy study nap 💤");
+        setShowBubble(true);
+      }
+    }, 10000);
+
+    return () => {
+      window.removeEventListener('mousemove', updateActivity);
+      window.removeEventListener('keydown', updateActivity);
+      window.removeEventListener('click', updateActivity);
+      window.removeEventListener('scroll', updateActivity);
+      window.removeEventListener('touchstart', updateActivity);
+      clearInterval(checkIdleInterval);
+    };
+  }, []);
+
   // Auto roaming (strictly horizontally along the header border line or footer line)
   useEffect(() => {
     const interval = setInterval(() => {
+      if (isSleeping) return; // Pause roaming movements while sleeping to conserve CPU/GPU
       if (Math.random() > 0.4) return; // 60% chance to stay idle
 
       const rand = Math.random();
@@ -351,7 +405,7 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
     }, 3500);
 
     return () => clearInterval(interval);
-  }, [isJumping, platform]);
+  }, [isJumping, platform, isSleeping]);
 
   // Feed action
   const handleFeed = async () => {
@@ -498,15 +552,26 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
           onClick={handlePetClick}
           className="cursor-pointer group flex flex-col items-center justify-center relative"
         >
+          {/* Sleeping Indicator Zzz */}
+          {isSleeping && (
+            <motion.span 
+              className="absolute -top-6 text-sm pointer-events-none z-10 font-bold"
+              animate={{ y: [0, -6, 0], opacity: [0.6, 1, 0.6] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              💤 Zzz...
+            </motion.span>
+          )}
+
           {/* Pet Indicator Name */}
           <span 
             className="text-[8px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-555 bg-slate-105 dark:bg-slate-900/60 px-1.5 py-0.5 rounded-full mb-1 border border-slate-200/50 dark:border-slate-800/40 opacity-0 group-hover:opacity-100 transition-opacity"
           >
-            {skinNames[skinIndex]} (Lv.{stats.level})
+            {skinNames[skinIndex]} (Lv.{stats.level}) {isSleeping ? '😴' : ''}
           </span>
           <span
-            className="inline-block hover:scale-110 transition-transform"
-            style={{ transform: `scaleX(${direction === 'left' ? -1 : 1})` }}
+            className={`inline-block transition-transform ${isSleeping ? 'rotate-6 opacity-85 scale-95' : 'hover:scale-110'}`}
+            style={{ transform: `scaleX(${direction === 'left' ? -1 : 1}) ${isSleeping ? 'rotate(6deg)' : ''}` }}
           >
             <TransparentSprite 
               src={skins[skinIndex]} 
