@@ -10,8 +10,9 @@ import toast from 'react-hot-toast';
 import { useAuthContext } from '@/context/AuthContext';
 import { ADMIN_EMAILS, PATCH_NOTES, getAvatarUrl } from '@/lib/constants';
 import { db } from '@/lib/firebase';
+import { getProfileRef, getGamificationRef } from '@/lib/firestore';
 import {
-  collection, getDocs, doc, updateDoc,
+  collection, getDocs, getDoc, doc, updateDoc,
   query, orderBy, onSnapshot, deleteDoc,
 } from 'firebase/firestore';
 import Card from '@/components/ui/Card';
@@ -109,16 +110,65 @@ export default function AdminContent() {
   const fetchUsers = useCallback(async () => {
     if (!profile?.email || !ADMIN_EMAILS.includes(profile.email)) return;
     try {
-      const snap = await getDocs(collection(db, 'leaderboard'));
-      const list: LeaderboardUser[] = snap.docs.map((d) => ({
-        uid: d.id,
-        displayName: d.data().displayName || 'Unknown',
-        avatarSeed: d.data().avatarSeed,
-        avatarStyle: d.data().avatarStyle,
-        xp: d.data().xp || 0,
-        level: d.data().level || 0,
-        streak: d.data().streak || 0,
-      }));
+      const [usersSnap, lbSnap] = await Promise.all([
+        getDocs(collection(db, 'users')),
+        getDocs(collection(db, 'leaderboard')),
+      ]);
+
+      const lbMap = new Map<string, any>();
+      lbSnap.docs.forEach((d) => {
+        lbMap.set(d.id, d.data());
+      });
+
+      const userPromises = usersSnap.docs.map(async (uDoc) => {
+        const uid = uDoc.id;
+        const lbData = lbMap.get(uid);
+
+        if (lbData) {
+          return {
+            uid,
+            displayName: lbData.displayName || 'Unknown',
+            avatarSeed: lbData.avatarSeed || uid,
+            avatarStyle: lbData.avatarStyle || 'adventurer',
+            xp: lbData.xp || 0,
+            level: lbData.level || 0,
+            streak: lbData.streak || 0,
+          };
+        }
+
+        // Fallback for users not yet in leaderboard collection
+        try {
+          const [profileDoc, gamDoc] = await Promise.all([
+            getDoc(getProfileRef(uid)),
+            getDoc(getGamificationRef(uid)),
+          ]);
+
+          const p = profileDoc.exists() ? profileDoc.data() : null;
+          const g = gamDoc.exists() ? gamDoc.data() : null;
+
+          return {
+            uid,
+            displayName: p?.displayName || 'Adventurer',
+            avatarSeed: p?.avatarSeed || uid,
+            avatarStyle: p?.avatarStyle || 'adventurer',
+            xp: g?.xp || 0,
+            level: g?.level || 0,
+            streak: g?.streak || 0,
+          };
+        } catch {
+          return {
+            uid,
+            displayName: 'Adventurer',
+            avatarSeed: uid,
+            avatarStyle: 'adventurer',
+            xp: 0,
+            level: 0,
+            streak: 0,
+          };
+        }
+      });
+
+      const list = await Promise.all(userPromises);
       list.sort((a, b) => b.xp - a.xp);
       setUsers(list);
     } catch (err) {

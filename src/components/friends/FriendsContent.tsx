@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   HiUserAdd, HiCheck, HiX, HiTrash, HiClipboardCopy,
-  HiStatusOnline, HiStatusOffline, HiUsers, HiMail,
+  HiStatusOnline, HiStatusOffline, HiUsers, HiMail, HiRefresh,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import { useFriends } from '@/hooks/useFriends';
@@ -28,6 +28,8 @@ export default function FriendsContent() {
     sendRequest,
     acceptRequest,
     rejectRequest,
+    cancelRequest,
+    resendRequest,
     removeFriend,
   } = useFriends();
 
@@ -171,19 +173,50 @@ export default function FriendsContent() {
         {outgoingRequests.length > 0 && (
           <div>
             <h2 className="text-xs uppercase tracking-[0.15em] font-bold text-[var(--muted-foreground)] mb-3">
-              Pending Requests
+              Pending Sent Requests ({outgoingRequests.length})
             </h2>
             <div className="space-y-2">
               {outgoingRequests.map((req) => (
                 <Card key={req.id} padding="sm" hover={false}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
-                      <HiUserAdd className="text-primary" size={16} />
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
+                        <HiUserAdd className="text-primary" size={16} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-[var(--foreground)]">
+                          Friend Request Sent
+                        </p>
+                        <p className="text-[10px] text-[var(--muted-foreground)]">
+                          Waiting for recipient response
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-xs font-semibold text-[var(--muted-foreground)]">
-                      Request sent — waiting for response...
-                    </p>
-                    <Badge variant="amber" size="sm">Pending</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="amber" size="sm">Pending</Badge>
+                      <motion.button
+                        onClick={async () => {
+                          await resendRequest(req.id);
+                          toast.success('Friend request re-sent!');
+                        }}
+                        className="px-2 py-1 rounded-lg bg-primary/15 text-primary text-[11px] font-semibold hover:bg-primary/25 transition-colors flex items-center gap-1"
+                        whileTap={{ scale: 0.9 }}
+                        title="Resend Request"
+                      >
+                        <HiRefresh size={12} /> Resend
+                      </motion.button>
+                      <motion.button
+                        onClick={async () => {
+                          await cancelRequest(req.id);
+                          toast('Request canceled');
+                        }}
+                        className="p-1 rounded-lg bg-coral/15 text-coral hover:bg-coral/25 transition-colors"
+                        whileTap={{ scale: 0.9 }}
+                        title="Cancel Request"
+                      >
+                        <HiX size={14} />
+                      </motion.button>
+                    </div>
                   </div>
                 </Card>
               ))}

@@ -108,10 +108,30 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const { gamification, checkStreak } = useGamification();
 
   useEffect(() => {
-    if (gamification && checkStreak) {
+    if (!gamification || !checkStreak) return;
+
+    // Run initial streak check
+    checkStreak();
+
+    // Re-check streak when user returns to tab / focuses window
+    const handleActive = () => {
       checkStreak();
-    }
-  }, [checkStreak, gamification]);
+    };
+
+    window.addEventListener('focus', handleActive);
+    document.addEventListener('visibilitychange', handleActive);
+
+    // Periodic check every 3 minutes in case tab is kept open across midnight
+    const interval = setInterval(() => {
+      checkStreak();
+    }, 180000);
+
+    return () => {
+      window.removeEventListener('focus', handleActive);
+      document.removeEventListener('visibilitychange', handleActive);
+      clearInterval(interval);
+    };
+  }, [checkStreak, gamification?.lastActiveDate]);
 
   useEffect(() => {
     if (!hasPet || !pet || pet.stage >= 4 || !gamification) return;

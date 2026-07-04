@@ -219,45 +219,17 @@ export function useGamification(): UseGamificationReturn {
    * - Uses a Firestore transaction to prevent race conditions.
    */
   const checkStreak = useCallback(async () => {
-    const g = gamRef.current;
-    if (!user || !g || !xpHistoryLoaded) return;
+    if (!user || !xpHistoryLoaded) return;
 
     const today = getLocalDateString();
 
-    // Skip if we've already checked today in this session
+    // Skip if we've already checked and validated today in this session
     if (checkedTodayRef.current === today) return;
-
-    // Already processed today (persisted in Firestore)
-    if (g.lastActiveDate === today) {
-      checkedTodayRef.current = today;
-      return;
-    }
 
     const ref = getGamificationRef(user.uid);
     const yesterday = getLocalYesterdayDateString();
     const history = xpHistoryRef.current;
 
-    // Determine if the user was active yesterday:
-    // 1. They visited a page (lastActiveDate was set to yesterday), OR
-    // 2. They earned XP yesterday (xpLog has an entry for yesterday)
-    const wasActiveYesterday =
-      g.lastActiveDate === yesterday || (history[yesterday] || 0) > 0;
-
-    let newStreak: number;
-    if (wasActiveYesterday) {
-      newStreak = (g.streak || 0) + 1;
-    } else if (!g.lastActiveDate) {
-      // Brand-new user, first ever session
-      newStreak = 1;
-    } else {
-      // Streak broken — missed yesterday entirely
-      newStreak = 1;
-    }
-
-    const longestStreak = Math.max(g.longestStreak || 0, newStreak);
-
-    // Use a transaction so concurrent calls (multiple tabs, Providers + Dashboard)
-    // don't double-increment or clobber each other's writes.
     try {
       await runTransaction(db, async (transaction) => {
         const docSnap = await transaction.get(ref);
@@ -265,12 +237,34 @@ export function useGamification(): UseGamificationReturn {
 
         const current = docSnap.data() as GamificationData;
 
-        // Another call (tab/component) may have already updated today
-        if (current.lastActiveDate === today) return;
+        // Already processed today in Firestore
+        if (current.lastActiveDate === today) {
+          checkedTodayRef.current = today;
+          return;
+        }
+
+        // Determine if the user was active yesterday:
+        // 1. They visited a page yesterday (lastActiveDate was set to yesterday), OR
+        // 2. They earned XP yesterday (xpLog has an entry for yesterday)
+        const wasActiveYesterday =
+          current.lastActiveDate === yesterday || (history[yesterday] || 0) > 0;
+
+        let newStreak: number;
+        if (wasActiveYesterday) {
+          newStreak = (current.streak || 0) + 1;
+        } else if (!current.lastActiveDate) {
+          // Brand-new user, first ever session
+          newStreak = 1;
+        } else {
+          // Streak broken — missed yesterday entirely
+          newStreak = 1;
+        }
+
+        const longestStreak = Math.max(current.longestStreak || 0, newStreak);
 
         transaction.set(ref, {
           streak: newStreak,
-          longestStreak: Math.max(current.longestStreak || 0, newStreak),
+          longestStreak,
           lastActiveDate: today,
         }, { merge: true });
       });

@@ -17,7 +17,8 @@ import {
   deleteUser,
   User,
 } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
+import { doc } from 'firebase/firestore';
 import {
   getProfileRef,
   getGamificationRef,
@@ -119,6 +120,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await setDocument(profileRef, newProfile);
         await setDocument(getGamificationRef(firebaseUser.uid), newGamification);
         await setDocument(getUserRef(firebaseUser.uid), { friendCode, uid: firebaseUser.uid });
+        await setDocument(doc(db, 'leaderboard', firebaseUser.uid), {
+          uid: firebaseUser.uid,
+          displayName: newProfile.displayName,
+          avatarSeed: seed,
+          avatarStyle: 'adventurer',
+          xp: 0,
+          level: 0,
+          streak: 0,
+          updatedAt: Date.now(),
+        }).catch(() => {});
       } catch (writeError) {
         console.warn('Non-critical: Failed to write new profile to Firestore:', writeError);
       }
