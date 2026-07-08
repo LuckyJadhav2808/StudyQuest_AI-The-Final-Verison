@@ -20,12 +20,90 @@ import confetti from 'canvas-confetti';
 import { getLocalDateString, getLocalYesterdayDateString } from '@/lib/dateUtils';
 
 const PROBLEMS = [
-  { id: 'two-sum', title: 'Two Sum', difficulty: 'easy' as const, category: 'Arrays', desc: 'Return indices of two numbers that add up to target.', template: 'function twoSum(nums, target) {\n  // Your solution\n  \n}\nconsole.log(twoSum([2,7,11,15], 9));' },
-  { id: 'reverse-string', title: 'Reverse String', difficulty: 'easy' as const, category: 'Strings', desc: 'Reverse an array of characters in-place.', template: 'function reverseString(s) {\n  // Your solution\n  \n}\nconsole.log(reverseString(["h","e","l","l","o"]));' },
-  { id: 'valid-parens', title: 'Valid Parentheses', difficulty: 'easy' as const, category: 'Stacks', desc: 'Determine if string of brackets is valid.', template: 'function isValid(s) {\n  // Your solution\n  \n}\nconsole.log(isValid("()[]{}"));' },
-  { id: 'binary-search', title: 'Binary Search', difficulty: 'easy' as const, category: 'Searching', desc: 'Find target in sorted array, return index or -1.', template: 'function search(nums, target) {\n  // Your solution\n  \n}\nconsole.log(search([-1,0,3,5,9,12], 9));' },
-  { id: 'longest-sub', title: 'Longest Substring Without Repeating', difficulty: 'medium' as const, category: 'Sliding Window', desc: 'Find length of longest substring without repeating chars.', template: 'function lengthOfLongestSubstring(s) {\n  // Your solution\n  \n}\nconsole.log(lengthOfLongestSubstring("abcabcbb"));' },
-  { id: 'merge-lists', title: 'Merge Sorted Arrays', difficulty: 'easy' as const, category: 'Arrays', desc: 'Merge two sorted arrays into one sorted array.', template: 'function mergeSorted(a, b) {\n  // Your solution\n  \n}\nconsole.log(mergeSorted([1,3,5], [2,4,6]));' },
+  { 
+    id: 'two-sum', 
+    title: 'Two Sum', 
+    difficulty: 'easy' as const, 
+    category: 'Arrays', 
+    desc: 'Return indices of two numbers that add up to target.', 
+    methodName: 'twoSum',
+    templates: {
+      javascript: 'function twoSum(nums, target) {\n  // Your solution\n  \n}\nconsole.log(twoSum([2,7,11,15], 9));',
+      python: 'def twoSum(nums, target):\n    # Your solution\n    pass\n\nprint(twoSum([2, 7, 11, 15], 9))',
+      java: 'import java.util.Arrays;\n\nclass Solution {\n    public static int[] twoSum(int[] nums, int target) {\n        // Your solution\n        return new int[0];\n    }\n\n    public static void main(String[] args) {\n        int[] result = twoSum(new int[]{2, 7, 11, 15}, 9);\n        System.out.println(Arrays.toString(result));\n    }\n}',
+      cpp: '#include <iostream>\n#include <vector>\n\nstd::vector<int> twoSum(const std::vector<int>& nums, int target) {\n    // Your solution\n    return {};\n}\n\nint main() {\n    std::vector<int> result = twoSum({2, 7, 11, 15}, 9);\n    std::cout << "[";\n    for (size_t i = 0; i < result.size(); ++i) {\n        std::cout << result[i] << (i < result.size() - 1 ? ", " : "");\n    }\n    std::cout << "]" << std::endl;\n    return 0;\n}',
+    }
+  },
+  { 
+    id: 'reverse-string', 
+    title: 'Reverse String', 
+    difficulty: 'easy' as const, 
+    category: 'Strings', 
+    desc: 'Reverse an array of characters in-place.', 
+    methodName: 'reverseString',
+    templates: {
+      javascript: 'function reverseString(s) {\n  // Your solution\n  return s.reverse();\n}\nconsole.log(reverseString(["h","e","l","l","o"]));',
+      python: 'def reverseString(s):\n    # Your solution\n    return s[::-1]\n\nprint(reverseString(["h", "e", "l", "l", "o"]))',
+      java: 'import java.util.Arrays;\n\nclass Solution {\n    public static void reverseString(char[] s) {\n        int left = 0, right = s.length - 1;\n        while (left < right) {\n            char temp = s[left];\n            s[left] = s[right];\n            s[right] = temp;\n            left++;\n            right--;\n        }\n    }\n\n    public static void main(String[] args) {\n        char[] s = {\'h\', \'e\', \'l\', \'l\', \'o\'};\n        reverseString(s);\n        System.out.println(Arrays.toString(s));\n    }\n}',
+      cpp: '#include <iostream>\n#include <vector>\n#include <algorithm>\n\nvoid reverseString(std::vector<char>& s) {\n    std::reverse(s.begin(), s.end());\n}\n\nint main() {\n    std::vector<char> s = {\'h\', \'e\', \'l\', \'l\', \'o\'};\n    reverseString(s);\n    std::cout << "[";\n    for (size_t i = 0; i < s.size(); ++i) {\n        std::cout << "\'" << s[i] << "\'" << (i < s.size() - 1 ? ", " : "");\n    }\n    std::cout << "]" << std::endl;\n    return 0;\n}',
+    }
+  },
+  { 
+    id: 'valid-parens', 
+    title: 'Valid Parentheses', 
+    difficulty: 'easy' as const, 
+    category: 'Stacks', 
+    desc: 'Determine if string of brackets is valid.', 
+    methodName: 'isValid',
+    templates: {
+      javascript: 'function isValid(s) {\n  // Your solution\n  \n}\nconsole.log(isValid("()[]{}"));',
+      python: 'def isValid(s):\n    # Your solution\n    pass\n\nprint(isValid("()[]{}"))',
+      java: 'import java.util.Stack;\n\nclass Solution {\n    public static boolean isValid(String s) {\n        // Your solution\n        return false;\n    }\n\n    public static void main(String[] args) {\n        System.out.println(isValid("()[]{}"));\n    }\n}',
+      cpp: '#include <iostream>\n#include <string>\n#include <stack>\n\nbool isValid(std::string s) {\n    // Your solution\n    return false;\n}\n\nint main() {\n    std::cout << (isValid("()[]{}") ? "true" : "false") << std::endl;\n    return 0;\n}',
+    }
+  },
+  { 
+    id: 'binary-search', 
+    title: 'Binary Search', 
+    difficulty: 'easy' as const, 
+    category: 'Searching', 
+    desc: 'Find target in sorted array, return index or -1.', 
+    methodName: 'search',
+    templates: {
+      javascript: 'function search(nums, target) {\n  // Your solution\n  \n}\nconsole.log(search([-1,0,3,5,9,12], 9));',
+      python: 'def search(nums, target):\n    # Your solution\n    pass\n\nprint(search([-1, 0, 3, 5, 9, 12], 9))',
+      java: 'class Solution {\n    public static int search(int[] nums, int target) {\n        // Your solution\n        return -1;\n    }\n\n    public static void main(String[] args) {\n        System.out.println(search(new int[]{-1, 0, 3, 5, 9, 12}, 9));\n    }\n}',
+      cpp: '#include <iostream>\n#include <vector>\n\nint search(const std::vector<int>& nums, int target) {\n    // Your solution\n    return -1;\n}\n\nint main() {\n    std::cout << search({-1, 0, 3, 5, 9, 12}, 9) << std::endl;\n    return 0;\n}',
+    }
+  },
+  { 
+    id: 'longest-sub', 
+    title: 'Longest Substring Without Repeating', 
+    difficulty: 'medium' as const, 
+    category: 'Sliding Window', 
+    desc: 'Find length of longest substring without repeating chars.', 
+    methodName: 'lengthOfLongestSubstring',
+    templates: {
+      javascript: 'function lengthOfLongestSubstring(s) {\n  // Your solution\n  \n}\nconsole.log(lengthOfLongestSubstring("abcabcbb"));',
+      python: 'def lengthOfLongestSubstring(s):\n    # Your solution\n    pass\n\nprint(lengthOfLongestSubstring("abcabcbb"))',
+      java: 'import java.util.HashSet;\n\nclass Solution {\n    public static int lengthOfLongestSubstring(String s) {\n        // Your solution\n        return 0;\n    }\n\n    public static void main(String[] args) {\n        System.out.println(lengthOfLongestSubstring("abcabcbb"));\n    }\n}',
+      cpp: '#include <iostream>\n#include <string>\n#include <unordered_set>\n#include <algorithm>\n\nint lengthOfLongestSubstring(std::string s) {\n    // Your solution\n    return 0;\n}\n\nint main() {\n    std::cout << lengthOfLongestSubstring("abcabcbb") << std::endl;\n    return 0;\n}',
+    }
+  },
+  { 
+    id: 'merge-lists', 
+    title: 'Merge Sorted Arrays', 
+    difficulty: 'easy' as const, 
+    category: 'Arrays', 
+    desc: 'Merge two sorted arrays into one sorted array.', 
+    methodName: 'mergeSorted',
+    templates: {
+      javascript: 'function mergeSorted(a, b) {\n  // Your solution\n  \n}\nconsole.log(mergeSorted([1,3,5], [2,4,6]));',
+      python: 'def mergeSorted(a, b):\n    # Your solution\n    pass\n\nprint(mergeSorted([1, 3, 5], [2, 4, 6]))',
+      java: 'import java.util.Arrays;\n\nclass Solution {\n    public static int[] mergeSorted(int[] a, int[] b) {\n        // Your solution\n        return new int[0];\n    }\n\n    public static void main(String[] args) {\n        int[] result = mergeSorted(new int[]{1, 3, 5}, new int[]{2, 4, 6});\n        System.out.println(Arrays.toString(result));\n    }\n}',
+      cpp: '#include <iostream>\n#include <vector>\n\nstd::vector<int> mergeSorted(const std::vector<int>& a, const std::vector<int>& b) {\n    // Your solution\n    return {};\n}\n\nint main() {\n    std::vector<int> result = mergeSorted({1, 3, 5}, {2, 4, 6});\n    std::cout << "[";\n    for (size_t i = 0; i < result.size(); ++i) {\n        std::cout << result[i] << (i < result.size() - 1 ? ", " : "");\n    }\n    std::cout << "]" << std::endl;\n    return 0;\n}',
+    }
+  },
 ];
 
 const DC = { easy: 'teal', medium: 'amber', hard: 'coral' } as const;
@@ -42,11 +120,11 @@ function getDailyChallengeIndex(): number {
 }
 
 const LANGS = [
-  { id: 'javascript', label: 'JavaScript', version: '18.15.0' },
-  { id: 'python', label: 'Python', version: '3.10.0' },
-  { id: 'java', label: 'Java', version: '15.0.2' },
-  { id: 'cpp', label: 'C++', version: '10.2.0' },
-];
+  { id: 'javascript' as const, label: 'JavaScript', version: '18.15.0' },
+  { id: 'python' as const, label: 'Python', version: '3.10.0' },
+  { id: 'java' as const, label: 'Java', version: '15.0.2' },
+  { id: 'cpp' as const, label: 'C++', version: '10.2.0' },
+] as const;
 
 // DS Visualizer component
 function DSVisualizer({ code }: { code: string }) {
@@ -112,7 +190,7 @@ export default function DsaPage() {
   const { awardXP, gamification } = useGamification();
   const [sel, setSel] = useState<typeof PROBLEMS[0] | null>(null);
   const [code, setCode] = useState('');
-  const [lang, setLang] = useState('javascript');
+  const [lang, setLang] = useState<'javascript' | 'python' | 'java' | 'cpp'>('javascript');
   const [output, setOutput] = useState('');
   const [running, setRunning] = useState(false);
   const [solved, setSolved] = useState<Set<string>>(new Set());
@@ -130,7 +208,7 @@ export default function DsaPage() {
     setRunning(true);
     setOutput('⏳ Running...');
     try {
-      const result = await executeCode(code, lang, stdin);
+      const result = await executeCode(code, lang, stdin, sel?.methodName || '');
       const out = (result.stdout || '') + (result.stderr ? '\n' + result.stderr : '');
       setOutput(out.trim() || '(no output)');
       if (result.stderr) toast.error('Execution had errors');
@@ -313,7 +391,7 @@ export default function DsaPage() {
                   )}
                   {!isDailyCompleted && (
                     <button
-                      onClick={() => { setSel(dailyProblem); setCode(dailyProblem.template); setOutput(''); }}
+                      onClick={() => { setSel(dailyProblem); setCode(dailyProblem.templates[lang] || dailyProblem.templates['javascript']); setOutput(''); }}
                       className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-amber-400 to-orange-500 text-white shadow-[0_3px_0_rgba(217,119,6,0.4)] hover:shadow-[0_4px_0_rgba(217,119,6,0.5)] hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-[0_1px_0_rgba(217,119,6,0.4)] transition-all"
                     >
                       Start →
@@ -331,7 +409,7 @@ export default function DsaPage() {
                   <Card
                     padding="md"
                     className={`cursor-pointer ${isDaily && !isDailyCompleted ? 'ring-2 ring-amber-400/40' : ''}`}
-                    onClick={() => { setSel(p); setCode(p.template); setOutput(''); }}
+                    onClick={() => { setSel(p); setCode(p.templates[lang] || p.templates['javascript']); setOutput(''); }}
                   >
                     <div className="flex items-center gap-4">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${solved.has(p.id) ? 'bg-teal/15' : isDaily && !isDailyCompleted ? 'bg-amber-400/15' : 'bg-primary/15'}`}>
@@ -360,7 +438,7 @@ export default function DsaPage() {
               <button onClick={() => setSel(null)} className="text-xs text-primary font-bold hover:underline uppercase tracking-wider">← Back</button>
               <div className="flex gap-1.5">
                 {LANGS.map((l) => (
-                  <button key={l.id} onClick={() => setLang(l.id)} className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase border-2 transition-all ${lang === l.id ? 'bg-primary text-white border-primary' : 'border-[var(--card-border)] hover:border-primary/30'}`}>{l.label}</button>
+                  <button key={l.id} onClick={() => { setLang(l.id); setCode(sel.templates[l.id] || sel.templates['javascript']); }} className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase border-2 transition-all ${lang === l.id ? 'bg-primary text-white border-primary' : 'border-[var(--card-border)] hover:border-primary/30'}`}>{l.label}</button>
                 ))}
               </div>
             </div>

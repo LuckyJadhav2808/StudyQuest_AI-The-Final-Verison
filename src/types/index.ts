@@ -377,6 +377,8 @@ export interface PetData {
   // Evolution tracking — multiple paths
   totalFeedings: number;
   totalPlaySessions: number;
+  level?: number;
+  exp?: number;
 }
 
 // ----- Auto-Quiz -----

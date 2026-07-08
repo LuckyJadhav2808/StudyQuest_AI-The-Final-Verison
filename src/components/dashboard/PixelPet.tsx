@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { playClick, playSuccess } from '@/lib/sounds';
+import { usePet } from '@/hooks/usePet';
 
 // Shared canvas cache to store processed transparent cropped canvas elements globally (across games/pages)
 export const croppedCanvasCache: Record<string, HTMLCanvasElement> = {};
@@ -142,18 +143,33 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
   const [dialogue, setDialogue] = useState("Hey adventurer! Let's study together! 🐾");
   const [showBubble, setShowBubble] = useState(true);
 
+  const { pet, updatePet } = usePet();
+
   // Stats (Level, EXP)
   const [stats, setStats] = useState({ level: 1, exp: 0 });
 
-  // Load stats from localStorage
+  // Sync stats from Firestore pet when it updates
+  useEffect(() => {
+    if (pet) {
+      setStats({
+        level: pet.level ?? 1,
+        exp: pet.exp ?? 0
+      });
+      // Species Index mapping: cat=0, owl=1, dino=2
+      const speciesIndex = pet.species === 'cat' ? 0 : pet.species === 'owl' ? 1 : 2;
+      setSkinIndex(speciesIndex);
+    }
+  }, [pet]);
+
+  // Load stats from localStorage (as fallback when offline or no pet created)
   useEffect(() => {
     try {
       const stored = localStorage.getItem('sq-pixel-pet-stats');
-      if (stored) {
+      if (stored && !pet) {
         setStats(JSON.parse(stored));
       }
       const storedSkin = localStorage.getItem('sq-pixel-pet-skin');
-      if (storedSkin) {
+      if (storedSkin && !pet) {
         setSkinIndex(parseInt(storedSkin) || 0);
       }
       const storedPlatform = localStorage.getItem('sq-pixel-pet-platform');
@@ -161,12 +177,18 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
         setPlatform(storedPlatform as 'header' | 'footer');
       }
     } catch (e) { /* ignore */ }
-  }, []);
+  }, [pet]);
 
-  const saveStats = (newStats: { level: number; exp: number }) => {
+  const saveStats = async (newStats: { level: number; exp: number }) => {
     setStats(newStats);
     try {
       localStorage.setItem('sq-pixel-pet-stats', JSON.stringify(newStats));
+      if (pet) {
+        await updatePet({
+          level: newStats.level,
+          exp: newStats.exp
+        });
+      }
     } catch (e) { /* ignore */ }
   };
 
@@ -430,7 +452,7 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
         leveledUp = true;
       }
 
-      saveStats({ level: newLevel, exp: newExp });
+      await saveStats({ level: newLevel, exp: newExp });
 
       if (leveledUp) {
         speak(`Yum! Level Up! Lv.${newLevel}! 🎉 I feel stronger!`);

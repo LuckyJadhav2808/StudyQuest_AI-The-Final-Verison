@@ -109,15 +109,33 @@ export default function DashboardContent() {
       const right = localStorage.getItem('sq-modern-right-order');
       const defaultLeft = ['banner', 'quests', 'scrolls', 'heatmap', 'exams'];
       const defaultRight = ['profile', 'stats', 'friends', 'shortcuts', 'halloffame', 'calendar', 'activity', 'tasks', 'jukebox', 'scratchpad'];
+      const allDefault = [...defaultLeft, ...defaultRight];
 
-      if (left) {
-        const parsed = JSON.parse(left);
-        const merged = [...parsed.filter((id: string) => defaultLeft.includes(id)), ...defaultLeft.filter(id => !parsed.includes(id))];
+      if (left && right) {
+        let parsedLeft = JSON.parse(left) as string[];
+        let parsedRight = JSON.parse(right) as string[];
+
+        // Filter out any invalid items
+        parsedLeft = parsedLeft.filter(id => allDefault.includes(id));
+        parsedRight = parsedRight.filter(id => allDefault.includes(id));
+
+        // Deduplicate: ensure no item is in both columns (prefer left if duplicated)
+        parsedRight = parsedRight.filter(id => !parsedLeft.includes(id));
+
+        // Find missing items that exist in default list but are not present in either saved list
+        const missing = allDefault.filter(id => !parsedLeft.includes(id) && !parsedRight.includes(id));
+        const missingLeft = missing.filter(id => defaultLeft.includes(id));
+        const missingRight = missing.filter(id => defaultRight.includes(id));
+
+        setModernLeftOrder([...parsedLeft, ...missingLeft]);
+        setModernRightOrder([...parsedRight, ...missingRight]);
+      } else if (left) {
+        const parsed = JSON.parse(left) as string[];
+        const merged = [...parsed.filter((id: string) => allDefault.includes(id)), ...defaultLeft.filter(id => !parsed.includes(id))];
         setModernLeftOrder(merged);
-      }
-      if (right) {
-        const parsed = JSON.parse(right);
-        const merged = [...parsed.filter((id: string) => defaultRight.includes(id)), ...defaultRight.filter(id => !parsed.includes(id))];
+      } else if (right) {
+        const parsed = JSON.parse(right) as string[];
+        const merged = [...parsed.filter((id: string) => allDefault.includes(id)), ...defaultRight.filter(id => !parsed.includes(id))];
         setModernRightOrder(merged);
       }
     } catch (e) { /* ignore */ }
@@ -883,7 +901,7 @@ export default function DashboardContent() {
         <div className="h-16 bg-gradient-to-r from-blue-500 to-indigo-500" />
         <div className="px-4 pb-4 -mt-8 flex flex-col items-center gap-1">
           <div className="w-16 h-16 rounded-full border-4 border-white dark:border-slate-900 bg-slate-200 overflow-hidden relative shadow-sm mx-auto">
-            <img src={profile ? getAvatarUrl(profile.avatarSeed, profile.avatarStyle) : ''} alt="" className="w-full h-full object-cover" />
+            {profile && <img src={getAvatarUrl(profile.avatarSeed, profile.avatarStyle)} alt="" className="w-full h-full object-cover" />}
           </div>
           <h3 className="font-heading font-black text-sm text-slate-800 dark:text-white flex items-center gap-1 mt-1 justify-center">
             {profile?.displayName || 'Adventurer'}

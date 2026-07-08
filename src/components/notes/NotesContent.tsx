@@ -252,11 +252,117 @@ export default function NotesContent() {
   const [editTitle, setEditTitle] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
+  // ── Mana Writing Bar & Alchemy Cauldron states ──
+  const [mana, setMana] = useState(0);
+  const [wordsWrittenSession, setWordsWrittenSession] = useState(0);
+  const [lastWordCount, setLastWordCount] = useState(0);
+  const [showCauldron, setShowCauldron] = useState(false);
+  const [brewingRecipe, setBrewingRecipe] = useState<'scroll' | 'cards' | null>(null);
+  const [brewCountdown, setBrewCountdown] = useState(0);
+
   // Autosave & editor state
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const quillWrapperRef = useRef<HTMLDivElement>(null);
   const lastSavedAt = useRef<number>(0);
+
+  // Load and save mana/session count state
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedMana = localStorage.getItem('studyquest_mana');
+      if (savedMana) setMana(parseInt(savedMana, 10));
+      const savedWords = localStorage.getItem('studyquest_session_words');
+      if (savedWords) setWordsWrittenSession(parseInt(savedWords, 10));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('studyquest_mana', mana.toString());
+    }
+  }, [mana]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('studyquest_session_words', wordsWrittenSession.toString());
+    }
+  }, [wordsWrittenSession]);
+
+  const finishBrew = async (recipe: 'scroll' | 'cards') => {
+    if (!profile?.openRouterKey) {
+      toast.error('Set your OpenRouter API key in Settings to brew! 🧪');
+      setBrewingRecipe(null);
+      return;
+    }
+    setAiLoading(true);
+    try {
+      if (recipe === 'scroll') {
+        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${profile.openRouterKey}`,
+            'HTTP-Referer': window.location.origin
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'You are a grand wizard alchemist. Summarize the user note content into a visually gorgeous, comprehensive "Mastery Scroll" revision guide. Use markdown tables, bold key points, bullet groups, and clear section dividers. Wrap the final output inside clean HTML (do not include markdown ticks like ```html).'
+              },
+              { role: 'user', content: editContent }
+            ],
+            max_tokens: 1500
+          })
+        });
+        const data = await res.json();
+        const scrollHtml = data.choices?.[0]?.message?.content || 'Could not brew mastery scroll.';
+
+        const newId = await addNote({
+          title: `${editTitle} - Mastery Scroll 📜`,
+          content: scrollHtml,
+          folder: selectedNote?.folder || 'General',
+          tags: ['Mastery Scroll', 'Alchemy']
+        });
+
+        await awardXP(25, 'Brewed Mastery Scroll');
+        toast.success('Successfully transmuted note into a Mastery Scroll! +25 XP 📜', { icon: '🧪' });
+      } else if (recipe === 'cards') {
+        await aiFlashcards();
+      }
+    } catch (err) {
+      toast.error('Brewing failed - check OpenRouter key');
+    } finally {
+      setAiLoading(false);
+      setBrewingRecipe(null);
+      setShowCauldron(false);
+    }
+  };
+
+  const startBrewing = (recipe: 'scroll' | 'cards') => {
+    const cost = recipe === 'scroll' ? 50 : 30;
+    if (mana < cost) {
+      toast.error(`Not enough Mana! Requires ${cost} Mana (You have ${mana}). Write more notes to channel Mana!`);
+      return;
+    }
+
+    setMana(prev => Math.max(0, prev - cost));
+    setBrewingRecipe(recipe);
+    setBrewCountdown(2);
+
+    const interval = setInterval(() => {
+      setBrewCountdown(c => {
+        if (c <= 1) {
+          clearInterval(interval);
+          finishBrew(recipe);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+  };
 
   // ── Spellcheck & Autocorrect states & effects for Quill ──
   const quillRef = useRef<any>(null);
@@ -723,6 +829,42 @@ export default function NotesContent() {
       triggerAutosave(content, editTitle);
     }, 5000);
 
+    // Calculate new word count & incremental Mana Bar tracking
+    const textOnly = content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim();
+    const currentWordCount = textOnly.split(/\s+/).filter(Boolean).length;
+
+    if (lastWordCount > 0) {
+      const diff = currentWordCount - lastWordCount;
+      if (diff > 0) {
+        const newSessionCount = wordsWrittenSession + diff;
+        setWordsWrittenSession(newSessionCount);
+        setLastWordCount(currentWordCount);
+
+        // Check if we hit a 100-word milestone!
+        if (newSessionCount >= 100) {
+          const awardMana = Math.floor(newSessionCount / 100) * 10;
+          setMana(prev => Math.min(100, prev + awardMana));
+          setWordsWrittenSession(newSessionCount % 100);
+
+          // Award XP, Gold, and a random Ingredient!
+          awardXP(10, 'Focused Note Writing');
+          
+          // Random alchemy ingredient
+          const ingredients = ['ether_shard', 'dragon_scale', 'phoenix_feather', 'mana_core', 'sun_stone', 'mercury_dew'];
+          const randomIng = ingredients[Math.floor(Math.random() * ingredients.length)];
+          
+          toast.success(`🔮 Mana Infused! +${awardMana} Mana, +10 XP, and found 1x ${randomIng.replace('_', ' ')}!`, {
+            icon: '✨',
+            duration: 4000
+          });
+        }
+      } else {
+        setLastWordCount(currentWordCount);
+      }
+    } else {
+      setLastWordCount(currentWordCount);
+    }
+
     // ── Detect compare/slash compare command ──
     const quill = quillRef.current?.getEditor();
     if (quill) {
@@ -748,7 +890,7 @@ export default function NotesContent() {
         }
       }
     }
-  }, [editTitle, triggerAutosave]);
+  }, [editTitle, triggerAutosave, lastWordCount, wordsWrittenSession, awardXP]);
 
   // Cleanup autosave timer
   useEffect(() => {
@@ -813,7 +955,21 @@ export default function NotesContent() {
     return { words, chars, readingTime: `${mins} min read` };
   }, [editContent]);
 
-  const openNote = (note: Note) => { setSelectedNote(note); setEditContent(note.content); setEditTitle(note.title); setIsEditing(false); setPreview(false); setViewMode(false); setSaveStatus('idle'); };
+  const openNote = (note: Note) => {
+    setSelectedNote(note);
+    setEditContent(note.content);
+    setEditTitle(note.title);
+    setIsEditing(false);
+    setPreview(false);
+    setViewMode(false);
+    setSaveStatus('idle');
+
+    // Sync baseline word count
+    const text = note.content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim();
+    const count = text.split(/\s+/).filter(Boolean).length;
+    setLastWordCount(count);
+    setWordsWrittenSession(0);
+  };
   const backToList = () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current); setSelectedNote(null); setIsEditing(false); setPreview(false); setViewMode(false); setSaveStatus('idle'); };
 
   // Convert markdown to HTML (with Mermaid diagram rendering) and save into the note
@@ -1815,6 +1971,7 @@ Rules:
                   {isListening ? 'Listening...' : 'Dictate'}
                 </Button>
                 <button onClick={() => setShowShortcuts(!showShortcuts)} className={`p-2 rounded-xl border-2 transition-all text-xs ${showShortcuts ? 'border-primary bg-primary/10 text-primary' : 'border-[var(--card-border)] hover:border-primary/30 text-[var(--muted-foreground)]'}`} title="Keyboard Shortcuts"><HiInformationCircle size={18} /></button>
+                <Button variant="teal" size="sm" icon={<HiBeaker size={14} />} onClick={() => setShowCauldron(true)}>Cauldron</Button>
                 <Button variant="coral" size="sm" icon={<HiCode size={14} />} onClick={() => setShowDiagram(true)}>Insert Diagram</Button>
               </div>
             </div>
@@ -1881,6 +2038,26 @@ Rules:
                           {saveStatus === 'saving' && <span className="text-amber flex items-center gap-1"><HiRefresh className="animate-spin" size={10} /> Autosaving...</span>}
                           {saveStatus === 'saved' && <span className="text-teal flex items-center gap-1"><HiCheck size={10} /> Autosaved</span>}
                         </div>
+                      </div>
+
+                      {/* Mana Writing Bar */}
+                      <div className="px-4 py-3 border-t border-[var(--card-border)] bg-purple-500/5 dark:bg-purple-950/15 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg animate-pulse">🔮</span>
+                          <div className="text-left">
+                            <div className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wide">Grimoire Mana Bar</div>
+                            <div className="text-[9px] text-[var(--muted-foreground)]">+{100 - wordsWrittenSession} words to gain Alchemy Ingredients & Mana!</div>
+                          </div>
+                        </div>
+                        <div className="flex-1 max-w-[200px] h-2.5 bg-slate-200 dark:bg-slate-850 rounded-full overflow-hidden relative shadow-inner border border-purple-500/20">
+                          <motion.div
+                            className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 shadow-[0_0_8px_rgba(168,85,247,0.5)]"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${wordsWrittenSession}%` }}
+                            transition={{ type: 'spring', stiffness: 80 }}
+                          />
+                        </div>
+                        <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400">Mana: {mana}/100</span>
                       </div>
                     </div>
                   ) : viewMode ? (
@@ -2216,6 +2393,109 @@ Rules:
             {groups.map((g) => (
               <ShareToGroupButton key={g.id} groupId={g.id} groupName={g.name} note={selectedNote} onDone={() => setShowShareGroup(false)} />
             ))}
+          </div>
+        </Modal>
+
+        {/* Alchemy Cauldron Modal */}
+        <Modal isOpen={showCauldron} onClose={() => { if (!brewingRecipe) setShowCauldron(false); }} title="🧪 Alchemy Cauldron">
+          <div className="space-y-5 text-left">
+            <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
+              Transmute your current study note into magical study guides. Drop your note into the bubbling pot!
+            </p>
+
+            {/* Brewing Cauldron Animation */}
+            <div className="relative flex flex-col items-center justify-center p-6 rounded-2xl border-2 border-[var(--card-border)] bg-slate-950 overflow-hidden min-h-[160px]">
+              {/* bubbling background keys */}
+              <style>{`
+                @keyframes cauldron-bubble {
+                  0% { transform: translateY(10px) scale(0.6); opacity: 0; }
+                  50% { opacity: 0.8; }
+                  100% { transform: translateY(-70px) scale(1.2); opacity: 0; }
+                }
+              `}</style>
+
+              {/* Bubbles */}
+              {brewingRecipe && (
+                <>
+                  <div className="absolute w-3 h-3 bg-purple-500 rounded-full blur-[1px]" style={{ left: '42%', bottom: '50px', animation: 'cauldron-bubble 1.5s infinite ease-out' }} />
+                  <div className="absolute w-2 h-2 bg-indigo-400 rounded-full blur-[1px]" style={{ left: '50%', bottom: '45px', animation: 'cauldron-bubble 1.2s infinite ease-out 0.3s' }} />
+                  <div className="absolute w-4 h-4 bg-purple-400 rounded-full blur-[1px]" style={{ left: '55%', bottom: '52px', animation: 'cauldron-bubble 1.8s infinite ease-out 0.6s' }} />
+                  <div className="absolute w-2.5 h-2.5 bg-pink-500 rounded-full blur-[1px]" style={{ left: '47%', bottom: '48px', animation: 'cauldron-bubble 1.4s infinite ease-out 0.9s' }} />
+                </>
+              )}
+
+              {/* Cauldron body */}
+              <motion.div
+                animate={brewingRecipe ? { y: [0, -4, 0], scale: [1, 1.03, 1] } : {}}
+                transition={{ duration: 0.5, repeat: Infinity }}
+                className="text-6xl z-10 filter drop-shadow-[0_0_15px_rgba(168,85,247,0.4)]"
+              >
+                {brewingRecipe ? '🧙‍♂️' : '🧪'}
+              </motion.div>
+
+              <div className="mt-4 text-center z-10">
+                {brewingRecipe ? (
+                  <>
+                    <h4 className="text-sm font-heading font-bold text-purple-400 animate-pulse">Brewing Recipe: {brewingRecipe === 'scroll' ? 'Mastery Scroll' : 'Flashcards'}...</h4>
+                    <p className="text-[10px] text-slate-400 mt-1">Stirring ingredients... Manifesting in {brewCountdown}s</p>
+                  </>
+                ) : (
+                  <>
+                    <h4 className="text-xs font-heading font-bold text-slate-400">Cauldron is empty</h4>
+                    <p className="text-[10px] text-slate-500 mt-1">Select a transmutation recipe below. Current Mana: {mana}</p>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Recipes Selector */}
+            <div className="space-y-3">
+              <label className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)] block">Transmutation Recipes</label>
+              
+              {/* Recipe 1: Mastery Scroll */}
+              <button
+                disabled={!!brewingRecipe || mana < 50}
+                onClick={() => startBrewing('scroll')}
+                className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
+                  mana >= 50 && !brewingRecipe
+                    ? 'border-purple-500/30 hover:border-purple-500 bg-purple-500/5 hover:bg-purple-500/10'
+                    : 'border-[var(--card-border)] opacity-60 cursor-not-allowed'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">📜</span>
+                  <div className="text-left">
+                    <h5 className="text-xs font-bold text-[var(--foreground)]">Mastery Scroll (AI Cheatsheet)</h5>
+                    <p className="text-[9px] text-[var(--muted-foreground)]">Brew note summary scroll. Spawns as a new study card.</p>
+                  </div>
+                </div>
+                <Badge variant="pink">Costs 50 Mana</Badge>
+              </button>
+
+              {/* Recipe 2: Flashcards */}
+              <button
+                disabled={!!brewingRecipe || mana < 30}
+                onClick={() => startBrewing('cards')}
+                className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
+                  mana >= 30 && !brewingRecipe
+                    ? 'border-teal/30 hover:border-teal bg-teal/5 hover:bg-teal/10'
+                    : 'border-[var(--card-border)] opacity-60 cursor-not-allowed'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">🃏</span>
+                  <div className="text-left">
+                    <h5 className="text-xs font-bold text-[var(--foreground)]">Study Flashcard Deck</h5>
+                    <p className="text-[9px] text-[var(--muted-foreground)]">Brew interactive flashcards for active recall study.</p>
+                  </div>
+                </div>
+                <Badge variant="teal">Costs 30 Mana</Badge>
+              </button>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button variant="ghost" onClick={() => setShowCauldron(false)} disabled={!!brewingRecipe} className="flex-1">Close Cauldron</Button>
+            </div>
           </div>
         </Modal>
       </PageTransition>

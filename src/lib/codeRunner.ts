@@ -208,6 +208,68 @@ __builtins__.input = _mock_input
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
+// ========================= Remote: Piston API (stable, isolated, free) =========================
+
+async function tryPiston(code: string, language: string, stdin: string): Promise<ExecutionResult | null> {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 12000); // 12 second execution limit
+
+    const pistonLangMap: Record<string, string> = {
+      cpp: 'cpp',
+      c: 'c',
+      java: 'java',
+      python: 'python',
+      rust: 'rust',
+      go: 'go',
+    };
+
+    const lang = pistonLangMap[language] || language;
+
+    const fileExtensionMap: Record<string, string> = {
+      cpp: 'cpp',
+      c: 'c',
+      java: 'java',
+      python: 'py',
+      rust: 'rs',
+      go: 'go',
+    };
+
+    const ext = fileExtensionMap[lang] || 'txt';
+    const filename = lang === 'java' ? 'Main.java' : `main.${ext}`;
+
+    const res = await fetch('https://emkc.org/api/v2/piston/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        language: lang,
+        version: '*',
+        files: [
+          {
+            name: filename,
+            content: code,
+          }
+        ],
+        stdin,
+      }),
+      signal: ctrl.signal,
+    });
+
+    clearTimeout(t);
+    if (!res.ok) return null;
+
+    const d = await res.json();
+    if (!d.run) return null;
+
+    return {
+      stdout: d.run.stdout || '',
+      stderr: d.run.stderr || '',
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ========================= Remote: Wandbox (free, no key) =========================
 
 async function tryWandbox(code: string, compiler: string, stdin: string): Promise<ExecutionResult | null> {
@@ -215,10 +277,15 @@ async function tryWandbox(code: string, compiler: string, stdin: string): Promis
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 15000);
 
+    const body: Record<string, any> = { code, compiler, stdin };
+    if (compiler.includes('gcc') || compiler.includes('clang')) {
+      body.options = 'warning,gnu++20'; // Enable C++20 features on Wandbox GCC compiler
+    }
+
     const res = await fetch('https://wandbox.org/api/compile.json', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, compiler, stdin }),
+      body: JSON.stringify(body),
       signal: ctrl.signal,
     });
 
@@ -241,13 +308,18 @@ async function tryGodbolt(code: string, compilerId: string, stdin: string): Prom
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 15000);
 
+    let userArguments = '';
+    if (compilerId.includes('gcc') || compilerId.includes('clang') || compilerId.includes('snapshot')) {
+      userArguments = '-std=c++20 -O3'; // Enable C++20 and compiler optimizations
+    }
+
     const res = await fetch(`https://godbolt.org/api/compiler/${compilerId}/compile`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
         source: code,
         options: {
-          userArguments: '',
+          userArguments,
           executeParameters: { args: [], stdin },
           compilerOptions: { executorRequest: true },
           filters: { execute: true },
@@ -290,7 +362,285 @@ const LANG_CONFIG: Record<string, LangConfig> = {
 
 // ========================= Language-Specific Preprocessing =========================
 
-function preprocessCode(code: string, language: string): string {
+function preprocessCppCode(code: string, methodNameHint: string = ''): string {
+  // If the user already wrote a main function, do not wrap it
+  if (code.includes('int main') || code.includes('void main')) {
+    return code;
+  }
+
+  // Strip comments first to avoid matching commented-out code
+  const cleanCode = code
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '');
+
+  // Extract the contents of class Solution (make closing }; optional)
+  const classMatch = cleanCode.match(/class\s+Solution\s*\{([\s\S]*)/);
+  if (!classMatch) {
+    return code; // If no class Solution matches, return unmodified
+  }
+
+  const classBody = classMatch[1];
+  let targetMethod = null;
+
+  // If methodNameHint is specified, look for it specifically
+  if (methodNameHint) {
+    const escapedHint = methodNameHint.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const regex = new RegExp(`([^\\s{()]+)\\s+(${escapedHint})\\s*\\(([^)]*)\\)`);
+    const m = classBody.match(regex);
+    if (m) {
+      targetMethod = {
+        returnType: m[1].trim(),
+        methodName: m[2].trim(),
+        paramStr: m[3].trim()
+      };
+    }
+  }
+
+  // Otherwise, find all method definitions inside the class body
+  if (!targetMethod) {
+    const methodRegex = /([a-zA-Z0-9_:<>]+)\s+(\w+)\s*\(([^)]*)\)\s*\{/g;
+    let m;
+    const methods = [];
+    while ((m = methodRegex.exec(classBody)) !== null) {
+      const returnType = m[1].trim();
+      const methodName = m[2].trim();
+      const paramStr = m[3].trim();
+      
+      if (methodName.toLowerCase() !== 'solution' && !methodName.startsWith('~')) {
+        methods.push({ returnType, methodName, paramStr });
+      }
+    }
+    if (methods.length > 0) {
+      targetMethod = methods[0];
+    }
+  }
+
+  if (!targetMethod) {
+    return code; // If no target method matches, return unmodified
+  }
+
+  const { methodName, paramStr } = targetMethod;
+
+  // Split and parse parameters
+  const paramList = paramStr.split(',').map(p => p.trim()).filter(Boolean);
+  const parsedParams = paramList.map(p => {
+    // strip reference and const modifiers
+    p = p.replace(/&/g, '').replace(/\bconst\b/g, '').trim();
+    const parts = p.split(/\s+/);
+    const name = parts.pop() || '';
+    const type = parts.join(' ');
+    return { type, name };
+  });
+
+  // Build main wrapper
+  let mainCode = `#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <unordered_map>
+#include <unordered_set>
+#include <queue>
+#include <stack>
+#include <list>
+#include <numeric>
+#include <map>
+#include <set>
+
+using namespace std;
+
+// --- Original User Solution ---
+${code}
+// -----------------------------
+
+// --- Helper Parsers ---
+string trim(const string& s) {
+    size_t first = s.find_first_not_of(" \\t\\r\\n");
+    if (first == string::npos) return "";
+    size_t last = s.find_last_not_of(" \\t\\r\\n");
+    return s.substr(first, last - first + 1);
+}
+
+vector<int> parseVectorInt(string s) {
+    s = trim(s);
+    if (s.empty()) return {};
+    if (s.front() == '[') s.erase(s.begin());
+    if (s.back() == ']') s.pop_back();
+    vector<int> res;
+    size_t pos = 0;
+    while ((pos = s.find(',')) != string::npos) {
+        res.push_back(stoi(trim(s.substr(0, pos))));
+        s.erase(0, pos + 1);
+    }
+    string last = trim(s);
+    if (!last.empty()) {
+        res.push_back(stoi(last));
+    }
+    return res;
+}
+
+vector<string> parseVectorString(string s) {
+    s = trim(s);
+    if (s.empty()) return {};
+    if (s.front() == '[') s.erase(s.begin());
+    if (s.back() == ']') s.pop_back();
+    vector<string> res;
+    size_t pos = 0;
+    while ((pos = s.find(',')) != string::npos) {
+        string item = trim(s.substr(0, pos));
+        if (!item.empty() && (item.front() == '"' || item.front() == '\\'')) item.erase(item.begin());
+        if (!item.empty() && (item.back() == '"' || item.back() == '\\'')) item.pop_back();
+        res.push_back(item);
+        s.erase(0, pos + 1);
+    }
+    string last = trim(s);
+    if (!last.empty() && (last.front() == '"' || last.front() == '\\'')) last.erase(last.begin());
+    if (!last.empty() && (last.back() == '"' || last.back() == '\\'')) last.pop_back();
+    if (!last.empty()) res.push_back(last);
+    return res;
+}
+
+vector<vector<int>> parseVectorVectorInt(string s) {
+    s = trim(s);
+    if (s.empty()) return {};
+    if (s.front() == '[') s.erase(s.begin());
+    if (s.back() == ']') s.pop_back();
+    vector<vector<int>> res;
+    int brackets = 0;
+    string current = "";
+    for (char c : s) {
+        if (c == '[') {
+            brackets++;
+            if (brackets == 1) {
+                current = "";
+                continue;
+            }
+        }
+        if (c == ']') {
+            brackets--;
+            if (brackets == 0) {
+                res.push_back(parseVectorInt(current));
+                current = "";
+                continue;
+            }
+        }
+        current += c;
+    }
+    return res;
+}
+
+// --- Overloaded Print Helpers ---
+void print(int val) { cout << val << endl; }
+void print(long long val) { cout << val << endl; }
+void print(double val) { cout << val << endl; }
+void print(string val) { cout << "\\"" << val << "\\"" << endl; }
+void print(bool val) { cout << (val ? "true" : "false") << endl; }
+
+void print(const vector<int>& vec) {
+    cout << "[";
+    for (size_t i = 0; i < vec.size(); ++i) {
+        cout << vec[i] << (i < vec.size() - 1 ? "," : "");
+    }
+    cout << "]" << endl;
+}
+
+void print(const vector<vector<int>>& vec2d) {
+    cout << "[";
+    for (size_t i = 0; i < vec2d.size(); ++i) {
+        cout << "[";
+        for (size_t j = 0; j < vec2d[i].size(); ++j) {
+            cout << vec2d[i][j] << (j < vec2d[i].size() - 1 ? "," : "");
+        }
+        cout << "]" << (i < vec2d.size() - 1 ? "," : "");
+    }
+    cout << "]" << endl;
+}
+
+int main() {
+    Solution solver;
+`;
+
+  // Append C++ input parsers based on parameter types
+  parsedParams.forEach(p => {
+    // Determine default fallback string for empty stdin
+    let defaultValue = '""';
+    if (p.type === 'vector<int>') {
+      if (methodName === 'fourSum') defaultValue = '"[1,0,-1,0,-2,2]"';
+      else if (methodName === 'twoSum') defaultValue = '"[2,7,11,15]"';
+      else if (methodName === 'mergeSorted') defaultValue = '"[1,3,5]"';
+      else if (methodName === 'binarySearch' || methodName === 'search') defaultValue = '"[-1,0,3,5,9,12]"';
+      else defaultValue = '"[]"';
+    } else if (p.type === 'vector<vector<int>>') {
+      defaultValue = '"[[]]"';
+    } else if (p.type === 'int') {
+      if (methodName === 'fourSum') defaultValue = '"0"';
+      else if (methodName === 'twoSum') defaultValue = '"9"';
+      else if (methodName === 'search' || methodName === 'binarySearch') defaultValue = '"9"';
+      else defaultValue = '"0"';
+    } else if (p.type === 'double' || p.type === 'float') {
+      defaultValue = '"0.0"';
+    } else if (p.type === 'string') {
+      if (methodName === 'isValid') defaultValue = '"()[]{}"';
+      else if (methodName === 'lengthOfLongestSubstring') defaultValue = '"abcabcbb"';
+      else defaultValue = '""';
+    } else if (p.type === 'char') {
+      defaultValue = '"a"';
+    } else if (p.type === 'bool') {
+      defaultValue = '"true"';
+    }
+
+    if (p.type === 'vector<int>') {
+      mainCode += `    string line_${p.name};\n`;
+      mainCode += `    if (!getline(cin, line_${p.name}) || line_${p.name}.empty()) line_${p.name} = ${defaultValue};\n`;
+      mainCode += `    vector<int> ${p.name} = parseVectorInt(line_${p.name});\n`;
+    } else if (p.type === 'vector<vector<int>>') {
+      mainCode += `    string line_${p.name};\n`;
+      mainCode += `    if (!getline(cin, line_${p.name}) || line_${p.name}.empty()) line_${p.name} = ${defaultValue};\n`;
+      mainCode += `    vector<vector<int>> ${p.name} = parseVectorVectorInt(line_${p.name});\n`;
+    } else if (p.type === 'vector<string>') {
+      mainCode += `    string line_${p.name};\n`;
+      mainCode += `    if (!getline(cin, line_${p.name}) || line_${p.name}.empty()) line_${p.name} = ${defaultValue};\n`;
+      mainCode += `    vector<string> ${p.name} = parseVectorString(line_${p.name});\n`;
+    } else if (p.type === 'int') {
+      mainCode += `    string line_${p.name};\n`;
+      mainCode += `    if (!getline(cin, line_${p.name}) || line_${p.name}.empty()) line_${p.name} = ${defaultValue};\n`;
+      mainCode += `    int ${p.name} = stoi(trim(line_${p.name}));\n`;
+    } else if (p.type === 'long long') {
+      mainCode += `    string line_${p.name};\n`;
+      mainCode += `    if (!getline(cin, line_${p.name}) || line_${p.name}.empty()) line_${p.name} = ${defaultValue};\n`;
+      mainCode += `    long long ${p.name} = stoll(trim(line_${p.name}));\n`;
+    } else if (p.type === 'double') {
+      mainCode += `    string line_${p.name};\n`;
+      mainCode += `    if (!getline(cin, line_${p.name}) || line_${p.name}.empty()) line_${p.name} = ${defaultValue};\n`;
+      mainCode += `    double ${p.name} = stod(trim(line_${p.name}));\n`;
+    } else if (p.type === 'string') {
+      mainCode += `    string line_${p.name};\n`;
+      mainCode += `    if (!getline(cin, line_${p.name}) || line_${p.name}.empty()) line_${p.name} = ${defaultValue};\n`;
+      mainCode += `    string ${p.name} = trim(line_${p.name});\n`;
+      mainCode += `    if (!${p.name}.empty() && (${p.name}.front() == '"' || ${p.name}.front() == '\\'')) ${p.name}.erase(${p.name}.begin());\n`;
+      mainCode += `    if (!${p.name}.empty() && (${p.name}.back() == '"' || ${p.name}.back() == '\\'')) ${p.name}.pop_back();\n`;
+    } else if (p.type === 'char') {
+      mainCode += `    string line_${p.name};\n`;
+      mainCode += `    if (!getline(cin, line_${p.name}) || line_${p.name}.empty()) line_${p.name} = ${defaultValue};\n`;
+      mainCode += `    char ${p.name} = trim(line_${p.name}).front();\n`;
+    } else if (p.type === 'bool') {
+      mainCode += `    string line_${p.name};\n`;
+      mainCode += `    if (!getline(cin, line_${p.name}) || line_${p.name}.empty()) line_${p.name} = ${defaultValue};\n`;
+      mainCode += `    string val_${p.name} = trim(line_${p.name});\n`;
+      mainCode += `    bool ${p.name} = (val_${p.name} == "true" || val_${p.name} == "1");\n`;
+    } else {
+      mainCode += `    ${p.type} ${p.name};\n`;
+    }
+  });
+
+  const args = parsedParams.map(p => p.name).join(', ');
+  mainCode += `    auto result = solver.${methodName}(${args});\n`;
+  mainCode += `    print(result);\n`;
+  mainCode += `    return 0;\n}\n`;
+
+  return mainCode;
+}
+
+function preprocessCode(code: string, language: string, methodNameHint: string = ''): string {
   let processed = code;
 
   if (language === 'java') {
@@ -298,6 +648,8 @@ function preprocessCode(code: string, language: string): string {
     // to avoid filename mismatch errors on online compilers.
     // Uses multiline flag (m) so ^ matches each line start.
     processed = processed.replace(/^(\s*)public\s+class\b/gm, '$1class');
+  } else if (language === 'cpp') {
+    processed = preprocessCppCode(processed, methodNameHint);
   }
 
   return processed;
@@ -311,13 +663,17 @@ async function executeRemote(code: string, language: string, stdin: string): Pro
     return { stdout: '', stderr: `Language "${language}" is not supported for remote execution.` };
   }
 
-  // Primary: Wandbox
+  // 1. Primary remote runner: Wandbox compiler API (fast, free compilation)
   const wb = await tryWandbox(code, cfg.wandbox, stdin);
   if (wb) return wb;
 
-  // Fallback: Godbolt (Compiler Explorer)
+  // 2. Fallback 1: Godbolt (Compiler Explorer)
   const gb = await tryGodbolt(code, cfg.godbolt, stdin);
   if (gb) return gb;
+
+  // 3. Fallback 2: Piston API (only as last backup)
+  const ps = await tryPiston(code, language, stdin);
+  if (ps) return ps;
 
   return {
     stdout: '',
@@ -335,17 +691,31 @@ async function executeRemote(code: string, language: string, stdin: string): Pro
  * @param language - Language identifier (javascript, python, java, cpp, etc.)
  * @param stdin    - Optional standard input (for Scanner, input(), cin, etc.)
  */
-export async function executeCode(code: string, language: string, stdin: string = ''): Promise<ExecutionResult> {
-  if (language === 'javascript') return executeJavaScript(code, stdin);
-  if (language === 'typescript') return executeTypeScript(code, stdin);
+export async function executeCode(code: string, language: string, stdin: string = '', methodNameHint: string = ''): Promise<ExecutionResult> {
+  let finalStdin = stdin;
+  if (!finalStdin.trim() && methodNameHint) {
+    const defaults: Record<string, string> = {
+      twoSum: '[2,7,11,15]\n9',
+      fourSum: '[1,0,-1,0,-2,2]\n0',
+      reverseString: '["h","e","l","l","o"]',
+      isValid: '"()[]{}"',
+      search: '[-1,0,3,5,9,12]\n9',
+      lengthOfLongestSubstring: '"abcabcbb"',
+      mergeSorted: '[1,3,5]\n[2,4,6]',
+    };
+    finalStdin = defaults[methodNameHint] || '';
+  }
 
-  const processedCode = preprocessCode(code, language);
+  if (language === 'javascript') return executeJavaScript(code, finalStdin);
+  if (language === 'typescript') return executeTypeScript(code, finalStdin);
+
+  const processedCode = preprocessCode(code, language, methodNameHint);
 
   // Python: try Pyodide (in-browser) first, then fall through to remote
   if (language === 'python') {
-    const result = await tryPyodide(processedCode, stdin);
+    const result = await tryPyodide(processedCode, finalStdin);
     if (result) return result;
   }
 
-  return executeRemote(processedCode, language, stdin);
+  return executeRemote(processedCode, language, finalStdin);
 }

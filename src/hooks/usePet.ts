@@ -24,6 +24,8 @@ const DEFAULT_PET: PetData = {
   createdAt: 0,
   totalFeedings: 0,
   totalPlaySessions: 0,
+  level: 1,
+  exp: 0,
 };
 
 export function usePet() {
@@ -44,6 +46,8 @@ export function usePet() {
       if (data) {
         if (data.totalFeedings === undefined) data.totalFeedings = 0;
         if (data.totalPlaySessions === undefined) data.totalPlaySessions = 0;
+        if (data.level === undefined) data.level = 1;
+        if (data.exp === undefined) data.exp = 0;
       }
       setPet(data);
       petRef.current = data;
