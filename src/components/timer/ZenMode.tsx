@@ -5,7 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { HiX, HiPlay, HiPause, HiRefresh, HiCheck } from 'react-icons/hi';
 import { usePet } from '@/hooks/usePet';
 import { PET_SPECIES_CONFIG } from '@/lib/constants';
+import { playClick } from '@/lib/sounds';
 import LocalMusicPlayer, { LocalMusicPlayerProps } from '@/components/timer/LocalMusicPlayer';
+import FocusDefense from '@/components/timer/FocusDefense';
 import './ZenMode.css';
 
 type Scene = 'sunset' | 'cyberpunk' | 'aurora' | 'ocean' | 'forest';
@@ -76,6 +78,7 @@ export default function ZenMode({
   musicProps,
 }: ZenModeProps) {
   const [scene, setScene] = useState<Scene>('sunset');
+  const [viewMode, setViewMode] = useState<'scene' | 'defense'>('scene');
 
   const { pet, getMood } = usePet();
 
@@ -124,18 +127,29 @@ export default function ZenMode({
     >
       {/* ── Dynamic Background ── */}
       <AnimatePresence mode="wait">
-        <motion.div
-          key={scene}
-          className={`zen-bg zen-bg-${scene}`}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 1.5 }}
-        />
+        {viewMode === 'defense' ? (
+          <motion.div
+            key="defense-bg"
+            className="absolute inset-0 bg-[#070814] bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.15),transparent_70%)]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8 }}
+          />
+        ) : (
+          <motion.div
+            key={scene}
+            className={`zen-bg zen-bg-${scene}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.5 }}
+          />
+        )}
       </AnimatePresence>
 
       {/* ── Stars ── */}
-      {hasStars && (
+      {viewMode === 'scene' && hasStars && (
         <div className="zen-stars">
           {STARS.map((star, i) => (
             <div
@@ -154,7 +168,7 @@ export default function ZenMode({
       )}
 
       {/* ── Rain (Cyberpunk) ── */}
-      {hasRain && (
+      {viewMode === 'scene' && hasRain && (
         <div className="zen-rain">
           {RAIN.map((drop, i) => (
             <div
@@ -172,27 +186,29 @@ export default function ZenMode({
       )}
 
       {/* ── Floating Particles ── */}
-      <div className="zen-particles">
-        {PARTICLES.map((p, i) => (
-          <div
-            key={i}
-            className="zen-particle"
-            style={{
-              left: p.left,
-              bottom: p.bottom,
-              width: p.size,
-              height: p.size,
-              background: p.color,
-              animationDuration: p.duration,
-              animationDelay: p.delay,
-            }}
-          />
-        ))}
-      </div>
+      {viewMode === 'scene' && (
+        <div className="zen-particles">
+          {PARTICLES.map((p, i) => (
+            <div
+              key={i}
+              className="zen-particle"
+              style={{
+                left: p.left,
+                bottom: p.bottom,
+                width: p.size,
+                height: p.size,
+                background: p.color,
+                animationDuration: p.duration,
+                animationDelay: p.delay,
+              }}
+            />
+          ))}
+        </div>
+      )}
 
       {/* ── Scene Picker (top-left) ── */}
       <div className="zen-scene-picker">
-        {SCENES.map((s) => (
+        {viewMode === 'scene' && SCENES.map((s) => (
           <motion.button
             key={s.id}
             className={`zen-scene-btn ${scene === s.id ? 'active' : ''}`}
@@ -203,6 +219,66 @@ export default function ZenMode({
             {s.emoji}
           </motion.button>
         ))}
+      </div>
+
+      {/* ── View Mode Selector & Unified Timer Controls (Top Center) ── */}
+      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-black/40 border border-white/10 p-1.5 rounded-2xl backdrop-blur-md">
+        <div className="flex bg-white/5 p-1 rounded-xl">
+          <button
+            onClick={() => { setViewMode('scene'); playClick(); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              viewMode === 'scene'
+                ? 'bg-white/10 text-white shadow-sm'
+                : 'text-white/50 hover:text-white'
+            }`}
+          >
+            🧘 Zen Ambiance
+          </button>
+          <button
+            onClick={() => { setViewMode('defense'); playClick(); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              viewMode === 'defense'
+                ? 'bg-purple-500/20 border border-purple-500/30 text-purple-200 shadow-sm shadow-purple-500/20'
+                : 'text-white/50 hover:text-white'
+            }`}
+          >
+            ⚔️ Focus Defense
+          </button>
+        </div>
+
+        {/* Unified mini controls & remaining timer next to tabs in Focus Defense mode */}
+        {viewMode === 'defense' && (
+          <div className="flex items-center gap-3 pl-3 border-l border-white/10">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">⏱️</span>
+              <span className="text-sm font-mono font-bold text-white">{formatTime(timeLeft)}</span>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => { onToggle(); playClick(); }}
+                className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors"
+                title={isRunning ? 'Pause' : 'Start'}
+              >
+                {isRunning ? <HiPause size={12} /> : <HiPlay size={12} />}
+              </button>
+              <button
+                onClick={() => { onReset(); playClick(); }}
+                className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+                title="Reset"
+              >
+                <HiRefresh size={12} />
+              </button>
+              <button
+                onClick={() => { onSkip(); playClick(); }}
+                className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+                title="Skip"
+              >
+                <HiCheck size={12} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Exit Button (top-right) ── */}
@@ -218,113 +294,132 @@ export default function ZenMode({
       </motion.button>
 
       {/* ── Phase Label ── */}
-      <motion.span
-        className="text-sm font-heading font-bold uppercase tracking-[0.2em] mb-6 text-white/70 z-10"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        key={phase}
-      >
-        {phaseLabel}
-      </motion.span>
+      {viewMode === 'scene' && (
+        <motion.span
+          className="text-sm font-heading font-bold uppercase tracking-[0.2em] mb-6 text-white/70 z-10"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          key={phase}
+        >
+          {phaseLabel}
+        </motion.span>
+      )}
 
-      {/* ── Timer Ring ── */}
-      <div className="zen-timer-container" style={{ width: size, height: size }}>
-        {/* Glow behind ring */}
-        <div className="zen-timer-glow" style={{ background: ringColor }} />
-
-        <svg width={size} height={size} className="transform -rotate-90">
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke="rgba(255,255,255,0.06)"
-            strokeWidth={stroke}
+      {/* ── Conditional Central Viewport ── */}
+      {viewMode === 'defense' ? (
+        <div className="w-full max-w-3xl mx-auto z-10 flex flex-col items-center">
+          <FocusDefense
+            isRunning={isRunning}
+            timeLeft={timeLeft}
+            totalTime={totalTime}
+            phase={phase}
+            sessions={sessions}
           />
-          <motion.circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke={ringColor}
-            strokeWidth={stroke}
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            initial={{ strokeDashoffset: circumference }}
-            animate={{ strokeDashoffset: circumference * (1 - progress) }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-            style={{ filter: `drop-shadow(0 0 8px ${ringColor}55)` }}
-          />
-        </svg>
-
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <motion.span
-            className="text-7xl font-mono font-bold tracking-tight text-white"
-            style={{ fontFamily: 'var(--font-mono)' }}
-            key={timeLeft}
-            initial={{ scale: 1.03 }}
-            animate={{ scale: 1 }}
-          >
-            {formatTime(timeLeft)}
-          </motion.span>
         </div>
-      </div>
+      ) : (
+        /* ── Timer Ring ── */
+        <div className="zen-timer-container" style={{ width: size, height: size }}>
+          {/* Glow behind ring */}
+          <div className="zen-timer-glow" style={{ background: ringColor }} />
+
+          <svg width={size} height={size} className="transform -rotate-90">
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke="rgba(255,255,255,0.06)"
+              strokeWidth={stroke}
+            />
+            <motion.circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke={ringColor}
+              strokeWidth={stroke}
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              initial={{ strokeDashoffset: circumference }}
+              animate={{ strokeDashoffset: circumference * (1 - progress) }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+              style={{ filter: `drop-shadow(0 0 8px ${ringColor}55)` }}
+            />
+          </svg>
+
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <motion.span
+              className="text-7xl font-mono font-bold tracking-tight text-white"
+              style={{ fontFamily: 'var(--font-mono)' }}
+              key={timeLeft}
+              initial={{ scale: 1.03 }}
+              animate={{ scale: 1 }}
+            >
+              {formatTime(timeLeft)}
+            </motion.span>
+          </div>
+        </div>
+      )}
 
       {/* ── Controls ── */}
-      <div className="flex items-center gap-6 mt-10 z-10">
-        <motion.button
-          onClick={onReset}
-          className="w-14 h-14 rounded-full border border-white/15 bg-white/5 backdrop-blur-md flex items-center justify-center text-white/60 hover:text-white hover:border-white/30 transition-all"
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-        >
-          <HiRefresh size={22} />
-        </motion.button>
+      {viewMode === 'scene' && (
+        <div className="flex items-center gap-6 mt-10 z-10">
+          <motion.button
+            onClick={onReset}
+            className="w-14 h-14 rounded-full border border-white/15 bg-white/5 backdrop-blur-md flex items-center justify-center text-white/60 hover:text-white hover:border-white/30 transition-all"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <HiRefresh size={22} />
+          </motion.button>
 
-        <motion.button
-          onClick={onToggle}
-          className="w-24 h-24 rounded-full flex items-center justify-center text-white shadow-2xl"
-          style={{
-            background: `linear-gradient(135deg, ${ringColor}, ${ringColor}cc)`,
-            boxShadow: `0 10px 40px ${ringColor}55`,
-          }}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          {isRunning ? <HiPause size={38} /> : <HiPlay size={38} className="ml-1" />}
-        </motion.button>
+          <motion.button
+            onClick={onToggle}
+            className="w-24 h-24 rounded-full flex items-center justify-center text-white shadow-2xl"
+            style={{
+              background: `linear-gradient(135deg, ${ringColor}, ${ringColor}cc)`,
+              boxShadow: `0 10px 40px ${ringColor}55`,
+            }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            {isRunning ? <HiPause size={38} /> : <HiPlay size={38} className="ml-1" />}
+          </motion.button>
 
-        <motion.button
-          onClick={onSkip}
-          className="w-14 h-14 rounded-full border border-white/15 bg-white/5 backdrop-blur-md flex items-center justify-center text-white/60 hover:text-white hover:border-white/30 transition-all"
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          title="Skip"
-        >
-          <HiCheck size={22} />
-        </motion.button>
-      </div>
+          <motion.button
+            onClick={onSkip}
+            className="w-14 h-14 rounded-full border border-white/15 bg-white/5 backdrop-blur-md flex items-center justify-center text-white/60 hover:text-white hover:border-white/30 transition-all"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            title="Skip"
+          >
+            <HiCheck size={22} />
+          </motion.button>
+        </div>
+      )}
 
       {/* ── Stats ── */}
-      <motion.div
-        className="flex items-center gap-8 mt-8 z-10 text-center"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.6 }}
-      >
-        <div>
-          <p className="text-[10px] uppercase tracking-wider font-bold text-white/40">Sessions</p>
-          <p className="text-xl font-heading font-black text-white">{sessions}</p>
-        </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-wider font-bold text-white/40">Focus Today</p>
-          <p className="text-xl font-heading font-black text-white">{formattedFocusToday}</p>
-        </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-wider font-bold text-white/40">XP Earned</p>
-          <p className="text-xl font-heading font-black" style={{ color: ringColor }}>{sessions * xpPerSession}</p>
-        </div>
-      </motion.div>
+      {viewMode === 'scene' && (
+        <motion.div
+          className="flex items-center gap-8 mt-8 z-10 text-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+        >
+          <div>
+            <p className="text-[10px] uppercase tracking-wider font-bold text-white/40">Sessions</p>
+            <p className="text-xl font-heading font-black text-white">{sessions}</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider font-bold text-white/40">Focus Today</p>
+            <p className="text-xl font-heading font-black text-white">{formattedFocusToday}</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider font-bold text-white/40">XP Earned</p>
+            <p className="text-xl font-heading font-black" style={{ color: ringColor }}>{sessions * xpPerSession}</p>
+          </div>
+        </motion.div>
+      )}
 
       {/* ── Music Player (bottom-left) ── */}
       <LocalMusicPlayer variant="zen" {...musicProps} />

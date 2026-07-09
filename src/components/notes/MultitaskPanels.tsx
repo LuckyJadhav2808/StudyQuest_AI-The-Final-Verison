@@ -123,10 +123,11 @@ interface AITutorPanelProps {
   onClose: () => void;
   onInsertText: (text: string) => void;
   noteContent: string;
+  selectedText?: string;
   apiKey?: string;
 }
 
-export function AITutorPanel({ onClose, onInsertText, noteContent, apiKey }: AITutorPanelProps) {
+export function AITutorPanel({ onClose, onInsertText, noteContent, selectedText, apiKey }: AITutorPanelProps) {
   const [messages, setMessages] = useState<TutorMessage[]>([
     { role: 'ai', content: "Hi! I'm your study tutor 🧠 Ask me anything about your notes and I'll help explain it. You can also insert my answers directly into your notes!" },
   ]);
@@ -150,6 +151,10 @@ export function AITutorPanel({ onClose, onInsertText, noteContent, apiKey }: AIT
 
     try {
       const strippedNotes = noteContent.replace(/<[^>]*>/g, '').slice(0, 2000);
+      const systemPrompt = selectedText?.trim()
+        ? `You are a friendly study tutor helping a student understand their notes. Focus your explanations and help specifically on this highlighted selection from their notes: "${selectedText.slice(0, 1500)}". Be concise and clear. Use simple language. Here is the full note content for additional context:\n\n${strippedNotes}`
+        : `You are a friendly study tutor helping a student understand their notes. Be concise and clear. Use simple language. Here are their current notes for context:\n\n${strippedNotes}`;
+
       const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
@@ -157,7 +162,7 @@ export function AITutorPanel({ onClose, onInsertText, noteContent, apiKey }: AIT
           model: 'google/gemini-2.5-flash',
           max_tokens: 1024,
           messages: [
-            { role: 'system', content: `You are a friendly study tutor helping a student understand their notes. Be concise and clear. Use simple language. Here are their current notes for context:\n\n${strippedNotes}` },
+            { role: 'system', content: systemPrompt },
             ...messages.filter(m => m.role === 'user').slice(-5).map(m => ({ role: 'user' as const, content: m.content })),
             { role: 'user', content: userMsg },
           ],
@@ -192,6 +197,12 @@ export function AITutorPanel({ onClose, onInsertText, noteContent, apiKey }: AIT
       </div>
 
       <div className="tutor-messages">
+        {selectedText?.trim() && (
+          <div className="p-2 mb-2 bg-purple-500/10 border border-purple-500/20 rounded-xl text-[10px] text-purple-300 leading-relaxed text-left flex flex-col gap-1">
+            <span className="font-bold">📖 Focused Selection Active:</span>
+            <span className="italic line-clamp-2">"{selectedText}"</span>
+          </div>
+        )}
         {messages.map((msg, i) => (
           <div key={i} className={`tutor-msg ${msg.role}`}>
             <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
@@ -235,28 +246,33 @@ type RefType = 'image' | 'pdf' | 'url';
 
 interface ReferenceViewerPanelProps {
   onClose: () => void;
+  onInsertText?: (text: string) => void;
+  apiKey?: string;
 }
 
-export function ReferenceViewerPanel({ onClose }: ReferenceViewerPanelProps) {
+export function ReferenceViewerPanel({ onClose, onInsertText, apiKey }: ReferenceViewerPanelProps) {
   const [activeTab, setActiveTab] = useState<RefType>('image');
   const [refSrc, setRefSrc] = useState<string | null>(null);
   const [refName, setRefName] = useState('');
   const [urlInput, setUrlInput] = useState('');
   const [zoom, setZoom] = useState(100);
   const [dragging, setDragging] = useState(false);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrResult, setOcrResult] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback((file: File) => {
     if (file.type.startsWith('image/')) {
       setActiveTab('image');
       const reader = new FileReader();
-      reader.onload = (e) => { setRefSrc(e.target?.result as string); setRefName(file.name); };
+      reader.onload = (e) => { setRefSrc(e.target?.result as string); setRefName(file.name); setOcrResult(null); };
       reader.readAsDataURL(file);
     } else if (file.type === 'application/pdf') {
       setActiveTab('pdf');
       const url = URL.createObjectURL(file);
       setRefSrc(url);
       setRefName(file.name);
+      setOcrResult(null);
     } else {
       toast.error('Only images and PDFs are supported');
     }
@@ -279,6 +295,7 @@ export function ReferenceViewerPanel({ onClose }: ReferenceViewerPanelProps) {
     setActiveTab('url');
     setRefSrc(urlInput.trim());
     setRefName(urlInput.trim());
+    setOcrResult(null);
   };
 
   const clearRef = () => {
@@ -286,6 +303,65 @@ export function ReferenceViewerPanel({ onClose }: ReferenceViewerPanelProps) {
     setRefSrc(null);
     setRefName('');
     setZoom(100);
+    setOcrResult(null);
+  };
+
+  const handleOCR = async () => {
+    if (!refSrc || activeTab !== 'image') return;
+    if (!apiKey) {
+      toast.error('Please enter your OpenRouter API key in Settings first to enable vision tools.');
+      return;
+    }
+
+    setOcrLoading(true);
+    const toastId = toast.loading('Vision AI is reading the image...');
+
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          max_tokens: 1500,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Transcribe all handwritten and printed text from this study slide or textbook image. Format the output cleanly. Return ONLY the transcribed text, with absolutely no introductions, no explanations, no wrappers, and no code blocks.'
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: refSrc
+                  }
+                }
+              ]
+            }
+          ]
+        })
+      });
+
+      const data = await res.json();
+      console.log('OCR API Response:', data);
+      const text = data.choices?.[0]?.message?.content;
+      if (text) {
+        setOcrResult(text.trim());
+        toast.success('Text extracted! 🔍', { id: toastId });
+      } else {
+        const errorDetail = data.error?.message || data.error || 'Could not extract readable text.';
+        toast.error(`OCR Error: ${typeof errorDetail === 'object' ? JSON.stringify(errorDetail) : errorDetail}`, { id: toastId });
+      }
+    } catch (err: any) {
+      console.error('OCR request failed:', err);
+      toast.error(`Vision OCR failed: ${err.message || err}`, { id: toastId });
+    } finally {
+      setOcrLoading(false);
+    }
   };
 
   return (
@@ -293,9 +369,18 @@ export function ReferenceViewerPanel({ onClose }: ReferenceViewerPanelProps) {
       <div className="multitask-header">
         <div className="multitask-header-title">
           <span>📄</span> Reference Viewer
-          {refName && <span style={{ fontSize: 10, color: 'var(--muted-foreground)', fontWeight: 600 }}>— {refName.length > 30 ? refName.slice(0, 30) + '...' : refName}</span>}
+          {refName && <span style={{ fontSize: 10, color: 'var(--muted-foreground)', fontWeight: 600 }}>— {refName.length > 20 ? refName.slice(0, 20) + '...' : refName}</span>}
         </div>
-        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          {refSrc && activeTab === 'image' && !ocrResult && (
+            <button
+              onClick={handleOCR}
+              disabled={ocrLoading}
+              className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg bg-teal/10 hover:bg-teal/20 text-teal border border-teal/25 transition-all disabled:opacity-50 cursor-pointer"
+            >
+              {ocrLoading ? '⏳ Reading...' : '🔍 Grab Text'}
+            </button>
+          )}
           {refSrc && <button className="multitask-close" onClick={clearRef} title="Clear"><HiX size={14} /></button>}
           <button className="multitask-close" onClick={onClose}><HiX size={16} /></button>
         </div>
@@ -357,27 +442,73 @@ export function ReferenceViewerPanel({ onClose }: ReferenceViewerPanelProps) {
         </>
       ) : (
         <div className="ref-viewer-content">
-          {activeTab === 'image' && (
-            <img
-              src={refSrc}
-              alt="Reference"
-              style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'center center', transition: 'transform 0.2s' }}
-            />
-          )}
-          {activeTab === 'pdf' && (
-            <iframe src={refSrc} title="PDF Viewer" />
-          )}
-          {activeTab === 'url' && (
-            <iframe src={refSrc} title="Web Viewer" sandbox="allow-scripts allow-same-origin" />
-          )}
-
-          {/* Zoom controls for images */}
-          {activeTab === 'image' && (
-            <div className="ref-zoom-controls">
-              <button className="ref-zoom-btn" onClick={() => setZoom(z => Math.max(25, z - 25))}>−</button>
-              <button className="ref-zoom-btn" style={{ fontSize: 10, width: 'auto', padding: '0 6px' }}>{zoom}%</button>
-              <button className="ref-zoom-btn" onClick={() => setZoom(z => Math.min(300, z + 25))}>+</button>
+          {ocrResult !== null ? (
+            <div className="w-full h-full p-4 flex flex-col gap-3 overflow-hidden bg-slate-900/40 text-left">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-300">🔍 Extracted Text Preview</span>
+                <span className="text-[9px] text-slate-500">Edit before inserting</span>
+              </div>
+              <textarea
+                value={ocrResult}
+                onChange={(e) => setOcrResult(e.target.value)}
+                className="flex-1 w-full p-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-slate-200 font-mono leading-relaxed resize-none focus:outline-none focus:border-primary/50"
+              />
+              <div className="flex gap-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => {
+                    if (onInsertText) onInsertText(ocrResult);
+                    setOcrResult(null);
+                    toast.success('Inserted text into notes! 📝');
+                  }}
+                >
+                  📝 Insert into Notes
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(ocrResult);
+                    toast.success('Copied to clipboard!');
+                  }}
+                >
+                  📋 Copy
+                </Button>
+                <button
+                  onClick={() => setOcrResult(null)}
+                  className="px-3 py-1.5 text-xs text-slate-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
+          ) : (
+            <>
+              {activeTab === 'image' && (
+                <img
+                  src={refSrc}
+                  alt="Reference"
+                  style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'center center', transition: 'transform 0.2s' }}
+                />
+              )}
+              {activeTab === 'pdf' && (
+                <iframe src={refSrc} title="PDF Viewer" />
+              )}
+              {activeTab === 'url' && (
+                <iframe src={refSrc} title="Web Viewer" sandbox="allow-scripts allow-same-origin" />
+              )}
+
+              {/* Zoom controls for images */}
+              {activeTab === 'image' && (
+                <div className="ref-zoom-controls">
+                  <button className="ref-zoom-btn" onClick={() => setZoom(z => Math.max(25, z - 25))}>−</button>
+                  <button className="ref-zoom-btn" style={{ fontSize: 10, width: 'auto', padding: '0 6px' }}>{zoom}%</button>
+                  <button className="ref-zoom-btn" onClick={() => setZoom(z => Math.min(300, z + 25))}>+</button>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

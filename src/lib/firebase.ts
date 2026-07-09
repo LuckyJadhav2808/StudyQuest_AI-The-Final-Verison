@@ -26,14 +26,20 @@ export const auth = getAuth(app);
 // All Firestore reads/writes are cached locally in IndexedDB and
 // automatically sync when the device reconnects to the internet.
 let db: ReturnType<typeof getFirestore>;
-try {
-  db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager(),
-    }),
-  });
-} catch {
-  // Firestore already initialized (hot-reload) — reuse existing instance
+if (typeof window !== 'undefined') {
+  try {
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
+      experimentalForceLongPolling: true, // Force long-polling immediately to prevent transport stream connection drops
+    });
+  } catch {
+    // Firestore already initialized (hot-reload) — reuse existing instance
+    db = getFirestore(app);
+  }
+} else {
+  // Server-side initialization (no persistent local cache browser APIs)
   db = getFirestore(app);
 }
 export { db };

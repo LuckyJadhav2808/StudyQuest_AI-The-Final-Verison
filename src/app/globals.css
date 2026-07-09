@@ -752,6 +752,36 @@ h4 { font-size: 1.125rem; }
   fill: #7C3AED;
 }
 
+/* Notes editor toolbars (static at top of card) */
+.notes-action-toolbar {
+  position: relative;
+  z-index: 10;
+  background: var(--card-bg) !important;
+}
+
+.quill-wrapper .ql-toolbar.ql-snow {
+  position: relative;
+  z-index: 9;
+  background: var(--card-bg) !important;
+  border-top: none !important;
+  border-bottom: 1px solid var(--card-border) !important;
+}
+
+/* Scrollable Editor Text Area (Google Docs style) */
+.quill-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.quill-wrapper .ql-container.ql-snow {
+  flex: 1;
+  overflow-y: auto;
+  height: calc(100vh - 280px);
+  min-height: 480px;
+  border: none !important;
+  background: var(--card-bg);
+}
+
 .quill-wrapper .ql-editor blockquote {
   border-left: 4px solid #7C3AED;
   padding-left: 16px;

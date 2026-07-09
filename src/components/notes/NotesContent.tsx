@@ -250,6 +250,8 @@ export default function NotesContent() {
   const [newFolder, setNewFolder] = useState('General');
   const [editContent, setEditContent] = useState('');
   const [editTitle, setEditTitle] = useState('');
+  const [selectedText, setSelectedText] = useState('');
+  const [latexConverting, setLatexConverting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   // ── Mana Writing Bar & Alchemy Cauldron states ──
@@ -264,7 +266,25 @@ export default function NotesContent() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const quillWrapperRef = useRef<HTMLDivElement>(null);
+  const actionToolbarRef = useRef<HTMLDivElement>(null);
+  const [actionToolbarHeight, setActionToolbarHeight] = useState(0);
   const lastSavedAt = useRef<number>(0);
+
+  // Resize observer to track action toolbar height in real-time
+  useEffect(() => {
+    if (isEditing && actionToolbarRef.current) {
+      if (typeof window === 'undefined') return;
+      const observer = new ResizeObserver((entries) => {
+        for (let entry of entries) {
+          setActionToolbarHeight(entry.target.clientHeight);
+        }
+      });
+      observer.observe(actionToolbarRef.current);
+      return () => observer.disconnect();
+    } else {
+      setActionToolbarHeight(0);
+    }
+  }, [isEditing]);
 
   // Load and save mana/session count state
   useEffect(() => {
@@ -1820,6 +1840,71 @@ Rules:
     }
   };
 
+  const handleConvertSelectionToLaTeX = async () => {
+    if (!selectedText.trim()) {
+      toast.error('Highlight a plain-text formula (e.g. x^2 + y^2 = 3) in your notes first! 📝');
+      return;
+    }
+
+    if (!profile?.openRouterKey) {
+      toast.error('Set your OpenRouter API key in Settings to convert text formulas.');
+      return;
+    }
+
+    setLatexConverting(true);
+    const toastId = toast.loading('Converting text to LaTeX formula...');
+
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${profile.openRouterKey}`,
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          max_tokens: 500,
+          messages: [
+            {
+              role: 'user',
+              content: `Convert the following plain-text or handwritten-style math expression into clean LaTeX code. Output ONLY the raw LaTeX string. Do not wrap in markdown, code blocks, or delimiters like $ or $$. Here is the math expression:\n\n${selectedText}`
+            }
+          ]
+        })
+      });
+
+      const data = await res.json();
+      const latex = data.choices?.[0]?.message?.content?.trim();
+      if (latex) {
+        const quill = quillRef.current?.getEditor();
+        if (quill) {
+          const range = quill.getSelection();
+          if (range && range.length > 0) {
+            // Replace the highlighted text with the math embed
+            quill.deleteText(range.index, range.length);
+            quill.insertEmbed(range.index, 'math', { latex, isBlock: false });
+            quill.insertText(range.index + 1, ' ');
+            setEditContent(quill.root.innerHTML);
+            toast.success('Converted to LaTeX! 🧮', { id: toastId });
+          } else {
+            // Fallback: insert it at the current index
+            const index = quill.getLength() - 1;
+            quill.insertEmbed(index, 'math', { latex, isBlock: false });
+            setEditContent(quill.root.innerHTML);
+            toast.success('Converted to LaTeX! 🧮', { id: toastId });
+          }
+        }
+      } else {
+        toast.error('Could not translate to LaTeX.', { id: toastId });
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('LaTeX conversion failed.', { id: toastId });
+    } finally {
+      setLatexConverting(false);
+    }
+  };
+
   // =================== KATEX RENDERING HELPER ===================
   /**
    * Post-process HTML to render $...$ (inline) and $$...$$ (block) math
@@ -1940,48 +2025,60 @@ Rules:
               </div>
             </Card>
           )}
-          {/* Editing toolbar: Undo/Redo + Multitask + Diagram + Shortcuts */}
-          {isEditing && (
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex gap-1.5">
-                <button onClick={handleUndo} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors" title="Undo (Ctrl+Z)"><HiReply size={16} /></button>
-                <button onClick={handleRedo} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors" title="Redo (Ctrl+Y)"><HiReply size={16} className="scale-x-[-1]" /></button>
-              </div>
-              <div className="multitask-toggle-bar">
-                <button className={`multitask-toggle ${multitaskPanel === 'youtube' ? 'active' : ''}`} onClick={() => setMultitaskPanel(multitaskPanel === 'youtube' ? null : 'youtube')} title="YouTube Lecture">
-                  📺 YouTube
-                </button>
-                <button className={`multitask-toggle ${multitaskPanel === 'tutor' ? 'active' : ''}`} onClick={() => setMultitaskPanel(multitaskPanel === 'tutor' ? null : 'tutor')} title="AI Tutor">
-                  🤖 AI Tutor
-                </button>
-                <button className={`multitask-toggle ${multitaskPanel === 'reference' ? 'active' : ''}`} onClick={() => setMultitaskPanel(multitaskPanel === 'reference' ? null : 'reference')} title="Reference Viewer">
-                  📄 Reference
-                </button>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                <Button variant="amber" size="sm" icon={<HiSparkles size={14} />} onClick={aiBeautify} loading={beautifyLoading}>✨ Beautify</Button>
-                <Button variant="primary" size="sm" onClick={() => setShowMathPalette(true)}>∑ Math</Button>
-                <Button 
-                  variant={isListening ? "coral" : "ghost"} 
-                  size="sm" 
-                  icon={<HiMicrophone size={14} className={isListening ? "animate-pulse text-white" : "text-primary"} />} 
-                  onClick={toggleListening}
-                  title="Voice Dictation (dictate notes, bold formatting, compare)"
-                >
-                  {isListening ? 'Listening...' : 'Dictate'}
-                </Button>
-                <button onClick={() => setShowShortcuts(!showShortcuts)} className={`p-2 rounded-xl border-2 transition-all text-xs ${showShortcuts ? 'border-primary bg-primary/10 text-primary' : 'border-[var(--card-border)] hover:border-primary/30 text-[var(--muted-foreground)]'}`} title="Keyboard Shortcuts"><HiInformationCircle size={18} /></button>
-                <Button variant="teal" size="sm" icon={<HiBeaker size={14} />} onClick={() => setShowCauldron(true)}>Cauldron</Button>
-                <Button variant="coral" size="sm" icon={<HiCode size={14} />} onClick={() => setShowDiagram(true)}>Insert Diagram</Button>
-              </div>
-            </div>
-          )}
-
           {/* Editor / Preview / View Mode — wrapped in split layout when multitask panel is active */}
           {(() => {
             const editorCard = (
               <Card padding="none" hover={false}>
                 <div ref={noteRef}>
+                  {isEditing && (
+                    <div 
+                      ref={actionToolbarRef}
+                      className="notes-action-toolbar flex items-center justify-between flex-wrap gap-2 p-3 bg-[var(--card-bg)] border-b border-[var(--card-border)] rounded-t-2xl sticky top-0 z-30"
+                    >
+                      <div className="flex gap-1.5">
+                        <button onClick={handleUndo} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors" title="Undo (Ctrl+Z)"><HiReply size={16} /></button>
+                        <button onClick={handleRedo} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors" title="Redo (Ctrl+Y)"><HiReply size={16} className="scale-x-[-1]" /></button>
+                      </div>
+                      <div className="multitask-toggle-bar">
+                        <button className={`multitask-toggle ${multitaskPanel === 'youtube' ? 'active' : ''}`} onClick={() => setMultitaskPanel(multitaskPanel === 'youtube' ? null : 'youtube')} title="YouTube Lecture">
+                          📺 YouTube
+                        </button>
+                        <button className={`multitask-toggle ${multitaskPanel === 'tutor' ? 'active' : ''}`} onClick={() => setMultitaskPanel(multitaskPanel === 'tutor' ? null : 'tutor')} title="AI Tutor">
+                          🤖 AI Tutor
+                        </button>
+                        <button className={`multitask-toggle ${multitaskPanel === 'reference' ? 'active' : ''}`} onClick={() => setMultitaskPanel(multitaskPanel === 'reference' ? null : 'reference')} title="Reference Viewer">
+                          📄 Reference
+                        </button>
+                      </div>
+                      <div className="flex gap-2 flex-wrap">
+                        <Button variant="amber" size="sm" icon={<HiSparkles size={14} />} onClick={aiBeautify} loading={beautifyLoading}>✨ Beautify</Button>
+                        <Button variant="primary" size="sm" onClick={() => setShowMathPalette(true)}>∑ Math</Button>
+                        <Button
+                          variant="coral"
+                          size="sm"
+                          icon={<HiSparkles size={14} />}
+                          onClick={handleConvertSelectionToLaTeX}
+                          loading={latexConverting}
+                          title="Highlight any plain formula (e.g. x^2+y^2=3) and click to convert to LaTeX"
+                        >
+                          Text to LaTeX
+                        </Button>
+                        <Button 
+                          variant={isListening ? "coral" : "ghost"} 
+                          size="sm" 
+                          icon={<HiMicrophone size={14} className={isListening ? "animate-pulse text-white" : "text-primary"} />} 
+                          onClick={toggleListening}
+                          title="Voice Dictation (dictate notes, bold formatting, compare)"
+                        >
+                          {isListening ? 'Listening...' : 'Dictate'}
+                        </Button>
+                        <button onClick={() => setShowShortcuts(!showShortcuts)} className={`p-2 rounded-xl border-2 transition-all text-xs ${showShortcuts ? 'border-primary bg-primary/10 text-primary' : 'border-[var(--card-border)] hover:border-primary/30 text-[var(--muted-foreground)]'}`} title="Keyboard Shortcuts"><HiInformationCircle size={18} /></button>
+                        <Button variant="teal" size="sm" icon={<HiBeaker size={14} />} onClick={() => setShowCauldron(true)}>Cauldron</Button>
+                        <Button variant="coral" size="sm" icon={<HiCode size={14} />} onClick={() => setShowDiagram(true)}>Insert Diagram</Button>
+                      </div>
+                    </div>
+                  )}
+
                   {isEditing ? (
                     <div className="quill-wrapper" ref={quillWrapperRef}>
                        <ReactQuill
@@ -1990,6 +2087,15 @@ Rules:
                         theme="snow"
                         defaultValue={sanitizeHtmlForQuill(selectedNote?.content || '')}
                         onChange={handleContentChange}
+                        onChangeSelection={(range: any, source: any, editor: any) => {
+                          if (range) {
+                            if (range.length > 0) {
+                              setSelectedText(editor.getText(range.index, range.length));
+                            } else {
+                              setSelectedText('');
+                            }
+                          }
+                        }}
                         modules={QUILL_MODULES}
                         formats={QUILL_FORMATS}
                         placeholder="Start typing your study notes here... 💡 Hint: Type '/compare Topic A vs Topic B' and press Enter to instantly generate a comparison card, or use the 🎙️ Dictate button for voice commands!"
@@ -2127,10 +2233,25 @@ Rules:
                     }
                   }}
                   noteContent={editContent}
+                  selectedText={selectedText}
                   apiKey={profile?.openRouterKey}
                 />
               ) : (
-                <ReferenceViewerPanel onClose={() => setMultitaskPanel(null)} />
+                <ReferenceViewerPanel
+                  onClose={() => setMultitaskPanel(null)}
+                  onInsertText={(text) => {
+                    const quill = quillRef.current?.getEditor();
+                    if (quill) {
+                      const range = quill.getSelection();
+                      const index = range ? range.index : quill.getLength() - 1;
+                      quill.insertText(index, text);
+                      setEditContent(quill.root.innerHTML);
+                    } else {
+                      setEditContent(prev => prev + '\n' + text);
+                    }
+                  }}
+                  apiKey={profile?.openRouterKey}
+                />
               );
 
               return (
@@ -2384,6 +2505,7 @@ Rules:
           onInsert={(latex, isBlock) => handleInsertMath(latex, isBlock, mathPaletteEditNode)}
           editLatex={mathPaletteEditLatex}
           editIsBlock={mathPaletteEditIsBlock}
+          apiKey={profile?.openRouterKey}
         />
 
         {/* Share to Group Modal */}

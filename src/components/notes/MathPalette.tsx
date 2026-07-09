@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiX, HiArrowLeft } from 'react-icons/hi';
 import Button from '@/components/ui/Button';
+import toast from 'react-hot-toast';
 
 // ── Math Formula Categories & Templates ──
 interface Placeholder {
@@ -512,15 +513,30 @@ interface MathPaletteProps {
   onInsert: (latex: string, isBlock: boolean) => void;
   editLatex?: string;
   editIsBlock?: boolean;
+  apiKey?: string;
 }
 
 const staticPreviewCache: Record<string, string> = {};
 
-export default function MathPalette({ isOpen, onClose, onInsert, editLatex = '', editIsBlock = false }: MathPaletteProps) {
+export default function MathPalette({ isOpen, onClose, onInsert, editLatex = '', editIsBlock = false, apiKey }: MathPaletteProps) {
   const [activeCategory, setActiveCategory] = useState(0);
   const [search, setSearch] = useState('');
   const [previewHtml, setPreviewHtml] = useState<Record<string, string>>({});
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // Active Layout view tab: templates selection vs handwrite pad
+  const [activeTab, setActiveTab] = useState<'templates' | 'draw'>('templates');
+
+  // Handwriting Canvas states & refs
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isDrawingRef = useRef(false);
+  const [strokes, setStrokes] = useState<{ x: number; y: number }[][]>([]);
+  const currentStrokeRef = useRef<{ x: number; y: number }[]>([]);
+
+  // Handwriting AI OCR state values
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrText, setOcrText] = useState('');
+  const [ocrPreviewHtml, setOcrPreviewHtml] = useState('');
 
   // Parameter Configuration states
   const [selectedTemplate, setSelectedTemplate] = useState<FormulaTemplate | null>(null);
@@ -620,6 +636,254 @@ export default function MathPalette({ isOpen, onClose, onInsert, editLatex = '',
     renderLivePreview();
   }, [selectedTemplate, placeholderValues, isBlockMode]);
 
+  // ── Canvas Setup & Event Listening ──
+  useEffect(() => {
+    if (activeTab !== 'draw' || !isOpen) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Adjust for high-DPI displays
+    const rect = canvas.getBoundingClientRect();
+    const targetWidth = Math.floor(rect.width * window.devicePixelRatio);
+    const targetHeight = Math.floor(rect.height * window.devicePixelRatio);
+    
+    if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+
+    // Redraw existing strokes
+    const redraw = () => {
+      ctx.fillStyle = '#020617'; // slate-950 backdrop
+      ctx.fillRect(0, 0, rect.width, rect.height);
+
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      strokes.forEach((stroke) => {
+        if (stroke.length < 2) return;
+        ctx.beginPath();
+        ctx.moveTo(stroke[0].x, stroke[0].y);
+        for (let i = 1; i < stroke.length; i++) {
+          ctx.lineTo(stroke[i].x, stroke[i].y);
+        }
+        ctx.stroke();
+      });
+    };
+
+    redraw();
+
+    // Drawing handlers
+    const getPos = (e: MouseEvent | TouchEvent) => {
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      return {
+        x: clientX - rect.left,
+        y: clientY - rect.top
+      };
+    };
+
+    const startDraw = (e: MouseEvent | TouchEvent) => {
+      e.preventDefault();
+      const pos = getPos(e);
+      isDrawingRef.current = true;
+      currentStrokeRef.current = [pos];
+      
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+    };
+
+    const draw = (e: MouseEvent | TouchEvent) => {
+      if (!isDrawingRef.current) return;
+      e.preventDefault();
+      const pos = getPos(e);
+      currentStrokeRef.current.push(pos);
+
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+    };
+
+    const stopDraw = () => {
+      if (!isDrawingRef.current) return;
+      isDrawingRef.current = false;
+      if (currentStrokeRef.current.length > 0) {
+        const strokeCopy = [...currentStrokeRef.current];
+        setStrokes((prev) => [...prev, strokeCopy]);
+      }
+      currentStrokeRef.current = [];
+    };
+
+    // Attach listeners
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDraw);
+    canvas.addEventListener('mouseleave', stopDraw);
+
+    canvas.addEventListener('touchstart', startDraw, { passive: false });
+    canvas.addEventListener('touchmove', draw, { passive: false });
+    canvas.addEventListener('touchend', stopDraw);
+
+    return () => {
+      canvas.removeEventListener('mousedown', startDraw);
+      canvas.removeEventListener('mousemove', draw);
+      canvas.removeEventListener('mouseup', stopDraw);
+      canvas.removeEventListener('mouseleave', stopDraw);
+
+      canvas.removeEventListener('touchstart', startDraw);
+      canvas.removeEventListener('touchmove', draw);
+      canvas.removeEventListener('touchend', stopDraw);
+    };
+  }, [activeTab, isOpen, strokes]);
+
+  // Clear drawing canvas
+  const clearCanvas = () => {
+    setStrokes([]);
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#020617';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+  };
+
+  // Undo last stroke
+  const undoCanvas = () => {
+    setStrokes((prev) => prev.slice(0, -1));
+  };
+
+  // Live render equation transcribed by OCR
+  useEffect(() => {
+    if (!ocrText.trim()) {
+      setOcrPreviewHtml('');
+      return;
+    }
+
+    const renderOcrPreview = async () => {
+      try {
+        const katex = (await import('katex')).default;
+        const html = katex.renderToString(ocrText, {
+          throwOnError: false,
+          displayMode: isBlockMode,
+          output: 'html'
+        });
+        setOcrPreviewHtml(html);
+      } catch {
+        setOcrPreviewHtml('<span style="color:red">Formatting error</span>');
+      }
+    };
+
+    renderOcrPreview();
+  }, [ocrText, isBlockMode]);
+
+  // Call vision completions to convert drawings to LaTeX equations
+  const handleCanvasOCR = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas || strokes.length === 0) {
+      toast.error('Draw something on the canvas first!');
+      return;
+    }
+    if (!apiKey) {
+      toast.error('Add your OpenRouter API key in Settings to recognize equations.');
+      return;
+    }
+
+    setOcrLoading(true);
+    const toastId = toast.loading('Transcribing math drawing...');
+
+    try {
+      const dataUrl = canvas.toDataURL('image/png');
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          max_tokens: 500,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Identify the handwritten mathematical or scientific equation in this drawing. Transcribe it directly into valid LaTeX markup. Return ONLY the LaTeX code, with absolutely no markdown backticks, no introductions, no explanations, and no inline delimiters like $ or $$.'
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: dataUrl
+                  }
+                }
+              ]
+            }
+          ]
+        })
+      });
+
+      const data = await res.json();
+      const latex = data.choices?.[0]?.message?.content;
+      if (latex) {
+        setOcrText(latex.trim());
+        toast.success('Drawing converted! 🧠', { id: toastId });
+      } else {
+        toast.error('Could not read equation from canvas.', { id: toastId });
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('OCR transcription failed. Try again!', { id: toastId });
+    } finally {
+      setOcrLoading(false);
+    }
+  };
+
+  const handleInsert = () => {
+    if (activeTab === 'draw') {
+      if (!ocrText.trim()) {
+        toast.error('No math equation available to insert.');
+        return;
+      }
+      onInsert(ocrText.trim(), isBlockMode);
+      setOcrText('');
+      setOcrPreviewHtml('');
+      clearCanvas();
+      onClose();
+      return;
+    }
+
+    if (!selectedTemplate) return;
+
+    let finalLatex = selectedTemplate.latex;
+    if (selectedTemplate.latexPattern && selectedTemplate.placeholders) {
+      finalLatex = selectedTemplate.latexPattern;
+      selectedTemplate.placeholders.forEach((p) => {
+        const val = placeholderValues[p.var] !== undefined ? placeholderValues[p.var] : p.default;
+        finalLatex = finalLatex.replaceAll(`__${p.var}__`, val || ' ');
+      });
+    }
+
+    onInsert(finalLatex, isBlockMode);
+    setSelectedTemplate(null);
+    setPlaceholderValues({});
+    setIsBlockMode(false);
+    onClose();
+  };
+
   // Focus search on open
   useEffect(() => {
     if (isOpen && !editLatex) {
@@ -640,25 +904,6 @@ export default function MathPalette({ isOpen, onClose, onInsert, editLatex = '',
         ),
       })).filter((cat) => cat.templates.length > 0)
     : [FORMULA_CATEGORIES[activeCategory]];
-
-  const handleInsert = () => {
-    if (!selectedTemplate) return;
-
-    let finalLatex = selectedTemplate.latex;
-    if (selectedTemplate.latexPattern && selectedTemplate.placeholders) {
-      finalLatex = selectedTemplate.latexPattern;
-      selectedTemplate.placeholders.forEach((p) => {
-        const val = placeholderValues[p.var] !== undefined ? placeholderValues[p.var] : p.default;
-        finalLatex = finalLatex.replaceAll(`__${p.var}__`, val || ' ');
-      });
-    }
-
-    onInsert(finalLatex, isBlockMode);
-    setSelectedTemplate(null);
-    setPlaceholderValues({});
-    setIsBlockMode(false);
-    onClose();
-  };
 
   if (!isOpen) return null;
 
@@ -683,11 +928,38 @@ export default function MathPalette({ isOpen, onClose, onInsert, editLatex = '',
         >
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--card-border)]">
-            <div className="flex items-center gap-2">
-              <span className="text-lg text-primary font-bold">∑</span>
-              <h2 className="text-base font-heading font-bold">
-                {editLatex ? 'Edit Math Formula' : 'Math Formula Palette'}
-              </h2>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-lg text-primary font-bold">∑</span>
+                <h2 className="text-base font-heading font-bold mr-2">
+                  {editLatex ? 'Edit Math Formula' : 'Math Formula Palette'}
+                </h2>
+              </div>
+              
+              {!editLatex && (
+                <div className="flex bg-[var(--card-border)]/20 p-1 rounded-xl border border-[var(--card-border)]">
+                  <button
+                    onClick={() => setActiveTab('templates')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                      activeTab === 'templates'
+                        ? 'bg-primary/20 text-primary border border-primary/30'
+                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+                    }`}
+                  >
+                    🗂️ Templates
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('draw')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                      activeTab === 'draw'
+                        ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+                    }`}
+                  >
+                    ✍️ Handwrite
+                  </button>
+                </div>
+              )}
             </div>
             <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--card-border)] transition-colors">
               <HiX size={18} />
@@ -695,7 +967,115 @@ export default function MathPalette({ isOpen, onClose, onInsert, editLatex = '',
           </div>
 
           <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-            {selectedTemplate ? (
+            {activeTab === 'draw' ? (
+              /* --- HANDWRITING DRAWING CANVAS VIEW --- */
+              <div className="p-5 flex flex-col gap-4 flex-1 justify-between text-left">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-300">✍️ Draw your equation below</span>
+                    <span className="text-[10px] text-slate-500">AI will translate it to LaTeX</span>
+                  </div>
+
+                  <div className="relative w-full h-[220px] rounded-2xl overflow-hidden border-2 border-slate-800 bg-[#020617]">
+                    <canvas ref={canvasRef} className="absolute inset-0 w-full h-full cursor-crosshair" />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={undoCanvas}
+                      disabled={strokes.length === 0}
+                      className="px-3 py-1.5 text-xs font-bold rounded-xl border-2 border-slate-800 hover:bg-slate-900 transition-colors text-slate-400 disabled:opacity-50"
+                    >
+                      🔄 Undo Stroke
+                    </button>
+                    <button
+                      onClick={clearCanvas}
+                      disabled={strokes.length === 0}
+                      className="px-3 py-1.5 text-xs font-bold rounded-xl border-2 border-slate-800 hover:bg-slate-900 transition-colors text-slate-400 disabled:opacity-50"
+                    >
+                      🗑️ Clear Canvas
+                    </button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleCanvasOCR}
+                      disabled={ocrLoading || strokes.length === 0}
+                      className="ml-auto"
+                    >
+                      {ocrLoading ? '⏳ Transcribing...' : '🧠 Convert to LaTeX'}
+                    </Button>
+                  </div>
+
+                  {/* Extracted LaTeX & Equation Preview block */}
+                  {ocrText.trim() && (
+                    <div className="space-y-3 pt-3 border-t border-[var(--card-border)]">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-[var(--muted-foreground)]">
+                          Recognized LaTeX Markup
+                        </label>
+                        <textarea
+                          value={ocrText}
+                          onChange={(e) => setOcrText(e.target.value)}
+                          className="w-full h-14 px-3 py-2 rounded-xl border-2 border-[var(--card-border)] bg-[var(--card-bg)] text-xs font-mono focus:border-primary focus:outline-none transition-colors"
+                        />
+                      </div>
+
+                      {/* Display Mode Toggle */}
+                      <div className="flex items-center justify-between p-3 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)]/40">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold">Display Layout</span>
+                          <span className="text-[10px] text-[var(--muted-foreground)]">
+                            {isBlockMode ? 'Centered standalone block' : 'Flows inline with normal text'}
+                          </span>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={() => setIsBlockMode(false)}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                              !isBlockMode
+                                ? 'bg-primary/20 text-primary border border-primary/30'
+                                : 'bg-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-transparent'
+                            }`}
+                          >
+                            Inline ($)
+                          </button>
+                          <button
+                            onClick={() => setIsBlockMode(true)}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                              isBlockMode
+                                ? 'bg-primary/20 text-primary border border-primary/30'
+                                : 'bg-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)] border border-transparent'
+                            }`}
+                          >
+                            Block ($$)
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-[var(--muted-foreground)]">
+                          Rendered Preview
+                        </span>
+                        <div className="w-full min-h-[70px] p-3 rounded-2xl border-2 border-dashed border-[var(--card-border)] bg-[var(--card-bg)]/20 flex items-center justify-center overflow-x-auto">
+                          <div className="studyquest-markdown" dangerouslySetInnerHTML={{ __html: ocrPreviewHtml || ' ' }} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {ocrText.trim() && (
+                  <div className="pt-3 border-t border-[var(--card-border)] flex gap-2">
+                    <Button variant="ghost" onClick={() => { setOcrText(''); setOcrPreviewHtml(''); clearCanvas(); }} className="flex-1">
+                      Reset
+                    </Button>
+                    <Button variant="primary" onClick={handleInsert} className="flex-1">
+                      Insert Formula
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : selectedTemplate ? (
               /* --- PARAMETER CONFIGURATION VIEW --- */
               <div className="p-6 flex flex-col gap-5 flex-1 justify-between">
                 <div className="space-y-4">
