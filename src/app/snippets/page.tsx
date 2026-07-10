@@ -368,7 +368,7 @@ export default function SnippetsPage() {
         t === 'parchment' ? [212, 175, 55] :
         t === 'grimoire' ? [168, 85, 247] :
         t === 'druid' ? [16, 185, 129] :
-        t === 'editor' ? [124, 58, 237] :
+        t === 'editor' ? [30, 33, 50] :
         [220, 210, 235];
 
       const drawHeaderColor =
@@ -424,6 +424,13 @@ export default function SnippetsPage() {
         sliceCanvas.getContext('2d')!.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
         const sliceData = sliceCanvas.toDataURL('image/jpeg', 0.85);
         const sliceHeight = (srcH * imgWidth) / canvas.width;
+
+        // Fill entire page background for dark themes to avoid white margins
+        if (t === 'editor' || t === 'grimoire') {
+          const bgRgb = t === 'editor' ? [11, 13, 23] : [30, 30, 47];
+          pdf.setFillColor(bgRgb[0], bgRgb[1], bgRgb[2]);
+          pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+        }
 
         pdf.addImage(sliceData, 'JPEG', margin, 16, imgWidth, sliceHeight, undefined, 'FAST');
 

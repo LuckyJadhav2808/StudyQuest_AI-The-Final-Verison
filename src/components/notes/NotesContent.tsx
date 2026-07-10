@@ -1319,7 +1319,7 @@ export default function NotesContent() {
         selectedPdfTheme === 'parchment' ? [212, 175, 55] :
         selectedPdfTheme === 'grimoire' ? [168, 85, 247] :
         selectedPdfTheme === 'druid' ? [16, 185, 129] :
-        selectedPdfTheme === 'editor' ? [124, 58, 237] :
+        selectedPdfTheme === 'editor' ? [30, 33, 50] :
         [220, 210, 235];
 
       const drawHeaderColor = 
@@ -1374,6 +1374,13 @@ export default function NotesContent() {
         const sliceData = sliceCanvas.toDataURL('image/jpeg', jpegQuality);
         const sliceHeight = (srcH * imgWidth) / canvas.width;
         
+        // Fill entire page background for dark themes to avoid white margins
+        if (selectedPdfTheme === 'editor' || selectedPdfTheme === 'grimoire') {
+          const bgRgb = selectedPdfTheme === 'editor' ? [11, 13, 23] : [30, 30, 47];
+          pdf.setFillColor(bgRgb[0], bgRgb[1], bgRgb[2]);
+          pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+        }
+
         // Draw note content centered vertically within usable area
         pdf.addImage(sliceData, 'JPEG', margin, 16, imgWidth, sliceHeight, undefined, 'FAST');
 
