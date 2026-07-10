@@ -252,6 +252,9 @@ export default function NotesContent() {
   const [editTitle, setEditTitle] = useState('');
   const [selectedText, setSelectedText] = useState('');
   const [latexConverting, setLatexConverting] = useState(false);
+  const [renameNoteObj, setRenameNoteObj] = useState<Note | null>(null);
+  const [renameTitle, setRenameTitle] = useState('');
+  const [renameFolder, setRenameFolder] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   // ── Mana Writing Bar & Alchemy Cauldron states ──
@@ -829,6 +832,30 @@ export default function NotesContent() {
     setIsEditing(false);
     toast.success('Note saved! 💾');
     setTimeout(() => setSaveStatus('idle'), 2000);
+  };
+
+  const handleRenameNote = async () => {
+    if (!renameNoteObj) return;
+    if (!renameTitle.trim()) {
+      toast.error('Title is required');
+      return;
+    }
+    const finalFolder = renameFolder.trim() || 'General';
+    await updateNote(renameNoteObj.id, {
+      title: renameTitle.trim(),
+      folder: finalFolder,
+    });
+    if (selectedNote?.id === renameNoteObj.id) {
+      setSelectedNote({
+        ...selectedNote,
+        title: renameTitle.trim(),
+        folder: finalFolder,
+        updatedAt: Date.now(),
+      });
+      setEditTitle(renameTitle.trim());
+    }
+    toast.success('Note updated! 📝');
+    setRenameNoteObj(null);
   };
 
   // Autosave: fires 5 seconds after last change
@@ -2667,7 +2694,21 @@ Rules:
                     <Card padding="md" className="cursor-pointer group" onClick={() => openNote(note)}>
                       <div className="flex items-start justify-between mb-2">
                         <h4 className="text-sm font-heading font-bold group-hover:text-primary transition-colors truncate">{note.title}</h4>
-                        <HiDocumentText className="text-[var(--muted-foreground)] flex-shrink-0" size={16} />
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setRenameNoteObj(note);
+                              setRenameTitle(note.title);
+                              setRenameFolder(note.folder);
+                            }}
+                            className="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-primary/10 text-primary transition-all"
+                            title="Rename Note"
+                          >
+                            <HiPencil size={12} />
+                          </button>
+                          <HiDocumentText className="text-[var(--muted-foreground)]" size={16} />
+                        </div>
                       </div>
                       <p className="text-xs text-[var(--muted-foreground)] line-clamp-3 mb-3">{note.content || 'Empty note...'}</p>
                       <div className="flex items-center gap-2">
@@ -2688,6 +2729,18 @@ Rules:
             <div className="flex gap-2 pt-2">
               <Button variant="ghost" onClick={() => setShowNewModal(false)} className="flex-1">Cancel</Button>
               <Button variant="primary" onClick={handleCreate} className="flex-1">Create</Button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Rename Note / Move Folder Modal */}
+        <Modal isOpen={!!renameNoteObj} onClose={() => setRenameNoteObj(null)} title="Rename Note & Organize">
+          <div className="space-y-4">
+            <Input label="Note Title" placeholder="e.g. Physics Chapter 4 Notes" value={renameTitle} onChange={(e) => setRenameTitle(e.target.value)} />
+            <Input label="Folder" placeholder="e.g. Physics, General" value={renameFolder} onChange={(e) => setRenameFolder(e.target.value)} icon={<HiFolder size={16} />} />
+            <div className="flex gap-2 pt-2">
+              <Button variant="ghost" onClick={() => setRenameNoteObj(null)} className="flex-1">Cancel</Button>
+              <Button variant="primary" onClick={handleRenameNote} className="flex-1">Save Changes</Button>
             </div>
           </div>
         </Modal>

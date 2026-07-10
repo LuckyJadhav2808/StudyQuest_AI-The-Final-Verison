@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   HiPlus, HiTrash, HiSearch, HiClipboardCopy, HiCheck,
-  HiCode, HiEye, HiX, HiShare, HiLightningBolt, HiTerminal
+  HiCode, HiEye, HiX, HiShare, HiLightningBolt, HiTerminal, HiPencil
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import { useAuthContext } from '@/context/AuthContext';
@@ -98,6 +98,12 @@ export default function SnippetsPage() {
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [shareSnippet, setShareSnippet] = useState<Snippet | null>(null);
 
+  // Edit Snippet state
+  const [editSnippetObj, setEditSnippetObj] = useState<Snippet | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editLanguage, setEditLanguage] = useState('javascript');
+  const [editCode, setEditCode] = useState('');
+
   // Snippet Execution state
   const [executingId, setExecutingId] = useState<string | null>(null);
   const [execOutput, setExecOutput] = useState('');
@@ -134,6 +140,21 @@ export default function SnippetsPage() {
     setTitle('');
     setCode('');
     setShowModal(false);
+  };
+
+  const updateSnippet = async () => {
+    if (!user || !editSnippetObj) return;
+    if (!editTitle.trim() || !editCode.trim()) {
+      toast.error('Title and code are required');
+      return;
+    }
+    await setDoc(doc(db, 'users', user.uid, 'snippets', editSnippetObj.id), {
+      title: editTitle.trim(),
+      language: editLanguage,
+      code: editCode,
+    }, { merge: true });
+    toast.success('Spell updated in Grimoire! 📜');
+    setEditSnippetObj(null);
   };
 
   const deleteSnippet = (id: string, name: string) => {
@@ -246,6 +267,18 @@ export default function SnippetsPage() {
                             <HiEye size={16} className="text-primary" />
                           </button>
                         )}
+                        <button
+                          onClick={() => {
+                            setEditSnippetObj(s);
+                            setEditTitle(s.title);
+                            setEditLanguage(s.language);
+                            setEditCode(s.code);
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors text-primary"
+                          title="Edit Spell"
+                        >
+                          <HiPencil size={16} />
+                        </button>
                         <button onClick={() => copyCode(s)} className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors" title="Copy">
                           {copiedId === s.id ? <HiCheck className="text-teal" size={16} /> : <HiClipboardCopy size={16} />}
                         </button>
@@ -306,6 +339,44 @@ export default function SnippetsPage() {
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => setShowModal(false)} className="flex-1">Cancel</Button>
               <Button variant="primary" onClick={addSnippet} className="flex-1">Save Spell</Button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Edit Spell Modal */}
+        <Modal isOpen={!!editSnippetObj} onClose={() => setEditSnippetObj(null)} title="Edit Spell inside Grimoire">
+          <div className="space-y-4 text-left">
+            <Input label="Title" placeholder="e.g. Array flatten" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+            <div>
+              <label className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)] block mb-2">Language</label>
+              <div className="flex flex-wrap gap-1.5">
+                {['javascript', 'typescript', 'python', 'java', 'c++', 'css', 'html', 'sql', 'rust', 'go'].map((l) => (
+                  <button
+                    key={l}
+                    onClick={() => setEditLanguage(l)}
+                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase border-2 transition-all ${
+                      editLanguage === l ? 'bg-primary text-white border-primary' : 'border-[var(--card-border)] hover:border-primary/30'
+                    }`}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)] block mb-2">Spell Code</label>
+              <div className="rounded-xl border-2 border-[var(--card-border)] overflow-hidden bg-[var(--card-bg)]">
+                <CodeEditor
+                  value={editCode}
+                  onChange={setEditCode}
+                  language={editLanguage === 'c++' ? 'cpp' : editLanguage}
+                  minHeight="200px"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => setEditSnippetObj(null)} className="flex-1">Cancel</Button>
+              <Button variant="primary" onClick={updateSnippet} className="flex-1">Save Changes</Button>
             </div>
           </div>
         </Modal>
