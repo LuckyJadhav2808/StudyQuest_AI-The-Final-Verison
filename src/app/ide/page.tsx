@@ -38,6 +38,22 @@ export default function IDEPage() {
   const [showStdin, setShowStdin] = useState(false);
   const [output, setOutput] = useState('');
   const [running, setRunning] = useState(false);
+  const [editorTheme, setEditorTheme] = useState('default');
+
+  // Sync with localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('sq-ide-editor-theme');
+      if (stored) setEditorTheme(stored);
+    } catch (e) {}
+  }, []);
+
+  const handleThemeChange = (newTheme: string) => {
+    setEditorTheme(newTheme);
+    try {
+      localStorage.setItem('sq-ide-editor-theme', newTheme);
+    } catch (e) {}
+  };
 
   // Subscribe to files when project changes
   useEffect(() => {
@@ -176,10 +192,16 @@ export default function IDEPage() {
     setOutput('⏳ Running...');
     setIdeView('preview');
 
+    const startTime = performance.now();
     try {
       const result = await executeCode(activeFile.content, lang, stdin);
+      const endTime = performance.now();
+      const runTime = (endTime - startTime).toFixed(1);
+
       const out = (result.stdout || '') + (result.stderr ? '\n' + result.stderr : '');
-      setOutput(out.trim() || '(no output)');
+      const banner = `----------------------------------------\n🚀 EXECUTION PROFILE:\n⏱️ Speed: ${runTime}ms\n📡 Sandbox Connection: Active\n----------------------------------------\n\n`;
+
+      setOutput(banner + (out.trim() || '(no output)'));
       if (result.stderr) toast.error('Execution had errors');
       else toast.success('Code executed! ⚡');
     } catch {
@@ -296,6 +318,17 @@ export default function IDEPage() {
               <HiDownload size={14} />
               .zip
             </button>
+            <select
+              value={editorTheme}
+              onChange={(e) => handleThemeChange(e.target.value)}
+              className="px-2.5 py-1.5 rounded-xl border-2 border-[var(--card-border)] bg-[var(--card-bg)] text-xs font-bold text-[var(--muted-foreground)] hover:border-primary/30 transition-all focus:outline-none cursor-pointer"
+            >
+              <option value="default">Default Dark</option>
+              <option value="dracula">🧛 Dracula</option>
+              <option value="monokai">🥥 Monokai</option>
+              <option value="nord">❄️ Nord</option>
+              <option value="synthwave">🌆 Synthwave '84</option>
+            </select>
             <Link
               href="/code"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider border-2 border-[var(--card-border)] hover:border-primary/30 transition-all text-[var(--muted-foreground)] hover:text-primary"
@@ -420,6 +453,7 @@ export default function IDEPage() {
                       language={currentLang}
                       minHeight="100%"
                       placeholder="Start coding..."
+                      theme={editorTheme}
                     />
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-[var(--muted-foreground)] gap-3 p-8">

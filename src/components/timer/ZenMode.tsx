@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { HiX, HiPlay, HiPause, HiRefresh, HiCheck } from 'react-icons/hi';
 import { usePet } from '@/hooks/usePet';
 import { PET_SPECIES_CONFIG } from '@/lib/constants';
+import { PixelPetSprite } from '@/components/dashboard/PixelPet';
 import { playClick } from '@/lib/sounds';
 import LocalMusicPlayer, { LocalMusicPlayerProps } from '@/components/timer/LocalMusicPlayer';
 import FocusDefense from '@/components/timer/FocusDefense';
@@ -425,7 +426,7 @@ export default function ZenMode({
       <LocalMusicPlayer variant="zen" {...musicProps} />
 
       {/* ── Pet Corner (bottom-right) ── */}
-      {pet && petEmoji && (
+      {pet && (
         <motion.div
           className="zen-pet"
           initial={{ opacity: 0, x: 20 }}
@@ -433,7 +434,7 @@ export default function ZenMode({
           transition={{ delay: 1 }}
         >
           <motion.div
-            className="zen-pet-emoji"
+            className="zen-pet-emoji flex items-center justify-center"
             animate={{
               y: mood === 'sleeping' ? [0, -3, 0] : [0, -5, 0],
             }}
@@ -443,7 +444,9 @@ export default function ZenMode({
               ease: 'easeInOut',
             }}
           >
-            {petEmoji}
+            <div className="w-12 h-12 flex items-center justify-center">
+              <PixelPetSprite species={pet.species} stage={pet.stage} className="w-10 h-10" />
+            </div>
           </motion.div>
           {mood === 'sleeping' && <div className="zen-pet-zzz">💤</div>}
           <p className="text-[10px] text-white/40 font-bold mt-1">{pet.name}</p>

@@ -256,6 +256,8 @@ export default function NotesContent() {
   const [renameTitle, setRenameTitle] = useState('');
   const [renameFolder, setRenameFolder] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [showPdfThemeModal, setShowPdfThemeModal] = useState(false);
+  const [selectedPdfTheme, setSelectedPdfTheme] = useState<'modern' | 'editor' | 'parchment' | 'grimoire' | 'druid'>('modern');
 
   // ── Mana Writing Bar & Alchemy Cauldron states ──
   const [mana, setMana] = useState(0);
@@ -1158,6 +1160,48 @@ export default function NotesContent() {
     const qualityScale = pdfQuality === 'low' ? 1 : pdfQuality === 'medium' ? 2 : 3;
     const jpegQuality = pdfQuality === 'low' ? 0.5 : pdfQuality === 'medium' ? 0.75 : 0.85;
 
+    const themeBg = 
+      selectedPdfTheme === 'parchment' ? '#FDF6E2' :
+      selectedPdfTheme === 'grimoire' ? '#1E1E2F' :
+      selectedPdfTheme === 'druid' ? '#F2F4F0' :
+      selectedPdfTheme === 'editor' ? '#0B0D17' :
+      '#ffffff';
+
+    const themeText = 
+      selectedPdfTheme === 'parchment' ? '#3E2723' :
+      selectedPdfTheme === 'grimoire' ? '#F3F4F6' :
+      selectedPdfTheme === 'druid' ? '#111827' :
+      selectedPdfTheme === 'editor' ? '#FEF7FF' :
+      '#222222';
+
+    const themeFont = 
+      selectedPdfTheme === 'parchment' ? 'Georgia, Cambria, serif' :
+      selectedPdfTheme === 'grimoire' ? 'Courier New, monospace' :
+      selectedPdfTheme === 'druid' ? 'system-ui, sans-serif' :
+      selectedPdfTheme === 'editor' ? 'Lexend, system-ui, sans-serif' :
+      'system-ui, sans-serif';
+
+    const themeBlockquoteBg = 
+      selectedPdfTheme === 'parchment' ? '#fbf2db' :
+      selectedPdfTheme === 'grimoire' ? '#2A2A3F' :
+      selectedPdfTheme === 'druid' ? '#E6EBE2' :
+      selectedPdfTheme === 'editor' ? '#111328' :
+      '#f5f3ff';
+
+    const themeBlockquoteBorder = 
+      selectedPdfTheme === 'parchment' ? '#B8860B' :
+      selectedPdfTheme === 'grimoire' ? '#A855F7' :
+      selectedPdfTheme === 'druid' ? '#10B981' :
+      selectedPdfTheme === 'editor' ? '#7C3AED' :
+      '#7C3AED';
+
+    const themeCodeBg = 
+      selectedPdfTheme === 'parchment' ? '#F5EAC9' :
+      selectedPdfTheme === 'grimoire' ? '#131320' :
+      selectedPdfTheme === 'druid' ? '#E7EAE3' :
+      selectedPdfTheme === 'editor' ? '#1A1D35' :
+      '#f4f4f5';
+
     const toastId = toast.loading('Generating PDF...');
     try {
       const html2canvas = (await import('html2canvas')).default;
@@ -1165,7 +1209,8 @@ export default function NotesContent() {
 
       // Create offscreen rendering element — match editor styling exactly
       const container = document.createElement('div');
-      container.style.cssText = `width:794px;padding:40px;position:absolute;left:-9999px;font-family:system-ui;font-size:14px;line-height:1.8;color:#222;background:#fff;white-space:pre-wrap;word-wrap:break-word;`;
+      container.style.cssText = `width:794px;padding:0px 40px 20px 40px;position:absolute;left:-9999px;font-family:${themeFont};font-size:14px;line-height:1.8;color:${themeText};background:${themeBg};white-space:pre-wrap;word-wrap:break-word;`;
+      
       // Include Quill indent CSS so indentation renders in PDF
       const styleTag = document.createElement('style');
       styleTag.textContent = `
@@ -1173,13 +1218,13 @@ export default function NotesContent() {
         .ql-indent-2 { padding-left: 6em; }
         .ql-indent-3 { padding-left: 9em; }
         .ql-indent-4 { padding-left: 12em; }
-        p, li, div { white-space: pre-wrap; word-wrap: break-word; }
-        pre { background: #f4f4f5; padding: 12px 16px; border-radius: 8px; overflow-x: auto; font-family: monospace; font-size: 13px; }
-        code { background: #f4f4f5; padding: 2px 4px; border-radius: 4px; font-family: monospace; font-size: 13px; }
-        blockquote { border-left: 4px solid #7C3AED; padding: 8px 16px; margin: 12px 0; background: #f5f3ff; border-radius: 0 8px 8px 0; }
-        h1 { font-size: 22px; font-weight: 700; margin: 16px 0 8px; }
-        h2 { font-size: 18px; font-weight: 700; margin: 14px 0 6px; }
-        h3 { font-size: 16px; font-weight: 600; margin: 12px 0 4px; }
+        p, li, div { white-space: pre-wrap; word-wrap: break-word; color: ${themeText}; }
+        pre { background: ${themeCodeBg}; color: ${themeText}; padding: 12px 16px; border-radius: 8px; overflow-x: auto; font-family: monospace; font-size: 13px; }
+        code { background: ${themeCodeBg}; color: ${themeText}; padding: 2px 4px; border-radius: 4px; font-family: monospace; font-size: 13px; }
+        blockquote { border-left: 4px solid ${themeBlockquoteBorder}; padding: 8px 16px; margin: 12px 0; background: ${themeBlockquoteBg}; color: ${themeText}; border-radius: 0 8px 8px 0; }
+        h1 { font-size: 22px; font-weight: 700; margin: 0px 0 8px; color: ${themeText}; }
+        h2 { font-size: 18px; font-weight: 700; margin: 14px 0 6px; color: ${themeText}; }
+        h3 { font-size: 16px; font-weight: 600; margin: 12px 0 4px; color: ${themeText}; }
         ul, ol { padding-left: 1.5em; margin: 8px 0; }
         li { margin: 4px 0; }
         img { max-width: 100%; border-radius: 8px; margin: 8px 0; }
@@ -1188,12 +1233,19 @@ export default function NotesContent() {
       `;
       container.appendChild(styleTag);
 
+      // Copy KaTeX, Tailwind, and custom styles from document to container
+      if (typeof window !== 'undefined') {
+        Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).forEach((style) => {
+          container.appendChild(style.cloneNode(true));
+        });
+      }
+
       // 1. Process $...$ and $$...$$ math delimiters in note content
       let processedContent = await renderMathInHtml(selectedNote.content);
 
       // 2. Setup the HTML inside the PDF export container
-      container.innerHTML += `<h1 style="font-size:24px;font-weight:800;margin-bottom:8px;">${selectedNote.title}</h1>
-        <p style="font-size:10px;color:#888;margin-bottom:20px;">Exported from StudyQuest AI · ${new Date().toLocaleDateString()}</p>
+      container.innerHTML += `<h1 style="font-size:24px;font-weight:800;margin-top:0px;margin-bottom:8px;">${selectedNote.title}</h1>
+        <p style="font-size:10px;color:#888;margin-bottom:20px;">Exported from StudyQuest AI - ${new Date().toLocaleDateString()}</p>
         <div style="line-height:1.8;white-space:pre-wrap;">${processedContent}</div>`;
       document.body.appendChild(container);
 
@@ -1237,7 +1289,8 @@ export default function NotesContent() {
       const pagePixelHeight = (usableHeight * 794) / imgWidth;
       const contentDiv = container.querySelector('div');
       if (contentDiv) {
-        const blocks = Array.from(contentDiv.querySelectorAll('p, li, h1, h2, h3, blockquote, pre, .studyquest-math-embed, .katex-block, .katex-display'));
+        const blocks = Array.from(contentDiv.querySelectorAll('p, li, h1, h2, h3, blockquote, pre, .katex-block, .katex-display'))
+          .filter((block) => block.parentElement === contentDiv || block.parentElement?.parentElement === contentDiv);
         for (let i = 0; i < blocks.length; i++) {
           const block = blocks[i] as HTMLElement;
           const rect = block.getBoundingClientRect();
@@ -1262,7 +1315,49 @@ export default function NotesContent() {
         }
       }
 
-      const canvas = await html2canvas(container, { scale: qualityScale, useCORS: true, backgroundColor: '#ffffff' });
+      const drawBorderColor = 
+        selectedPdfTheme === 'parchment' ? [212, 175, 55] :
+        selectedPdfTheme === 'grimoire' ? [168, 85, 247] :
+        selectedPdfTheme === 'druid' ? [16, 185, 129] :
+        selectedPdfTheme === 'editor' ? [124, 58, 237] :
+        [220, 210, 235];
+
+      const drawHeaderColor = 
+        selectedPdfTheme === 'parchment' ? [139, 69, 19] :
+        selectedPdfTheme === 'grimoire' ? [168, 85, 247] :
+        selectedPdfTheme === 'druid' ? [6, 78, 59] :
+        selectedPdfTheme === 'editor' ? [124, 58, 237] :
+        [124, 58, 237];
+
+      const drawHeaderLineColor = 
+        selectedPdfTheme === 'parchment' ? [212, 175, 55] :
+        selectedPdfTheme === 'grimoire' ? [60, 60, 80] :
+        selectedPdfTheme === 'druid' ? [200, 210, 195] :
+        selectedPdfTheme === 'editor' ? [36, 40, 66] :
+        [235, 230, 245];
+
+      const drawTextColor = 
+        selectedPdfTheme === 'parchment' ? [100, 70, 50] :
+        selectedPdfTheme === 'grimoire' ? [180, 180, 200] :
+        selectedPdfTheme === 'druid' ? [80, 95, 80] :
+        selectedPdfTheme === 'editor' ? [240, 230, 250] :
+        [100, 100, 100];
+
+      const drawFooterTextColor = 
+        selectedPdfTheme === 'parchment' ? [140, 110, 90] :
+        selectedPdfTheme === 'grimoire' ? [130, 130, 150] :
+        selectedPdfTheme === 'druid' ? [110, 125, 110] :
+        selectedPdfTheme === 'editor' ? [150, 150, 170] :
+        [140, 140, 140];
+
+      const brandingTitle = 
+        selectedPdfTheme === 'parchment' ? 'AETHER PARCHMENT' :
+        selectedPdfTheme === 'grimoire' ? 'VOID GRIMOIRE' :
+        selectedPdfTheme === 'druid' ? 'FOREST DRUID LOG' :
+        selectedPdfTheme === 'editor' ? 'STUDYQUEST ACTIVE' :
+        'STUDYQUEST AI';
+
+      const canvas = await html2canvas(container, { scale: qualityScale, useCORS: true, backgroundColor: themeBg });
       document.body.removeChild(container);
 
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
@@ -1285,40 +1380,39 @@ export default function NotesContent() {
         // ══════════ DRAW BEAUTIFIED BORDERS & BRANDING ══════════
         
         // 1. Draw outer page border (soft rounded lavender border)
-        pdf.setDrawColor(220, 210, 235); // Soft lavender-grey
+        pdf.setDrawColor(drawBorderColor[0], drawBorderColor[1], drawBorderColor[2]);
         pdf.setLineWidth(0.3);
         pdf.roundedRect(6, 6, pageWidth - 12, pageHeight - 12, 4, 4, 'D');
 
         // 2. Draw Header
         pdf.setFont("Helvetica", "bold");
         pdf.setFontSize(7);
-        pdf.setTextColor(124, 58, 237); // Purple primary
-        pdf.text("STUDYQUEST AI", 12, 11);
+        pdf.setTextColor(drawHeaderColor[0], drawHeaderColor[1], drawHeaderColor[2]);
+        const titleText = selectedNote.title.length > 50 ? selectedNote.title.substring(0, 47) + '...' : selectedNote.title;
+        pdf.text(`${brandingTitle} - ${titleText.toUpperCase()}`, 12, 11);
 
         pdf.setFont("Helvetica", "normal");
         pdf.setFontSize(7);
-        pdf.setTextColor(100, 100, 100);
-        const titleText = selectedNote.title.length > 50 ? selectedNote.title.substring(0, 47) + '...' : selectedNote.title;
-        pdf.text(`·  ${titleText.toUpperCase()}`, 38, 11);
-
+        pdf.setTextColor(drawTextColor[0], drawTextColor[1], drawTextColor[2]);
         pdf.text(new Date().toLocaleDateString(), pageWidth - 12, 11, { align: "right" });
 
         // Header separator line
-        pdf.setDrawColor(235, 230, 245);
+        pdf.setDrawColor(drawHeaderLineColor[0], drawHeaderLineColor[1], drawHeaderLineColor[2]);
         pdf.line(12, 13, pageWidth - 12, 13);
 
         // 3. Draw Footer
         // Footer separator line
-        pdf.setDrawColor(235, 230, 245);
+        pdf.setDrawColor(drawHeaderLineColor[0], drawHeaderLineColor[1], drawHeaderLineColor[2]);
         pdf.line(12, pageHeight - 13, pageWidth - 12, pageHeight - 13);
 
         pdf.setFont("Helvetica", "italic");
         pdf.setFontSize(6.5);
-        pdf.setTextColor(140, 140, 140);
-        pdf.text("Level Up Your Learning · studyquest.ai", 12, pageHeight - 9);
+        pdf.setTextColor(drawFooterTextColor[0], drawFooterTextColor[1], drawFooterTextColor[2]);
+        pdf.text("Level Up Your Learning - studyquest.ai", 12, pageHeight - 9);
 
         pdf.setFont("Helvetica", "normal");
         pdf.setFontSize(7);
+        pdf.setTextColor(drawFooterTextColor[0], drawFooterTextColor[1], drawFooterTextColor[2]);
         pdf.text(`Page ${page + 1} of ${totalPages}`, pageWidth - 12, pageHeight - 9, { align: "right" });
       }
 
@@ -2387,6 +2481,37 @@ Rules:
                     <span className="text-sm block">{opt.emoji}</span>
                     <span className="text-xs font-bold block">{opt.label}</span>
                     <span className={`text-[9px] block mt-0.5 ${pdfQuality === opt.id ? 'text-white/70' : 'text-[var(--muted-foreground)]'}`}>{opt.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* PDF Themes / Scroll Styles */}
+            <div>
+              <label className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)] block mb-2">Scroll Style / Theme</label>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { id: 'modern' as const, label: 'Modern Minimalist', desc: 'Clean, sans-serif design', emoji: '📄' },
+                  { id: 'editor' as const, label: 'Active Editor', desc: 'Dopamine dark editor design', emoji: '💻' },
+                  { id: 'parchment' as const, label: 'Aether Parchment', desc: 'Vintage scroll design', emoji: '📜' },
+                  { id: 'grimoire' as const, label: 'Void Grimoire', desc: 'Dark magic theme', emoji: '🔮' },
+                  { id: 'druid' as const, label: 'Forest Druid', desc: 'Sage nature log', emoji: '🌿' },
+                ]).map((opt) => (
+                  <button 
+                    key={opt.id} 
+                    type="button"
+                    onClick={() => setSelectedPdfTheme(opt.id)} 
+                    className={`p-3 rounded-xl border-2 text-left transition-all flex flex-col justify-between ${
+                      selectedPdfTheme === opt.id 
+                        ? 'bg-primary/5 text-primary border-primary shadow-[0_0_8px_rgba(124,58,237,0.2)]' 
+                        : 'border-[var(--card-border)] hover:border-primary/20 bg-[var(--card-bg)] text-[var(--muted-foreground)]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-sm">{opt.emoji}</span>
+                      <span className="text-xs font-bold">{opt.label}</span>
+                    </div>
+                    <span className="text-[9px] block text-[var(--muted-foreground)] opacity-80 leading-snug">{opt.desc}</span>
                   </button>
                 ))}
               </div>

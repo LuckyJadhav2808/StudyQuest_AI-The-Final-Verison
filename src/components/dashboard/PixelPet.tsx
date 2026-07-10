@@ -151,15 +151,34 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
   // Sync stats from Firestore pet when it updates
   useEffect(() => {
     if (pet) {
+      let currentLevel = pet.level ?? 1;
+      let currentExp = pet.exp ?? 0;
+
+      try {
+        const stored = localStorage.getItem('sq-pixel-pet-stats');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          const localLevel = parsed.level ?? 1;
+          const localExp = parsed.exp ?? 0;
+
+          // If local stats are higher, sync them up to Firestore to preserve progress
+          if (localLevel > currentLevel || (localLevel === currentLevel && localExp > currentExp)) {
+            currentLevel = localLevel;
+            currentExp = localExp;
+            updatePet({ level: localLevel, exp: localExp });
+          }
+        }
+      } catch (e) { /* ignore */ }
+
       setStats({
-        level: pet.level ?? 1,
-        exp: pet.exp ?? 0
+        level: currentLevel,
+        exp: currentExp
       });
       // Species Index mapping: cat=0, owl=1, dino=2
       const speciesIndex = pet.species === 'cat' ? 0 : pet.species === 'owl' ? 1 : 2;
       setSkinIndex(speciesIndex);
     }
-  }, [pet]);
+  }, [pet, updatePet]);
 
   // Load stats from localStorage (as fallback when offline or no pet created)
   useEffect(() => {
@@ -398,36 +417,36 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
       if (Math.random() > 0.4) return; // 60% chance to stay idle
 
       const rand = Math.random();
-      if (rand < 0.4) {
+      if (rand < 0.45) {
         // Move left
         setX((prev) => Math.max(2, prev - (3 + Math.floor(Math.random() * 4))));
         setDirection('left');
-      } else if (rand < 0.8) {
+      } else if (rand < 0.90) {
         // Move right
         setX((prev) => Math.min(94, prev + (3 + Math.floor(Math.random() * 4))));
         setDirection('right');
-      } else if (rand < 0.92) {
-        // Jump (vertical hop - lands back on border line)
-        triggerJump();
       } else {
-        // Teleport platform (header <-> footer)
-        const nextPlatform = platform === 'header' ? 'footer' : 'header';
-        setPlatform(nextPlatform);
-        try {
-          localStorage.setItem('sq-pixel-pet-platform', nextPlatform);
-        } catch (e) { /* ignore */ }
-        
-        // Pick from dynamic dialogues upon teleportation
-        const msgs = nextPlatform === 'header' 
-          ? ["Hup! Exploring the header! 🚀", "Up to the header we go! 🐾"] 
-          : ["Wheee! Dropping down to the footer! 🐾", "Let's hang out down here! 👇"];
-        speak(msgs[Math.floor(Math.random() * msgs.length)]);
+        // Jump (vertical hop - lands back on border line)
         triggerJump();
       }
     }, 3500);
 
     return () => clearInterval(interval);
-  }, [isJumping, platform, isSleeping]);
+  }, [isJumping, isSleeping]);
+
+  const togglePlatform = () => {
+    const nextPlatform = platform === 'header' ? 'footer' : 'header';
+    setPlatform(nextPlatform);
+    try {
+      localStorage.setItem('sq-pixel-pet-platform', nextPlatform);
+    } catch (e) { /* ignore */ }
+    
+    const msgs = nextPlatform === 'header' 
+      ? ["Hup! Teleporting to the header! 🚀", "Up to the top! 🐾"] 
+      : ["Wheee! Teleporting down to the footer! 🐾", "Let's hang out down here! 👇"];
+    speak(msgs[Math.floor(Math.random() * msgs.length)]);
+    triggerJump();
+  };
 
   // Feed action
   const handleFeed = async () => {
@@ -589,7 +608,7 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
           <span 
             className="text-[8px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-555 bg-slate-105 dark:bg-slate-900/60 px-1.5 py-0.5 rounded-full mb-1 border border-slate-200/50 dark:border-slate-800/40 opacity-0 group-hover:opacity-100 transition-opacity"
           >
-            {skinNames[skinIndex]} (Lv.{stats.level}) {isSleeping ? '😴' : ''}
+            {pet ? pet.name : skinNames[skinIndex]} (Lv.{stats.level}) {isSleeping ? '😴' : ''}
           </span>
           <span
             className={`inline-block transition-transform ${isSleeping ? 'rotate-6 opacity-85 scale-95' : 'hover:scale-110'}`}
@@ -630,7 +649,7 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
               <div className="flex items-center gap-3 mb-3 border-b border-slate-100 dark:border-slate-850 pb-2.5">
                 <TransparentSprite src={skins[skinIndex]} className="w-10 h-10" />
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-xs font-black uppercase text-slate-700 dark:text-slate-200">{skinNames[skinIndex]}</h4>
+                  <h4 className="text-xs font-black uppercase text-slate-700 dark:text-slate-200 truncate">{pet ? pet.name : skinNames[skinIndex]}</h4>
                   <div className="flex items-center justify-between text-[9px] font-bold text-slate-400">
                     <span>Level {stats.level}</span>
                     <span>{stats.exp}/100 XP</span>
@@ -659,10 +678,10 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
                   <span>💖</span> Pet Friend
                 </button>
                 <button 
-                  onClick={changeSkin}
+                  onClick={togglePlatform}
                   className="col-span-2 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:border-primary/30 flex items-center justify-center gap-1 transition-all"
                 >
-                  <span>🔄</span> Change Skin
+                  <span>↕️</span> Place {platform === 'header' ? 'on Footer (Bottom)' : 'on Header (Top)'}
                 </button>
               </div>
             </motion.div>

@@ -2,19 +2,13 @@
 
 import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { usePet } from '@/hooks/usePet';
+import { useGamification } from '@/hooks/useGamification';
+import { PixelPetSprite } from '@/components/dashboard/PixelPet';
+import { PET_STAGES } from '@/lib/constants';
 
 /* ============================================================
    PomodoroPet — Focus companion that evolves with your XP!
-   
-   6 Evolution Stages (based on total lifetime XP):
-   Stage 0:     0 XP → Mystic Egg     🥚
-   Stage 1:   300 XP → Pip (Hatchling) 🐣
-   Stage 2: 1,000 XP → Ember (Baby)   🐉
-   Stage 3: 3,000 XP → Blaze (Young)  🐲
-   Stage 4: 7,000 XP → Inferno (Fire) 🔥
-   Stage 5:15,000 XP → Astra (Cosmic) ✨
-
-   Moods: idle, focused, happy, sad, celebrating
    ============================================================ */
 
 interface PomodoroPetProps {
@@ -22,118 +16,60 @@ interface PomodoroPetProps {
   phase: 'focus' | 'short-break' | 'long-break';
   progress: number;        // 0-1
   sessions: number;        // completed sessions this visit
-  totalXP: number;         // lifetime XP for evolution
+  totalXP?: number;
   wasAbandoned?: boolean;  // user reset mid-focus
-}
-
-interface PetStageInfo {
-  id: string;
-  name: string;
-  minXP: number;
-  sprites: Record<PetMood, string>;
 }
 
 type PetMood = 'idle' | 'focused' | 'happy' | 'sad' | 'celebrating';
 
-const PET_STAGES: PetStageInfo[] = [
-  {
-    id: 'egg', name: 'Mystic Egg', minXP: 0,
-    sprites: { idle: '🥚', focused: '🥚', happy: '🥚', sad: '🥚', celebrating: '🐣' },
-  },
-  {
-    id: 'hatchling', name: 'Pip', minXP: 300,
-    sprites: { idle: '🐣', focused: '🐣', happy: '🐥', sad: '😢', celebrating: '🎉' },
-  },
-  {
-    id: 'baby', name: 'Ember', minXP: 1000,
-    sprites: { idle: '🐉', focused: '🔥', happy: '🐲', sad: '😢', celebrating: '🎉' },
-  },
-  {
-    id: 'young', name: 'Blaze', minXP: 3000,
-    sprites: { idle: '🐲', focused: '🔥', happy: '⚡', sad: '😞', celebrating: '🏆' },
-  },
-  {
-    id: 'fire', name: 'Inferno', minXP: 7000,
-    sprites: { idle: '🔥', focused: '💥', happy: '⚡', sad: '😤', celebrating: '🏆' },
-  },
-  {
-    id: 'celestial', name: 'Astra', minXP: 15000,
-    sprites: { idle: '✨', focused: '🌟', happy: '💫', sad: '🌙', celebrating: '👑' },
-  },
-];
-
-const STAGE_COLORS: Record<string, string> = {
-  egg: 'from-stone-400/20 to-amber-400/20',
-  hatchling: 'from-amber-400/20 to-lime-400/20',
-  baby: 'from-orange-400/20 to-red-400/20',
-  young: 'from-red-400/20 to-purple-400/20',
-  fire: 'from-red-500/20 to-amber-500/20',
-  celestial: 'from-violet-400/20 to-cyan-400/20',
+const STAGE_COLORS: Record<number, string> = {
+  0: 'from-stone-400/20 to-amber-400/20',
+  1: 'from-amber-400/20 to-lime-400/20',
+  2: 'from-orange-400/20 to-red-400/20',
+  3: 'from-red-400/20 to-purple-400/20',
+  4: 'from-violet-400/20 to-cyan-400/20',
 };
 
-const STAGE_BORDER_GLOW: Record<string, string> = {
-  egg: '',
-  hatchling: '',
-  baby: 'shadow-[0_0_8px_rgba(249,115,22,0.3)]',
-  young: 'shadow-[0_0_12px_rgba(168,85,247,0.3)]',
-  fire: 'shadow-[0_0_16px_rgba(239,68,68,0.4)]',
-  celestial: 'shadow-[0_0_20px_rgba(139,92,246,0.5)]',
+const STAGE_BORDER_GLOW: Record<number, string> = {
+  0: '',
+  1: '',
+  2: 'shadow-[0_0_8px_rgba(249,115,22,0.3)]',
+  3: 'shadow-[0_0_12px_rgba(168,85,247,0.3)]',
+  4: 'shadow-[0_0_20px_rgba(139,92,246,0.5)]',
 };
 
-function getStageIndex(xp: number): number {
-  for (let i = PET_STAGES.length - 1; i >= 0; i--) {
-    if (xp >= PET_STAGES[i].minXP) return i;
-  }
-  return 0;
-}
-
-const PET_MESSAGES: Record<PetMood, Record<string, string[]>> = {
-  idle: {
-    egg: ['💤 Zzz... Waiting to hatch...', '🫧 *snoring inside shell*', '😴 Study to help me hatch!'],
-    hatchling: ['🐣 Peep peep! Let\'s study!', '😴 Napping... wake me up!', '🌱 I need XP to grow!'],
-    baby: ['💤 Zzz... Wake me to train!', '🐉 Dreaming of fire...', '😴 Ready when you are!'],
-    young: ['🐲 Sharpening my claws...', '💤 Resting between battles', '⚔️ Waiting for the quest!'],
-    fire: ['🔥 My flames flicker...', '💤 Conserving energy', '⚡ Ready to ignite!'],
-    celestial: ['✨ Floating among stars...', '🌟 Meditating...', '💫 The cosmos awaits...'],
-  },
-  focused: {
-    egg: ['🥚 Cracking sounds... keep going!', '🔥 I feel warmth!', '⚡ Energy building!'],
-    hatchling: ['📖 Studying with you!', '🧠 Learning together!', '⚡ Growing stronger!'],
-    baby: ['📖 Training alongside you!', '🧠 Focus power rising!', '🔥 In the zone!'],
-    young: ['⚔️ Battling alongside you!', '💪 Power level rising!', '🔥 Unstoppable combo!'],
-    fire: ['💥 MAXIMUM POWER!', '🔥 Burning through problems!', '⚡ Lightning focus!'],
-    celestial: ['🌟 Channeling cosmic energy!', '✨ Transcendent focus!', '💫 Beyond mortal limits!'],
-  },
-  happy: {
-    egg: ['☀️ Warm and cozy!', '🫧 *happy wobble*'],
-    hatchling: ['☕ Break time chirps!', '🌿 Stretching my wings!'],
-    baby: ['☕ Enjoy your break!', '🌿 Recharging fire!', '😊 Great session!'],
-    young: ['🍖 Time for a feast!', '😊 Excellent training!', '🌿 Recharging power!'],
-    fire: ['🏔️ Surveying my domain', '😊 Impressive work!', '🍖 Feasting on success!'],
-    celestial: ['🌌 Gazing at galaxies...', '😊 Cosmic break time', '💫 Recharging stardust!'],
-  },
-  sad: {
-    egg: ['🥚 *stops wobbling*', '😢 It got cold...'],
-    hatchling: ['😢 Why did you stop...?', '🥺 Let\'s try again!'],
-    baby: ['😢 Why did you stop...?', '💔 I was rooting for you...', '🥺 Let\'s try again!'],
-    young: ['😞 The battle paused...', '💔 We were winning!', '🥺 Don\'t give up!'],
-    fire: ['😤 My flames dimmed!', '💔 We had momentum!', '🥺 Relight the fire!'],
-    celestial: ['🌙 Stars dim with sadness...', '💔 The cosmos weeps...', '🥺 Let\'s realign!'],
-  },
-  celebrating: {
-    egg: ['🐣 Cracking open!', '⭐ Energy surge!'],
-    hatchling: ['🎉 I did a flip!', '⭐ +XP! Growing fast!'],
-    baby: ['🎉 We did it! Amazing!', '🏆 Session complete!', '🐉 I grew stronger!'],
-    young: ['🎉 VICTORY! Incredible!', '🏆 Quest complete!', '⚔️ Level up incoming!'],
-    fire: ['🏆 UNSTOPPABLE!', '💥 LEGENDARY SESSION!', '🔥 SCORCHING SUCCESS!'],
-    celestial: ['👑 TRANSCENDENT!', '🌟 COSMIC TRIUMPH!', '✨ THE STARS ALIGN!'],
-  },
+// Generic messages for different moods
+const MOOD_MESSAGES: Record<PetMood, string[]> = {
+  idle: [
+    "Ready to start the next quest! ⚔️",
+    "Resting up for a deep study session... 💤",
+    "Ready when you are, adventurer! 🐾"
+  ],
+  focused: [
+    "Focus mode activated! We got this! ⚡",
+    "Deep studying... do not disturb! 🧠",
+    "Powering through the syllabus! 💥"
+  ],
+  happy: [
+    "Great work! Let's keep it up! 🌟",
+    "Taking a short breath of fresh air! 🌸",
+    "Hydration check! Grab some water. 💧"
+  ],
+  sad: [
+    "Aw, did we get distracted? We can try again! 😢",
+    "Focus timer was interrupted... 😞",
+    "Let's reset and focus together! 🤝"
+  ],
+  celebrating: [
+    "Woohoo! Quest Completed! 🎉",
+    "Champion studying! Levels incoming! 🏆",
+    "We did it! Time for victory loot! 👑"
+  ]
 };
 
-export default function PomodoroPet({ isRunning, phase, progress, sessions, totalXP = 0, wasAbandoned = false }: PomodoroPetProps) {
-  const stageIndex = getStageIndex(totalXP);
-  const stage = PET_STAGES[stageIndex];
-  const nextStage = stageIndex < PET_STAGES.length - 1 ? PET_STAGES[stageIndex + 1] : null;
+export default function PomodoroPet({ isRunning, phase, progress, sessions, wasAbandoned = false }: PomodoroPetProps) {
+  const { pet, getEvolutionProgress } = usePet();
+  const { gamification } = useGamification();
 
   const mood: PetMood = useMemo(() => {
     if (wasAbandoned) return 'sad';
@@ -143,13 +79,10 @@ export default function PomodoroPet({ isRunning, phase, progress, sessions, tota
     return 'idle';
   }, [isRunning, phase, progress, sessions, wasAbandoned]);
 
-  const sprite = stage.sprites[mood];
-
   const message = useMemo(() => {
-    const stageMessages = PET_MESSAGES[mood][stage.id] || PET_MESSAGES[mood].baby;
-    return stageMessages[Math.floor(Math.random() * stageMessages.length)];
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mood, sessions, stage.id]);
+    const list = MOOD_MESSAGES[mood];
+    return list[Math.floor(Math.random() * list.length)];
+  }, [mood, sessions]);
 
   // Happiness level for the progress bar
   const happiness = useMemo(() => {
@@ -160,13 +93,36 @@ export default function PomodoroPet({ isRunning, phase, progress, sessions, tota
     return 40 + Math.min(sessions * 3, 30);
   }, [mood, progress, sessions]);
 
-  // Evolution progress (XP toward next stage)
-  const evolutionProgress = nextStage
-    ? Math.min((totalXP - stage.minXP) / (nextStage.minXP - stage.minXP), 1)
-    : 1;
+  if (!pet) {
+    return (
+      <div className="rounded-2xl border-2 border-[var(--card-border)] p-4 bg-[var(--card-bg)] text-center relative overflow-hidden">
+        <span className="text-3xl block mb-2">🥚</span>
+        <p className="text-xs font-heading font-bold mb-1">Adopt your study buddy!</p>
+        <p className="text-[10px] text-[var(--muted-foreground)] mb-3 leading-relaxed">
+          Visit the Companion Sanctuary to hatch your very first study companion!
+        </p>
+        <a 
+          href="/pets" 
+          className="inline-block px-3.5 py-2 rounded-xl bg-primary text-white text-[10px] font-bold hover:scale-105 active:scale-95 transition-all shadow-md shadow-primary/20"
+        >
+          Go to Sanctuary 🐾
+        </a>
+      </div>
+    );
+  }
 
-  const bgGradient = STAGE_COLORS[stage.id] || 'from-primary/10 to-secondary/10';
-  const glow = STAGE_BORDER_GLOW[stage.id] || '';
+  const stageInfo = PET_STAGES[pet.stage] || PET_STAGES[0];
+  const nextStageInfo = pet.stage < 4 ? PET_STAGES[pet.stage + 1] : null;
+
+  // Compute evolution progress using the companion pet's actual paths
+  const evolutionPaths = getEvolutionProgress(gamification);
+  const bestPath = evolutionPaths.length > 0 
+    ? [...evolutionPaths].sort((a, b) => (b.current / b.target) - (a.current / a.target))[0]
+    : null;
+  const evolutionProgress = bestPath ? Math.min(bestPath.current / bestPath.target, 1) : 1;
+
+  const bgGradient = STAGE_COLORS[pet.stage] || 'from-primary/10 to-secondary/10';
+  const glow = STAGE_BORDER_GLOW[pet.stage] || '';
 
   return (
     <motion.div
@@ -196,7 +152,9 @@ export default function PomodoroPet({ isRunning, phase, progress, sessions, tota
               ease: 'easeInOut',
             }}
           >
-            <span className="text-3xl">{sprite}</span>
+            <div className="w-12 h-12 flex items-center justify-center">
+              <PixelPetSprite species={pet.species} stage={pet.stage} className="w-10 h-10" />
+            </div>
           </motion.div>
 
           {/* Mood indicator dot */}
@@ -239,9 +197,9 @@ export default function PomodoroPet({ isRunning, phase, progress, sessions, tota
             )}
           </AnimatePresence>
 
-          {/* Celestial sparkles for max stage */}
+          {/* Legendary glow sparks */}
           <AnimatePresence>
-            {stage.id === 'celestial' && (
+            {pet.stage === 4 && (
               <>
                 {[...Array(4)].map((_, i) => (
                   <motion.div
@@ -270,14 +228,13 @@ export default function PomodoroPet({ isRunning, phase, progress, sessions, tota
         {/* Pet info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <p className="text-xs font-heading font-bold">{stage.name}</p>
+            <p className="text-xs font-heading font-bold truncate max-w-[100px]">{pet.name}</p>
             <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${
-              stage.id === 'celestial' ? 'bg-gradient-to-r from-violet-500/20 to-cyan-500/20 text-violet-400' :
-              stage.id === 'fire' ? 'bg-red-500/10 text-red-400' :
-              stage.id === 'young' ? 'bg-purple-500/10 text-purple-400' :
+              pet.stage === 4 ? 'bg-gradient-to-r from-violet-500/20 to-cyan-500/20 text-violet-400' :
+              pet.stage === 3 ? 'bg-purple-500/10 text-purple-400' :
               'bg-primary/10 text-primary'
             }`}>
-              Stage {stageIndex + 1}/{PET_STAGES.length}
+              Lv.{pet.level} · {stageInfo.name}
             </span>
           </div>
 
@@ -307,14 +264,14 @@ export default function PomodoroPet({ isRunning, phase, progress, sessions, tota
           </div>
 
           {/* Evolution progress */}
-          {nextStage ? (
+          {nextStageInfo ? (
             <div className="mt-1.5 space-y-0.5">
               <div className="flex items-center justify-between">
                 <span className="text-[8px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider">
-                  Evolution → {nextStage.name}
+                  Next Stage → {nextStageInfo.name}
                 </span>
                 <span className="text-[8px] font-bold text-[var(--muted-foreground)]">
-                  {totalXP.toLocaleString()}/{nextStage.minXP.toLocaleString()} XP
+                  {bestPath ? `${Math.round(bestPath.current)}/${bestPath.target} ${bestPath.label}` : ''}
                 </span>
               </div>
               <div className="h-1 rounded-full bg-[var(--card-border)] overflow-hidden">

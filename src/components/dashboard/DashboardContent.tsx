@@ -688,8 +688,13 @@ export default function DashboardContent() {
             </button>
           </div>
         </div>
-        <div className="absolute right-6 bottom-4 md:right-10 md:bottom-6 text-6xl animate-float">
-          🐱
+        <div className="absolute right-4 bottom-2 md:right-8 md:bottom-4 animate-float w-24 h-24 flex items-center justify-center">
+          <img
+            src="/pixel_study_owl.png"
+            alt="Wise Study Mascot"
+            className="w-full h-full object-contain"
+            style={{ imageRendering: 'pixelated' }}
+          />
         </div>
       </div>
     ),

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HiHeart, HiSparkles, HiLightningBolt, HiStar, HiCheck, HiX } from 'react-icons/hi';
+import { HiHeart, HiSparkles, HiLightningBolt, HiStar, HiCheck, HiX, HiPencil } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
@@ -15,7 +15,7 @@ import { useShop } from '@/hooks/useShop';
 import { useGamification } from '@/hooks/useGamification';
 import { PET_SPECIES_CONFIG, PET_STAGES, SHOP_ITEMS } from '@/lib/constants';
 import { PetSpecies, EvolutionRequirement } from '@/types';
-import { playSuccess, playClick } from '@/lib/sounds';
+import { playSuccess, playClick, playXP } from '@/lib/sounds';
 import { PixelPetSprite } from '@/components/dashboard/PixelPet';
 
 const SPECIES_LIST: PetSpecies[] = ['owl', 'cat', 'dragon'];
@@ -23,8 +23,8 @@ const SPECIES_LIST: PetSpecies[] = ['owl', 'cat', 'dragon'];
 type PetTab = 'overview' | 'wardrobe' | 'evolution';
 
 export default function PetContent() {
-  const { pet, loading, hasPet, createPet, feedPet, playWithPet, applyDecay, getMood, equipAccessory, unequipAccessory, checkEvolution, getEvolutionProgress } = usePet();
-  const { inventory, ownsItem, useItem } = useShop();
+  const { pet, loading, hasPet, createPet, updatePet, feedPet, playWithPet, applyDecay, getMood, equipAccessory, unequipAccessory, checkEvolution, getEvolutionProgress } = usePet();
+  const { inventory, ownsItem, useItem, addCoins } = useShop();
   const { gamification: gamificationData } = useGamification();
   const [selectedSpecies, setSelectedSpecies] = useState<PetSpecies>('owl');
   const [petName, setPetName] = useState('');
@@ -32,6 +32,18 @@ export default function PetContent() {
   const [activeTab, setActiveTab] = useState<PetTab>('overview');
   const [justEvolved, setJustEvolved] = useState(false);
   const prevStageRef = useRef<number | null>(null);
+
+  // New Pet Customization & Interaction states
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [newPetName, setNewPetName] = useState('');
+  const [floatingBubbles, setFloatingBubbles] = useState<{ id: number; text: string; emoji: string }[]>([]);
+  
+  // RPS mini-game states
+  const [showGameModal, setShowGameModal] = useState(false);
+  const [playerChoice, setPlayerChoice] = useState<'rock' | 'paper' | 'scissors' | null>(null);
+  const [petChoice, setPetChoice] = useState<'rock' | 'paper' | 'scissors' | null>(null);
+  const [gameResult, setGameResult] = useState<string | null>(null);
+  const [gamePlayedCount, setGamePlayedCount] = useState(0);
 
   // Apply decay on page load
   useEffect(() => { if (hasPet) applyDecay(); }, [hasPet]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -64,20 +76,85 @@ export default function PetContent() {
     else if (item.effect === 'full-restore') { hunger = 100; happy = 100; }
     await useItem(itemId);
     await feedPet(hunger, happy);
+
+    // Trigger floating bubble
+    const newBubble = { id: Date.now(), text: 'Yum! 😋', emoji: item.emoji };
+    setFloatingBubbles((prev) => [...prev, newBubble]);
+    setTimeout(() => {
+      setFloatingBubbles((prev) => prev.filter((b) => b.id !== newBubble.id));
+    }, 2500);
+
     playSuccess();
     toast.success(`Fed ${pet?.name} with ${item.emoji} ${item.name}!`);
     setShowFeedModal(false);
   };
 
-  const handlePlay = async () => {
+  const handlePlayClick = () => {
     playClick();
+    setPlayerChoice(null);
+    setPetChoice(null);
+    setGameResult(null);
+    setShowGameModal(true);
+  };
+
+  const playRPSRound = async (choice: 'rock' | 'paper' | 'scissors') => {
+    if (!pet) return;
+    playClick();
+    setPlayerChoice(choice);
+
+    const options: ('rock' | 'paper' | 'scissors')[] = ['rock', 'paper', 'scissors'];
+    const pChoice = options[Math.floor(Math.random() * 3)];
+    setPetChoice(pChoice);
+
+    let result = '';
+    if (choice === pChoice) {
+      result = "It's a tie! 🤝";
+    } else if (
+      (choice === 'rock' && pChoice === 'scissors') ||
+      (choice === 'paper' && pChoice === 'rock') ||
+      (choice === 'scissors' && pChoice === 'paper')
+    ) {
+      result = `You won! ${pet.name} cheers for you! 🎉`;
+    } else {
+      result = `${pet.name} won! Happy pet! 🥰`;
+    }
+    setGameResult(result);
+
     await playWithPet();
-    toast.success(`${pet?.name} is having fun! 🎉`);
+
+    // Award +5 gold coins for playing, capped at 5 games daily to prevent abuse
+    if (gamePlayedCount < 5) {
+      await addCoins(5);
+      setGamePlayedCount((prev) => prev + 1);
+      toast.success(`Played with ${pet.name}! Happiness boosted & earned 5 coins! 🪙`);
+    } else {
+      toast.success(`Played with ${pet.name}! Happiness boosted!`);
+    }
+  };
+
+  const handleRename = async () => {
+    if (!newPetName.trim()) {
+      toast.error('Name cannot be empty!');
+      return;
+    }
+    await updatePet({ name: newPetName.trim() });
+    toast.success(`Companion renamed to ${newPetName.trim()}! 🏷️`);
+    setShowRenameModal(false);
   };
 
   const handleEquip = async (itemId: string) => {
+    const item = SHOP_ITEMS.find((i) => i.id === itemId);
     playClick();
     await equipAccessory(itemId);
+
+    if (item) {
+      // Trigger floating bubble
+      const newBubble = { id: Date.now(), text: 'Comfy! ✨', emoji: item.emoji };
+      setFloatingBubbles((prev) => [...prev, newBubble]);
+      setTimeout(() => {
+        setFloatingBubbles((prev) => prev.filter((b) => b.id !== newBubble.id));
+      }, 2500);
+    }
     toast.success('Accessory equipped! 🎀');
   };
 
@@ -197,7 +274,20 @@ export default function PetContent() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-heading font-black flex items-center gap-2">🐾 {pet!.name}</h1>
+            <h1 className="text-2xl font-heading font-black flex items-center gap-2">
+              🐾 {pet!.name}
+              <button
+                onClick={() => {
+                  setNewPetName(pet!.name);
+                  setShowRenameModal(true);
+                  playClick();
+                }}
+                className="p-1 rounded-md hover:bg-primary/10 text-primary transition-all"
+                title="Rename Companion"
+              >
+                <HiPencil size={16} />
+              </button>
+            </h1>
             <p className="text-sm text-[var(--muted-foreground)]">{config.name} · {stageInfo.name} · {stageInfo.title}</p>
           </div>
           <Badge variant="primary" size="sm">Stage {pet!.stage}/4</Badge>
@@ -258,6 +348,21 @@ export default function PetContent() {
                   }
                   transition={{ duration: mood === 'happy' ? 1 : 2, repeat: Infinity }}
                 >
+                  {/* Floating Bubbles */}
+                  <AnimatePresence>
+                    {floatingBubbles.map((bubble) => (
+                      <motion.div
+                        key={bubble.id}
+                        className="absolute left-1/2 -translate-x-1/2 -top-8 bg-slate-900/95 dark:bg-slate-950/95 text-white text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-xl border border-slate-700/50 z-50 pet-float-bubble pointer-events-none whitespace-nowrap"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                      >
+                        <span>{bubble.emoji}</span>
+                        <span>{bubble.text}</span>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
                   <span className="w-36 h-36 block"><PixelPetSprite species={pet!.species} stage={pet!.stage} className="w-36 h-36" /></span>
                   {/* Accessories */}
                   {(pet!.equippedAccessories || []).map((accId, idx) => {
@@ -324,7 +429,7 @@ export default function PetContent() {
               <Button variant="primary" onClick={() => setShowFeedModal(true)} className="flex-1" icon={<HiHeart size={14} />}>
                 Feed {pet!.name}
               </Button>
-              <Button variant="ghost" onClick={handlePlay} className="flex-1" icon={<HiSparkles size={14} />}>
+              <Button variant="ghost" onClick={handlePlayClick} className="flex-1" icon={<HiSparkles size={14} />}>
                 Play!
               </Button>
             </div>
@@ -635,6 +740,85 @@ export default function PetContent() {
                   </div>
                 </button>
               ))
+            )}
+          </div>
+        </Modal>
+
+        {/* Rename Companion Modal */}
+        <Modal isOpen={showRenameModal} onClose={() => setShowRenameModal(false)} title="Rename Companion">
+          <div className="space-y-4">
+            <Input
+              label="New Pet Name"
+              placeholder="e.g. Luna, Bobby..."
+              value={newPetName}
+              onChange={(e) => setNewPetName(e.target.value)}
+              maxLength={20}
+            />
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => setShowRenameModal(false)} className="flex-1">Cancel</Button>
+              <Button variant="primary" onClick={handleRename} className="flex-1">Save Name</Button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* RPS Pet Mini-game Modal */}
+        <Modal isOpen={showGameModal} onClose={() => setShowGameModal(false)} title={`Play with ${pet?.name}`}>
+          <div className="space-y-4 text-center">
+            <div className="flex justify-center items-center gap-4 py-4">
+              <div className="w-20 h-20 flex items-center justify-center bg-[var(--card-border)]/30 rounded-2xl border border-[var(--card-border)]/50 relative overflow-visible">
+                <PixelPetSprite species={pet?.species || 'owl'} stage={pet?.stage || 1} className="w-16 h-16" />
+                <span className="absolute -bottom-2 bg-primary text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase">{pet?.name}</span>
+              </div>
+              <span className="text-xl font-bold">vs</span>
+              <div className="w-20 h-20 flex items-center justify-center bg-primary/10 rounded-2xl border border-primary/20 relative overflow-visible">
+                <span className="text-3xl">👤</span>
+                <span className="absolute -bottom-2 bg-primary text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase">You</span>
+              </div>
+            </div>
+
+            {!playerChoice ? (
+              <div className="space-y-3">
+                <p className="text-xs text-[var(--muted-foreground)]">Choose your move to start the duel! ✊ ✋ ✌️</p>
+                <div className="flex justify-center gap-2">
+                  {[
+                    { choice: 'rock', emoji: '✊', label: 'Rock' },
+                    { choice: 'paper', emoji: '✋', label: 'Paper' },
+                    { choice: 'scissors', emoji: 'scissors', label: 'Scissors' }
+                  ].map((btn) => (
+                    <button
+                      key={btn.choice}
+                      onClick={() => playRPSRound(btn.choice as 'rock' | 'paper' | 'scissors')}
+                      className="px-4 py-2.5 rounded-xl border-2 border-[var(--card-border)] hover:border-primary bg-[var(--card-bg)] hover:scale-105 active:scale-95 transition-all text-xs font-bold flex items-center gap-1.5"
+                    >
+                      <span className="text-lg">{btn.emoji === 'scissors' ? '✌️' : btn.emoji}</span>
+                      <span>{btn.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-[var(--card-border)]/20 border border-[var(--card-border)]/10">
+                  <div className="grid grid-cols-2 gap-4 text-xs">
+                    <div>
+                      <p className="text-[10px] text-[var(--muted-foreground)] uppercase font-bold">{pet?.name}&apos;s Move</p>
+                      <p className="text-2xl mt-1">{petChoice === 'rock' ? '✊' : petChoice === 'paper' ? '✋' : '✌%'}</p>
+                      <p className="font-bold capitalize">{petChoice}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-[var(--muted-foreground)] uppercase font-bold">Your Move</p>
+                      <p className="text-2xl mt-1">{playerChoice === 'rock' ? '✊' : playerChoice === 'paper' ? '✋' : '✌️'}</p>
+                      <p className="font-bold capitalize">{playerChoice}</p>
+                    </div>
+                  </div>
+                  <h3 className="text-sm font-heading font-black text-primary mt-4 py-2 border-t border-[var(--card-border)]/35">{gameResult}</h3>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button variant="ghost" onClick={() => setPlayerChoice(null)} className="flex-1">Play Again</Button>
+                  <Button variant="primary" onClick={() => setShowGameModal(false)} className="flex-1">Close Game</Button>
+                </div>
+              </div>
             )}
           </div>
         </Modal>

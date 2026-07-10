@@ -8,6 +8,7 @@ import { useGamification } from '@/hooks/useGamification';
 import { useTasks } from '@/hooks/useTasks';
 import { useShop } from '@/hooks/useShop';
 import { useTheme } from '@/context/ThemeContext';
+import { PixelPetSprite } from '@/components/dashboard/PixelPet';
 import { PET_SPECIES_CONFIG, SHOP_ITEMS } from '@/lib/constants';
 import { playClick, playXP, playSuccess } from '@/lib/sounds';
 import toast from 'react-hot-toast';
@@ -488,7 +489,7 @@ export default function LofiRoom({ className = '' }: LofiRoomProps) {
       )}
 
       {/* ── Virtual Pet ── */}
-      {petEmoji && (
+      {pet && (
         <div 
           className={`lofi-pet-wrapper lofi-interactive ${petOnDesk ? 'lofi-pet-desk' : 'lofi-pet-floor'}`}
           onClick={handlePetInteract}
@@ -506,7 +507,9 @@ export default function LofiRoom({ className = '' }: LofiRoomProps) {
               ease: 'easeInOut',
             }}
           >
-            {petEmoji}
+            <div className="w-14 h-14 flex items-center justify-center">
+              <PixelPetSprite species={pet.species} stage={pet.stage} className="w-12 h-12" />
+            </div>
             {/* Equipped accessories floating around the pet */}
             {(pet?.equippedAccessories || []).map((accId, idx) => {
               const item = SHOP_ITEMS.find((i) => i.id === accId);

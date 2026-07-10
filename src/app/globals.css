@@ -1838,3 +1838,27 @@ li .studyquest-math-embed {
   background: #334155;
 }
 
+/* Pet Feed Float Animation */
+@keyframes petFloatBubble {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.8);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(0) scale(1.1);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(-40px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-60px) scale(0.8);
+  }
+}
+
+.pet-float-bubble {
+  animation: petFloatBubble 2.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+

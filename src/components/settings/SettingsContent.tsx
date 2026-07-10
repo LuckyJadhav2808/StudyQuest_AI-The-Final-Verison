@@ -30,6 +30,35 @@ export default function SettingsContent() {
   const { gamification } = useGamification();
   const { addCoins } = useShop();
 
+  const [soundVolume, setSoundVolume] = useState(100);
+  const [keyboardTicks, setKeyboardTicks] = useState(true);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const vol = localStorage.getItem('sq-sound-volume');
+      if (vol !== null) setSoundVolume(parseInt(vol, 10));
+
+      const ticks = localStorage.getItem('sq-keyboard-ticks');
+      if (ticks !== null) setKeyboardTicks(ticks !== 'false');
+    }
+  }, []);
+
+  const handleVolumeChange = (vol: number) => {
+    setSoundVolume(vol);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sq-sound-volume', vol.toString());
+    }
+  };
+
+  const toggleKeyboardTicks = () => {
+    const nextTicks = !keyboardTicks;
+    setKeyboardTicks(nextTicks);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sq-keyboard-ticks', nextTicks.toString());
+    }
+    toast.success(nextTicks ? 'Keyboard clicks enabled! ⌨️' : 'Keyboard clicks silenced.');
+  };
+
   const [displayName, setDisplayName] = useState('');
   const [avatarSeed, setAvatarSeed] = useState('');
   const [avatarStyle, setAvatarStyle] = useState('adventurer');
@@ -530,6 +559,63 @@ export default function SettingsContent() {
                 }`}
               />
             </button>
+          </div>
+        </Card>
+
+        {/* Audio & Satisfaction Settings */}
+        <Card padding="lg" hover={false}>
+          <h2 className="text-sm font-heading font-bold mb-2 flex items-center gap-2">
+            🔊 Audio & Satisfaction Settings
+          </h2>
+          <p className="text-xs text-[var(--muted-foreground)] mb-4">
+            Customize satisfying sound triggers, volume, and mechanical keyboard clicks.
+          </p>
+
+          <div className="space-y-4">
+            {/* Volume Control */}
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-xs font-heading font-semibold text-[var(--muted-foreground)]">Sound Effects Volume</span>
+                <span className="text-xs font-bold text-primary">{soundVolume}%</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs">🔈</span>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="100" 
+                  value={soundVolume} 
+                  onChange={(e) => handleVolumeChange(parseInt(e.target.value, 10))}
+                  className="flex-1 h-1.5 rounded-lg bg-[var(--card-border)] appearance-none cursor-pointer accent-primary" 
+                />
+                <span className="text-xs">🔊</span>
+              </div>
+            </div>
+
+            <hr className="border-[var(--card-border)]" />
+
+            {/* Keyboard Click Toggle */}
+            <div className="flex items-center justify-between p-4 rounded-2xl border-2 border-[var(--card-border)] bg-[var(--background)]/10">
+              <div>
+                <p className="text-sm font-heading font-bold">Mechanical Keyboard Clicks ⌨️</p>
+                <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5 max-w-sm">
+                  Plays Cherry MX click ticks as you type code in the IDE, Quick Runner, or snippets editor.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={toggleKeyboardTicks}
+                className={`w-12 h-6 rounded-full p-1 transition-colors duration-200 focus:outline-none ${
+                  keyboardTicks ? 'bg-primary' : 'bg-[var(--card-border)]'
+                }`}
+              >
+                <div
+                  className={`w-4 h-4 rounded-full bg-white transition-transform duration-200 ${
+                    keyboardTicks ? 'translate-x-6' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
           </div>
         </Card>
 

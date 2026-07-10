@@ -44,6 +44,10 @@ export function usePet() {
     const unsub = subscribeToDocument<PetData>(ref, (data) => {
       // Backfill new fields for existing users
       if (data) {
+        if (!data.name) {
+          data.name = PET_SPECIES_CONFIG[data.species]?.name || 'Companion';
+        }
+        if (data.stage === undefined) data.stage = 0;
         if (data.totalFeedings === undefined) data.totalFeedings = 0;
         if (data.totalPlaySessions === undefined) data.totalPlaySessions = 0;
         if (data.level === undefined) data.level = 1;

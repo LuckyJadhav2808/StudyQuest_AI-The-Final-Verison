@@ -2,6 +2,53 @@
 
 import React, { useRef, useCallback, useEffect, useState, useMemo } from 'react';
 import { checkSyntax, SyntaxError as SyntaxErr } from '@/lib/syntaxChecker';
+import { playKeyboardClick } from '@/lib/sounds';
+
+export interface ThemeStyle {
+  bg: string;
+  text: string;
+  gutterBg: string;
+  gutterBorder: string;
+  gutterText: string;
+}
+
+export const THEME_STYLES: Record<string, ThemeStyle> = {
+  dracula: {
+    bg: '#282a36',
+    text: '#f8f8f2',
+    gutterBg: '#21222c',
+    gutterBorder: '#44475a',
+    gutterText: '#6272a4'
+  },
+  monokai: {
+    bg: '#272822',
+    text: '#f8f8f2',
+    gutterBg: '#1e1f1c',
+    gutterBorder: '#3e3d32',
+    gutterText: '#75715e'
+  },
+  nord: {
+    bg: '#2e3440',
+    text: '#d8dee9',
+    gutterBg: '#242933',
+    gutterBorder: '#3b4252',
+    gutterText: '#4c566a'
+  },
+  synthwave: {
+    bg: '#262335',
+    text: '#36f9f6',
+    gutterBg: '#241e30',
+    gutterBorder: '#ff79c6',
+    gutterText: '#ff79c6'
+  },
+  default: {
+    bg: 'transparent',
+    text: 'inherit',
+    gutterBg: 'transparent',
+    gutterBorder: 'var(--card-border)',
+    gutterText: 'var(--muted-foreground)'
+  }
+};
 
 interface CodeEditorProps {
   value: string;
@@ -11,6 +58,7 @@ interface CodeEditorProps {
   minHeight?: string;
   placeholder?: string;
   readOnly?: boolean;
+  theme?: string;            // e.g. 'dracula', 'monokai', etc.
 }
 
 /**
@@ -25,6 +73,7 @@ export default function CodeEditor({
   minHeight = '300px',
   placeholder = '',
   readOnly = false,
+  theme = 'default',
 }: CodeEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lineNumberRef = useRef<HTMLDivElement>(null);
@@ -95,6 +144,7 @@ export default function CodeEditor({
         const end = el.selectionEnd;
         const newVal = value.substring(0, start) + '  ' + value.substring(end);
         onChange(newVal);
+        playKeyboardClick();
         // Restore cursor position after React re-renders
         requestAnimationFrame(() => {
           el.selectionStart = el.selectionEnd = start + 2;
@@ -104,20 +154,24 @@ export default function CodeEditor({
     [value, onChange, onRun],
   );
 
+  const styleTheme = THEME_STYLES[theme] || THEME_STYLES.default;
+
   return (
-    <div className="flex flex-col relative" style={{ minHeight }}>
+    <div className="flex flex-col relative overflow-hidden" style={{ minHeight, backgroundColor: styleTheme.bg, color: styleTheme.text, borderRadius: '0.75rem' }}>
       <div className="flex flex-1 min-h-0">
         {/* Line numbers gutter */}
         <div
           ref={lineNumberRef}
-          className="flex-shrink-0 select-none overflow-hidden text-right pr-1 pt-4 pb-4 border-r-2 border-[var(--card-border)] code-scroll"
+          className="flex-shrink-0 select-none overflow-hidden text-right pr-1 pt-4 pb-4 border-r-2 code-scroll"
           style={{
             fontFamily: 'var(--font-mono)',
             fontSize: '0.8rem',
             lineHeight: '1.625rem',
             width: '3.5rem',
-            color: 'var(--muted-foreground)',
-            opacity: 0.5,
+            color: styleTheme.gutterText,
+            backgroundColor: styleTheme.gutterBg,
+            borderColor: styleTheme.gutterBorder,
+            opacity: theme === 'default' ? 0.5 : 0.8,
           }}
           aria-hidden="true"
         >
@@ -154,7 +208,10 @@ export default function CodeEditor({
         <textarea
           ref={textareaRef}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            onChange(e.target.value);
+            playKeyboardClick();
+          }}
           onScroll={handleScroll}
           onKeyDown={handleKeyDown}
           className="flex-1 bg-transparent resize-none outline-none text-sm px-3 py-4 code-scroll"
@@ -163,6 +220,8 @@ export default function CodeEditor({
             lineHeight: '1.625rem',
             minHeight,
             tabSize: 2,
+            color: styleTheme.text,
+            backgroundColor: styleTheme.bg,
           }}
           spellCheck={false}
           placeholder={placeholder}
