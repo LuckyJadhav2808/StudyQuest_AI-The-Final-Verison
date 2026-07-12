@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { usePet } from '@/hooks/usePet';
@@ -83,7 +83,17 @@ export default function LofiRoom({ className = '' }: LofiRoomProps) {
   const level = gamification?.level || 0;
   const xp = gamification?.xp || 0;
   const streak = gamification?.streak || 0;
-  const timeOfDay = getTimeOfDay();
+  const [timeOfDay, setTimeOfDay] = useState<'morning' | 'afternoon' | 'evening' | 'night'>('afternoon');
+  const [dailyQuote, setDailyQuote] = useState('');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setTimeOfDay(getTimeOfDay());
+    const dayIndex = new Date().getDate() % MOTIVATION_QUOTES.length;
+    setDailyQuote(MOTIVATION_QUOTES[dayIndex]);
+    setMounted(true);
+  }, []);
+
   const isNight = timeOfDay === 'night';
 
   // Tasks completed today
@@ -94,11 +104,6 @@ export default function LofiRoom({ className = '' }: LofiRoomProps) {
       return getLocalDateString(new Date(t.updatedAt)) === today;
     }).length;
   }, [tasks]);
-
-  const dailyQuote = useMemo(() => {
-    const dayIndex = new Date().getDate() % MOTIVATION_QUOTES.length;
-    return MOTIVATION_QUOTES[dayIndex];
-  }, []);
 
   // Pet data
   const petEmoji = pet ? PET_SPECIES_CONFIG[pet.species]?.emoji[pet.stage] || '🥚' : '🥚';

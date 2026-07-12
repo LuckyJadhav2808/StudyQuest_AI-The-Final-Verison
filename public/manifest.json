@@ -1,0 +1,19 @@
+{
+  "name": "StudyQuest AI — Level Up Your Learning",
+  "short_name": "StudyQuest",
+  "description": "A gamified student productivity platform. Track tasks, build habits, focus with Pomodoro, run code, and collaborate — all powered by AI.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B0D17",
+  "theme_color": "#7C3AED",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "productivity"]
+}

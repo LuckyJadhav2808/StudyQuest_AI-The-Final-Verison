@@ -57,6 +57,11 @@ export default function TimetableContent() {
   const [endHour, setEndHour] = useState(DEFAULT_END_HOUR);
   const [showTaskPanel, setShowTaskPanel] = useState(true);
   const settingsRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const HOURS = useMemo(() => Array.from({ length: endHour - startHour + 1 }, (_, i) => i + startHour), [startHour, endHour]);
 
@@ -177,6 +182,14 @@ export default function TimetableContent() {
   const todayBlocks = blocksByDay[todayId] || [];
   const sortedToday = [...todayBlocks].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
   const todayTasks = tasksByDay[todayId] || [];
+
+  if (!mounted) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-4 border-primary/20 border-t-primary" />
+      </div>
+    );
+  }
 
   return (
     <PageTransition>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Toaster, ToastBar, useToasterStore, toast } from 'react-hot-toast';
 import { MotionConfig } from 'framer-motion';
@@ -28,6 +28,9 @@ import { playSuccess } from '@/lib/sounds';
 import { PET_STAGES } from '@/lib/constants';
 import { useShop } from '@/hooks/useShop';
 import PixelPet from '@/components/dashboard/PixelPet';
+import ScrollToTop from '@/components/ui/ScrollToTop';
+import Breadcrumbs from '@/components/layout/Breadcrumbs';
+import OnboardingTour from '@/components/ui/OnboardingTour';
 
 /**
  * Animated SVG background grid — creates a subtle, immersive "command center" aesthetic.
@@ -84,6 +87,7 @@ function MainContent({ children }: { children: React.ReactNode }) {
     >
       {!focusMode && <Header />}
       <main className={`flex-1 overflow-y-auto relative z-10 ${focusMode ? 'p-0' : 'p-4 md:p-6 pb-20 md:pb-6'}`}>
+        {!focusMode && <Breadcrumbs />}
         {children}
       </main>
     </div>
@@ -196,11 +200,18 @@ function AppShell({ children }: { children: React.ReactNode }) {
           {/* Offline Deep Work Mode Indicator */}
           <OfflineIndicator />
 
+
           {/* Patch Notes Modal (shows on new version) */}
           <PatchNotesModal />
 
           {/* Global Pixel Pet Companion */}
           <PixelPet coins={coins} addCoins={addCoins} />
+
+          {/* Scroll to Top FAB */}
+          <ScrollToTop />
+
+          {/* First Time User Onboarding Tour */}
+          <OnboardingTour />
         </div>
       </MotionConfig>
     </AuthGuard>
@@ -211,6 +222,16 @@ function QueueToaster() {
   const { toasts } = useToasterStore();
   const currentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentToastIdRef = useRef<string | null>(null);
+  const [position, setPosition] = useState<'top-right' | 'top-center'>('top-right');
+
+  useEffect(() => {
+    const handleResize = () => {
+      setPosition(window.innerWidth < 768 ? 'top-center' : 'top-right');
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const visibleToasts = toasts.filter((t) => t.visible);
   const activeToast = visibleToasts[0];
@@ -251,7 +272,7 @@ function QueueToaster() {
 
   return (
     <Toaster
-      position="top-right"
+      position={position}
       toastOptions={{
         duration: Infinity,
         style: {
@@ -260,9 +281,10 @@ function QueueToaster() {
           color: 'var(--foreground)',
           border: '2px solid var(--card-border)',
           fontSize: '13px',
-          fontWeight: 600,
+          fontWeight: 700,
           fontFamily: 'var(--font-heading)',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+          boxShadow: '0 12px 30px rgba(124, 58, 237, 0.15)',
+          padding: '12px 20px',
         },
         success: { iconTheme: { primary: '#10B981', secondary: '#fff' } },
         error: { iconTheme: { primary: '#FF6B6B', secondary: '#fff' } },

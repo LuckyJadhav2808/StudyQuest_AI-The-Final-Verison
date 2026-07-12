@@ -383,7 +383,7 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
     window.addEventListener('mousemove', updateActivity);
     window.addEventListener('keydown', updateActivity);
     window.addEventListener('click', updateActivity);
-    window.addEventListener('scroll', updateActivity);
+    window.addEventListener('scroll', updateActivity, { capture: true, passive: true });
     window.addEventListener('touchstart', updateActivity);
 
     // Check idle status every 10 seconds: sleep after 2 minutes of inactivity or late night hours
@@ -404,7 +404,7 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
       window.removeEventListener('mousemove', updateActivity);
       window.removeEventListener('keydown', updateActivity);
       window.removeEventListener('click', updateActivity);
-      window.removeEventListener('scroll', updateActivity);
+      window.removeEventListener('scroll', updateActivity, { capture: true });
       window.removeEventListener('touchstart', updateActivity);
       clearInterval(checkIdleInterval);
     };

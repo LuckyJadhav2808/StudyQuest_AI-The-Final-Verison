@@ -213,6 +213,7 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import Input from '@/components/ui/Input';
 import PageTransition from '@/components/layout/PageTransition';
 import DiagramModal from '@/components/notes/DiagramModal';
@@ -2447,13 +2448,23 @@ Rules:
         </div>
 
         {/* Delete confirm */}
-        <Modal isOpen={!!confirmDelete} onClose={() => setConfirmDelete(null)} title="Delete Note">
-          <p className="text-sm text-[var(--muted-foreground)] mb-4">This will permanently delete this note. This cannot be undone.</p>
-          <div className="flex gap-2">
-            <Button variant="ghost" onClick={() => setConfirmDelete(null)} className="flex-1">Cancel</Button>
-            <Button variant="coral" onClick={async () => { if (confirmDelete) { await deleteNote(confirmDelete); setConfirmDelete(null); backToList(); toast.success('Note deleted'); } }} className="flex-1">Delete</Button>
-          </div>
-        </Modal>
+        <ConfirmDialog
+          isOpen={!!confirmDelete}
+          onClose={() => setConfirmDelete(null)}
+          onConfirm={async () => {
+            if (confirmDelete) {
+              await deleteNote(confirmDelete);
+              setConfirmDelete(null);
+              backToList();
+              toast.success('Note deleted');
+            }
+          }}
+          title="Delete Note"
+          message="This will permanently delete this note. This cannot be undone."
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          variant="danger"
+        />
 
         {/* PDF Export Modal */}
         <Modal isOpen={showPdfModal} onClose={() => setShowPdfModal(false)} title="Export as PDF">

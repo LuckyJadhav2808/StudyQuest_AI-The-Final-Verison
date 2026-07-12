@@ -27,6 +27,7 @@ import Card from '@/components/ui/Card';
 import { marked } from 'marked';
 import katex from 'katex';
 import { ResizableSplitLayout } from '@/components/notes/MultitaskPanels';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 type ReaderFileType = 'pdf' | 'image' | 'text' | 'markdown' | 'unknown';
 
@@ -439,6 +440,7 @@ export default function DocReader() {
 
   const [history, setHistory] = useState<RecentFile[]>([]);
   const [historySearch, setHistorySearch] = useState('');
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   // Load history from LocalStorage
   useEffect(() => {
@@ -533,10 +535,7 @@ export default function DocReader() {
   };
 
   const clearAllHistory = () => {
-    if (confirm('Clear your document reading history?')) {
-      saveHistory([]);
-      toast.success('History cleared');
-    }
+    setShowClearConfirm(true);
   };
 
   const filteredHistory = useMemo(() => {
@@ -754,6 +753,21 @@ export default function DocReader() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={showClearConfirm}
+        onClose={() => setShowClearConfirm(false)}
+        onConfirm={() => {
+          saveHistory([]);
+          setShowClearConfirm(false);
+          toast.success('History cleared');
+        }}
+        title="Clear Reading History"
+        message="Are you sure you want to clear all your document reading history? This cannot be undone."
+        confirmLabel="Clear History"
+        cancelLabel="Cancel"
+        variant="danger"
+      />
     </div>
   );
 }

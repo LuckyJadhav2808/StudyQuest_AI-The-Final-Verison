@@ -86,7 +86,27 @@ export default function DashboardContent() {
     }
   };
 
-  const timeOfDay = getTimeOfDay();
+  const [timeOfDay, setTimeOfDay] = useState<{
+    greeting: string;
+    emoji: string;
+    gradient: string;
+    border: string;
+    accent: string;
+    tip: string;
+  }>({
+    greeting: 'Good Afternoon',
+    emoji: '☀️',
+    gradient: 'from-sky-400/15 via-teal/10 to-lime/10',
+    border: 'border-sky-400/20',
+    accent: 'text-sky-500',
+    tip: 'Stay focused.'
+  });
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setTimeOfDay(getTimeOfDay());
+    setMounted(true);
+  }, []);
 
   const [newQuest, setNewQuest] = useState('');
   const [showNotifs, setShowNotifs] = useState(false);
@@ -1180,6 +1200,14 @@ export default function DashboardContent() {
       <QuickScratchpad />
     )
   }), [gamification, tasks, friends, incomingRequests, quests, newQuest, showNotifs, xpHistory, profile, todayTasks, completedToday, todayCompleted, todayTotal, streakMessage, isNightOwlTime, notes, timeOfDay, upcomingExams, chestAvailable, coins, searchQuery]);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-4 border-primary/20 border-t-primary" />
+      </div>
+    );
+  }
 
   return (
     <PageTransition>

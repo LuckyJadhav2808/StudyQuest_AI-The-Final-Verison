@@ -8,6 +8,7 @@ import {
 } from 'react-icons/hi';
 import { CodeProject, CodeFile } from '@/types';
 import { getFileIcon } from '@/lib/webPreview';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 interface ProjectSidebarProps {
   projects: CodeProject[];
@@ -65,6 +66,8 @@ export default function ProjectSidebar({
   const [editingProject, setEditingProject] = useState<string | null>(null);
   const [editingFile, setEditingFile] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [confirmDeleteProjectId, setConfirmDeleteProjectId] = useState<string | null>(null);
+  const [confirmDeleteFile, setConfirmDeleteFile] = useState<{ projectId: string; fileId: string; name: string } | null>(null);
 
   const toggleExpand = (id: string) => {
     const next = new Set(expandedProjects);
@@ -197,7 +200,7 @@ export default function ProjectSidebar({
                       <HiPencil size={11} />
                     </button>
                     <button
-                      onClick={(e) => { e.stopPropagation(); if (confirm('Delete project and all files?')) onDeleteProject(project.id); }}
+                      onClick={(e) => { e.stopPropagation(); setConfirmDeleteProjectId(project.id); }}
                       className="p-0.5 rounded hover:bg-coral/10 text-coral"
                       title="Delete"
                     >
@@ -215,36 +218,37 @@ export default function ProjectSidebar({
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.15 }}
+                    className="flex flex-col border-l border-[var(--card-border)] ml-3.5"
                   >
                     {projectFiles.map((file) => (
-                      <div key={file.id} className="group/file relative">
-                        {editingFile === file.id ? (
-                          <div className="flex items-center gap-1 pl-8 pr-2 py-0.5">
+                      <div
+                        key={file.id}
+                        onClick={() => onSelectFile(file)}
+                        className={`group/file relative flex items-center justify-between pl-5 pr-2 py-1.5 cursor-pointer rounded-lg hover:bg-[var(--muted)]/20 ${
+                          selectedFileId === file.id
+                            ? 'text-primary bg-primary/5 font-bold'
+                            : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-xs flex-shrink-0">{getFileIcon(file.name)}</span>
+                          {editingFile === file.id ? (
                             <input
                               type="text"
                               value={editName}
                               onChange={(e) => setEditName(e.target.value)}
-                              className="flex-1 px-1.5 py-0.5 rounded text-[11px] bg-[var(--background)] border border-[var(--card-border)] outline-none focus:border-primary"
                               onKeyDown={(e) => {
-                                if (e.key === 'Enter' && editName.trim()) { onRenameFile(project.id, file.id, editName.trim()); setEditingFile(null); }
+                                if (e.key === 'Enter') { onRenameFile(project.id, file.id, editName.trim()); setEditingFile(null); }
                                 if (e.key === 'Escape') setEditingFile(null);
                               }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-xs px-1 py-0.5 rounded border border-[var(--card-border)] bg-[var(--background)] w-28 focus:outline-none focus:border-primary"
                               autoFocus
                             />
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => onSelectFile(file)}
-                            className={`w-full flex items-center gap-1.5 pl-8 pr-2 py-1.5 text-[11px] transition-all ${
-                              selectedFileId === file.id
-                                ? 'bg-primary/15 text-primary font-semibold'
-                                : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--card-border)]/30'
-                            }`}
-                          >
-                            <span className="text-xs">{getFileIcon(file.name)}</span>
-                            <span className="truncate">{file.name}</span>
-                          </button>
-                        )}
+                          ) : (
+                            <span className="text-xs truncate">{file.name}</span>
+                          )}
+                        </div>
 
                         {/* File actions */}
                         {editingFile !== file.id && (
@@ -256,7 +260,7 @@ export default function ProjectSidebar({
                               <HiPencil size={10} />
                             </button>
                             <button
-                              onClick={(e) => { e.stopPropagation(); if (confirm(`Delete ${file.name}?`)) onDeleteFile(project.id, file.id); }}
+                              onClick={(e) => { e.stopPropagation(); setConfirmDeleteFile({ projectId: project.id, fileId: file.id, name: file.name }); }}
                               className="p-0.5 rounded hover:bg-coral/10 text-coral"
                             >
                               <HiTrash size={10} />
@@ -319,6 +323,38 @@ export default function ProjectSidebar({
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={!!confirmDeleteProjectId}
+        onClose={() => setConfirmDeleteProjectId(null)}
+        onConfirm={() => {
+          if (confirmDeleteProjectId) {
+            onDeleteProject(confirmDeleteProjectId);
+            setConfirmDeleteProjectId(null);
+          }
+        }}
+        title="Delete Project"
+        message="Are you sure you want to delete this project and all its files? This cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+      />
+
+      <ConfirmDialog
+        isOpen={!!confirmDeleteFile}
+        onClose={() => setConfirmDeleteFile(null)}
+        onConfirm={() => {
+          if (confirmDeleteFile) {
+            onDeleteFile(confirmDeleteFile.projectId, confirmDeleteFile.fileId);
+            setConfirmDeleteFile(null);
+          }
+        }}
+        title="Delete File"
+        message={confirmDeleteFile ? `Are you sure you want to delete ${confirmDeleteFile.name}? This cannot be undone.` : ''}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+      />
     </div>
   );
 }

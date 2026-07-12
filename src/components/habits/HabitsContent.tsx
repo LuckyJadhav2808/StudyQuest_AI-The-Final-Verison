@@ -12,6 +12,8 @@ import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import PageTransition from '@/components/layout/PageTransition';
+import EmptyState from '@/components/ui/EmptyState';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { XP_AWARDS } from '@/lib/constants';
 import { playSuccess } from '@/lib/sounds';
 import { spawnXPFromEvent } from '@/components/gamification/FloatingXP';
@@ -138,14 +140,16 @@ export default function HabitsContent() {
         {/* Habit List */}
         {habits.length === 0 && !loading ? (
           <Card padding="lg" hover={false}>
-            <div className="text-center py-8">
-              <motion.span className="text-5xl block mb-4" animate={{ y: [0, -8, 0] }} transition={{ duration: 2, repeat: Infinity }}>
-                ⚡
-              </motion.span>
-              <h3 className="text-lg font-heading font-bold mb-2">No habits yet!</h3>
-              <p className="text-sm text-[var(--muted-foreground)] mb-4">Create your first daily quest to start building streaks.</p>
-              <Button variant="primary" icon={<HiPlus />} onClick={() => setShowModal(true)}>Create First Habit</Button>
-            </div>
+            <EmptyState
+              icon="⚡"
+              title="No habits yet!"
+              description="Create your first daily quest to start building streaks."
+              action={
+                <Button variant="primary" icon={<HiPlus />} onClick={() => setShowModal(true)}>
+                  Create First Habit
+                </Button>
+              }
+            />
           </Card>
         ) : (
           <div className="space-y-3">
@@ -362,23 +366,22 @@ export default function HabitsContent() {
         </Modal>
 
         {/* Delete Confirm */}
-        <Modal isOpen={!!confirmDelete} onClose={() => setConfirmDelete(null)} title="Delete Habit">
-          <p className="text-sm text-[var(--muted-foreground)] mb-4">This will permanently delete this habit and all its history. This cannot be undone.</p>
-          <div className="flex gap-2">
-            <Button variant="ghost" onClick={() => setConfirmDelete(null)} className="flex-1">Cancel</Button>
-            <Button
-              variant="coral"
-              onClick={async () => {
-                if (confirmDelete) await deleteHabit(confirmDelete);
-                setConfirmDelete(null);
-                toast.success('Habit deleted');
-              }}
-              className="flex-1"
-            >
-              Delete
-            </Button>
-          </div>
-        </Modal>
+        <ConfirmDialog
+          isOpen={!!confirmDelete}
+          onClose={() => setConfirmDelete(null)}
+          onConfirm={async () => {
+            if (confirmDelete) {
+              await deleteHabit(confirmDelete);
+              setConfirmDelete(null);
+              toast.success('Habit deleted');
+            }
+          }}
+          title="Delete Habit"
+          message="This will permanently delete this habit and all its history. This cannot be undone."
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          variant="danger"
+        />
       </div>
     </PageTransition>
   );

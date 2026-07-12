@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiPlus, HiPencil, HiTrash, HiFolder, HiFolderOpen } from 'react-icons/hi';
 import { ResourceFolder } from '@/types';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 const FOLDER_COLORS = [
   '#7C3AED', '#EC4899', '#10B981', '#FF6B6B', '#06D6A0',
@@ -35,6 +36,7 @@ export default function FolderSidebar({
   const [newIcon, setNewIcon] = useState('📁');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const handleCreate = () => {
     if (!newName.trim()) return;
@@ -179,10 +181,10 @@ export default function FolderSidebar({
                 >
                   <HiPencil size={12} />
                 </button>
-                <button
+                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (confirm('Delete this folder and all its resources?')) onDeleteFolder(folder.id);
+                    setConfirmDeleteId(folder.id);
                   }}
                   className="p-1 rounded hover:bg-coral/10 text-coral"
                 >
@@ -206,6 +208,22 @@ export default function FolderSidebar({
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={!!confirmDeleteId}
+        onClose={() => setConfirmDeleteId(null)}
+        onConfirm={() => {
+          if (confirmDeleteId) {
+            onDeleteFolder(confirmDeleteId);
+            setConfirmDeleteId(null);
+          }
+        }}
+        title="Delete Folder"
+        message="Are you sure you want to delete this folder and all its resources? This cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+      />
     </div>
   );
 }

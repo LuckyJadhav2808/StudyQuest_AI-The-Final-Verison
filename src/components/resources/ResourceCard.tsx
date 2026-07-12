@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { HiExternalLink, HiDocumentText, HiLink, HiTrash, HiPencil } from 'react-icons/hi';
 import { Resource } from '@/types';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 interface ResourceCardProps {
   resource: Resource;
@@ -27,6 +28,8 @@ function getTypeConfig(type: string) {
 export default function ResourceCard({ resource, onDelete, onEdit }: ResourceCardProps) {
   const config = getTypeConfig(resource.type);
   const Icon = config.icon;
+
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleOpen = () => {
     if (resource.type === 'link') {
@@ -59,38 +62,31 @@ export default function ResourceCard({ resource, onDelete, onEdit }: ResourceCar
         </span>
       </div>
 
-      {/* Content preview */}
+      {/* Resource main preview/content area */}
       <div className="mt-3">
-        {resource.type === 'link' && (
-          <button
-            onClick={handleOpen}
-            className="flex items-center gap-1.5 text-xs text-primary hover:underline truncate w-full text-left"
-          >
-            <HiExternalLink size={12} />
-            <span className="truncate">{resource.content}</span>
-          </button>
-        )}
-        {resource.type === 'pdf' && (
-          <button
-            onClick={handleOpen}
-            className="flex items-center gap-1.5 text-xs text-coral hover:underline truncate w-full text-left"
-          >
-            <HiExternalLink size={12} />
-            <span className="truncate">Open PDF</span>
-          </button>
-        )}
-        {resource.type === 'text' && (
-          <div className="text-xs text-[var(--muted-foreground)] bg-[var(--background)] rounded-lg p-2.5 line-clamp-3 leading-relaxed">
+        {resource.type === 'text' ? (
+          <p className="text-xs font-mono whitespace-pre-wrap line-clamp-4 bg-[var(--background)] p-2.5 rounded-xl border border-[var(--card-border)]">
             {resource.content}
-          </div>
+          </p>
+        ) : (
+          <button
+            onClick={handleOpen}
+            className="w-full flex items-center justify-between p-2.5 rounded-xl border border-[var(--card-border)] bg-[var(--background)] hover:border-primary/40 transition-colors text-left"
+          >
+            <span className="text-xs font-mono truncate max-w-[85%]">{resource.content}</span>
+            <HiExternalLink size={14} className="text-[var(--muted-foreground)]" />
+          </button>
         )}
       </div>
 
       {/* Tags */}
-      {resource.tags.length > 0 && (
-        <div className="flex gap-1 mt-2 flex-wrap">
+      {resource.tags && resource.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-3">
           {resource.tags.map((tag) => (
-            <span key={tag} className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+            <span
+              key={tag}
+              className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-[var(--muted)]/40 text-[var(--muted-foreground)]"
+            >
               {tag}
             </span>
           ))}
@@ -110,15 +106,27 @@ export default function ResourceCard({ resource, onDelete, onEdit }: ResourceCar
             <HiPencil size={13} />
           </button>
           <button
-            onClick={() => {
-              if (confirm('Delete this resource?')) onDelete(resource.id);
-            }}
+            onClick={() => setShowConfirm(true)}
             className="p-1.5 rounded-lg hover:bg-coral/10 text-[var(--muted-foreground)] hover:text-coral transition-colors"
           >
             <HiTrash size={13} />
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={() => {
+          onDelete(resource.id);
+          setShowConfirm(false);
+        }}
+        title="Delete Resource"
+        message="Are you sure you want to delete this resource? This cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+      />
     </motion.div>
   );
 }

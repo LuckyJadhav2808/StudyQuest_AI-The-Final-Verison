@@ -72,6 +72,11 @@ export default function ExamsContent() {
   const [newEmoji, setNewEmoji] = useState('📝');
   const [newColor, setNewColor] = useState(EXAM_COLORS[0]);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Live countdown ticker
   const [tick, setTick] = useState(0);
@@ -116,6 +121,14 @@ export default function ExamsContent() {
     setConfirmDelete(null);
     toast.success('Exam removed');
   };
+
+  if (!mounted) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-4 border-primary/20 border-t-primary" />
+      </div>
+    );
+  }
 
   return (
     <PageTransition>

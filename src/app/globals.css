@@ -183,6 +183,12 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Accessibility Focus States */
+*:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 html[data-scroll-behavior="smooth"] {
   scroll-behavior: smooth;
 }
