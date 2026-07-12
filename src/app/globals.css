@@ -1868,3 +1868,66 @@ li .studyquest-math-embed {
   animation: petFloatBubble 2.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
+/* ============================================================
+   Mobile Layout optimizations for Editor tools
+   ============================================================ */
+@media (max-width: 768px) {
+  /* Make the action toolbar a vertical column containing swipeable sections */
+  .notes-action-toolbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    padding: 8px !important;
+  }
+
+  /* Make Undo/Redo & Multitask button bars sit in a row */
+  .notes-action-toolbar > div:first-child {
+    width: 100% !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  /* Ribbon of tools is now horizontally scrollable */
+  .notes-action-toolbar .scrollable-actions-mobile {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    padding: 4px 0 !important;
+    gap: 6px !important;
+    scrollbar-width: none; /* Firefox */
+  }
+
+  .notes-action-toolbar .scrollable-actions-mobile::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+  }
+
+  .notes-action-toolbar .scrollable-actions-mobile > * {
+    flex-shrink: 0 !important;
+  }
+
+  /* Scrollable Quill Rich Text Formatting Toolbar */
+  .quill-wrapper .ql-toolbar.ql-snow {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    padding: 6px 4px !important;
+    gap: 4px !important;
+    scrollbar-width: none;
+    align-items: center !important;
+  }
+
+  .quill-wrapper .ql-toolbar.ql-snow::-webkit-scrollbar {
+    display: none;
+  }
+
+  .quill-wrapper .ql-toolbar .ql-formats {
+    margin-right: 4px !important;
+    display: flex !important;
+    align-items: center !important;
+    flex-shrink: 0 !important;
+  }
+}
+

@@ -681,7 +681,7 @@ export default function DashboardContent() {
 
   const modernWidgetMap = useMemo(() => ({
     'banner': (
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 to-indigo-600 p-6 md:p-8 text-white shadow-lg">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 to-indigo-600 p-6 md:p-8 pr-20 md:pr-8 text-white shadow-lg">
         <div className="relative z-10 max-w-lg">
           <h2 className="text-xl md:text-3xl font-heading font-black mb-2 leading-tight">
             The right choice of study quest
@@ -708,7 +708,7 @@ export default function DashboardContent() {
             </button>
           </div>
         </div>
-        <div className="absolute right-4 bottom-2 md:right-8 md:bottom-4 animate-float w-24 h-24 flex items-center justify-center">
+        <div className="absolute right-2 bottom-2 md:right-8 md:bottom-4 animate-float w-16 h-16 md:w-24 md:h-24 flex items-center justify-center">
           <img
             src="/pixel_study_owl.png"
             alt="Wise Study Mascot"

@@ -2164,22 +2164,24 @@ Rules:
                       ref={actionToolbarRef}
                       className="notes-action-toolbar flex items-center justify-between flex-wrap gap-2 p-3 bg-[var(--card-bg)] border-b border-[var(--card-border)] rounded-t-2xl sticky top-0 z-30"
                     >
-                      <div className="flex gap-1.5">
-                        <button onClick={handleUndo} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors" title="Undo (Ctrl+Z)"><HiReply size={16} /></button>
-                        <button onClick={handleRedo} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors" title="Redo (Ctrl+Y)"><HiReply size={16} className="scale-x-[-1]" /></button>
+                      <div className="flex gap-2 justify-between items-center w-full md:w-auto flex-wrap">
+                        <div className="flex gap-1.5 flex-shrink-0">
+                          <button onClick={handleUndo} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors" title="Undo (Ctrl+Z)"><HiReply size={16} /></button>
+                          <button onClick={handleRedo} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors" title="Redo (Ctrl+Y)"><HiReply size={16} className="scale-x-[-1]" /></button>
+                        </div>
+                        <div className="multitask-toggle-bar flex-shrink-0">
+                          <button className={`multitask-toggle ${multitaskPanel === 'youtube' ? 'active' : ''}`} onClick={() => setMultitaskPanel(multitaskPanel === 'youtube' ? null : 'youtube')} title="YouTube Lecture">
+                            📺 YouTube
+                          </button>
+                          <button className={`multitask-toggle ${multitaskPanel === 'tutor' ? 'active' : ''}`} onClick={() => setMultitaskPanel(multitaskPanel === 'tutor' ? null : 'tutor')} title="AI Tutor">
+                            🤖 AI Tutor
+                          </button>
+                          <button className={`multitask-toggle ${multitaskPanel === 'reference' ? 'active' : ''}`} onClick={() => setMultitaskPanel(multitaskPanel === 'reference' ? null : 'reference')} title="Reference Viewer">
+                            📄 Reference
+                          </button>
+                        </div>
                       </div>
-                      <div className="multitask-toggle-bar">
-                        <button className={`multitask-toggle ${multitaskPanel === 'youtube' ? 'active' : ''}`} onClick={() => setMultitaskPanel(multitaskPanel === 'youtube' ? null : 'youtube')} title="YouTube Lecture">
-                          📺 YouTube
-                        </button>
-                        <button className={`multitask-toggle ${multitaskPanel === 'tutor' ? 'active' : ''}`} onClick={() => setMultitaskPanel(multitaskPanel === 'tutor' ? null : 'tutor')} title="AI Tutor">
-                          🤖 AI Tutor
-                        </button>
-                        <button className={`multitask-toggle ${multitaskPanel === 'reference' ? 'active' : ''}`} onClick={() => setMultitaskPanel(multitaskPanel === 'reference' ? null : 'reference')} title="Reference Viewer">
-                          📄 Reference
-                        </button>
-                      </div>
-                      <div className="flex gap-2 flex-wrap">
+                      <div className="flex gap-2 flex-wrap scrollable-actions-mobile w-full md:w-auto">
                         <Button variant="amber" size="sm" icon={<HiSparkles size={14} />} onClick={aiBeautify} loading={beautifyLoading}>✨ Beautify</Button>
                         <Button variant="primary" size="sm" onClick={() => setShowMathPalette(true)}>∑ Math</Button>
                         <Button

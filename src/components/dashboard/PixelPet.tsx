@@ -623,7 +623,7 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
       </div>
 
       {/* Floating HUD Controller Toggle Button */}
-      <div className="fixed bottom-24 right-4 z-50">
+      <div className="fixed bottom-24 left-4 md:left-auto md:right-4 z-50">
         <motion.button 
           onClick={() => { setHudOpen(!hudOpen); playClick(); }}
           className={`w-12 h-12 rounded-full shadow-2xl flex items-center justify-center transition-all ${
@@ -640,7 +640,7 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
         <AnimatePresence>
           {hudOpen && (
             <motion.div 
-              className="absolute bottom-16 right-0 w-64 bg-white/90 dark:bg-[#111328]/95 border border-slate-200 dark:border-slate-800 p-4 rounded-3xl shadow-2xl backdrop-blur-md text-left text-slate-800 dark:text-white"
+              className="absolute bottom-16 left-0 md:left-auto md:right-0 w-64 bg-white/90 dark:bg-[#111328]/95 border border-slate-200 dark:border-slate-800 p-4 rounded-3xl shadow-2xl backdrop-blur-md text-left text-slate-800 dark:text-white"
               initial={{ opacity: 0, y: 20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
