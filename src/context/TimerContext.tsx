@@ -4,6 +4,8 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import toast from 'react-hot-toast';
 import { useGamification } from '@/hooks/useGamification';
 import { useShop } from '@/hooks/useShop';
+import { useSkillTree } from '@/hooks/useSkillTree';
+import { usePet } from '@/hooks/usePet';
 import { POMODORO_DEFAULTS, XP_AWARDS, COIN_AWARDS } from '@/lib/constants';
 import { playCelebration, playNotify } from '@/lib/sounds';
 import {
@@ -101,7 +103,9 @@ function isSameDay(t1: number, t2: number): boolean {
 
 export function TimerProvider({ children }: { children: React.ReactNode }) {
   const { awardXP } = useGamification();
-  const { addIngredient } = useShop();
+  const { addIngredient, hasActiveEffect } = useShop();
+  const { hasEffect } = useSkillTree();
+  const { pet, awardPetXP } = usePet();
   
   // --- Timer State ---
   const [phase, setPhase] = useState<TimerPhase>('focus');
@@ -335,9 +339,40 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       const newSessions = sessions + 1;
       setSessions(newSessions);
       
-      const earnedXP = XP_AWARDS.POMODORO_COMPLETE;
-      const earnedCoins = COIN_AWARDS.POMODORO_COMPLETE;
-      await awardXP(earnedXP, 'Completed a focus session! 🍅');
+      let earnedXP: number = XP_AWARDS.POMODORO_COMPLETE;
+      let earnedCoins: number = COIN_AWARDS.POMODORO_COMPLETE;
+
+      // Apply Focus Skill Tree multipliers
+      if (hasEffect('pomodoro-xp-double')) {
+        earnedXP *= 2;
+      } else if (hasEffect('pomodoro-xp-20')) {
+        earnedXP = Math.round(earnedXP * 1.2);
+      } else if (hasEffect('pomodoro-xp-10')) {
+        earnedXP = Math.round(earnedXP * 1.1);
+      }
+
+      // Apply Alchemy Double XP Elixir
+      if (hasActiveEffect('xp-double')) {
+        earnedXP *= 2;
+      }
+
+      if (hasEffect('pomodoro-coin-2')) {
+        earnedCoins += 2;
+      } else if (hasEffect('pomodoro-coin-1')) {
+        earnedCoins += 1;
+      }
+
+      // Apply Alchemy Gold Rush Tonic (3x Coins)
+      if (hasActiveEffect('coin-triple')) {
+        earnedCoins *= 3;
+      }
+
+      await awardXP(earnedXP, 'Completed a focus session! 🍅', earnedCoins);
+
+      // Award XP to active pet (20% of user focus XP)
+      if (pet && awardPetXP) {
+        awardPetXP(Math.round(earnedXP * 0.2)).catch(() => {});
+      }
 
       // Try to drop an alchemy ingredient
       let ingredientDrop: { id: string; name: string; emoji: string } | null = null;
@@ -368,7 +403,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       toast('Break over! Time to focus 🎯');
       switchPhase('focus');
     }
-  }, [phase, sessions, awardXP, addIngredient, switchPhase]);
+  }, [phase, sessions, awardXP, addIngredient, switchPhase, hasEffect, pet, awardPetXP, hasActiveEffect]);
 
   const dismissSessionComplete = useCallback(() => {
     setSessionCompleteData(null);

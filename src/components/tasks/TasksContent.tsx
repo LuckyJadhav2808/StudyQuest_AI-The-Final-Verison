@@ -16,6 +16,9 @@ import {
 import toast from 'react-hot-toast';
 import { useTasks } from '@/hooks/useTasks';
 import { useGamification } from '@/hooks/useGamification';
+import { useSkillTree } from '@/hooks/useSkillTree';
+import { useShop } from '@/hooks/useShop';
+import { usePet } from '@/hooks/usePet';
 import { useConfetti } from '@/components/gamification/ConfettiExplosion';
 import AchievementToast from '@/components/gamification/AchievementToast';
 import TaskCard from '@/components/tasks/TaskCard';
@@ -42,6 +45,9 @@ export default function TasksContent() {
   const { user } = useAuthContext();
   const { tasks, addTask, updateTask, deleteTask, moveTask, getTasksByStatus } = useTasks();
   const { gamification, awardXP } = useGamification();
+  const { hasEffect } = useSkillTree();
+  const { addCoins, hasActiveEffect } = useShop();
+  const { pet, awardPetXP } = usePet();
   const { fireConfetti, fireBigCelebration } = useConfetti();
 
   const handleCreateTask = async (taskData: {
@@ -81,8 +87,55 @@ export default function TasksContent() {
       totalTasksCompleted: increment(1),
     });
 
-    const xpAmount = task.priority === 'urgent' ? XP_AWARDS.TASK_COMPLETE_URGENT : XP_AWARDS.TASK_COMPLETE;
-    const resultPromise = awardXP(xpAmount, `Completed task: ${task.title}`);
+    let xpAmount = task.priority === 'urgent' ? XP_AWARDS.TASK_COMPLETE_URGENT : XP_AWARDS.TASK_COMPLETE;
+
+    // Apply Task Slayer XP perks
+    if (hasEffect('task-urgent-double') && task.priority === 'urgent') {
+      xpAmount *= 2;
+    }
+    if (hasEffect('task-xp-5')) {
+      xpAmount += 5;
+    }
+    if (hasEffect('task-legendary')) {
+      xpAmount += 10;
+    }
+
+    // Apply critical coins perks
+    let critChance = 0;
+    let critBonus = 5;
+    if (hasEffect('task-legendary')) {
+      critChance = 0.30;
+      critBonus = 10;
+    } else if (hasEffect('task-crit-20')) {
+      critChance = 0.20;
+      critBonus = 10;
+    } else if (hasEffect('task-crit-10')) {
+      critChance = 0.10;
+      critBonus = 5;
+    }
+
+    let isCrit = false;
+    let coinReward = 15; // default task coin award (COIN_AWARDS.TASK_COMPLETE)
+    if (critChance > 0 && Math.random() < critChance) {
+      isCrit = true;
+      coinReward += critBonus;
+    }
+
+    // Apply Gold Rush Tonic (3x Coins)
+    if (hasActiveEffect('coin-triple')) {
+      coinReward *= 3;
+    }
+
+    if (isCrit) {
+      toast.success(`💥 CRITICAL COMPLETE! +${critBonus} bonus coins!`, { icon: '🪙' });
+    }
+
+    const resultPromise = awardXP(xpAmount, `Completed task: ${task.title}`, coinReward);
+
+    // Award XP to active pet (20% of task completion XP)
+    if (pet && awardPetXP) {
+      awardPetXP(Math.round(xpAmount * 0.2)).catch(() => {});
+    }
 
     // Wait for all writes to finish concurrently
     const [_, __, result] = await Promise.all([p1, p2, resultPromise]);
@@ -96,7 +149,7 @@ export default function TasksContent() {
       setAchievementId(result.newAchievements[0]);
       setTimeout(() => setAchievementId(null), 5000);
     }
-  }, [tasks, user, moveTask, awardXP, fireConfetti, fireBigCelebration]);
+  }, [tasks, user, moveTask, awardXP, fireConfetti, fireBigCelebration, hasEffect, pet, awardPetXP, hasActiveEffect]);
 
   const handleDragEnd = useCallback(async (result: DropResult) => {
     if (!result.destination) return;

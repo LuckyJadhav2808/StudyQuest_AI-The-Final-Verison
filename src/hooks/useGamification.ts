@@ -21,13 +21,14 @@ import {
 } from '@/lib/constants';
 import { useAuthContext } from '@/context/AuthContext';
 import { getLocalDateString, getLocalYesterdayDateString } from '@/lib/dateUtils';
+import toast from 'react-hot-toast';
 
 interface UseGamificationReturn {
   gamification: GamificationData | null;
   gamificationData: GamificationData | null;
   loading: boolean;
   xpHistory: Record<string, number>;
-  awardXP: (amount: number, reason: string) => Promise<{ leveledUp: boolean; newAchievements: string[] }>;
+  awardXP: (amount: number, reason: string, customCoinReward?: number) => Promise<{ leveledUp: boolean; newAchievements: string[] }>;
   checkStreak: () => Promise<void>;
 }
 
@@ -84,7 +85,7 @@ export function useGamification(): UseGamificationReturn {
   // Award XP and check for level-ups & achievements using Firestore Transactions
   // to avoid client-side race conditions when multiple actions complete concurrently.
   const awardXP = useCallback(
-    async (amount: number, reason: string): Promise<{ leveledUp: boolean; newAchievements: string[] }> => {
+    async (amount: number, reason: string, customCoinReward?: number): Promise<{ leveledUp: boolean; newAchievements: string[] }> => {
       if (!user) return { leveledUp: false, newAchievements: [] };
 
       const ref = getGamificationRef(user.uid);
@@ -176,11 +177,13 @@ export function useGamification(): UseGamificationReturn {
 
         // Award Quest Coins alongside XP (non-blocking)
         const invRef = doc(db, 'users', user.uid, 'data', 'inventory');
-        let coinAmount = Math.floor(amount / 5);
-        if (reason.toLowerCase().includes('task')) coinAmount = COIN_AWARDS.TASK_COMPLETE;
-        else if (reason.toLowerCase().includes('pomodoro') || reason.toLowerCase().includes('focus')) coinAmount = COIN_AWARDS.POMODORO_COMPLETE;
-        else if (reason.toLowerCase().includes('note')) coinAmount = COIN_AWARDS.NOTE_CREATED;
-        else if (reason.toLowerCase().includes('quiz')) coinAmount = COIN_AWARDS.QUIZ_CORRECT;
+        let coinAmount = customCoinReward !== undefined ? customCoinReward : Math.floor(amount / 5);
+        if (customCoinReward === undefined) {
+          if (reason.toLowerCase().includes('task')) coinAmount = COIN_AWARDS.TASK_COMPLETE;
+          else if (reason.toLowerCase().includes('pomodoro') || reason.toLowerCase().includes('focus')) coinAmount = COIN_AWARDS.POMODORO_COMPLETE;
+          else if (reason.toLowerCase().includes('note')) coinAmount = COIN_AWARDS.NOTE_CREATED;
+          else if (reason.toLowerCase().includes('quiz')) coinAmount = COIN_AWARDS.QUIZ_CORRECT;
+        }
         if (result.leveledUp) coinAmount += COIN_AWARDS.LEVEL_UP;
         if (result.newAchievements.length > 0) coinAmount += COIN_AWARDS.ACHIEVEMENT_UNLOCK * result.newAchievements.length;
         if (coinAmount > 0) {
@@ -250,14 +253,37 @@ export function useGamification(): UseGamificationReturn {
           current.lastActiveDate === yesterday || (history[yesterday] || 0) > 0;
 
         let newStreak: number;
+        let consumedShield = false;
+
         if (wasActiveYesterday) {
           newStreak = (current.streak || 0) + 1;
         } else if (!current.lastActiveDate) {
           // Brand-new user, first ever session
           newStreak = 1;
         } else {
-          // Streak broken — missed yesterday entirely
-          newStreak = 1;
+          // Check for active Streak Shield scroll
+          const invRef = doc(db, 'users', user.uid, 'data', 'inventory');
+          const invSnap = await transaction.get(invRef);
+          const invData = invSnap.exists() ? invSnap.data() : {};
+          const activeEffects = invData.activeEffects || [];
+          
+          const now = Date.now();
+          const shieldIdx = activeEffects.findIndex(
+            (e: any) => e.effectKey === 'streak-shield' && e.expiresAt > now
+          );
+
+          if (shieldIdx !== -1) {
+            newStreak = current.streak || 1;
+            consumedShield = true;
+
+            // Consume the shield scroll
+            const updatedEffects = [...activeEffects];
+            updatedEffects.splice(shieldIdx, 1);
+            transaction.set(invRef, { activeEffects: updatedEffects }, { merge: true });
+          } else {
+            // Streak broken — missed yesterday entirely
+            newStreak = 1;
+          }
         }
 
         const longestStreak = Math.max(current.longestStreak || 0, newStreak);
@@ -267,6 +293,12 @@ export function useGamification(): UseGamificationReturn {
           longestStreak,
           lastActiveDate: today,
         }, { merge: true });
+
+        if (consumedShield) {
+          setTimeout(() => {
+            toast('🛡️ Streak Shield activated! Your streak is protected.', { icon: '🛡️', duration: 6000 });
+          }, 100);
+        }
       });
 
       checkedTodayRef.current = today;

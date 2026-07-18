@@ -7,6 +7,8 @@ import { subscribeToDocument, setDocument } from '@/lib/firestore';
 import { useAuthContext } from '@/context/AuthContext';
 import { PetData, PetSpecies, PetStage, GamificationData, EvolutionRequirement } from '@/types';
 import { PET_SPECIES_CONFIG, PET_STAGES } from '@/lib/constants';
+import { useSkillTree } from '@/hooks/useSkillTree';
+import toast from 'react-hot-toast';
 
 const DEFAULT_PET: PetData = {
   id: '',
@@ -30,6 +32,7 @@ const DEFAULT_PET: PetData = {
 
 export function usePet() {
   const { user } = useAuthContext();
+  const { hasEffect } = useSkillTree();
   const [pet, setPet] = useState<PetData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -109,22 +112,64 @@ export function usePet() {
   const playWithPet = useCallback(async () => {
     const current = petRef.current;
     if (!current) return;
+    let bonusHappy = 15;
+    if (hasEffect('pet-happy-5')) {
+      bonusHappy += 5;
+    }
     await updatePet({
-      happiness: Math.min(100, current.happiness + 15),
+      happiness: Math.min(100, current.happiness + bonusHappy),
       energy: Math.max(0, current.energy - 10),
       lastPlayedAt: Date.now(),
       totalPlaySessions: (current.totalPlaySessions || 0) + 1,
     });
-  }, [updatePet]);
+  }, [updatePet, hasEffect]);
 
   // Award pet XP and check evolution
   const awardPetXP = useCallback(async (amount: number) => {
     const current = petRef.current;
     if (!current) return;
-    const newXP = current.xp + amount;
+    
+    let bonusXP = amount;
+    if (hasEffect('pet-xp-double')) {
+      bonusXP *= 2;
+    }
+    
+    const newXP = current.xp + bonusXP;
+    const currentLevel = current.level || 1;
+    let nextLevel = currentLevel;
+    let finalXP = newXP;
+    let leveledUp = false;
+    
+    while (finalXP >= (nextLevel * 150)) {
+      finalXP -= (nextLevel * 150);
+      nextLevel += 1;
+      leveledUp = true;
+    }
+    
     const newHappiness = Math.min(100, current.happiness + 3);
-    await updatePet({ xp: newXP, happiness: newHappiness });
-  }, [updatePet]);
+    await updatePet({
+      xp: finalXP,
+      exp: finalXP,
+      level: nextLevel,
+      happiness: newHappiness
+    });
+
+    if (leveledUp) {
+      toast.success(`🎉 Your companion ${current.name || 'Companion'} leveled up to Level ${nextLevel}!`);
+      
+      // pet-ultimate: +10 coins per pet level-up
+      if (hasEffect('pet-ultimate') && user?.uid) {
+        try {
+          const invRef = doc(db, 'users', user.uid, 'data', 'inventory');
+          const { increment: firestoreIncrement, setDoc } = await import('firebase/firestore');
+          await setDoc(invRef, { coins: firestoreIncrement(10) }, { merge: true });
+          toast.success(`🪙 Alpha Tamer Bonus: +10 coins!`);
+        } catch (e) {
+          console.error('Failed to award level-up coins:', e);
+        }
+      }
+    }
+  }, [updatePet, hasEffect, user?.uid]);
 
   // ── Get the live progress for each evolution path at the current stage ──
   const getEvolutionProgress = useCallback((gamificationData: GamificationData | null): EvolutionRequirement[] => {
@@ -197,8 +242,17 @@ export function usePet() {
 
     if (hoursSinceLastFed < 12 && hoursSinceLastPlayed < 12) return; // no decay needed
 
-    const hungerDecay = Math.floor(hoursSinceLastFed / 12) * 5;
+    let hungerDecay = Math.floor(hoursSinceLastFed / 12) * 5;
     const happinessDecay = Math.floor(hoursSinceLastPlayed / 12) * 5;
+
+    // Apply Skill Tree Hunger Reductions
+    if (hasEffect('pet-ultimate')) {
+      hungerDecay = 0;
+    } else if (hasEffect('pet-hunger-slow-50')) {
+      hungerDecay = Math.round(hungerDecay * 0.5);
+    } else if (hasEffect('pet-hunger-slow-25')) {
+      hungerDecay = Math.round(hungerDecay * 0.75);
+    }
 
     if (hungerDecay > 0 || happinessDecay > 0) {
       await updatePet({
@@ -206,7 +260,7 @@ export function usePet() {
         happiness: Math.max(0, current.happiness - happinessDecay),
       });
     }
-  }, [updatePet]);
+  }, [updatePet, hasEffect]);
 
   // Equip/unequip accessory
   const equipAccessory = useCallback(async (itemId: string) => {
