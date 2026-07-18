@@ -13,9 +13,9 @@ import { useTheme, THEMES, Theme } from '@/context/ThemeContext';
 import { useGamification } from '@/hooks/useGamification';
 import { useShop } from '@/hooks/useShop';
 import { getProfileRef, setDocument } from '@/lib/firestore';
-import { doc, getDoc, setDoc, collection, addDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, addDoc, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getAvatarUrl, DICEBEAR_STYLES } from '@/lib/constants';
+import { getAvatarUrl, DICEBEAR_STYLES, getLevelFromXP } from '@/lib/constants';
 import { exportBackup, importBackup } from '@/lib/backup';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -82,6 +82,7 @@ export default function SettingsContent() {
   // Delete account state
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [repairing, setRepairing] = useState(false);
 
   const userLevel = gamification?.level || 0;
   const tier = getAvatarTier(userLevel);
@@ -107,6 +108,95 @@ export default function SettingsContent() {
       const prefsRef = doc(db, 'users', user.uid, 'data', 'preferences');
       await setDoc(prefsRef, { dashboardMode: mode, updatedAt: Date.now() }, { merge: true });
       toast.success(mode === 'lofi' ? '🏠 Lofi Room activated!' : '📊 Classic dashboard activated!');
+    }
+  };
+
+  const handleRepairGamification = async () => {
+    if (!user) return;
+    setRepairing(true);
+    const toastId = toast.loading('Scanning database and repairing gamification data...');
+    try {
+      // 1. Scan xpLog
+      const xpLogRef = collection(db, 'users', user.uid, 'xpLog');
+      const xpLogSnap = await getDocs(xpLogRef);
+      
+      let totalXP = 0;
+      let oldestDateStr = '';
+      xpLogSnap.docs.forEach((d) => {
+        const xpVal = d.data().totalXp || 0;
+        totalXP += xpVal;
+        const dateId = d.id; // YYYY-MM-DD
+        if (!oldestDateStr || dateId < oldestDateStr) {
+          oldestDateStr = dateId;
+        }
+      });
+      
+      // If they have no XP logs, check if they have completed tasks
+      if (totalXP === 0) {
+        const tasksSnap = await getDocs(collection(db, 'users', user.uid, 'tasks'));
+        const completedTasksCount = tasksSnap.docs.filter(t => t.data().completed).length;
+        totalXP = completedTasksCount * 25; // Estimate 25 XP per task
+      }
+
+      // Calculate corresponding level
+      const calculatedLevel = getLevelFromXP(totalXP);
+
+      // 2. Repair Gamification Data doc
+      const gamRef = doc(db, 'users', user.uid, 'data', 'gamification');
+      await setDoc(gamRef, {
+        xp: totalXP,
+        level: calculatedLevel,
+      }, { merge: true });
+
+      // 3. Repair Profile Doc (createdAt join date)
+      const profileRef = getProfileRef(user.uid);
+      const updates: Record<string, any> = {};
+      
+      if (oldestDateStr) {
+        const parsedTimestamp = Date.parse(oldestDateStr);
+        if (!isNaN(parsedTimestamp)) {
+          updates.createdAt = parsedTimestamp;
+        }
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        await updateDoc(profileRef, updates);
+      }
+
+      // 4. Update Leaderboard Entry
+      const leaderboardRef = doc(db, 'leaderboard', user.uid);
+      const leaderboardSnap = await getDoc(leaderboardRef);
+      if (leaderboardSnap.exists()) {
+        await updateDoc(leaderboardRef, {
+          xp: totalXP,
+          level: calculatedLevel,
+          updatedAt: Date.now()
+        });
+      } else {
+        await setDoc(leaderboardRef, {
+          uid: user.uid,
+          displayName: profile?.displayName || user.displayName || 'Adventurer',
+          avatarSeed: profile?.avatarSeed || user.uid,
+          avatarStyle: profile?.avatarStyle || 'adventurer',
+          xp: totalXP,
+          level: calculatedLevel,
+          streak: 0,
+          updatedAt: Date.now()
+        });
+      }
+
+      toast.success(`Data repair complete! Recovered ${totalXP} XP and Level ${calculatedLevel}!`, { id: toastId });
+      
+      // Reload page to reflect changes
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+      
+    } catch (err) {
+      console.error('Repair error:', err);
+      toast.error('Failed to repair gamification data. Please try again.', { id: toastId });
+    } finally {
+      setRepairing(false);
     }
   };
 
@@ -826,6 +916,26 @@ export default function SettingsContent() {
               </div>
             </motion.button>
           )}
+        </Card>
+
+        {/* ── Data Repair & Recovery ── */}
+        <Card padding="lg" hover={false} className="border-amber-500/30 mb-6">
+          <h2 className="text-sm font-heading font-bold mb-1 flex items-center gap-2 text-amber-500">
+            <HiDatabase className="text-amber-500" /> Account Recovery & Repair
+          </h2>
+          <p className="text-xs text-[var(--muted-foreground)] mb-4">
+            If your avatar, XP, levels, or joining date were reset or lost, click below to scan your logs and restore them automatically.
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<HiSparkles className="text-amber-500 animate-pulse" />}
+            loading={repairing}
+            onClick={handleRepairGamification}
+            className="border-amber-500/20 text-amber-500 hover:bg-amber-500/10"
+          >
+            Rebuild Profile & XP from Logs
+          </Button>
         </Card>
 
         {/* ── Danger Zone ── */}

@@ -53,86 +53,91 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize or fetch user profile from Firestore
   const initializeProfile = useCallback(async (firebaseUser: User) => {
-    const profileRef = getProfileRef(firebaseUser.uid);
-    const existing = await getDocument<UserProfile>(profileRef);
+    try {
+      const profileRef = getProfileRef(firebaseUser.uid);
+      const existing = await getDocument<UserProfile>(profileRef);
 
-    if (existing) {
-      // Set profile immediately from the successful read — UI unblocks here
-      let updatedProfile = { ...existing, lastSeen: Date.now() };
-      if (!existing.friendCode) {
-        updatedProfile = { ...updatedProfile, friendCode: Math.random().toString(36).substring(2, 8).toUpperCase() };
-      }
-      setProfile(updatedProfile);
-
-      // Now attempt background writes (non-blocking — if these fail, the app still works)
-      try {
+      if (existing) {
+        // Set profile immediately from the successful read — UI unblocks here
+        let updatedProfile = { ...existing, lastSeen: Date.now() };
         if (!existing.friendCode) {
-          await setDocument(profileRef, { lastSeen: Date.now(), friendCode: updatedProfile.friendCode });
-        } else {
-          await setDocument(profileRef, { lastSeen: Date.now() });
+          updatedProfile = { ...updatedProfile, friendCode: Math.random().toString(36).substring(2, 8).toUpperCase() };
         }
-        await setDocument(getUserRef(firebaseUser.uid), {
-          friendCode: updatedProfile.friendCode,
-          uid: firebaseUser.uid,
-          displayName: updatedProfile.displayName,
-        });
-      } catch (writeError) {
-        console.warn('Non-critical: Failed to update profile metadata:', writeError);
-      }
-    } else {
-      // First login — create profile & gamification docs
-      const seed = firebaseUser.displayName || firebaseUser.email || firebaseUser.uid;
-      const friendCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-      const newProfile: Omit<UserProfile, 'uid'> = {
-        displayName: firebaseUser.displayName || 'Student',
-        email: firebaseUser.email || '',
-        avatarSeed: seed,
-        avatarStyle: 'adventurer',
-        friendCode,
-        lastSeen: Date.now(),
-        theme: 'dark',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
+        setProfile(updatedProfile);
 
-      const newGamification: GamificationData = {
-        xp: 0,
-        level: 0,
-        streak: 0,
-        longestStreak: 0,
-        lastActiveDate: '',
-        achievements: [],
-        unlockedTitles: [],
-        totalTasksCompleted: 0,
-        totalFocusMinutes: 0,
-        totalNotesCreated: 0,
-        totalCodeRuns: 0,
-        nightOwlCount: 0,
-        dailyChallengeStreak: 0,
-        lastDailyChallengeDate: '',
-      };
-
-      // Set profile in React state first so UI can render
-      setProfile({ uid: firebaseUser.uid, ...newProfile });
-
-      // Then write to Firestore
-      try {
-        await setDocument(profileRef, newProfile);
-        await setDocument(getGamificationRef(firebaseUser.uid), newGamification);
-        await setDocument(getUserRef(firebaseUser.uid), { friendCode, uid: firebaseUser.uid });
-        await setDocument(doc(db, 'leaderboard', firebaseUser.uid), {
-          uid: firebaseUser.uid,
-          displayName: newProfile.displayName,
+        // Now attempt background writes (non-blocking — if these fail, the app still works)
+        try {
+          if (!existing.friendCode) {
+            await setDocument(profileRef, { lastSeen: Date.now(), friendCode: updatedProfile.friendCode });
+          } else {
+            await setDocument(profileRef, { lastSeen: Date.now() });
+          }
+          await setDocument(getUserRef(firebaseUser.uid), {
+            friendCode: updatedProfile.friendCode,
+            uid: firebaseUser.uid,
+            displayName: updatedProfile.displayName,
+          });
+        } catch (writeError) {
+          console.warn('Non-critical: Failed to update profile metadata:', writeError);
+        }
+      } else {
+        // First login — create profile & gamification docs
+        const seed = firebaseUser.displayName || firebaseUser.email || firebaseUser.uid;
+        const friendCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const newProfile: Omit<UserProfile, 'uid'> = {
+          displayName: firebaseUser.displayName || 'Student',
+          email: firebaseUser.email || '',
           avatarSeed: seed,
           avatarStyle: 'adventurer',
+          friendCode,
+          lastSeen: Date.now(),
+          theme: 'dark',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+
+        const newGamification: GamificationData = {
           xp: 0,
           level: 0,
           streak: 0,
-          updatedAt: Date.now(),
-        }).catch(() => {});
-      } catch (writeError) {
-        console.warn('Non-critical: Failed to write new profile to Firestore:', writeError);
+          longestStreak: 0,
+          lastActiveDate: '',
+          achievements: [],
+          unlockedTitles: [],
+          totalTasksCompleted: 0,
+          totalFocusMinutes: 0,
+          totalNotesCreated: 0,
+          totalCodeRuns: 0,
+          nightOwlCount: 0,
+          dailyChallengeStreak: 0,
+          lastDailyChallengeDate: '',
+        };
+
+        // Set profile in React state first so UI can render
+        setProfile({ uid: firebaseUser.uid, ...newProfile });
+
+        // Then write to Firestore
+        try {
+          await setDocument(profileRef, newProfile);
+          await setDocument(getGamificationRef(firebaseUser.uid), newGamification);
+          await setDocument(getUserRef(firebaseUser.uid), { friendCode, uid: firebaseUser.uid });
+          await setDocument(doc(db, 'leaderboard', firebaseUser.uid), {
+            uid: firebaseUser.uid,
+            displayName: newProfile.displayName,
+            avatarSeed: seed,
+            avatarStyle: 'adventurer',
+            xp: 0,
+            level: 0,
+            streak: 0,
+            updatedAt: Date.now(),
+          }).catch(() => {});
+        } catch (writeError) {
+          console.warn('Non-critical: Failed to write new profile to Firestore:', writeError);
+        }
       }
+    } catch (e) {
+      console.error('Failed to initialize user profile document:', e);
+      throw e;
     }
   }, []);
 
@@ -151,10 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (firebaseUser) {
-          await initializeProfile(firebaseUser);
-
-          // Set up real-time listener so profile updates (avatar, name, etc.)
-          // are reflected immediately across the entire app
+          // Set up real-time listener first, so profile loads instantly from cache or server
           const { onSnapshot } = await import('firebase/firestore');
           const profileRef = getProfileRef(firebaseUser.uid);
           profileUnsub = onSnapshot(profileRef, (snap) => {
@@ -163,6 +165,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           }, (error) => {
             console.warn('Profile listener error:', error);
+          });
+
+          // Run initialization (lastSeen, first login checks) asynchronously/non-blocking
+          initializeProfile(firebaseUser).catch((initErr) => {
+            console.warn('Non-blocking profile initialization warning:', initErr);
           });
         } else {
           setProfile(null);
