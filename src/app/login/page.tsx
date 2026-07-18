@@ -268,6 +268,9 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               icon={<HiMail size={18} />}
               required
+              autoCapitalize="none"
+              autoCorrect="off"
+              autoComplete="email"
             />
 
             <Input
@@ -278,6 +281,9 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               icon={<HiLockClosed size={18} />}
               required
+              autoCapitalize="none"
+              autoCorrect="off"
+              autoComplete="current-password"
             />
 
             {mode === 'login' && (

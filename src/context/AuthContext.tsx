@@ -11,6 +11,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   signOut as firebaseSignOut,
   updateProfile,
@@ -145,6 +146,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Listen to auth state
   useEffect(() => {
     let profileUnsub: (() => void) | null = null;
+
+    // Resolve redirect results (crucial for mobile Google Sign-In)
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result?.user) {
+          console.log('Redirect login completed for user:', result.user.email);
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to resolve redirect login:', error);
+      });
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
