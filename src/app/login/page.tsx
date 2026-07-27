@@ -68,7 +68,11 @@ export default function LoginPage() {
       router.push('/');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Google sign-in failed';
-      setError(msg);
+      if (msg.includes('auth/account-exists-with-different-credential')) {
+        setError('An account with this email already exists using Email & Password. Please log in using your email and password.');
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }

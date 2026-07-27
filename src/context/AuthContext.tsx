@@ -30,7 +30,8 @@ import {
   removeDocument,
 } from '@/lib/firestore';
 import { UserProfile, GamificationData } from '@/types';
-import { getAvatarUrl } from '@/lib/constants';
+import { getAvatarUrl, getLevelFromXP } from '@/lib/constants';
+import { collection, getDocs } from 'firebase/firestore';
 
 interface AuthContextValue {
   user: User | null;
@@ -53,23 +54,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Initialize or fetch user profile from Firestore
+  // Initialize or fetch user profile from Firestore safely
   const initializeProfile = useCallback(async (firebaseUser: User) => {
     try {
       const profileRef = getProfileRef(firebaseUser.uid);
-      const existing = await getDocument<UserProfile>(profileRef);
+      const gamRef = getGamificationRef(firebaseUser.uid);
 
-      if (existing) {
+      const [existingProfile, existingGamification] = await Promise.all([
+        getDocument<UserProfile>(profileRef),
+        getDocument<GamificationData>(gamRef),
+      ]);
+
+      if (existingProfile) {
         // Set profile immediately from the successful read — UI unblocks here
-        let updatedProfile = { ...existing, lastSeen: Date.now() };
-        if (!existing.friendCode) {
+        let updatedProfile = { ...existingProfile, lastSeen: Date.now() };
+        if (!existingProfile.friendCode) {
           updatedProfile = { ...updatedProfile, friendCode: Math.random().toString(36).substring(2, 8).toUpperCase() };
         }
         setProfile(updatedProfile);
 
-        // Now attempt background writes (non-blocking — if these fail, the app still works)
+        // Background non-blocking metadata update
         try {
-          if (!existing.friendCode) {
+          if (!existingProfile.friendCode) {
             await setDocument(profileRef, { lastSeen: Date.now(), friendCode: updatedProfile.friendCode });
           } else {
             await setDocument(profileRef, { lastSeen: Date.now() });
@@ -83,9 +89,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.warn('Non-critical: Failed to update profile metadata:', writeError);
         }
       } else {
-        // First login — create profile & gamification docs
+        // Profile doc missing or new UID login.
+        // Auto-heal from existing gamification doc or xpLog subcollection so progress is NEVER reset!
+        let initialXP = existingGamification?.xp || 0;
+        let initialLevel = existingGamification?.level || 0;
+        let oldestDateStr = '';
+
+        try {
+          const xpLogRef = collection(db, 'users', firebaseUser.uid, 'xpLog');
+          const xpLogSnap = await getDocs(xpLogRef);
+          let sumXP = 0;
+          xpLogSnap.docs.forEach((d) => {
+            sumXP += d.data().totalXp || 0;
+            if (!oldestDateStr || d.id < oldestDateStr) oldestDateStr = d.id;
+          });
+          if (sumXP > initialXP) {
+            initialXP = sumXP;
+            initialLevel = getLevelFromXP(sumXP);
+          }
+        } catch (logErr) {
+          console.warn('Could not scan xpLog during initialization:', logErr);
+        }
+
         const seed = firebaseUser.displayName || firebaseUser.email || firebaseUser.uid;
         const friendCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        
+        let createdTimestamp = Date.now();
+        if (oldestDateStr) {
+          const parsed = Date.parse(oldestDateStr);
+          if (!isNaN(parsed)) createdTimestamp = parsed;
+        }
+
         const newProfile: Omit<UserProfile, 'uid'> = {
           displayName: firebaseUser.displayName || 'Student',
           email: firebaseUser.email || '',
@@ -94,43 +128,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           friendCode,
           lastSeen: Date.now(),
           theme: 'dark',
-          createdAt: Date.now(),
+          createdAt: createdTimestamp,
           updatedAt: Date.now(),
         };
 
-        const newGamification: GamificationData = {
-          xp: 0,
-          level: 0,
-          streak: 0,
-          longestStreak: 0,
-          lastActiveDate: '',
-          achievements: [],
-          unlockedTitles: [],
-          totalTasksCompleted: 0,
-          totalFocusMinutes: 0,
-          totalNotesCreated: 0,
-          totalCodeRuns: 0,
-          nightOwlCount: 0,
-          dailyChallengeStreak: 0,
-          lastDailyChallengeDate: '',
-        };
-
-        // Set profile in React state first so UI can render
         setProfile({ uid: firebaseUser.uid, ...newProfile });
 
-        // Then write to Firestore
         try {
           await setDocument(profileRef, newProfile);
-          await setDocument(getGamificationRef(firebaseUser.uid), newGamification);
+
+          // Write new gamification ONLY if it does not exist yet.
+          if (!existingGamification) {
+            const newGamification: GamificationData = {
+              xp: initialXP,
+              level: initialLevel,
+              streak: 0,
+              longestStreak: 0,
+              lastActiveDate: '',
+              achievements: [],
+              unlockedTitles: [],
+              totalTasksCompleted: 0,
+              totalFocusMinutes: 0,
+              totalNotesCreated: 0,
+              totalCodeRuns: 0,
+              nightOwlCount: 0,
+              dailyChallengeStreak: 0,
+              lastDailyChallengeDate: '',
+            };
+            await setDocument(gamRef, newGamification);
+          } else if (initialXP > existingGamification.xp) {
+            await setDocument(gamRef, { xp: initialXP, level: initialLevel }, true);
+          }
+
           await setDocument(getUserRef(firebaseUser.uid), { friendCode, uid: firebaseUser.uid });
           await setDocument(doc(db, 'leaderboard', firebaseUser.uid), {
             uid: firebaseUser.uid,
             displayName: newProfile.displayName,
             avatarSeed: seed,
             avatarStyle: 'adventurer',
-            xp: 0,
-            level: 0,
-            streak: 0,
+            xp: initialXP,
+            level: initialLevel,
+            streak: existingGamification?.streak || 0,
             updatedAt: Date.now(),
           }).catch(() => {});
         } catch (writeError) {

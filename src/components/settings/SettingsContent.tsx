@@ -16,6 +16,7 @@ import { getProfileRef, setDocument } from '@/lib/firestore';
 import { doc, getDoc, setDoc, collection, addDoc, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getAvatarUrl, DICEBEAR_STYLES, getLevelFromXP } from '@/lib/constants';
+import { getLocalDateString, getLocalYesterdayDateString } from '@/lib/dateUtils';
 import { exportBackup, importBackup } from '@/lib/backup';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -122,33 +123,94 @@ export default function SettingsContent() {
       
       let totalXP = 0;
       let oldestDateStr = '';
+      const dateMap: Record<string, number> = {};
+
       xpLogSnap.docs.forEach((d) => {
         const xpVal = d.data().totalXp || 0;
         totalXP += xpVal;
         const dateId = d.id; // YYYY-MM-DD
+        if (xpVal > 0) {
+          dateMap[dateId] = xpVal;
+        }
         if (!oldestDateStr || dateId < oldestDateStr) {
           oldestDateStr = dateId;
         }
       });
       
+      // Fetch tasks for task count and fallback
+      const tasksSnap = await getDocs(collection(db, 'users', user.uid, 'tasks'));
+      const completedTasksCount = tasksSnap.docs.filter(t => t.data().completed).length;
+
       // If they have no XP logs, check if they have completed tasks
-      if (totalXP === 0) {
-        const tasksSnap = await getDocs(collection(db, 'users', user.uid, 'tasks'));
-        const completedTasksCount = tasksSnap.docs.filter(t => t.data().completed).length;
+      if (totalXP === 0 && completedTasksCount > 0) {
         totalXP = completedTasksCount * 25; // Estimate 25 XP per task
       }
 
       // Calculate corresponding level
       const calculatedLevel = getLevelFromXP(totalXP);
 
+      // Calculate streak & longestStreak from dateMap
+      const sortedDates = Object.keys(dateMap)
+        .filter(id => /^\d{4}-\d{2}-\d{2}$/.test(id))
+        .sort();
+
+      let longestStreak = 0;
+      let currentConsecutive = 0;
+      let prevDate: Date | null = null;
+
+      sortedDates.forEach((dStr) => {
+        const currentDate = new Date(dStr + 'T00:00:00');
+        if (!prevDate) {
+          currentConsecutive = 1;
+        } else {
+          const diffDays = Math.round((currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+          if (diffDays === 1) {
+            currentConsecutive += 1;
+          } else if (diffDays > 1) {
+            currentConsecutive = 1;
+          }
+        }
+        if (currentConsecutive > longestStreak) {
+          longestStreak = currentConsecutive;
+        }
+        prevDate = currentDate;
+      });
+
+      const todayStr = getLocalDateString();
+      const yesterdayStr = getLocalYesterdayDateString();
+
+      let restoredCurrentStreak = 0;
+      if (sortedDates.length > 0) {
+        const lastDateStr = sortedDates[sortedDates.length - 1];
+        if (lastDateStr === todayStr || lastDateStr === yesterdayStr) {
+          restoredCurrentStreak = currentConsecutive;
+        }
+      }
+
       // 2. Repair Gamification Data doc
       const gamRef = doc(db, 'users', user.uid, 'data', 'gamification');
+      const gamSnap = await getDoc(gamRef);
+      const existingGam = gamSnap.exists() ? gamSnap.data() : {};
+
+      const finalCurrentStreak = Math.max(existingGam.streak || 0, restoredCurrentStreak);
+      const finalLongestStreak = Math.max(existingGam.longestStreak || 0, longestStreak);
+
       await setDoc(gamRef, {
         xp: totalXP,
         level: calculatedLevel,
+        streak: finalCurrentStreak,
+        longestStreak: finalLongestStreak,
       }, { merge: true });
 
-      // 3. Repair Profile Doc (createdAt join date)
+      // 3. Repair Coins in Inventory
+      const estimatedCoins = Math.floor(totalXP / 5) + (completedTasksCount * 15);
+      const invRef = doc(db, 'users', user.uid, 'data', 'inventory');
+      const invSnap = await getDoc(invRef);
+      const currentCoins = invSnap.exists() ? (invSnap.data().coins || 0) : 0;
+      const finalCoins = Math.max(currentCoins, estimatedCoins);
+      await setDoc(invRef, { coins: finalCoins }, { merge: true });
+
+      // 4. Repair Profile Doc (createdAt join date)
       const profileRef = getProfileRef(user.uid);
       const updates: Record<string, any> = {};
       
@@ -163,13 +225,14 @@ export default function SettingsContent() {
         await updateDoc(profileRef, updates);
       }
 
-      // 4. Update Leaderboard Entry
+      // 5. Update Leaderboard Entry
       const leaderboardRef = doc(db, 'leaderboard', user.uid);
       const leaderboardSnap = await getDoc(leaderboardRef);
       if (leaderboardSnap.exists()) {
         await updateDoc(leaderboardRef, {
           xp: totalXP,
           level: calculatedLevel,
+          streak: finalCurrentStreak,
           updatedAt: Date.now()
         });
       } else {
@@ -180,14 +243,13 @@ export default function SettingsContent() {
           avatarStyle: profile?.avatarStyle || 'adventurer',
           xp: totalXP,
           level: calculatedLevel,
-          streak: 0,
+          streak: finalCurrentStreak,
           updatedAt: Date.now()
         });
       }
 
-      toast.success(`Data repair complete! Recovered ${totalXP} XP and Level ${calculatedLevel}!`, { id: toastId });
+      toast.success(`Data repair complete! Restored ${totalXP} XP, Level ${calculatedLevel}, ${finalCoins} Coins & ${finalLongestStreak}d Streak!`, { id: toastId });
       
-      // Reload page to reflect changes
       setTimeout(() => {
         window.location.reload();
       }, 1500);
