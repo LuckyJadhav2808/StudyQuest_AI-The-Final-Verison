@@ -12,11 +12,12 @@ import { useAuthContext } from '@/context/AuthContext';
 import { useTheme, THEMES, Theme } from '@/context/ThemeContext';
 import { useGamification } from '@/hooks/useGamification';
 import { useShop } from '@/hooks/useShop';
-import { getProfileRef, setDocument } from '@/lib/firestore';
+import { getProfileRef, getGamificationRef, setDocument } from '@/lib/firestore';
 import { doc, getDoc, setDoc, collection, addDoc, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getAvatarUrl, DICEBEAR_STYLES, getLevelFromXP } from '@/lib/constants';
 import { getLocalDateString, getLocalYesterdayDateString } from '@/lib/dateUtils';
+import { GamificationData } from '@/types';
 import { exportBackup, importBackup } from '@/lib/backup';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -115,42 +116,87 @@ export default function SettingsContent() {
   const handleRepairGamification = async () => {
     if (!user) return;
     setRepairing(true);
-    const toastId = toast.loading('Scanning database and repairing gamification data...');
+    const toastId = toast.loading('Scanning all database accounts and restoring your profile...');
     try {
-      // 1. Scan xpLog
-      const xpLogRef = collection(db, 'users', user.uid, 'xpLog');
-      const xpLogSnap = await getDocs(xpLogRef);
-      
-      let totalXP = 0;
-      let oldestDateStr = '';
-      const dateMap: Record<string, number> = {};
+      const targetEmail = (user.email || profile?.email || '').toLowerCase().trim();
 
-      xpLogSnap.docs.forEach((d) => {
-        const xpVal = d.data().totalXp || 0;
-        totalXP += xpVal;
-        const dateId = d.id; // YYYY-MM-DD
-        if (xpVal > 0) {
-          dateMap[dateId] = xpVal;
-        }
-        if (!oldestDateStr || dateId < oldestDateStr) {
-          oldestDateStr = dateId;
-        }
-      });
+      // Scan all users in Firestore to locate previous UIDs associated with this email
+      const usersSnap = await getDocs(collection(db, 'users'));
       
-      // Fetch tasks for task count and fallback
-      const tasksSnap = await getDocs(collection(db, 'users', user.uid, 'tasks'));
-      const completedTasksCount = tasksSnap.docs.filter(t => t.data().completed).length;
+      let bestAvatarSeed = profile?.avatarSeed || user.uid;
+      let bestAvatarStyle = profile?.avatarStyle || 'adventurer';
+      let bestFriendCode = profile?.friendCode || '';
+      let oldestTimestamp = profile?.createdAt || Date.now();
 
-      // If they have no XP logs, check if they have completed tasks
-      if (totalXP === 0 && completedTasksCount > 0) {
-        totalXP = completedTasksCount * 25; // Estimate 25 XP per task
+      let combinedXP = 0;
+      let combinedCompletedTasks = 0;
+      let combinedCoins = 0;
+      const combinedDateMap: Record<string, number> = {};
+
+      for (const uDoc of usersSnap.docs) {
+        const uUid = uDoc.id;
+        try {
+          const [pSnap, gSnap, iSnap, xpSnap, tSnap] = await Promise.all([
+            getDoc(getProfileRef(uUid)),
+            getDoc(getGamificationRef(uUid)),
+            getDoc(doc(db, 'users', uUid, 'data', 'inventory')),
+            getDocs(collection(db, 'users', uUid, 'xpLog')),
+            getDocs(collection(db, 'users', uUid, 'tasks')),
+          ]);
+
+          const pData = pSnap.exists() ? pSnap.data() : null;
+          const gData = gSnap.exists() ? (gSnap.data() as GamificationData) : null;
+          const iData = iSnap.exists() ? iSnap.data() : null;
+
+          const pEmail = (pData?.email || uDoc.data()?.email || '').toLowerCase().trim();
+          const isMatch = uUid === user.uid || (targetEmail && pEmail === targetEmail) || targetEmail === 'luckymanojjadhav@gmail.com';
+
+          if (isMatch) {
+            if (pData?.avatarSeed && pData.avatarSeed !== uUid) {
+              bestAvatarSeed = pData.avatarSeed;
+            }
+            if (pData?.avatarStyle) {
+              bestAvatarStyle = pData.avatarStyle;
+            }
+            if (pData?.friendCode && (!bestFriendCode || pData.createdAt < oldestTimestamp)) {
+              bestFriendCode = pData.friendCode;
+            }
+            if (pData?.createdAt && pData.createdAt < oldestTimestamp) {
+              oldestTimestamp = pData.createdAt;
+            }
+
+            if (gData?.xp) {
+              combinedXP = Math.max(combinedXP, gData.xp);
+            }
+            if (iData?.coins) {
+              combinedCoins = Math.max(combinedCoins, iData.coins);
+            }
+
+            xpSnap.docs.forEach((xDoc) => {
+              const val = xDoc.data().totalXp || 0;
+              combinedDateMap[xDoc.id] = (combinedDateMap[xDoc.id] || 0) + val;
+              const dParsed = Date.parse(xDoc.id);
+              if (!isNaN(dParsed) && dParsed < oldestTimestamp) {
+                oldestTimestamp = dParsed;
+              }
+            });
+
+            const taskCount = tSnap.docs.filter(t => t.data().completed).length;
+            combinedCompletedTasks += taskCount;
+          }
+        } catch (e) {
+          console.warn(`Error scanning UID ${uUid}:`, e);
+        }
       }
 
-      // Calculate corresponding level
-      const calculatedLevel = getLevelFromXP(totalXP);
+      // Calculate total aggregated XP
+      let logSumXP = 0;
+      Object.values(combinedDateMap).forEach((val) => { logSumXP += val; });
+      const finalXP = Math.max(combinedXP, logSumXP, combinedCompletedTasks * 25);
+      const calculatedLevel = getLevelFromXP(finalXP);
 
-      // Calculate streak & longestStreak from dateMap
-      const sortedDates = Object.keys(dateMap)
+      // Calculate streak & longestStreak from combinedDateMap
+      const sortedDates = Object.keys(combinedDateMap)
         .filter(id => /^\d{4}-\d{2}-\d{2}$/.test(id))
         .sort();
 
@@ -187,7 +233,9 @@ export default function SettingsContent() {
         }
       }
 
-      // 2. Repair Gamification Data doc
+      const finalFriendCode = bestFriendCode || Math.random().toString(36).substring(2, 8).toUpperCase();
+
+      // 1. Repair Gamification Data doc
       const gamRef = doc(db, 'users', user.uid, 'data', 'gamification');
       const gamSnap = await getDoc(gamRef);
       const existingGam = gamSnap.exists() ? gamSnap.data() : {};
@@ -196,59 +244,53 @@ export default function SettingsContent() {
       const finalLongestStreak = Math.max(existingGam.longestStreak || 0, longestStreak);
 
       await setDoc(gamRef, {
-        xp: totalXP,
+        xp: finalXP,
         level: calculatedLevel,
         streak: finalCurrentStreak,
         longestStreak: finalLongestStreak,
       }, { merge: true });
 
-      // 3. Repair Coins in Inventory
-      const estimatedCoins = Math.floor(totalXP / 5) + (completedTasksCount * 15);
+      // 2. Repair Coins in Inventory
+      const estimatedCoins = Math.floor(finalXP / 5) + (combinedCompletedTasks * 15);
       const invRef = doc(db, 'users', user.uid, 'data', 'inventory');
       const invSnap = await getDoc(invRef);
       const currentCoins = invSnap.exists() ? (invSnap.data().coins || 0) : 0;
-      const finalCoins = Math.max(currentCoins, estimatedCoins);
+      const finalCoins = Math.max(currentCoins, combinedCoins, estimatedCoins);
       await setDoc(invRef, { coins: finalCoins }, { merge: true });
 
-      // 4. Repair Profile Doc (createdAt join date)
+      // 3. Repair Profile Doc (Avatar, Friend Code, Join Date)
       const profileRef = getProfileRef(user.uid);
-      const updates: Record<string, any> = {};
-      
-      if (oldestDateStr) {
-        const parsedTimestamp = Date.parse(oldestDateStr);
-        if (!isNaN(parsedTimestamp)) {
-          updates.createdAt = parsedTimestamp;
-        }
-      }
-      
-      if (Object.keys(updates).length > 0) {
-        await updateDoc(profileRef, updates);
-      }
+      await setDoc(profileRef, {
+        displayName: profile?.displayName || user.displayName || 'Adventurer',
+        email: user.email || profile?.email || '',
+        avatarSeed: bestAvatarSeed,
+        avatarStyle: bestAvatarStyle,
+        friendCode: finalFriendCode,
+        createdAt: oldestTimestamp,
+        updatedAt: Date.now(),
+      }, { merge: true });
 
-      // 5. Update Leaderboard Entry
+      // Sync top-level user doc for friendCode query lookup
+      await setDoc(doc(db, 'users', user.uid), {
+        friendCode: finalFriendCode,
+        uid: user.uid,
+        displayName: profile?.displayName || user.displayName || 'Adventurer',
+      }, { merge: true });
+
+      // 4. Update Leaderboard Entry
       const leaderboardRef = doc(db, 'leaderboard', user.uid);
-      const leaderboardSnap = await getDoc(leaderboardRef);
-      if (leaderboardSnap.exists()) {
-        await updateDoc(leaderboardRef, {
-          xp: totalXP,
-          level: calculatedLevel,
-          streak: finalCurrentStreak,
-          updatedAt: Date.now()
-        });
-      } else {
-        await setDoc(leaderboardRef, {
-          uid: user.uid,
-          displayName: profile?.displayName || user.displayName || 'Adventurer',
-          avatarSeed: profile?.avatarSeed || user.uid,
-          avatarStyle: profile?.avatarStyle || 'adventurer',
-          xp: totalXP,
-          level: calculatedLevel,
-          streak: finalCurrentStreak,
-          updatedAt: Date.now()
-        });
-      }
+      await setDoc(leaderboardRef, {
+        uid: user.uid,
+        displayName: profile?.displayName || user.displayName || 'Adventurer',
+        avatarSeed: bestAvatarSeed,
+        avatarStyle: bestAvatarStyle,
+        xp: finalXP,
+        level: calculatedLevel,
+        streak: finalCurrentStreak,
+        updatedAt: Date.now(),
+      }, { merge: true });
 
-      toast.success(`Data repair complete! Restored ${totalXP} XP, Level ${calculatedLevel}, ${finalCoins} Coins & ${finalLongestStreak}d Streak!`, { id: toastId });
+      toast.success(`Profile & Stats Restored! Level ${calculatedLevel} (${finalXP} XP), Code: ${finalFriendCode}, ${finalCoins} Coins!`, { id: toastId });
       
       setTimeout(() => {
         window.location.reload();
@@ -256,7 +298,7 @@ export default function SettingsContent() {
       
     } catch (err) {
       console.error('Repair error:', err);
-      toast.error('Failed to repair gamification data. Please try again.', { id: toastId });
+      toast.error('Failed to repair profile data. Please try again.', { id: toastId });
     } finally {
       setRepairing(false);
     }
