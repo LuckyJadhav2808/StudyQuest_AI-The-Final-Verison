@@ -127,6 +127,8 @@ export default function SettingsContent() {
       let bestAvatarStyle = profile?.avatarStyle || 'adventurer';
       let bestFriendCode = profile?.friendCode || '';
       let oldestTimestamp = profile?.createdAt || Date.now();
+      let bestPetData: Record<string, any> | null = null;
+      let bestSkillTreeData: Record<string, any> | null = null;
 
       let combinedXP = 0;
       let combinedCompletedTasks = 0;
@@ -136,10 +138,12 @@ export default function SettingsContent() {
       for (const uDoc of usersSnap.docs) {
         const uUid = uDoc.id;
         try {
-          const [pSnap, gSnap, iSnap, xpSnap, tSnap] = await Promise.all([
+          const [pSnap, gSnap, iSnap, petSnap, skillSnap, xpSnap, tSnap] = await Promise.all([
             getDoc(getProfileRef(uUid)),
             getDoc(getGamificationRef(uUid)),
             getDoc(doc(db, 'users', uUid, 'data', 'inventory')),
+            getDoc(doc(db, 'users', uUid, 'data', 'pet')),
+            getDoc(doc(db, 'users', uUid, 'data', 'skillTree')),
             getDocs(collection(db, 'users', uUid, 'xpLog')),
             getDocs(collection(db, 'users', uUid, 'tasks')),
           ]);
@@ -163,6 +167,20 @@ export default function SettingsContent() {
             }
             if (pData?.createdAt && pData.createdAt < oldestTimestamp) {
               oldestTimestamp = pData.createdAt;
+            }
+
+            if (petSnap.exists()) {
+              const petVal = petSnap.data();
+              if (!bestPetData || (petVal.xp || 0) > (bestPetData.xp || 0) || (petVal.stage || 0) > (bestPetData.stage || 0)) {
+                bestPetData = petVal;
+              }
+            }
+
+            if (skillSnap.exists()) {
+              const skillVal = skillSnap.data();
+              if (!bestSkillTreeData || (skillVal.unlockedNodes?.length || 0) > (bestSkillTreeData.unlockedNodes?.length || 0)) {
+                bestSkillTreeData = skillVal;
+              }
             }
 
             if (gData?.xp) {
@@ -234,6 +252,16 @@ export default function SettingsContent() {
       }
 
       const finalFriendCode = bestFriendCode || Math.random().toString(36).substring(2, 8).toUpperCase();
+
+      // Restore Pet Companion data if found
+      if (bestPetData) {
+        await setDoc(doc(db, 'users', user.uid, 'data', 'pet'), bestPetData, { merge: true });
+      }
+
+      // Restore Skill Tree data if found
+      if (bestSkillTreeData) {
+        await setDoc(doc(db, 'users', user.uid, 'data', 'skillTree'), bestSkillTreeData, { merge: true });
+      }
 
       // 1. Repair Gamification Data doc
       const gamRef = doc(db, 'users', user.uid, 'data', 'gamification');
