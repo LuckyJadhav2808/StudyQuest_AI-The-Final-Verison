@@ -15,9 +15,11 @@ import { useNotes } from '@/hooks/useNotes';
 import { useTasks } from '@/hooks/useTasks';
 import { playClick } from '@/lib/sounds';
 
+import { DsaProblem } from '@/types/dsa';
+
 /* ============================================================
    AI Command Palette — Ctrl+K / Cmd+K
-   Fuzzy search + notes/tasks search + recent actions + quick-create
+   Fuzzy search + notes/tasks search + 2,360+ LeetCode DSA search
    ============================================================ */
 
 interface CommandItem {
@@ -25,15 +27,16 @@ interface CommandItem {
   label: string;
   description?: string;
   icon: React.ReactNode;
-  category: 'recent' | 'create' | 'search' | 'navigation' | 'action' | 'theme';
+  category: 'recent' | 'dsa' | 'create' | 'search' | 'navigation' | 'action' | 'theme';
   keywords: string[];
   action: () => void;
 }
 
-const CATEGORY_ORDER: CommandItem['category'][] = ['recent', 'create', 'search', 'action', 'navigation', 'theme'];
+const CATEGORY_ORDER: CommandItem['category'][] = ['recent', 'dsa', 'create', 'search', 'action', 'navigation', 'theme'];
 
 const CATEGORY_LABELS: Record<string, string> = {
   recent: '🕐 Recent',
+  dsa: '⚔️ LeetCode & DSA Challenges',
   create: '✨ Quick Create',
   search: '🔍 Search Results',
   navigation: '📍 Navigate',
@@ -87,6 +90,19 @@ export default function CommandPalette() {
   const { theme, toggleTheme, setTheme } = useTheme();
   const { notes } = useNotes();
   const { tasks } = useTasks();
+  const [dsaProblems, setDsaProblems] = useState<DsaProblem[]>([]);
+
+  // Fetch DSA dataset in background for instant Cmd+K search
+  useEffect(() => {
+    fetch('/api/dsa/dataset')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.problems)) {
+          setDsaProblems(data.problems);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // ── Static commands ─────────────────────────────────────
   const staticCommands: CommandItem[] = useMemo(() => [
@@ -126,11 +142,33 @@ export default function CommandPalette() {
     { id: 'action-study', label: 'Start Studying', description: 'Jump to focus timer', icon: <HiClock size={18} />, category: 'action', keywords: ['start', 'study', 'studying', 'begin', 'focus'], action: () => router.push('/timer') },
   ], [router, theme, toggleTheme, setTheme]);
 
-  // ── Dynamic search results (notes + tasks) ─────────────
+  // ── Dynamic search results (notes + tasks + 2,360+ DSA problems) ──
   const dynamicResults: CommandItem[] = useMemo(() => {
-    if (!query.trim() || query.trim().length < 2) return [];
+    if (!query.trim() || query.trim().length < 1) return [];
     const q = query.toLowerCase().trim();
     const results: CommandItem[] = [];
+
+    // Search DSA Problems (2,360+ library)
+    dsaProblems.forEach((problem) => {
+      const idStr = problem.leetcodeId ? String(problem.leetcodeId) : '';
+      const score = Math.max(
+        fuzzyScore(q, problem.title),
+        idStr ? (idStr === q || idStr.startsWith(q) ? 120 : fuzzyScore(q, idStr)) : -1,
+        fuzzyScore(q, problem.pattern),
+        fuzzyScore(q, problem.category)
+      );
+      if (score > 0) {
+        results.push({
+          id: `dsa-${problem.id}`,
+          label: `${problem.leetcodeId ? `#${problem.leetcodeId} ` : ''}${problem.title}`,
+          description: `⚔️ ${problem.difficulty.toUpperCase()} • ${problem.category} (${problem.pattern})`,
+          icon: <HiCubeTransparent className="text-purple-400" size={18} />,
+          category: 'dsa',
+          keywords: [problem.title, idStr, problem.category, problem.pattern],
+          action: () => router.push(`/dsa?problem=${problem.id}`),
+        });
+      }
+    });
 
     // Search notes
     notes.forEach((note) => {
@@ -170,8 +208,8 @@ export default function CommandPalette() {
       }
     });
 
-    return results.slice(0, 6); // Limit to 6 results
-  }, [query, notes, tasks, router]);
+    return results.slice(0, 10); // Limit to top 10 results
+  }, [query, dsaProblems, notes, tasks, router]);
 
   // ── Recent commands ────────────────────────────────────
   const recentCommands: CommandItem[] = useMemo(() => {

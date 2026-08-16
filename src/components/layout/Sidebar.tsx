@@ -8,7 +8,7 @@ import {
   HiHome, HiClipboardCheck, HiPencilAlt, HiLightningBolt,
   HiClock, HiCalendar, HiChatAlt2, HiChartBar,
   HiUserGroup, HiDatabase, HiCode, HiCubeTransparent,
-  HiBookmark, HiCog, HiChevronLeft, HiChevronRight,
+  HiBookmark, HiCog, HiChevronLeft, HiChevronRight, HiChevronDown,
   HiLogout, HiSparkles, HiCollection, HiTerminal,
   HiAcademicCap, HiPencil, HiHeart, HiShoppingCart,
   HiBeaker, HiShieldCheck, HiBookOpen,
@@ -112,6 +112,86 @@ export default function Sidebar() {
   const navRef = useRef<HTMLElement>(null);
   const [canScrollUp, setCanScrollUp] = useState(false);
   const [canScrollDown, setCanScrollDown] = useState(false);
+
+  // Collapsible section states with localStorage persistence
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  
+  // Pinned favorites with localStorage persistence
+  const [pinnedHrefs, setPinnedHrefs] = useState<string[]>(['/', '/dsa', '/timer', '/notes', '/pets']);
+
+  useEffect(() => {
+    try {
+      const savedSections = localStorage.getItem('sq_sidebar_collapsed_sections');
+      if (savedSections) setCollapsedSections(JSON.parse(savedSections));
+      const savedPinned = localStorage.getItem('sq_sidebar_pinned_items');
+      if (savedPinned) setPinnedHrefs(JSON.parse(savedPinned));
+    } catch { /* ignore */ }
+  }, []);
+
+  const toggleSection = (title: string) => {
+    setCollapsedSections((prev) => {
+      const next = { ...prev, [title]: !prev[title] };
+      try {
+        localStorage.setItem('sq_sidebar_collapsed_sections', JSON.stringify(next));
+      } catch { /* ignore */ }
+      return next;
+    });
+  };
+
+  const togglePin = (href: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setPinnedHrefs((prev) => {
+      const next = prev.includes(href) ? prev.filter((h) => h !== href) : [...prev, href];
+      try {
+        localStorage.setItem('sq_sidebar_pinned_items', JSON.stringify(next));
+      } catch { /* ignore */ }
+      return next;
+    });
+  };
+
+  // Build all items lookup map for Pinned section
+  const allNavItems = useMemo(() => {
+    const list: Array<{ label: string; href: string; icon: string }> = [];
+    NAV_SECTIONS.forEach((s) => s.items.forEach((item) => list.push(item)));
+    return list;
+  }, []);
+
+  const pinnedItems = useMemo(() => {
+    return pinnedHrefs
+      .map((href) => allNavItems.find((item) => item.href === href))
+      .filter(Boolean) as Array<{ label: string; href: string; icon: string }>;
+  }, [pinnedHrefs, allNavItems]);
+
+  // Drag & drop reorder state for pinned items
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === targetIndex) return;
+
+    setPinnedHrefs((prev) => {
+      const updated = [...prev];
+      const [removed] = updated.splice(draggedIndex, 1);
+      updated.splice(targetIndex, 0, removed);
+      try {
+        localStorage.setItem('sq_sidebar_pinned_items', JSON.stringify(updated));
+      } catch { /* ignore */ }
+      return updated;
+    });
+    setDraggedIndex(null);
+  };
 
   const handleNavScroll = useCallback(() => {
     const el = navRef.current;
@@ -223,71 +303,193 @@ export default function Sidebar() {
           onScroll={handleNavScroll}
           className="h-full overflow-y-auto py-2 px-2 space-y-4 mt-1"
         >
-          {visibleSections.map((section) => (
-            <div key={section.title}>
+          {/* Pinned Favorites Quick-Access Hub */}
+          {pinnedItems.length > 0 && (
+            <div className="pb-2 border-b border-[var(--card-border)]/60">
               <AnimatePresence>
                 {!collapsed && (
-                  <motion.p
-                    className="text-[9px] uppercase tracking-[0.15em] font-bold text-[var(--muted-foreground)] px-3 mb-1.5"
+                  <motion.div
+                    className="flex items-center justify-between px-3 mb-1.5"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                   >
-                    {section.title}
-                  </motion.p>
+                    <p className="text-[9px] uppercase tracking-[0.15em] font-bold text-amber-400 flex items-center gap-1">
+                      <span>📌</span> Pinned Hub
+                    </p>
+                    <span className="text-[8px] font-mono text-slate-500">
+                      Drag ⠿ to reorder
+                    </span>
+                  </motion.div>
                 )}
               </AnimatePresence>
 
               <div className="space-y-0.5">
-                {section.items.map((item) => {
+                {pinnedItems.map((item, idx) => {
                   const Icon = iconMap[item.icon];
                   const isActive = pathname === item.href;
+                  const isDragging = draggedIndex === idx;
 
                   return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`
-                        flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold
-                        transition-all duration-200 relative group
-                        ${isActive
-                          ? 'text-white'
-                          : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--card-border)]/40'
-                        }
-                      `}
+                    <div
+                      key={`pinned-${item.href}`}
+                      draggable={!collapsed}
+                      onDragStart={(e) => handleDragStart(e, idx)}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, idx)}
+                      onDragEnd={() => setDraggedIndex(null)}
+                      className={`transition-opacity ${isDragging ? 'opacity-40 scale-95' : 'opacity-100'}`}
                     >
-                      {/* Active pill with 3D shadow effect */}
-                      {isActive && (
-                        <motion.div
-                          className="absolute inset-0 bg-gradient-to-r from-primary to-secondary rounded-xl shadow-[0_4px_0_rgba(88,28,135,0.3)]"
-                          layoutId="sidebar-active"
-                          transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-                        />
-                      )}
-
-                      <span className="relative z-10 flex-shrink-0">
-                        {Icon && <Icon size={20} />}
-                      </span>
-
-                      <AnimatePresence>
-                        {!collapsed && (
-                          <motion.span
-                            className="relative z-10 truncate"
-                            initial={{ opacity: 0, width: 0 }}
-                            animate={{ opacity: 1, width: 'auto' }}
-                            exit={{ opacity: 0, width: 0 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            {item.label}
-                          </motion.span>
+                      <Link
+                        href={item.href}
+                        className={`
+                          flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold
+                          transition-all duration-200 relative group cursor-pointer
+                          ${isActive
+                            ? 'text-white'
+                            : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--card-border)]/40'
+                          }
+                        `}
+                      >
+                        {isActive && (
+                          <motion.div
+                            className="absolute inset-0 bg-gradient-to-r from-amber-500/80 to-primary/80 rounded-xl shadow-[0_4px_0_rgba(217,119,6,0.3)]"
+                            layoutId="sidebar-pinned-active"
+                            transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                          />
                         )}
-                      </AnimatePresence>
-                    </Link>
+
+                        <div className="flex items-center gap-2.5 min-w-0 relative z-10">
+                          {!collapsed && (
+                            <span className="opacity-0 group-hover:opacity-60 text-[10px] text-slate-400 cursor-grab active:cursor-grabbing select-none">
+                              ⠿
+                            </span>
+                          )}
+                          <span className="flex-shrink-0">
+                            {Icon && <Icon size={17} />}
+                          </span>
+                          {!collapsed && (
+                            <span className="truncate">{item.label}</span>
+                          )}
+                        </div>
+
+                        {!collapsed && (
+                          <button
+                            onClick={(e) => togglePin(item.href, e)}
+                            className="relative z-10 opacity-0 group-hover:opacity-100 text-amber-400 hover:text-amber-300 transition-opacity p-0.5"
+                            title="Unpin from favorites"
+                          >
+                            ★
+                          </button>
+                        )}
+                      </Link>
+                    </div>
                   );
                 })}
               </div>
             </div>
-          ))}
+          )}
+
+          {/* Categorized Collapsible Sections */}
+          {visibleSections.map((section) => {
+            const isSectionCollapsed = !!collapsedSections[section.title];
+
+            return (
+              <div key={section.title} className="space-y-1">
+                <AnimatePresence>
+                  {!collapsed && (
+                    <motion.button
+                      onClick={() => toggleSection(section.title)}
+                      className="w-full flex items-center justify-between px-3 py-1 text-[9px] uppercase tracking-[0.15em] font-bold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors cursor-pointer rounded-lg hover:bg-surface-hover/50"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        {section.title}
+                        <span className="text-[8px] font-mono px-1 py-0.2 rounded bg-slate-800 text-slate-400">
+                          {section.items.length}
+                        </span>
+                      </span>
+                      <HiChevronDown
+                        className={`text-xs transition-transform duration-200 ${
+                          isSectionCollapsed ? '-rotate-90' : ''
+                        }`}
+                      />
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+
+                {(!isSectionCollapsed || collapsed) && (
+                  <div className="space-y-0.5">
+                    {section.items.map((item) => {
+                      const Icon = iconMap[item.icon];
+                      const isActive = pathname === item.href;
+                      const isPinned = pinnedHrefs.includes(item.href);
+
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={`
+                            flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold
+                            transition-all duration-200 relative group
+                            ${isActive
+                              ? 'text-white'
+                              : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--card-border)]/40'
+                            }
+                          `}
+                        >
+                          {/* Active pill with 3D shadow effect */}
+                          {isActive && (
+                            <motion.div
+                              className="absolute inset-0 bg-gradient-to-r from-primary to-secondary rounded-xl shadow-[0_4px_0_rgba(88,28,135,0.3)]"
+                              layoutId="sidebar-active"
+                              transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                            />
+                          )}
+
+                          <div className="flex items-center gap-3 min-w-0 relative z-10">
+                            <span className="flex-shrink-0">
+                              {Icon && <Icon size={20} />}
+                            </span>
+
+                            <AnimatePresence>
+                              {!collapsed && (
+                                <motion.span
+                                  className="truncate"
+                                  initial={{ opacity: 0, width: 0 }}
+                                  animate={{ opacity: 1, width: 'auto' }}
+                                  exit={{ opacity: 0, width: 0 }}
+                                  transition={{ duration: 0.2 }}
+                                >
+                                  {item.label}
+                                </motion.span>
+                              )}
+                            </AnimatePresence>
+                          </div>
+
+                          {!collapsed && (
+                            <button
+                              onClick={(e) => togglePin(item.href, e)}
+                              className={`relative z-10 p-0.5 text-xs transition-all ${
+                                isPinned
+                                  ? 'text-amber-400 opacity-80 hover:opacity-100'
+                                  : 'text-slate-500 opacity-0 group-hover:opacity-70 hover:!opacity-100 hover:text-amber-400'
+                              }`}
+                              title={isPinned ? 'Unpin tool' : 'Pin tool to top'}
+                            >
+                              {isPinned ? '★' : '☆'}
+                            </button>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
 
         {/* Bottom scroll fade */}

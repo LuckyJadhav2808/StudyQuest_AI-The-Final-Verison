@@ -157,8 +157,8 @@ export default function CodeEditor({
   const styleTheme = THEME_STYLES[theme] || THEME_STYLES.default;
 
   return (
-    <div className="flex flex-col relative overflow-hidden" style={{ minHeight, backgroundColor: styleTheme.bg, color: styleTheme.text, borderRadius: '0.75rem' }}>
-      <div className="flex flex-1 min-h-0">
+    <div className="flex flex-col relative overflow-hidden w-full h-full" style={{ minHeight, height: '100%', backgroundColor: styleTheme.bg, color: styleTheme.text, borderRadius: '0.75rem' }}>
+      <div className="flex flex-1 min-h-0 h-full overflow-hidden">
         {/* Line numbers gutter */}
         <div
           ref={lineNumberRef}
@@ -214,11 +214,11 @@ export default function CodeEditor({
           }}
           onScroll={handleScroll}
           onKeyDown={handleKeyDown}
-          className="flex-1 bg-transparent resize-none outline-none text-sm px-3 py-4 code-scroll"
+          className="flex-1 h-full overflow-y-auto overflow-x-auto bg-transparent resize-none outline-none text-sm px-3 py-4 code-scroll whitespace-pre"
           style={{
             fontFamily: 'var(--font-mono)',
             lineHeight: '1.625rem',
-            minHeight,
+            height: '100%',
             tabSize: 2,
             color: styleTheme.text,
             backgroundColor: styleTheme.bg,

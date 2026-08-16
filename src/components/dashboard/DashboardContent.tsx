@@ -116,10 +116,10 @@ export default function DashboardContent() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const [modernLeftOrder, setModernLeftOrder] = useState<string[]>([
-    'banner', 'quests', 'scrolls', 'heatmap', 'exams'
+    'banner', 'quests', 'scrolls', 'heatmap', 'exams', 'jukebox'
   ]);
   const [modernRightOrder, setModernRightOrder] = useState<string[]>([
-    'profile', 'stats', 'friends', 'shortcuts', 'halloffame', 'calendar', 'activity', 'tasks', 'jukebox', 'scratchpad'
+    'profile', 'stats', 'friends', 'shortcuts', 'halloffame', 'calendar', 'activity', 'tasks'
   ]);
   const [isModernEditMode, setIsModernEditMode] = useState(false);
 
@@ -127,17 +127,17 @@ export default function DashboardContent() {
     try {
       const left = localStorage.getItem('sq-modern-left-order');
       const right = localStorage.getItem('sq-modern-right-order');
-      const defaultLeft = ['banner', 'quests', 'scrolls', 'heatmap', 'exams'];
-      const defaultRight = ['profile', 'stats', 'friends', 'shortcuts', 'halloffame', 'calendar', 'activity', 'tasks', 'jukebox', 'scratchpad'];
+      const defaultLeft = ['banner', 'quests', 'scrolls', 'heatmap', 'exams', 'jukebox'];
+      const defaultRight = ['profile', 'stats', 'friends', 'shortcuts', 'halloffame', 'calendar', 'activity', 'tasks'];
       const allDefault = [...defaultLeft, ...defaultRight];
 
       if (left && right) {
         let parsedLeft = JSON.parse(left) as string[];
         let parsedRight = JSON.parse(right) as string[];
 
-        // Filter out any invalid items
-        parsedLeft = parsedLeft.filter(id => allDefault.includes(id));
-        parsedRight = parsedRight.filter(id => allDefault.includes(id));
+        // Filter out any invalid items and migrate scratchpad
+        parsedLeft = parsedLeft.filter(id => allDefault.includes(id) && id !== 'scratchpad');
+        parsedRight = parsedRight.filter(id => allDefault.includes(id) && id !== 'scratchpad');
 
         // Deduplicate: ensure no item is in both columns (prefer left if duplicated)
         parsedRight = parsedRight.filter(id => !parsedLeft.includes(id));
@@ -151,11 +151,11 @@ export default function DashboardContent() {
         setModernRightOrder([...parsedRight, ...missingRight]);
       } else if (left) {
         const parsed = JSON.parse(left) as string[];
-        const merged = [...parsed.filter((id: string) => allDefault.includes(id)), ...defaultLeft.filter(id => !parsed.includes(id))];
+        const merged = [...parsed.filter((id: string) => allDefault.includes(id) && id !== 'scratchpad'), ...defaultLeft.filter(id => !parsed.includes(id))];
         setModernLeftOrder(merged);
       } else if (right) {
         const parsed = JSON.parse(right) as string[];
-        const merged = [...parsed.filter((id: string) => allDefault.includes(id)), ...defaultRight.filter(id => !parsed.includes(id))];
+        const merged = [...parsed.filter((id: string) => allDefault.includes(id) && id !== 'scratchpad'), ...defaultRight.filter(id => !parsed.includes(id))];
         setModernRightOrder(merged);
       }
     } catch (e) { /* ignore */ }
@@ -681,38 +681,44 @@ export default function DashboardContent() {
 
   const modernWidgetMap = useMemo(() => ({
     'banner': (
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 to-indigo-600 p-6 md:p-8 pr-20 md:pr-8 text-white shadow-lg">
+      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-4 sm:p-6 md:p-8 pr-28 sm:pr-36 md:pr-48 text-white shadow-xl">
         <div className="relative z-10 max-w-lg">
-          <h2 className="text-xl md:text-3xl font-heading font-black mb-2 leading-tight">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/15 text-[10px] font-bold text-blue-100 mb-2 backdrop-blur-sm">
+            <span>✨</span> Daily Study Quest
+          </div>
+          <h2 className="text-base sm:text-xl md:text-3xl font-heading font-black mb-1.5 sm:mb-2 leading-tight">
             The right choice of study quest
           </h2>
-          <p className="text-xs md:text-sm text-blue-100 mb-6 leading-relaxed">
+          <p className="text-[11px] sm:text-xs md:text-sm text-blue-100 mb-3 sm:mb-6 leading-relaxed line-clamp-2 sm:line-clamp-none">
             Choose from your active notes scrolls, track daily habits, or run code runner files to level up your study adventure today.
           </p>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <Link href="/timer">
-              <button className="px-5 py-2.5 text-xs font-bold bg-slate-900 text-white rounded-xl shadow hover:bg-slate-800 transition-colors cursor-pointer">
-                Start Focus Session
+              <button className="px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs font-bold bg-slate-950 text-white rounded-xl shadow-lg hover:bg-slate-900 transition-all hover:scale-105 cursor-pointer flex items-center gap-1.5">
+                <span>⚡</span> Start Focus Session
               </button>
             </Link>
             <button
               onClick={() => { playClick(); setShowTreasureChest(true); }}
-              className={`px-5 py-2.5 text-xs font-bold rounded-xl shadow transition-all cursor-pointer flex items-center gap-2 ${
+              className={`px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs font-bold rounded-xl shadow transition-all cursor-pointer flex items-center gap-1.5 ${
                 chestAvailable
                   ? 'bg-amber-500 hover:bg-amber-600 text-white animate-pulse-scale'
-                  : 'bg-white/10 text-white/50 cursor-not-allowed border border-white/10'
+                  : 'bg-white/10 text-white/60 cursor-not-allowed border border-white/10'
               }`}
             >
               <span>{chestAvailable ? '🎁 Open Daily Chest!' : '📦 Chest Claimed'}</span>
-              {chestAvailable && <span className="text-[9px] bg-white text-amber-600 px-1.5 py-0.5 rounded-full font-black animate-pulse">NEW</span>}
+              {chestAvailable && <span className="text-[9px] bg-white text-amber-600 px-1.5 py-0.2 rounded-full font-black animate-pulse">NEW</span>}
             </button>
           </div>
         </div>
-        <div className="absolute right-2 bottom-2 md:right-8 md:bottom-4 animate-float w-16 h-16 md:w-24 md:h-24 flex items-center justify-center">
+
+        {/* Large Prominent Wizard Mascot */}
+        <div className="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 animate-float w-24 h-24 sm:w-32 sm:h-32 md:w-36 md:h-36 flex items-center justify-center pointer-events-none">
+          <div className="absolute inset-0 bg-white/10 rounded-full blur-xl scale-75" />
           <img
             src="/pixel_study_owl.png"
             alt="Wise Study Mascot"
-            className="w-full h-full object-contain"
+            className="w-full h-full object-contain relative z-10 filter drop-shadow-[0_8px_20px_rgba(0,0,0,0.4)]"
             style={{ imageRendering: 'pixelated' }}
           />
         </div>
@@ -1189,16 +1195,17 @@ export default function DashboardContent() {
       </div>
     ),
     'jukebox': (
-      <div className="modern-card p-4 bg-white dark:bg-[#111328] border border-slate-200 dark:border-slate-800 rounded-3xl text-left">
-        <div className="flex justify-between items-center mb-3">
-          <span className="text-xs font-bold text-slate-800 dark:text-white">Lofi Music Player</span>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full items-stretch">
+        <div className="modern-card p-4 bg-white dark:bg-[#111328] border border-slate-200 dark:border-slate-800 rounded-3xl text-left flex flex-col justify-between h-full">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-xs font-bold text-slate-800 dark:text-white">Lofi Music Player</span>
+          </div>
+          <MusicWidget />
         </div>
-        <MusicWidget />
+        <QuickScratchpad />
       </div>
     ),
-    'scratchpad': (
-      <QuickScratchpad />
-    )
+    'scratchpad': null
   }), [gamification, tasks, friends, incomingRequests, quests, newQuest, showNotifs, xpHistory, profile, todayTasks, completedToday, todayCompleted, todayTotal, streakMessage, isNightOwlTime, notes, timeOfDay, upcomingExams, chestAvailable, coins, searchQuery]);
 
   if (!mounted) {
@@ -1311,26 +1318,26 @@ export default function DashboardContent() {
         ) : dashboardMode === 'modern' ? (
           <div className="space-y-4 relative min-h-[85vh] select-none">
             {/* Top Toolbar: Greeting + Search + Customize Button */}
-            <div className="flex items-center justify-between flex-wrap gap-4 bg-[var(--card-bg)] border border-[var(--card-border)] p-4 rounded-3xl shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[var(--card-bg)] border border-[var(--card-border)] p-3 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm">
               <div>
-                <h1 className="text-xl md:text-2xl font-heading font-black text-slate-800 dark:text-white">
+                <h1 className="text-base sm:text-xl md:text-2xl font-heading font-black text-slate-800 dark:text-white leading-tight">
                   Hello, {profile?.displayName?.split(' ')[0] || 'Adventurer'}! 👋
                 </h1>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
                   Let's learn something new today!
                 </p>
               </div>
 
-              <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-between sm:justify-end">
                 {/* Search Bar */}
-                <div className="relative" ref={searchRef}>
-                  <HiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <div className="relative flex-1 sm:flex-initial" ref={searchRef}>
+                  <HiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
                   <input
                     type="text"
-                    placeholder="Search anything here..."
+                    placeholder="Search anything..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 pr-8 py-2 text-xs rounded-full bg-white dark:bg-[#111328] border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-blue-500 w-[140px] md:w-[170px] shadow-sm transition-colors text-slate-700 dark:text-slate-300 font-medium"
+                    className="pl-8 pr-7 py-1.5 text-xs rounded-full bg-white dark:bg-[#111328] border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-blue-500 w-full sm:w-[150px] md:w-[170px] shadow-sm transition-colors text-slate-700 dark:text-slate-300 font-medium"
                   />
                   {searchQuery && (
                     <button 
@@ -1632,36 +1639,38 @@ function QuickScratchpad() {
   };
 
   return (
-    <div className="p-4 bg-white dark:bg-[#111328] border border-slate-200 dark:border-slate-800 rounded-3xl text-left animate-modernFadeIn">
-      <div className="flex justify-between items-center mb-3">
-        <span className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-2">
-          <span>💡</span> Quick Scratchpad
-        </span>
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={handleCopy}
-            disabled={!text.trim()}
-            className="text-[9px] font-bold text-blue-650 dark:text-blue-400 hover:underline uppercase disabled:opacity-40 disabled:hover:no-underline"
-          >
-            Copy
-          </button>
-          <span className="text-slate-300 dark:text-slate-750 text-[9px] font-bold">|</span>
-          <button 
-            onClick={handleClear}
-            disabled={!text.trim()}
-            className="text-[9px] font-bold text-red-500 hover:underline uppercase disabled:opacity-40 disabled:hover:no-underline"
-          >
-            Clear
-          </button>
+    <div className="p-4 bg-white dark:bg-[#111328] border border-slate-200 dark:border-slate-800 rounded-3xl text-left flex flex-col justify-between h-full animate-modernFadeIn">
+      <div>
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-2">
+            <span>💡</span> Quick Scratchpad
+          </span>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleCopy}
+              disabled={!text.trim()}
+              className="text-[9px] font-bold text-blue-650 dark:text-blue-400 hover:underline uppercase disabled:opacity-40 disabled:hover:no-underline cursor-pointer"
+            >
+              Copy
+            </button>
+            <span className="text-slate-300 dark:text-slate-750 text-[9px] font-bold">|</span>
+            <button 
+              onClick={handleClear}
+              disabled={!text.trim()}
+              className="text-[9px] font-bold text-red-500 hover:underline uppercase disabled:opacity-40 disabled:hover:no-underline cursor-pointer"
+            >
+              Clear
+            </button>
+          </div>
         </div>
+        <textarea
+          value={text}
+          onChange={(e) => handleChange(e.target.value)}
+          placeholder="Type temporary thoughts, links, formulas, or code snippets here..."
+          className="w-full h-36 p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/50 text-[11px] font-medium text-slate-750 dark:text-slate-350 focus:outline-none focus:border-blue-500/30 resize-none font-mono placeholder:font-sans placeholder:italic transition-colors"
+        />
       </div>
-      <textarea
-        value={text}
-        onChange={(e) => handleChange(e.target.value)}
-        placeholder="Type temporary thoughts, links, formulas, or code snippets here..."
-        className="w-full h-28 p-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/50 text-[11px] font-medium text-slate-750 dark:text-slate-350 focus:outline-none focus:border-blue-500/30 resize-none font-mono placeholder:font-sans placeholder:italic transition-colors"
-      />
-      <div className="flex justify-between items-center mt-1 text-[8px] font-bold text-slate-400">
+      <div className="flex justify-between items-center mt-2 text-[8px] font-bold text-slate-400">
         <span>Auto-saving...</span>
         <span>{text.length} chars | {text.split(/\s+/).filter(Boolean).length} words</span>
       </div>

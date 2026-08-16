@@ -128,9 +128,9 @@ export default function StickyNotesOverlay() {
       <AnimatePresence>
         {showPanel && (
           <>
-            <motion.div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[90]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowPanel(false)} />
+            <motion.div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[1001]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowPanel(false)} />
             <motion.div
-              className="fixed right-0 top-0 bottom-0 w-full sm:w-80 bg-[var(--card-bg)] border-l-2 border-[var(--card-border)] z-[91] flex flex-col shadow-2xl"
+              className="fixed right-0 top-0 bottom-0 w-full sm:w-80 bg-[var(--card-bg)] border-l-2 border-[var(--card-border)] z-[1002] flex flex-col shadow-2xl"
               initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
               transition={{ type: 'spring', stiffness: 300, damping: 35 }}
             >
@@ -217,7 +217,7 @@ export default function StickyNotesOverlay() {
       </AnimatePresence>
 
       {/* FAB Buttons */}
-      <div className="fixed bottom-20 md:bottom-6 right-4 z-[80] flex flex-col gap-2 items-end">
+      <div className="fixed bottom-20 md:bottom-6 right-4 z-30 flex flex-col gap-2 items-end">
         {/* View all panel button */}
         {stickies.length > 0 && (
           <motion.button

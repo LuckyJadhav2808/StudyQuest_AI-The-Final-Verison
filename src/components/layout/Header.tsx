@@ -23,7 +23,7 @@ export default function Header() {
   };
 
   return (
-    <header className="h-16 bg-[var(--card-bg)]/80 backdrop-blur-lg border-b border-[var(--card-border)] flex items-center justify-between px-4 md:px-6 sticky top-0 z-30">
+    <header className="min-h-16 pt-[env(safe-area-inset-top,0px)] bg-[var(--card-bg)]/80 backdrop-blur-lg border-b border-[var(--card-border)] flex items-center justify-between px-4 md:px-6 sticky top-0 z-30">
       {/* Left — Page title area */}
       <div className="flex items-center gap-3">
         <motion.h1

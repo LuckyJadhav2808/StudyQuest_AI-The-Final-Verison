@@ -29,40 +29,68 @@ import {
   HiBeaker,
   HiShieldCheck,
   HiBookOpen,
+  HiHeart,
+  HiShoppingCart,
 } from 'react-icons/hi';
 
 const MOBILE_QUICK = [
   { label: 'Home', href: '/', icon: HiHome },
-  { label: 'Tasks', href: '/tasks', icon: HiClipboardCheck },
+  { label: 'DSA', href: '/dsa', icon: HiCubeTransparent },
   { label: 'Timer', href: '/timer', icon: HiClock },
   { label: 'Notes', href: '/notes', icon: HiPencilAlt },
 ];
 
-const ALL_NAV_ITEMS = [
-  { label: 'Dashboard', href: '/', icon: HiHome },
-  { label: 'Quest Log', href: '/tasks', icon: HiClipboardCheck },
-  { label: 'Notes & Scrolls', href: '/notes', icon: HiPencilAlt },
-  { label: 'Daily Quests', href: '/habits', icon: HiLightningBolt },
-  { label: 'Exam Countdown', href: '/exams', icon: HiAcademicCap },
-  { label: 'Focus Timer', href: '/timer', icon: HiClock },
-  { label: 'Timetable', href: '/timetable', icon: HiCalendar },
-  { label: 'Resources', href: '/resources', icon: HiCollection },
-  { label: 'Doc Reader', href: '/reader', icon: HiBookOpen },
-  { label: 'Whiteboard', href: '/whiteboard', icon: HiPencil },
-  { label: 'Questie Chat', href: '/chat', icon: HiChatAlt2 },
-  { label: 'Hall of Fame', href: '/analytics', icon: HiChartBar },
-  { label: 'Item Shop', href: '/shop', icon: HiCollection },
-  { label: 'Skill Tree', href: '/skills', icon: HiSparkles },
-  { label: 'Study Groups', href: '/groups', icon: HiUserGroup },
-  { label: 'SQL Lab', href: '/sql', icon: HiDatabase },
-  { label: 'Code Runner', href: '/code', icon: HiCode },
-  { label: 'Code Arena IDE', href: '/ide', icon: HiTerminal },
-  { label: 'DSA Dungeon', href: '/dsa', icon: HiCubeTransparent },
-  { label: 'Spell Book', href: '/snippets', icon: HiBookmark },
-  { label: 'Typing Arcade', href: '/arcade', icon: HiSparkles },
-  { label: 'Alchemy Lab', href: '/alchemy', icon: HiBeaker },
-  { label: 'Admin', href: '/admin', icon: HiShieldCheck },
-  { label: 'Settings', href: '/settings', icon: HiCog },
+const MOBILE_SECTIONS = [
+  {
+    title: '⚔️ Adventure & Quests',
+    items: [
+      { label: 'Dashboard', href: '/', icon: HiHome },
+      { label: 'Quest Log', href: '/tasks', icon: HiClipboardCheck },
+      { label: 'Daily Habits', href: '/habits', icon: HiLightningBolt },
+      { label: 'Exam Countdown', href: '/exams', icon: HiAcademicCap },
+    ],
+  },
+  {
+    title: '💻 Dev Forge Studio',
+    items: [
+      { label: 'DSA Dungeon', href: '/dsa', icon: HiCubeTransparent },
+      { label: 'SQL Lab', href: '/sql', icon: HiDatabase },
+      { label: 'Code Runner', href: '/code', icon: HiCode },
+      { label: 'Code Arena IDE', href: '/ide', icon: HiTerminal },
+      { label: 'Spell Book', href: '/snippets', icon: HiBookmark },
+      { label: 'Typing Arcade', href: '/arcade', icon: HiSparkles },
+    ],
+  },
+  {
+    title: '🧠 Study Sanctuary',
+    items: [
+      { label: 'Notes & Scrolls', href: '/notes', icon: HiPencilAlt },
+      { label: 'Focus Timer', href: '/timer', icon: HiClock },
+      { label: 'Timetable', href: '/timetable', icon: HiCalendar },
+      { label: 'Doc Reader', href: '/reader', icon: HiBookOpen },
+      { label: 'Whiteboard', href: '/whiteboard', icon: HiPencil },
+      { label: 'Questie AI Chat', href: '/chat', icon: HiChatAlt2 },
+      { label: 'Analytics Hub', href: '/analytics', icon: HiChartBar },
+      { label: 'Resources', href: '/resources', icon: HiCollection },
+    ],
+  },
+  {
+    title: '🐾 RPG Guild & Companions',
+    items: [
+      { label: 'My Pets', href: '/pets', icon: HiHeart },
+      { label: 'Item Shop', href: '/shop', icon: HiShoppingCart },
+      { label: 'Alchemy Lab', href: '/alchemy', icon: HiBeaker },
+      { label: 'Skill Tree', href: '/skills', icon: HiSparkles },
+      { label: 'Study Groups', href: '/groups', icon: HiUserGroup },
+    ],
+  },
+  {
+    title: '⚙️ Settings & System',
+    items: [
+      { label: 'Settings', href: '/settings', icon: HiCog },
+      { label: 'Admin Panel', href: '/admin', icon: HiShieldCheck },
+    ],
+  },
 ];
 
 export default function MobileNav() {
@@ -82,12 +110,12 @@ export default function MobileNav() {
           >
             {/* Backdrop */}
             <div
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/70 backdrop-blur-md"
               onClick={() => setMenuOpen(false)}
             />
             {/* Menu panel */}
             <motion.div
-              className="absolute bottom-0 left-0 right-0 bg-[var(--card-bg)] rounded-t-3xl border-t-2 border-[var(--card-border)] max-h-[80vh] overflow-y-auto"
+              className="absolute bottom-0 left-0 right-0 bg-[var(--card-bg)] rounded-t-3xl border-t-2 border-[var(--card-border)] max-h-[82vh] overflow-y-auto"
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
@@ -95,58 +123,71 @@ export default function MobileNav() {
             >
               {/* Handle bar */}
               <div className="flex justify-center pt-3 pb-1">
-                <div className="w-10 h-1 rounded-full bg-[var(--muted)]" />
+                <div className="w-12 h-1 rounded-full bg-[var(--muted)]/50" />
               </div>
 
               {/* Header */}
-              <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--card-border)]">
-                <h3 className="font-heading font-bold text-lg">All Sections</h3>
+              <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--card-border)] sticky top-0 bg-[var(--card-bg)]/95 backdrop-blur-sm z-10">
+                <div>
+                  <h3 className="font-heading font-bold text-base">StudyQuest Hubs</h3>
+                  <p className="text-[10px] text-[var(--muted-foreground)]">All tools & academies</p>
+                </div>
                 <button
                   onClick={() => setMenuOpen(false)}
-                  className="p-2 rounded-xl hover:bg-[var(--muted)]/20 transition-colors"
+                  className="p-2 rounded-xl hover:bg-[var(--muted)]/20 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                 >
                   <HiX size={20} />
                 </button>
               </div>
 
-              {/* Navigation grid */}
-              <div className="grid grid-cols-3 gap-2 p-4">
-                {ALL_NAV_ITEMS.map((item) => {
-                  const isActive = pathname === item.href;
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => setMenuOpen(false)}
-                      className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-2xl text-center transition-all ${
-                        isActive
-                          ? 'bg-gradient-to-br from-primary to-secondary text-white shadow-lg'
-                          : 'hover:bg-[var(--card-border)]/40'
-                      }`}
-                    >
-                      <Icon
-                        size={22}
-                        className={isActive ? 'text-white' : 'text-[var(--muted-foreground)]'}
-                      />
-                      <span
-                        className={`text-[10px] font-semibold leading-tight ${
-                          isActive ? 'text-white' : 'text-[var(--muted-foreground)]'
-                        }`}
-                      >
-                        {item.label}
-                      </span>
-                    </Link>
-                  );
-                })}
+              {/* Categorized Domain Sections */}
+              <div className="p-4 space-y-4 pb-12">
+                {MOBILE_SECTIONS.map((section) => (
+                  <div key={section.title} className="space-y-2">
+                    <p className="text-[10px] uppercase font-bold tracking-wider text-[var(--muted-foreground)] px-1">
+                      {section.title}
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {section.items.map((item) => {
+                        const isActive = pathname === item.href;
+                        const Icon = item.icon;
+
+                        return (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => setMenuOpen(false)}
+                            className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-2xl text-center transition-all ${
+                              isActive
+                                ? 'bg-gradient-to-br from-primary to-secondary text-white shadow-lg'
+                                : 'bg-[var(--card-border)]/20 hover:bg-[var(--card-border)]/50 border border-[var(--card-border)]/40'
+                            }`}
+                          >
+                            <Icon
+                              size={20}
+                              className={isActive ? 'text-white' : 'text-primary-light'}
+                            />
+                            <span
+                              className={`text-[10px] font-semibold leading-tight line-clamp-1 ${
+                                isActive ? 'text-white' : 'text-[var(--foreground)]'
+                              }`}
+                            >
+                              {item.label}
+                            </span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Bottom bar */}
-      <nav className="fixed bottom-0 left-0 right-0 md:hidden z-40 bg-[var(--card-bg)]/90 backdrop-blur-lg border-t border-[var(--card-border)]">
+      {/* Bottom bar with iOS safe-area support */}
+      <nav className="fixed bottom-0 left-0 right-0 md:hidden z-40 bg-[var(--card-bg)]/90 backdrop-blur-lg border-t border-[var(--card-border)] pb-[env(safe-area-inset-bottom,0px)]">
         <div className="flex items-center justify-around py-1.5 px-2">
           {MOBILE_QUICK.map((item) => {
             const isActive = pathname === item.href;

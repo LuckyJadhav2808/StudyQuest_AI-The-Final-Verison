@@ -15,9 +15,10 @@
  *  - stdin support for all languages
  */
 
-interface ExecutionResult {
+export interface ExecutionResult {
   stdout: string;
   stderr: string;
+  executionTimeMs?: number;
 }
 
 const EXECUTION_TIMEOUT = 10_000; // 10 seconds max
@@ -363,8 +364,27 @@ const LANG_CONFIG: Record<string, LangConfig> = {
 // ========================= Language-Specific Preprocessing =========================
 
 function preprocessCppCode(code: string, methodNameHint: string = ''): string {
-  // If the user already wrote a main function, do not wrap it
+  const standardHeaders = `#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <unordered_map>
+#include <unordered_set>
+#include <queue>
+#include <stack>
+#include <list>
+#include <numeric>
+#include <map>
+#include <set>
+
+using namespace std;
+`;
+
+  // If the user already wrote a main function, ensure headers exist and return
   if (code.includes('int main') || code.includes('void main')) {
+    if (!code.includes('#include')) {
+      return `${standardHeaders}\n${code}`;
+    }
     return code;
   }
 
@@ -373,13 +393,16 @@ function preprocessCppCode(code: string, methodNameHint: string = ''): string {
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\/\/.*$/gm, '');
 
+  let workingCode = code;
   // Extract the contents of class Solution (make closing }; optional)
-  const classMatch = cleanCode.match(/class\s+Solution\s*\{([\s\S]*)/);
+  let classMatch = cleanCode.match(/class\s+Solution\s*\{([\s\S]*)/);
   if (!classMatch) {
-    return code; // If no class Solution matches, return unmodified
+    // If user wrote a standalone function without class Solution, wrap it automatically
+    workingCode = `class Solution {\npublic:\n${code}\n};`;
+    classMatch = workingCode.match(/class\s+Solution\s*\{([\s\S]*)/);
   }
 
-  const classBody = classMatch[1];
+  const classBody = classMatch ? classMatch[1] : '';
   let targetMethod = null;
 
   // If methodNameHint is specified, look for it specifically
@@ -416,7 +439,7 @@ function preprocessCppCode(code: string, methodNameHint: string = ''): string {
   }
 
   if (!targetMethod) {
-    return code; // If no target method matches, return unmodified
+    return `${standardHeaders}\n${workingCode}\n\nint main() {\n    return 0;\n}`;
   }
 
   const { methodName, paramStr } = targetMethod;
@@ -449,7 +472,7 @@ function preprocessCppCode(code: string, methodNameHint: string = ''): string {
 using namespace std;
 
 // --- Original User Solution ---
-${code}
+${workingCode}
 // -----------------------------
 
 // --- Helper Parsers ---
@@ -563,25 +586,30 @@ int main() {
   parsedParams.forEach(p => {
     // Determine default fallback string for empty stdin
     let defaultValue = '""';
+    const methodLower = methodName.toLowerCase();
     if (p.type === 'vector<int>') {
-      if (methodName === 'fourSum') defaultValue = '"[1,0,-1,0,-2,2]"';
-      else if (methodName === 'twoSum') defaultValue = '"[2,7,11,15]"';
-      else if (methodName === 'mergeSorted') defaultValue = '"[1,3,5]"';
-      else if (methodName === 'binarySearch' || methodName === 'search') defaultValue = '"[-1,0,3,5,9,12]"';
-      else defaultValue = '"[]"';
+      if (methodLower.includes('foursum')) defaultValue = '"[1,0,-1,0,-2,2]"';
+      else if (methodLower.includes('threesum')) defaultValue = '"[-1,0,1,2,-1,-4]"';
+      else if (methodLower.includes('stone')) defaultValue = '"[2,1]"';
+      else if (methodLower.includes('mergesorted')) defaultValue = '"[1,3,5]"';
+      else if (methodLower.includes('search')) defaultValue = '"[-1,0,3,5,9,12]"';
+      else defaultValue = '"[2,7,11,15]"';
     } else if (p.type === 'vector<vector<int>>') {
-      defaultValue = '"[[]]"';
+      defaultValue = '"[[1,2,3],[4,5,6],[7,8,9]]"';
     } else if (p.type === 'int') {
-      if (methodName === 'fourSum') defaultValue = '"0"';
-      else if (methodName === 'twoSum') defaultValue = '"9"';
-      else if (methodName === 'search' || methodName === 'binarySearch') defaultValue = '"9"';
-      else defaultValue = '"0"';
-    } else if (p.type === 'double' || p.type === 'float') {
+      if (methodLower.includes('foursum')) defaultValue = '"0"';
+      else if (methodLower.includes('threesum')) defaultValue = '"0"';
+      else if (methodLower.includes('stone')) defaultValue = '"3"';
+      else if (methodLower.includes('search')) defaultValue = '"9"';
+      else defaultValue = '"9"';
+    } else if (p.type === 'long long') {
+      defaultValue = '"0"';
+    } else if (p.type === 'double') {
       defaultValue = '"0.0"';
     } else if (p.type === 'string') {
-      if (methodName === 'isValid') defaultValue = '"()[]{}"';
-      else if (methodName === 'lengthOfLongestSubstring') defaultValue = '"abcabcbb"';
-      else defaultValue = '""';
+      if (methodLower.includes('valid')) defaultValue = '"()[]{}"';
+      else if (methodLower.includes('longest')) defaultValue = '"abcabcbb"';
+      else defaultValue = '"hello"';
     } else if (p.type === 'char') {
       defaultValue = '"a"';
     } else if (p.type === 'bool') {
@@ -692,6 +720,7 @@ async function executeRemote(code: string, language: string, stdin: string): Pro
  * @param stdin    - Optional standard input (for Scanner, input(), cin, etc.)
  */
 export async function executeCode(code: string, language: string, stdin: string = '', methodNameHint: string = ''): Promise<ExecutionResult> {
+  const startTime = performance.now();
   let finalStdin = stdin;
   if (!finalStdin.trim() && methodNameHint) {
     const defaults: Record<string, string> = {
@@ -706,16 +735,31 @@ export async function executeCode(code: string, language: string, stdin: string 
     finalStdin = defaults[methodNameHint] || '';
   }
 
-  if (language === 'javascript') return executeJavaScript(code, finalStdin);
-  if (language === 'typescript') return executeTypeScript(code, finalStdin);
+  let result: ExecutionResult;
 
-  const processedCode = preprocessCode(code, language, methodNameHint);
+  if (language === 'javascript') {
+    result = await executeJavaScript(code, finalStdin);
+  } else if (language === 'typescript') {
+    result = await executeTypeScript(code, finalStdin);
+  } else {
+    const processedCode = preprocessCode(code, language, methodNameHint);
 
-  // Python: try Pyodide (in-browser) first, then fall through to remote
-  if (language === 'python') {
-    const result = await tryPyodide(processedCode, finalStdin);
-    if (result) return result;
+    // Python: try Pyodide (in-browser) first, then fall through to remote
+    if (language === 'python') {
+      const pyRes = await tryPyodide(processedCode, finalStdin);
+      if (pyRes) {
+        result = pyRes;
+      } else {
+        result = await executeRemote(processedCode, language, finalStdin);
+      }
+    } else {
+      result = await executeRemote(processedCode, language, finalStdin);
+    }
   }
 
-  return executeRemote(processedCode, language, finalStdin);
+  const elapsedMs = Math.round(performance.now() - startTime);
+  return {
+    ...result,
+    executionTimeMs: elapsedMs,
+  };
 }

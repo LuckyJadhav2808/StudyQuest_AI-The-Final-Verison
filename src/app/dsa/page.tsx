@@ -1,503 +1,435 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { HiCheck, HiChevronRight, HiLightningBolt, HiPlay, HiBookmark, HiEye, HiCode, HiTrash, HiFire } from 'react-icons/hi';
+import React, { useState, useMemo, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  HiSearch,
+  HiFilter,
+  HiCheckCircle,
+  HiStar,
+  HiCode,
+  HiViewGrid,
+  HiViewList,
+  HiSparkles,
+  HiX,
+} from 'react-icons/hi';
 import toast from 'react-hot-toast';
-import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
 import PageTransition from '@/components/layout/PageTransition';
-import CodeEditor from '@/components/ui/CodeEditor';
-import { useAuthContext } from '@/context/AuthContext';
-import { useGamification } from '@/hooks/useGamification';
-import { doc, setDoc } from 'firebase/firestore';
-import { db as fireDb } from '@/lib/firebase';
-import { executeCode } from '@/lib/codeRunner';
-import { XP_AWARDS } from '@/lib/constants';
-import { getGamificationRef, updateDocument } from '@/lib/firestore';
-import confetti from 'canvas-confetti';
-import { getLocalDateString, getLocalYesterdayDateString } from '@/lib/dateUtils';
+import Card from '@/components/ui/Card';
+import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
+import DsaHeaderStats from '@/components/dsa/DsaHeaderStats';
+import DsaAnalyticsSection from '@/components/dsa/DsaAnalyticsSection';
+import DsaRoadmapView from '@/components/dsa/DsaRoadmapView';
+import DsaProblemDetailModal from '@/components/dsa/DsaProblemDetailModal';
+import DsaAiAssistantModal from '@/components/dsa/DsaAiAssistantModal';
+import { useDsaTracker } from '@/hooks/useDsaTracker';
+import { DsaProblem, DsaDifficulty, ProblemStatus } from '@/types/dsa';
+import { spawnXPFromEvent } from '@/components/gamification/FloatingXP';
+import { playSuccess } from '@/lib/sounds';
 
-const PROBLEMS = [
-  { 
-    id: 'two-sum', 
-    title: 'Two Sum', 
-    difficulty: 'easy' as const, 
-    category: 'Arrays', 
-    desc: 'Return indices of two numbers that add up to target.', 
-    methodName: 'twoSum',
-    templates: {
-      javascript: 'function twoSum(nums, target) {\n  // Your solution\n  \n}\nconsole.log(twoSum([2,7,11,15], 9));',
-      python: 'def twoSum(nums, target):\n    # Your solution\n    pass\n\nprint(twoSum([2, 7, 11, 15], 9))',
-      java: 'import java.util.Arrays;\n\nclass Solution {\n    public static int[] twoSum(int[] nums, int target) {\n        // Your solution\n        return new int[0];\n    }\n\n    public static void main(String[] args) {\n        int[] result = twoSum(new int[]{2, 7, 11, 15}, 9);\n        System.out.println(Arrays.toString(result));\n    }\n}',
-      cpp: '#include <iostream>\n#include <vector>\n\nstd::vector<int> twoSum(const std::vector<int>& nums, int target) {\n    // Your solution\n    return {};\n}\n\nint main() {\n    std::vector<int> result = twoSum({2, 7, 11, 15}, 9);\n    std::cout << "[";\n    for (size_t i = 0; i < result.size(); ++i) {\n        std::cout << result[i] << (i < result.size() - 1 ? ", " : "");\n    }\n    std::cout << "]" << std::endl;\n    return 0;\n}',
-    }
-  },
-  { 
-    id: 'reverse-string', 
-    title: 'Reverse String', 
-    difficulty: 'easy' as const, 
-    category: 'Strings', 
-    desc: 'Reverse an array of characters in-place.', 
-    methodName: 'reverseString',
-    templates: {
-      javascript: 'function reverseString(s) {\n  // Your solution\n  return s.reverse();\n}\nconsole.log(reverseString(["h","e","l","l","o"]));',
-      python: 'def reverseString(s):\n    # Your solution\n    return s[::-1]\n\nprint(reverseString(["h", "e", "l", "l", "o"]))',
-      java: 'import java.util.Arrays;\n\nclass Solution {\n    public static void reverseString(char[] s) {\n        int left = 0, right = s.length - 1;\n        while (left < right) {\n            char temp = s[left];\n            s[left] = s[right];\n            s[right] = temp;\n            left++;\n            right--;\n        }\n    }\n\n    public static void main(String[] args) {\n        char[] s = {\'h\', \'e\', \'l\', \'l\', \'o\'};\n        reverseString(s);\n        System.out.println(Arrays.toString(s));\n    }\n}',
-      cpp: '#include <iostream>\n#include <vector>\n#include <algorithm>\n\nvoid reverseString(std::vector<char>& s) {\n    std::reverse(s.begin(), s.end());\n}\n\nint main() {\n    std::vector<char> s = {\'h\', \'e\', \'l\', \'l\', \'o\'};\n    reverseString(s);\n    std::cout << "[";\n    for (size_t i = 0; i < s.size(); ++i) {\n        std::cout << "\'" << s[i] << "\'" << (i < s.size() - 1 ? ", " : "");\n    }\n    std::cout << "]" << std::endl;\n    return 0;\n}',
-    }
-  },
-  { 
-    id: 'valid-parens', 
-    title: 'Valid Parentheses', 
-    difficulty: 'easy' as const, 
-    category: 'Stacks', 
-    desc: 'Determine if string of brackets is valid.', 
-    methodName: 'isValid',
-    templates: {
-      javascript: 'function isValid(s) {\n  // Your solution\n  \n}\nconsole.log(isValid("()[]{}"));',
-      python: 'def isValid(s):\n    # Your solution\n    pass\n\nprint(isValid("()[]{}"))',
-      java: 'import java.util.Stack;\n\nclass Solution {\n    public static boolean isValid(String s) {\n        // Your solution\n        return false;\n    }\n\n    public static void main(String[] args) {\n        System.out.println(isValid("()[]{}"));\n    }\n}',
-      cpp: '#include <iostream>\n#include <string>\n#include <stack>\n\nbool isValid(std::string s) {\n    // Your solution\n    return false;\n}\n\nint main() {\n    std::cout << (isValid("()[]{}") ? "true" : "false") << std::endl;\n    return 0;\n}',
-    }
-  },
-  { 
-    id: 'binary-search', 
-    title: 'Binary Search', 
-    difficulty: 'easy' as const, 
-    category: 'Searching', 
-    desc: 'Find target in sorted array, return index or -1.', 
-    methodName: 'search',
-    templates: {
-      javascript: 'function search(nums, target) {\n  // Your solution\n  \n}\nconsole.log(search([-1,0,3,5,9,12], 9));',
-      python: 'def search(nums, target):\n    # Your solution\n    pass\n\nprint(search([-1, 0, 3, 5, 9, 12], 9))',
-      java: 'class Solution {\n    public static int search(int[] nums, int target) {\n        // Your solution\n        return -1;\n    }\n\n    public static void main(String[] args) {\n        System.out.println(search(new int[]{-1, 0, 3, 5, 9, 12}, 9));\n    }\n}',
-      cpp: '#include <iostream>\n#include <vector>\n\nint search(const std::vector<int>& nums, int target) {\n    // Your solution\n    return -1;\n}\n\nint main() {\n    std::cout << search({-1, 0, 3, 5, 9, 12}, 9) << std::endl;\n    return 0;\n}',
-    }
-  },
-  { 
-    id: 'longest-sub', 
-    title: 'Longest Substring Without Repeating', 
-    difficulty: 'medium' as const, 
-    category: 'Sliding Window', 
-    desc: 'Find length of longest substring without repeating chars.', 
-    methodName: 'lengthOfLongestSubstring',
-    templates: {
-      javascript: 'function lengthOfLongestSubstring(s) {\n  // Your solution\n  \n}\nconsole.log(lengthOfLongestSubstring("abcabcbb"));',
-      python: 'def lengthOfLongestSubstring(s):\n    # Your solution\n    pass\n\nprint(lengthOfLongestSubstring("abcabcbb"))',
-      java: 'import java.util.HashSet;\n\nclass Solution {\n    public static int lengthOfLongestSubstring(String s) {\n        // Your solution\n        return 0;\n    }\n\n    public static void main(String[] args) {\n        System.out.println(lengthOfLongestSubstring("abcabcbb"));\n    }\n}',
-      cpp: '#include <iostream>\n#include <string>\n#include <unordered_set>\n#include <algorithm>\n\nint lengthOfLongestSubstring(std::string s) {\n    // Your solution\n    return 0;\n}\n\nint main() {\n    std::cout << lengthOfLongestSubstring("abcabcbb") << std::endl;\n    return 0;\n}',
-    }
-  },
-  { 
-    id: 'merge-lists', 
-    title: 'Merge Sorted Arrays', 
-    difficulty: 'easy' as const, 
-    category: 'Arrays', 
-    desc: 'Merge two sorted arrays into one sorted array.', 
-    methodName: 'mergeSorted',
-    templates: {
-      javascript: 'function mergeSorted(a, b) {\n  // Your solution\n  \n}\nconsole.log(mergeSorted([1,3,5], [2,4,6]));',
-      python: 'def mergeSorted(a, b):\n    # Your solution\n    pass\n\nprint(mergeSorted([1, 3, 5], [2, 4, 6]))',
-      java: 'import java.util.Arrays;\n\nclass Solution {\n    public static int[] mergeSorted(int[] a, int[] b) {\n        // Your solution\n        return new int[0];\n    }\n\n    public static void main(String[] args) {\n        int[] result = mergeSorted(new int[]{1, 3, 5}, new int[]{2, 4, 6});\n        System.out.println(Arrays.toString(result));\n    }\n}',
-      cpp: '#include <iostream>\n#include <vector>\n\nstd::vector<int> mergeSorted(const std::vector<int>& a, const std::vector<int>& b) {\n    // Your solution\n    return {};\n}\n\nint main() {\n    std::vector<int> result = mergeSorted({1, 3, 5}, {2, 4, 6});\n    std::cout << "[";\n    for (size_t i = 0; i < result.size(); ++i) {\n        std::cout << result[i] << (i < result.size() - 1 ? ", " : "");\n    }\n    std::cout << "]" << std::endl;\n    return 0;\n}',
-    }
-  },
-];
-
-const DC = { easy: 'teal', medium: 'amber', hard: 'coral' } as const;
-
-// Deterministic daily challenge picker based on the current date
-function getDailyChallengeIndex(): number {
-  const today = getLocalDateString(); // YYYY-MM-DD
-  let hash = 0;
-  for (let i = 0; i < today.length; i++) {
-    hash = ((hash << 5) - hash) + today.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash) % PROBLEMS.length;
-}
-
-const LANGS = [
-  { id: 'javascript' as const, label: 'JavaScript', version: '18.15.0' },
-  { id: 'python' as const, label: 'Python', version: '3.10.0' },
-  { id: 'java' as const, label: 'Java', version: '15.0.2' },
-  { id: 'cpp' as const, label: 'C++', version: '10.2.0' },
-] as const;
-
-// DS Visualizer component
-function DSVisualizer({ code }: { code: string }) {
-  // Try to extract arrays, linked lists, trees from code
-  const arrays: number[][] = [];
-  const regex = /\[([0-9,\s-]+)\]/g;
-  let match;
-  while ((match = regex.exec(code)) !== null) {
-    const nums = match[1].split(',').map((n) => Number(n.trim())).filter((n) => !isNaN(n));
-    if (nums.length > 0 && nums.length <= 20) arrays.push(nums);
-  }
-
-  if (arrays.length === 0) return null;
-
+export default function DsaPage() {
   return (
-    <Card padding="md" hover={false}>
-      <h3 className="text-xs font-heading font-bold mb-3 flex items-center gap-2">
-        <HiEye className="text-primary" size={14} /> Data Structure Visualizer
-      </h3>
-      <div className="space-y-4">
-        {arrays.slice(0, 3).map((arr, ai) => (
-          <div key={ai}>
-            <p className="text-[9px] uppercase tracking-wider font-bold text-[var(--muted-foreground)] mb-1.5">Array {ai + 1}</p>
-            <div className="flex gap-0.5 overflow-x-auto pb-1">
-              {arr.map((val, vi) => (
-                <motion.div
-                  key={vi}
-                  className="flex flex-col items-center"
-                  initial={{ scale: 0, y: 10 }}
-                  animate={{ scale: 1, y: 0 }}
-                  transition={{ delay: vi * 0.05 }}
-                >
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/20 border-2 border-primary/30 flex items-center justify-center text-xs font-heading font-bold">{val}</div>
-                  <span className="text-[8px] text-[var(--muted-foreground)] mt-0.5 font-mono">[{vi}]</span>
-                </motion.div>
-              ))}
-            </div>
-            {/* Linked list view */}
-            <p className="text-[9px] uppercase tracking-wider font-bold text-[var(--muted-foreground)] mt-3 mb-1.5">As Linked List</p>
-            <div className="flex items-center gap-0 overflow-x-auto pb-1">
-              {arr.map((val, vi) => (
-                <React.Fragment key={vi}>
-                  <motion.div
-                    className="flex-shrink-0 w-12 h-8 rounded-lg bg-teal/15 border-2 border-teal/30 flex items-center justify-center text-xs font-bold"
-                    initial={{ x: -10, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    transition={{ delay: vi * 0.08 }}
-                  >{val}</motion.div>
-                  {vi < arr.length - 1 && <span className="text-teal text-xs mx-0.5">→</span>}
-                </React.Fragment>
-              ))}
-              <span className="text-[var(--muted-foreground)] text-xs ml-1">null</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </Card>
+    <Suspense fallback={<div className="p-8 text-center text-slate-400">Loading DSA Dungeon...</div>}>
+      <DsaPageContent />
+    </Suspense>
   );
 }
 
-export default function DsaPage() {
-  const { user } = useAuthContext();
-  const { awardXP, gamification } = useGamification();
-  const [sel, setSel] = useState<typeof PROBLEMS[0] | null>(null);
-  const [code, setCode] = useState('');
-  const [lang, setLang] = useState<'javascript' | 'python' | 'java' | 'cpp'>('javascript');
-  const [output, setOutput] = useState('');
-  const [running, setRunning] = useState(false);
-  const [solved, setSolved] = useState<Set<string>>(new Set());
-  const [mode, setMode] = useState<'challenges' | 'free'>('challenges');
-  const [freeCode, setFreeCode] = useState('// Write any DSA code here\n// Use console.log() to see output\n\nfunction bubbleSort(arr) {\n  const n = arr.length;\n  for (let i = 0; i < n; i++) {\n    for (let j = 0; j < n - i - 1; j++) {\n      if (arr[j] > arr[j + 1]) {\n        [arr[j], arr[j + 1]] = [arr[j + 1], arr[j]];\n      }\n    }\n  }\n  return arr;\n}\n\nconsole.log(bubbleSort([64, 34, 25, 12, 22, 11, 90]));');
-  const [freeOutput, setFreeOutput] = useState('');
-  const [freeLang, setFreeLang] = useState('javascript');
-  const [stdin, setStdin] = useState('');
-  const [freeStdin, setFreeStdin] = useState('');
-  const [showStdin, setShowStdin] = useState(false);
-  const [showFreeStdin, setShowFreeStdin] = useState(false);
+function DsaPageContent() {
+  const searchParams = useSearchParams();
+  const problemParam = searchParams ? searchParams.get('problem') : null;
 
-  const runCode = async () => {
-    if (!code.trim()) return;
-    setRunning(true);
-    setOutput('⏳ Running...');
-    try {
-      const result = await executeCode(code, lang, stdin, sel?.methodName || '');
-      const out = (result.stdout || '') + (result.stderr ? '\n' + result.stderr : '');
-      setOutput(out.trim() || '(no output)');
-      if (result.stderr) toast.error('Execution had errors');
-      else toast.success('Code executed! ⚡');
-    } catch { setOutput('❌ Failed to execute'); toast.error('Execution failed'); }
-    finally { setRunning(false); }
-  };
+  const {
+    allProblems,
+    curatedRoadmapProblems,
+    userProgress,
+    loading,
+    stats,
+    setProblemStatus,
+    saveUserCode,
+    toggleStar,
+    saveNotes,
+  } = useDsaTracker();
 
-  const runFreeCode = async () => {
-    if (!freeCode.trim()) return;
-    setRunning(true);
-    setFreeOutput('⏳ Running...');
-    try {
-      const result = await executeCode(freeCode, freeLang, freeStdin);
-      const out = (result.stdout || '') + (result.stderr ? '\n' + result.stderr : '');
-      setFreeOutput(out.trim() || '(no output)');
-      if (result.stderr) toast.error('Execution had errors');
-      else toast.success('Code executed! ⚡');
-    } catch { setFreeOutput('❌ Failed to execute'); toast.error('Execution failed'); }
-    finally { setRunning(false); }
-  };
+  // Search & Filter States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedTopic, setSelectedTopic] = useState<string>('all');
+  const [viewLayout, setViewLayout] = useState<'roadmap' | 'grid'>('roadmap');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 24;
 
-  const saveToSpellBook = async () => {
-    if (!user || !code.trim() || !sel) return;
-    const id = crypto.randomUUID();
-    await setDoc(doc(fireDb, 'users', user.uid, 'snippets', id), {
-      id, title: `DSA: ${sel.title}`, language: lang, code, tags: ['dsa', sel.category.toLowerCase()], createdAt: Date.now(),
-    });
-    toast.success('Saved to Spell Book! 📜');
-  };
+  // Modals state
+  const [activeProblem, setActiveProblem] = useState<DsaProblem | null>(null);
+  const [aiModalProblem, setAiModalProblem] = useState<DsaProblem | null>(null);
 
-  // Daily challenge logic
-  const dailyChallengeIdx = useMemo(() => getDailyChallengeIndex(), []);
-  const dailyProblem = PROBLEMS[dailyChallengeIdx];
-  const today = getLocalDateString();
-  const isDailyCompleted = gamification?.lastDailyChallengeDate === today;
-  const dailyStreak = gamification?.dailyChallengeStreak || 0;
-
-  const handleSolveProblem = async (problemId: string) => {
-    const isDaily = problemId === dailyProblem.id && !isDailyCompleted;
-    setSolved((p) => new Set(p).add(problemId));
-
-    if (isDaily && user && gamification) {
-      // Award 3x XP for daily challenge
-      const xpAmount = XP_AWARDS.TASK_COMPLETE * XP_AWARDS.DAILY_CHALLENGE_MULTIPLIER;
-      await awardXP(xpAmount, 'Daily Code Challenge completed!');
-
-      // Update daily challenge streak. If lastDailyChallengeDate is empty (first time user),
-      // or if the user missed a day, the streak resets to 1. Otherwise it increments by 1.
-      const yesterday = getLocalYesterdayDateString();
-      const newStreak = gamification.lastDailyChallengeDate === yesterday
-        ? (gamification.dailyChallengeStreak || 0) + 1
-        : 1;
-
-      const ref = getGamificationRef(user.uid);
-      await updateDocument(ref, {
-        dailyChallengeStreak: newStreak,
-        lastDailyChallengeDate: today,
-      });
-
-      confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
-      toast.success(`🔥 Daily Challenge Complete! +${xpAmount} XP (3x bonus!)`);
-    } else {
-      toast.success('Problem marked solved! 🏆');
+  // Auto-open problem if specified in URL query
+  useEffect(() => {
+    if (problemParam && allProblems.length > 0) {
+      const target = allProblems.find((p) => p.id === problemParam || String(p.leetcodeId) === problemParam);
+      if (target) {
+        setActiveProblem(target);
+      }
     }
-    setSel(null);
+  }, [problemParam, allProblems]);
+
+  // Pick dataset source: All 2,360+ categorized LeetCode problems
+  const datasetSource = useMemo(() => {
+    return allProblems;
+  }, [allProblems]);
+
+  // Filtered Problems Calculation
+  const filteredProblems = useMemo(() => {
+    return datasetSource.filter((problem) => {
+      // 1. Search Query (Title, ID, or Pattern)
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchesTitle = problem.title.toLowerCase().includes(q);
+        const matchesId = problem.leetcodeId ? String(problem.leetcodeId) === q : false;
+        const matchesPattern = problem.pattern.toLowerCase().includes(q);
+        const matchesCategory = problem.category.toLowerCase().includes(q);
+        if (!matchesTitle && !matchesId && !matchesPattern && !matchesCategory) {
+          return false;
+        }
+      }
+
+      // 2. Difficulty Filter
+      if (selectedDifficulty !== 'all' && problem.difficulty !== selectedDifficulty) {
+        return false;
+      }
+
+      // 3. Status Filter (Solved / Unsolved / Starred)
+      if (selectedStatus !== 'all') {
+        const userStatus = userProgress[problem.id]?.status || 'unsolved';
+        const isStarred = userProgress[problem.id]?.starred || false;
+        if (selectedStatus === 'solved' && userStatus !== 'solved') return false;
+        if (selectedStatus === 'unsolved' && userStatus !== 'unsolved') return false;
+        if (selectedStatus === 'starred' && !isStarred) return false;
+      }
+
+      // 4. Topic Filter
+      if (selectedTopic !== 'all' && problem.category !== selectedTopic) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [datasetSource, searchQuery, selectedDifficulty, selectedStatus, selectedTopic, userProgress]);
+
+  // Reset to page 1 on filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedDifficulty, selectedStatus, selectedTopic, viewLayout]);
+
+  // Pagination slice for Grid view
+  const totalPages = Math.ceil(filteredProblems.length / itemsPerPage) || 1;
+  const paginatedProblems = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredProblems.slice(start, start + itemsPerPage);
+  }, [filteredProblems, currentPage, itemsPerPage]);
+
+  const hasActiveFilters = searchQuery.trim() !== '' || selectedDifficulty !== 'all' || selectedStatus !== 'all' || selectedTopic !== 'all';
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setSelectedDifficulty('all');
+    setSelectedStatus('all');
+    setSelectedTopic('all');
+    setCurrentPage(1);
+  };
+
+  const handleToggleSolved = (problemId: string, event?: React.MouseEvent) => {
+    const currentStatus = userProgress[problemId]?.status;
+    const nextStatus: ProblemStatus = currentStatus === 'solved' ? 'unsolved' : 'solved';
+    setProblemStatus(problemId, nextStatus);
+    if (nextStatus === 'solved') {
+      spawnXPFromEvent(25, event);
+      playSuccess();
+      toast.success('🎉 Problem marked as Solved! +25 XP');
+    } else {
+      toast('Problem marked as Unsolved.', { icon: '⭕' });
+    }
   };
 
   return (
     <PageTransition>
-      <div className="max-w-6xl mx-auto space-y-4">
-        <div>
-          <h1 className="text-2xl font-heading font-black">DSA Dungeon</h1>
-          <p className="text-sm text-[var(--muted-foreground)]">Practice data structures & algorithms. Defeat each problem to earn XP!</p>
-        </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* Header Stats Dashboard */}
+        <DsaHeaderStats
+          stats={stats}
+          onSelectProblem={(p) => setActiveProblem(p)}
+        />
 
-        {/* Mode Tabs */}
-        <div className="flex gap-2">
-          <button onClick={() => setMode('challenges')} className={`flex-1 py-2.5 rounded-xl border-2 text-xs font-bold uppercase tracking-wider transition-all ${mode === 'challenges' ? 'bg-primary text-white border-primary shadow-[0_3px_0_rgba(88,28,135,0.3)]' : 'border-[var(--card-border)] hover:border-primary/30'}`}>⚔️ Challenges</button>
-          <button onClick={() => setMode('free')} className={`flex-1 py-2.5 rounded-xl border-2 text-xs font-bold uppercase tracking-wider transition-all ${mode === 'free' ? 'bg-primary text-white border-primary shadow-[0_3px_0_rgba(88,28,135,0.3)]' : 'border-[var(--card-border)] hover:border-primary/30'}`}>🖊️ Free Code</button>
-        </div>
+        {/* Pattern & Performance Analytics Sub-Section */}
+        <DsaAnalyticsSection stats={stats} />
 
-        {mode === 'free' ? (
-          /* ===== FREE CODE MODE ===== */
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex gap-1.5">
-                {LANGS.map((l) => (
-                  <button key={l.id} onClick={() => setFreeLang(l.id)} className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase border-2 transition-all ${freeLang === l.id ? 'bg-primary text-white border-primary' : 'border-[var(--card-border)] hover:border-primary/30'}`}>{l.label}</button>
-                ))}
-              </div>
-              <div className="flex gap-1.5">
-                <Button variant="ghost" size="sm" icon={<HiTrash size={14} />} onClick={() => setFreeCode('')}>Clear</Button>
-                <Button variant="primary" size="sm" icon={<HiPlay size={14} />} onClick={runFreeCode} loading={running}>{running ? '...' : 'Run'}</Button>
-              </div>
+        {/* Search & Filter Toolbar */}
+        <div className="bg-[var(--card-bg)] border border-[var(--card-border)] p-4 rounded-2xl space-y-4 shadow-sm">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+            {/* Search Input with 1-Click Clear */}
+            <div className="relative flex-1">
+              <HiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] text-base" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search any question by name, # (e.g. 51), topic, or pattern..."
+                className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-surface-hover border border-[var(--card-border)] text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--muted-foreground)] hover:text-[var(--foreground)] rounded-full hover:bg-[var(--card-bg)] transition-colors cursor-pointer"
+                  title="Clear search text"
+                >
+                  <HiX className="text-sm" />
+                </button>
+              )}
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <Card padding="none" hover={false}>
-                  <div className="px-4 py-2 border-b-2 border-[var(--card-border)]">
-                    <div className="flex items-center gap-2"><HiCode className="text-primary" size={14} /><span className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Free Code Editor</span></div>
-                  </div>
-                  <CodeEditor
-                    value={freeCode}
-                    onChange={setFreeCode}
-                    onRun={runFreeCode}
-                    language={freeLang}
-                    minHeight="350px"
-                  />
-                  {/* Stdin for Free Code */}
-                  <div className="border-t-2 border-[var(--card-border)]">
-                    <button onClick={() => setShowFreeStdin(!showFreeStdin)} className="w-full flex items-center justify-between px-4 py-1.5 text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
-                      <span>📥 Input (stdin){freeStdin.trim() ? ` — ${freeStdin.split('\n').length} line(s)` : ''}</span>
-                      <span>{showFreeStdin ? '▲' : '▼'}</span>
-                    </button>
-                    {showFreeStdin && (
-                      <textarea value={freeStdin} onChange={(e) => setFreeStdin(e.target.value)} placeholder={'Enter input here (one value per line)'} className="w-full h-20 px-4 py-2 bg-[var(--background)] text-sm border-t border-[var(--card-border)] resize-none focus:outline-none" style={{ fontFamily: 'var(--font-mono)' }} />
-                    )}
-                  </div>
-                </Card>
-                <DSVisualizer code={freeCode} />
-              </div>
-              <Card padding="none" hover={false}>
-                <div className="px-4 py-2 border-b-2 border-[var(--card-border)]"><span className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Output</span></div>
-                <div className="p-4 text-sm min-h-[350px]" style={{ fontFamily: 'var(--font-mono)' }}>
-                  {!freeOutput ? (
-                    <span className="text-[var(--muted-foreground)]">Write any code and press Ctrl+Enter to run...</span>
-                  ) : (
-                    <pre className="whitespace-pre-wrap">{freeOutput.split('\n').map((line, i) => (
-                      <div key={i} className="flex gap-2"><span className="select-none text-[var(--muted-foreground)] opacity-40 w-6 text-right flex-shrink-0">{i + 1}</span><span>{line}</span></div>
-                    ))}</pre>
-                  )}
-                </div>
-              </Card>
+
+            {/* Layout Switcher */}
+            <div className="inline-flex p-1 bg-surface-hover rounded-xl border border-[var(--card-border)] w-full sm:w-auto justify-center">
+              <button
+                onClick={() => setViewLayout('roadmap')}
+                className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  viewLayout === 'roadmap'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+                }`}
+              >
+                <HiViewList />
+                Roadmap
+              </button>
+              <button
+                onClick={() => setViewLayout('grid')}
+                className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  viewLayout === 'grid'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+                }`}
+              >
+                <HiViewGrid />
+                Library ({allProblems.length})
+              </button>
             </div>
           </div>
-        ) : !sel ? (
-          <div className="space-y-3">
-            {/* Daily Challenge Banner */}
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`rounded-2xl border-2 p-4 relative overflow-hidden ${
-                isDailyCompleted
-                  ? 'border-teal/50 bg-teal/5'
-                  : 'border-amber-400/50 bg-gradient-to-r from-amber-400/10 via-orange-400/10 to-red-400/10'
-              }`}
-              style={!isDailyCompleted ? { boxShadow: '0 0 24px rgba(251,191,36,0.15)' } : {}}
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${
-                    isDailyCompleted ? 'bg-teal/15' : 'bg-amber-400/15'
-                  }`}>
-                    {isDailyCompleted ? '✅' : '🔥'}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-heading font-bold">
-                        {isDailyCompleted ? 'Daily Challenge Complete!' : 'Daily Challenge'}
-                      </h3>
-                      {!isDailyCompleted && (
-                        <Badge variant="amber" size="sm">3x XP</Badge>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-[var(--muted-foreground)]">
-                      {isDailyCompleted
-                        ? `Come back tomorrow for a new challenge!`
-                        : `Solve "${dailyProblem.title}" for ${XP_AWARDS.TASK_COMPLETE * XP_AWARDS.DAILY_CHALLENGE_MULTIPLIER} XP!`
-                      }
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
-                  {dailyStreak > 0 && (
-                    <div className="flex items-center gap-1 text-orange-500">
-                      <HiFire size={16} />
-                      <span className="text-xs font-heading font-black">{dailyStreak}d streak</span>
-                    </div>
-                  )}
-                  {!isDailyCompleted && (
-                    <button
-                      onClick={() => { setSel(dailyProblem); setCode(dailyProblem.templates[lang] || dailyProblem.templates['javascript']); setOutput(''); }}
-                      className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-amber-400 to-orange-500 text-white shadow-[0_3px_0_rgba(217,119,6,0.4)] hover:shadow-[0_4px_0_rgba(217,119,6,0.5)] hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-[0_1px_0_rgba(217,119,6,0.4)] transition-all"
-                    >
-                      Start →
-                    </button>
-                  )}
-                </div>
-              </div>
-            </motion.div>
 
-            {/* Problem List */}
-            {PROBLEMS.map((p, i) => {
-              const isDaily = p.id === dailyProblem.id;
-              return (
-                <motion.div key={p.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
+          {/* Secondary Filter Chips */}
+          <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-[var(--card-border)] overflow-x-auto no-scrollbar py-1">
+            <div className="flex items-center gap-2">
+              <HiFilter className="text-[var(--muted-foreground)] text-xs" />
+              <span className="text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-wider">
+                Filters:
+              </span>
+            </div>
+
+            {/* Difficulty Filter */}
+            <div className="flex items-center gap-1">
+              <select
+                value={selectedDifficulty}
+                onChange={(e) => setSelectedDifficulty(e.target.value)}
+                className="px-2.5 py-1 rounded-lg bg-surface-hover border border-[var(--card-border)] text-xs text-[var(--foreground)] focus:outline-none cursor-pointer"
+              >
+                <option value="all">All Difficulties</option>
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex items-center gap-1">
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="px-2.5 py-1 rounded-lg bg-surface-hover border border-[var(--card-border)] text-xs text-[var(--foreground)] focus:outline-none cursor-pointer"
+              >
+                <option value="all">All Statuses</option>
+                <option value="solved">Solved</option>
+                <option value="unsolved">Unsolved</option>
+                <option value="starred">Starred ⭐</option>
+              </select>
+            </div>
+
+            {/* Reset All Filters Button */}
+            {hasActiveFilters && (
+              <button
+                onClick={handleResetFilters}
+                className="px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                title="Reset all search queries and active filters"
+              >
+                <HiX className="text-xs" /> Reset Filters
+              </button>
+            )}
+
+            <div className="ml-auto text-xs text-[var(--muted-foreground)] font-medium">
+              {viewLayout === 'roadmap' && !searchQuery ? (
+                <span>📍 Curated Essential Roadmap (<strong>{filteredProblems.length}</strong> top problems)</span>
+              ) : (
+                <span>Showing <strong>{filteredProblems.length}</strong> matching questions in library</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content Area: Roadmap or Grid */}
+        {viewLayout === 'roadmap' ? (
+          <DsaRoadmapView
+            problems={filteredProblems}
+            userProgress={userProgress}
+            onSelectProblem={(p) => setActiveProblem(p)}
+            onToggleStar={(id) => toggleStar(id)}
+            onToggleSolved={(id, e) => handleToggleSolved(id, e)}
+          />
+        ) : (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {paginatedProblems.map((problem) => {
+                const status = userProgress[problem.id]?.status || 'unsolved';
+                const isStarred = userProgress[problem.id]?.starred || false;
+                const optimalApproach = problem.approaches?.find((a) => a.type === 'optimal') || problem.approaches?.[problem.approaches.length - 1] || problem.approaches?.[0];
+                const optimalTime = optimalApproach?.timeComplexity || (problem.difficulty === 'easy' ? 'O(N)' : problem.difficulty === 'medium' ? 'O(N log N)' : 'O(N^2)');
+                const optimalSpace = optimalApproach?.spaceComplexity || (problem.difficulty === 'easy' ? 'O(1)' : 'O(N)');
+
+                return (
                   <Card
-                    padding="md"
-                    className={`cursor-pointer ${isDaily && !isDailyCompleted ? 'ring-2 ring-amber-400/40' : ''}`}
-                    onClick={() => { setSel(p); setCode(p.templates[lang] || p.templates['javascript']); setOutput(''); }}
+                    key={problem.id}
+                    className="p-5 flex flex-col justify-between space-y-4 hover:border-primary/50 transition-all group"
                   >
-                    <div className="flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${solved.has(p.id) ? 'bg-teal/15' : isDaily && !isDailyCompleted ? 'bg-amber-400/15' : 'bg-primary/15'}`}>
-                        {solved.has(p.id) ? <HiCheck className="text-teal" size={20} /> : isDaily && !isDailyCompleted ? <HiFire className="text-amber-500" size={20} /> : <HiLightningBolt className="text-primary" size={20} />}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-heading font-bold">{p.title}</h3>
-                          {isDaily && !isDailyCompleted && (
-                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-400/15 text-amber-500 uppercase tracking-wider">🔥 Daily</span>
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleSolved(problem.id, e);
+                            }}
+                            className="flex-shrink-0 cursor-pointer p-0.5 rounded-full hover:scale-110 transition-transform"
+                            title={status === 'solved' ? 'Click to unmark solved' : 'Click to mark solved (+25 XP)'}
+                          >
+                            {status === 'solved' ? (
+                              <HiCheckCircle className="text-emerald-400 text-xl" />
+                            ) : (
+                              <div className="w-5 h-5 rounded-full border-2 border-[var(--card-border)] group-hover:border-primary transition-colors" />
+                            )}
+                          </button>
+                          <Badge
+                            variant={
+                              problem.difficulty === 'easy'
+                                ? 'teal'
+                                : problem.difficulty === 'medium'
+                                ? 'amber'
+                                : 'coral'
+                            }
+                            size="sm"
+                          >
+                            {problem.difficulty}
+                          </Badge>
+                          {optimalTime && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-500/20 text-[10px] font-mono font-bold text-purple-300">
+                              ⏱️ {optimalTime}
+                            </span>
                           )}
                         </div>
-                        <span className="text-[10px] text-[var(--muted-foreground)]">{p.category}</span>
+                        <button
+                          onClick={() => toggleStar(problem.id)}
+                          className={`p-1 rounded transition-colors ${
+                            isStarred ? 'text-amber-400' : 'text-[var(--muted-foreground)] hover:text-amber-400'
+                          }`}
+                        >
+                          <HiStar className="text-base" />
+                        </button>
                       </div>
-                      <Badge variant={DC[p.difficulty]} size="sm">{p.difficulty}</Badge>
-                      <HiChevronRight className="text-[var(--muted-foreground)]" size={18} />
+
+                      <h3
+                        onClick={() => setActiveProblem(problem)}
+                        className="text-base font-bold text-[var(--foreground)] group-hover:text-primary cursor-pointer transition-colors"
+                      >
+                        {problem.leetcodeId ? `${problem.leetcodeId}. ` : ''}
+                        {problem.title}
+                      </h3>
+
+                      <p className="text-xs text-[var(--muted-foreground)] line-clamp-2 mt-1.5">
+                        {problem.description}
+                      </p>
+                    </div>
+
+                    <div className="pt-3 border-t border-[var(--card-border)] flex items-center justify-between">
+                      <div className="flex items-center gap-2 truncate max-w-[170px]">
+                        <span className="text-[11px] font-semibold text-[var(--muted-foreground)] truncate">
+                          {problem.pattern}
+                        </span>
+                        {optimalSpace && (
+                          <span className="hidden sm:inline text-[10px] font-mono text-cyan-400/80">
+                            ({optimalSpace})
+                          </span>
+                        )}
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setActiveProblem(problem)}
+                        icon={<HiCode />}
+                      >
+                        Practice
+                      </Button>
                     </div>
                   </Card>
-                </motion.div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <button onClick={() => setSel(null)} className="text-xs text-primary font-bold hover:underline uppercase tracking-wider">← Back</button>
-              <div className="flex gap-1.5">
-                {LANGS.map((l) => (
-                  <button key={l.id} onClick={() => { setLang(l.id); setCode(sel.templates[l.id] || sel.templates['javascript']); }} className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase border-2 transition-all ${lang === l.id ? 'bg-primary text-white border-primary' : 'border-[var(--card-border)] hover:border-primary/30'}`}>{l.label}</button>
-                ))}
-              </div>
+                );
+              })}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Left: Description + Visualizer */}
-              <div className="space-y-3">
-                <Card padding="lg" hover={false}>
-                  <div className="flex items-center gap-2 mb-3"><h2 className="text-lg font-heading font-bold">{sel.title}</h2><Badge variant={DC[sel.difficulty]} size="sm">{sel.difficulty}</Badge></div>
-                  <p className="text-sm text-[var(--muted-foreground)]">{sel.desc}</p>
-                </Card>
-                <DSVisualizer code={code} />
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                >
+                  ← Previous
+                </Button>
+                <span className="text-xs font-bold text-[var(--foreground)] px-2">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next →
+                </Button>
               </div>
-
-              {/* Right: Editor + Output */}
-              <div className="space-y-3">
-                <Card padding="none" hover={false}>
-                  <div className="flex items-center justify-between px-4 py-2 border-b-2 border-[var(--card-border)]">
-                    <span className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Solution</span>
-                    <div className="flex gap-1.5">
-                      <Button variant="ghost" size="sm" icon={<HiBookmark size={14} />} onClick={saveToSpellBook}>Save</Button>
-                      <Button variant="teal" size="sm" icon={<HiCheck size={14} />} onClick={() => handleSolveProblem(sel.id)}>Solved</Button>
-                      <Button variant="primary" size="sm" icon={<HiPlay size={14} />} onClick={runCode} loading={running}>{running ? '...' : 'Run'}</Button>
-                    </div>
-                  </div>
-                  <CodeEditor
-                    value={code}
-                    onChange={setCode}
-                    onRun={runCode}
-                    language={lang}
-                    minHeight="250px"
-                  />
-                  {/* Stdin for Challenge */}
-                  <div className="border-t-2 border-[var(--card-border)]">
-                    <button onClick={() => setShowStdin(!showStdin)} className="w-full flex items-center justify-between px-4 py-1.5 text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
-                      <span>📥 Input (stdin){stdin.trim() ? ` — ${stdin.split('\n').length} line(s)` : ''}</span>
-                      <span>{showStdin ? '▲' : '▼'}</span>
-                    </button>
-                    {showStdin && (
-                      <textarea value={stdin} onChange={(e) => setStdin(e.target.value)} placeholder={'Enter input here (one value per line)'} className="w-full h-20 px-4 py-2 bg-[var(--background)] text-sm border-t border-[var(--card-border)] resize-none focus:outline-none" style={{ fontFamily: 'var(--font-mono)' }} />
-                    )}
-                  </div>
-                </Card>
-
-                <Card padding="none" hover={false}>
-                  <div className="px-4 py-2 border-b-2 border-[var(--card-border)]"><span className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Output</span></div>
-                  <div className="p-4 text-sm min-h-[100px]" style={{ fontFamily: 'var(--font-mono)' }}>
-                    {!output ? (
-                      <span className="text-[var(--muted-foreground)]">Run your code to see output...</span>
-                    ) : (
-                      <pre className="whitespace-pre-wrap">{output.split('\n').map((line, i) => (
-                        <div key={i} className="flex gap-2"><span className="select-none text-[var(--muted-foreground)] opacity-40 w-6 text-right flex-shrink-0">{i + 1}</span><span>{line}</span></div>
-                      ))}</pre>
-                    )}
-                  </div>
-                </Card>
-              </div>
-            </div>
+            )}
           </div>
+        )}
+
+        {/* Problem Detail Solver Workspace Modal */}
+        {activeProblem && (
+          <DsaProblemDetailModal
+            problem={activeProblem}
+            userProgress={userProgress[activeProblem.id]}
+            onClose={() => setActiveProblem(null)}
+            onSetStatus={setProblemStatus}
+            onSaveCode={saveUserCode}
+            onSaveNotes={saveNotes}
+            onOpenAiAssistant={(p) => setAiModalProblem(p)}
+          />
+        )}
+
+        {/* AI Assistant Tutor Modal */}
+        {aiModalProblem && (
+          <DsaAiAssistantModal
+            problem={aiModalProblem}
+            currentCode={userProgress[aiModalProblem.id]?.userCode?.['cpp']}
+            onClose={() => setAiModalProblem(null)}
+          />
         )}
       </div>
     </PageTransition>

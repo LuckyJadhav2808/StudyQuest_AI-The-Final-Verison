@@ -347,23 +347,85 @@ function OverviewTab({ stats, loading }: { stats: Stats; loading: boolean }) {
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {cards.map((c, i) => (
-        <Card key={i} hover className="relative overflow-hidden">
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-xl ${c.bg} flex items-center justify-center ${c.color}`}>
-              {c.icon}
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {cards.map((c, i) => (
+          <Card key={i} hover className="relative overflow-hidden">
+            <div className="flex items-center gap-4">
+              <div className={`w-12 h-12 rounded-xl ${c.bg} flex items-center justify-center ${c.color}`}>
+                {c.icon}
+              </div>
+              <div>
+                <p className="text-xs text-[var(--muted-foreground)] uppercase tracking-wider">{c.label}</p>
+                <p className="text-2xl font-heading font-bold text-[var(--foreground)]">
+                  {loading ? '…' : c.value}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-[var(--muted-foreground)] uppercase tracking-wider">{c.label}</p>
-              <p className="text-2xl font-heading font-bold text-[var(--foreground)]">
-                {loading ? '…' : c.value}
-              </p>
-            </div>
-          </div>
-        </Card>
-      ))}
+          </Card>
+        ))}
+      </div>
+
+      {/* DSA Dataset Management & 1-Click Sync Card */}
+      <DsaDatasetAdminCard />
     </div>
+  );
+}
+
+function DsaDatasetAdminCard() {
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
+
+  const handleSyncLatestQuestions = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch('/api/admin/dsa-sync', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('🎉 DSA Questions Synced! User progress is 100% safe.');
+        setSyncStatus('Library synced & up-to-date');
+      } else {
+        toast.error(`Sync error: ${data.error || 'Failed to sync'}`);
+      }
+    } catch (err) {
+      toast.error('Network error during DSA sync');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  return (
+    <Card className="p-6 border border-primary/20 bg-gradient-to-r from-primary/5 via-purple-500/5 to-cyan-500/5 rounded-2xl">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">⚔️</span>
+            <h3 className="text-base font-heading font-bold text-[var(--foreground)]">
+              DSA LeetCode Library & 1-Click Sync
+            </h3>
+            <Badge variant="teal" size="sm">2,360+ Problems Active</Badge>
+          </div>
+          <p className="text-xs text-[var(--muted-foreground)] max-w-xl">
+            Pull and update the latest C++ & Python LeetCode solutions directly into StudyQuest. All existing user progress, solved questions, notes, and XP are 100% preserved and protected.
+          </p>
+          {syncStatus && (
+            <p className="text-xs font-bold text-emerald-400 pt-1">
+              ✅ {syncStatus}
+            </p>
+          )}
+        </div>
+
+        <Button
+          variant="primary"
+          size="md"
+          loading={isSyncing}
+          onClick={handleSyncLatestQuestions}
+          icon={<HiRefresh className={isSyncing ? 'animate-spin' : ''} />}
+        >
+          {isSyncing ? 'Syncing Questions...' : '🔄 1-Click Update DSA Dataset'}
+        </Button>
+      </div>
+    </Card>
   );
 }
 

@@ -39,7 +39,7 @@ export default function ScrollToTop() {
           exit={{ opacity: 0, scale: 0.8, y: 10 }}
           transition={{ type: 'spring', stiffness: 400, damping: 25 }}
           onClick={handleScrollToTop}
-          className="fixed bottom-20 md:bottom-6 right-18 md:right-20 z-50 w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary text-white shadow-lg shadow-primary/30 flex items-center justify-center hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 transition-all cursor-pointer"
+          className="fixed bottom-20 left-4 md:left-auto md:bottom-6 md:right-20 z-30 w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary text-white shadow-lg shadow-primary/30 flex items-center justify-center hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 transition-all cursor-pointer"
           aria-label="Scroll to top"
         >
           <HiArrowUp size={18} />

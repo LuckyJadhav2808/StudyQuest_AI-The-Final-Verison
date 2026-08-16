@@ -137,11 +137,41 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
   // Skins: Cat, Owl, Dino
   const skins = ['/pet_cat.png', '/pet_owl.png', '/pet_dino.png'];
   const skinNames = ['Pixel Cat', 'Pixel Owl', 'Pixel Dino'];
+  // Pet visibility toggle (Off / On) with localStorage persistence
+  const [petVisible, setPetVisible] = useState(true);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sq-pixel-pet-visible');
+      if (saved !== null) setPetVisible(saved === 'true');
+    } catch { /* ignore */ }
+  }, []);
+
+  const togglePetVisible = () => {
+    setPetVisible((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('sq-pixel-pet-visible', String(next));
+      } catch { /* ignore */ }
+      return next;
+    });
+  };
+
   const [skinIndex, setSkinIndex] = useState(0);
 
   // Dialog bubble
   const [dialogue, setDialogue] = useState("Hey adventurer! Let's study together! 🐾");
   const [showBubble, setShowBubble] = useState(true);
+
+  // Auto-dismiss dialogue bubble after 4 seconds on both laptop and mobile
+  useEffect(() => {
+    if (showBubble) {
+      const timer = setTimeout(() => {
+        setShowBubble(false);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [showBubble, dialogue]);
 
   const { pet, updatePet } = usePet();
 
@@ -528,105 +558,117 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
   };
 
   // Position settings:
-  // - Pet height is 72px (h-18)
-  // - Header bottom line is at top: 64px.
-  // - Footer bottom line is at bottom: 0px.
+  // - On mobile & desktop floor rail, stands at bottom: 58px (directly on top of bottom nav bar)
+  // - In header mode, stands along the top ceiling edge
   const positionStyle: React.CSSProperties = platform === 'header' 
     ? {
-        top: '64px',
+        top: '0px',
         left: `${x}%`,
-        marginTop: '-72px', // stands exactly on the bottom border line of the header (64px)
       }
     : {
-        bottom: '0px',
+        bottom: '58px',
         left: `${x}%`,
-        marginBottom: '0px', // stands exactly on the bottom border line of the footer (0px)
       };
 
   return (
     <>
-      {/* Global Viewport Pet Wrapper */}
-      <div 
-        className="fixed transition-all duration-305 ease-out z-[60] select-none"
-        style={{
-          ...positionStyle,
-          transform: `translateY(${isJumping ? -80 : 0}px)`,
-          transitionProperty: 'left, bottom, top, transform',
-          transitionDuration: isJumping ? '0.15s' : '0.3s',
-        }}
-      >
-        {/* Dialogue Bubble */}
+      {/* Global Viewport Pet Wrapper — Non-blocking click-through for site content underneath */}
+      {petVisible && (
+        <div 
+          className="fixed transition-all duration-305 ease-out z-30 select-none pointer-events-none"
+          style={{
+            ...positionStyle,
+            transform: `translateY(${isJumping ? -80 : 0}px)`,
+            transitionProperty: 'left, bottom, top, transform',
+            transitionDuration: isJumping ? '0.15s' : '0.3s',
+          }}
+        >
+          {/* Dialogue Bubble — Auto-dismisses after 4s */}
+          <AnimatePresence>
+            {showBubble && (
+              platform === 'header' ? (
+                // Display bubble BELOW the pet in header mode to prevent clipping off the top edge
+                <motion.div 
+                  className="absolute top-20 left-1/2 -translate-x-1/2 w-44 bg-slate-900/95 dark:bg-slate-950/95 text-white text-[10px] font-semibold p-2 rounded-2xl shadow-xl border border-slate-700/50 backdrop-blur-sm z-30 text-center pointer-events-none"
+                  style={{ transform: 'translateX(-50%)' }}
+                  initial={{ opacity: 0, y: -10, scale: 0.8 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.8 }}
+                >
+                  {dialogue}
+                  {/* Pointer indicator pointing UP */}
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[6px] border-b-slate-900/95 dark:border-b-slate-950/95" />
+                </motion.div>
+              ) : (
+                // Display bubble ABOVE the pet in footer mode
+                <motion.div 
+                  className="absolute bottom-15 left-1/2 -translate-x-1/2 w-44 bg-slate-900/95 dark:bg-slate-950/95 text-white text-[10px] font-semibold p-2 rounded-2xl shadow-xl border border-slate-700/50 backdrop-blur-sm z-30 text-center pointer-events-none"
+                  style={{ transform: 'translateX(-50%)' }}
+                  initial={{ opacity: 0, y: 10, scale: 0.8 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.8 }}
+                >
+                  {dialogue}
+                  {/* Pointer indicator pointing DOWN */}
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-slate-900/95 dark:border-t-slate-950/95" />
+                </motion.div>
+              )
+            )}
+          </AnimatePresence>
+
+          {/* Pet Sprite — Clickable interactive target */}
+          <div 
+            onClick={handlePetClick}
+            className="cursor-pointer group flex flex-col items-center justify-center relative pointer-events-auto"
+          >
+            {/* Sleeping Indicator Zzz */}
+            {isSleeping && (
+              <motion.span 
+                className="absolute -top-6 text-sm pointer-events-none z-10 font-bold"
+                animate={{ y: [0, -6, 0], opacity: [0.6, 1, 0.6] }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                💤 Zzz...
+              </motion.span>
+            )}
+
+            {/* Pet Indicator Name */}
+            <span 
+              className="text-[8px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-555 bg-slate-105 dark:bg-slate-900/60 px-1.5 py-0.5 rounded-full mb-1 border border-slate-200/50 dark:border-slate-800/40 opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              {pet ? pet.name : skinNames[skinIndex]} (Lv.{stats.level}) {isSleeping ? '😴' : ''}
+            </span>
+            <span
+              className={`inline-block transition-transform ${isSleeping ? 'rotate-6 opacity-85 scale-95' : 'hover:scale-110'}`}
+              style={{ transform: `scaleX(${direction === 'left' ? -1 : 1}) ${isSleeping ? 'rotate(6deg)' : ''}` }}
+            >
+              <TransparentSprite 
+                src={skins[skinIndex]} 
+                className="h-16 md:h-18 w-auto filter drop-shadow-[0_4px_6px_rgba(0,0,0,0.15)]"
+              />
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Floating HUD Controller Toggle Button */}
+      <div className="fixed bottom-36 md:bottom-24 right-4 z-30">
+        {/* Backdrop overlay for clean tap-outside-to-close */}
         <AnimatePresence>
-          {showBubble && (
-            platform === 'header' ? (
-              // Display bubble BELOW the pet in header mode to prevent clipping off the top edge
-              <motion.div 
-                className="absolute top-20 left-1/2 -translate-x-1/2 w-44 bg-slate-900/95 dark:bg-slate-950/95 text-white text-[10px] font-semibold p-2 rounded-2xl shadow-xl border border-slate-700/50 backdrop-blur-sm z-50 text-center pointer-events-none"
-                style={{ transform: 'translateX(-50%)' }}
-                initial={{ opacity: 0, y: -10, scale: 0.8 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -10, scale: 0.8 }}
-              >
-                {dialogue}
-                {/* Pointer indicator pointing UP */}
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[6px] border-b-slate-900/95 dark:border-b-slate-950/95" />
-              </motion.div>
-            ) : (
-              // Display bubble ABOVE the pet in footer mode
-              <motion.div 
-                className="absolute bottom-15 left-1/2 -translate-x-1/2 w-44 bg-slate-900/95 dark:bg-slate-950/95 text-white text-[10px] font-semibold p-2 rounded-2xl shadow-xl border border-slate-700/50 backdrop-blur-sm z-50 text-center pointer-events-none"
-                style={{ transform: 'translateX(-50%)' }}
-                initial={{ opacity: 0, y: 10, scale: 0.8 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.8 }}
-              >
-                {dialogue}
-                {/* Pointer indicator pointing DOWN */}
-                <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-slate-900/95 dark:border-t-slate-950/95" />
-              </motion.div>
-            )
+          {hudOpen && (
+            <motion.div
+              className="fixed inset-0 z-[1001] bg-black/40 backdrop-blur-[2px]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setHudOpen(false)}
+            />
           )}
         </AnimatePresence>
 
-        {/* Pet Sprite */}
-        <div 
-          onClick={handlePetClick}
-          className="cursor-pointer group flex flex-col items-center justify-center relative"
-        >
-          {/* Sleeping Indicator Zzz */}
-          {isSleeping && (
-            <motion.span 
-              className="absolute -top-6 text-sm pointer-events-none z-10 font-bold"
-              animate={{ y: [0, -6, 0], opacity: [0.6, 1, 0.6] }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              💤 Zzz...
-            </motion.span>
-          )}
-
-          {/* Pet Indicator Name */}
-          <span 
-            className="text-[8px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-555 bg-slate-105 dark:bg-slate-900/60 px-1.5 py-0.5 rounded-full mb-1 border border-slate-200/50 dark:border-slate-800/40 opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            {pet ? pet.name : skinNames[skinIndex]} (Lv.{stats.level}) {isSleeping ? '😴' : ''}
-          </span>
-          <span
-            className={`inline-block transition-transform ${isSleeping ? 'rotate-6 opacity-85 scale-95' : 'hover:scale-110'}`}
-            style={{ transform: `scaleX(${direction === 'left' ? -1 : 1}) ${isSleeping ? 'rotate(6deg)' : ''}` }}
-          >
-            <TransparentSprite 
-              src={skins[skinIndex]} 
-              className="h-18 w-auto filter drop-shadow-[0_4px_6px_rgba(0,0,0,0.15)]"
-            />
-          </span>
-        </div>
-      </div>
-
-      {/* Floating HUD Controller Toggle Button */}
-      <div className="fixed bottom-24 left-4 md:left-auto md:right-4 z-50">
         <motion.button 
           onClick={() => { setHudOpen(!hudOpen); playClick(); }}
-          className={`w-12 h-12 rounded-full shadow-2xl flex items-center justify-center transition-all ${
+          className={`w-12 h-12 rounded-full shadow-2xl flex items-center justify-center transition-all relative z-[1002] ${
             hudOpen 
               ? 'bg-red-500 text-white rotate-45' 
               : 'bg-primary text-white hover:scale-105 active:scale-95'
@@ -636,11 +678,11 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
           <span className="text-xl font-bold">{hudOpen ? '×' : '🐾'}</span>
         </motion.button>
 
-        {/* Floating Controls HUD Panel */}
+        {/* Floating Controls HUD Panel — Always pinned safely to right-0 */}
         <AnimatePresence>
           {hudOpen && (
             <motion.div 
-              className="absolute bottom-16 left-0 md:left-auto md:right-0 w-64 bg-white/90 dark:bg-[#111328]/95 border border-slate-200 dark:border-slate-800 p-4 rounded-3xl shadow-2xl backdrop-blur-md text-left text-slate-800 dark:text-white"
+              className="absolute bottom-16 right-0 w-72 max-w-[calc(100vw-32px)] bg-white/95 dark:bg-[#111328]/95 border border-slate-200 dark:border-slate-800 p-4 rounded-3xl shadow-2xl backdrop-blur-md text-left text-slate-800 dark:text-white z-[1002] modal-glass"
               initial={{ opacity: 0, y: 20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -682,6 +724,12 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
                   className="col-span-2 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:border-primary/30 flex items-center justify-center gap-1 transition-all"
                 >
                   <span>↕️</span> Place {platform === 'header' ? 'on Footer (Bottom)' : 'on Header (Top)'}
+                </button>
+                <button 
+                  onClick={togglePetVisible}
+                  className="col-span-2 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:border-primary/30 flex items-center justify-center gap-1 transition-all cursor-pointer"
+                >
+                  <span>{petVisible ? '🚫' : '✨'}</span> {petVisible ? 'Turn Pet Off (Hide)' : 'Turn Pet On (Show)'}
                 </button>
               </div>
             </motion.div>
