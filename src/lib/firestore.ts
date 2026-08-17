@@ -75,7 +75,9 @@ export async function setDocument(
   data: DocumentData,
   merge: boolean = true,
 ): Promise<void> {
-  await setDoc(docRef, data, { merge });
+  // Strip out any `undefined` properties to prevent Firestore serialization errors
+  const sanitized = JSON.parse(JSON.stringify(data));
+  await setDoc(docRef, sanitized, { merge });
 }
 
 /** Update specific fields of a document */
@@ -83,8 +85,10 @@ export async function updateDocument(
   docRef: ReturnType<typeof doc>,
   data: Partial<DocumentData>,
 ): Promise<void> {
-  await updateDoc(docRef, data);
+  const sanitized = JSON.parse(JSON.stringify(data));
+  await updateDoc(docRef, sanitized);
 }
+
 
 /** Delete a document */
 export async function removeDocument(docRef: ReturnType<typeof doc>): Promise<void> {

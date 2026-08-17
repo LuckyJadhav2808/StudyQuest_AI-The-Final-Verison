@@ -9,9 +9,10 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import PageTransition from '@/components/layout/PageTransition';
 import { useGamification } from '@/hooks/useGamification';
-import { XP_AWARDS } from '@/lib/constants';
 import TriviaDungeon from '@/components/arcade/TriviaDungeon';
 import PetCatchGame from '@/components/arcade/PetCatchGame';
+import DndBestiaryModal from '@/components/arcade/DndBestiaryModal';
+import { DndMonster } from '@/data/dndMonstersDataset';
 
 type ArcadeGame = 'hub' | 'typing' | 'dungeon' | 'catch';
 
@@ -107,6 +108,8 @@ export default function ArcadeContent() {
   const [results, setResults] = useState<GameResult[]>([]);
   const [lastResult, setLastResult] = useState<GameResult | null>(null);
   const [timeChallenge, setTimeChallenge] = useState(false);
+  const [isBestiaryOpen, setIsBestiaryOpen] = useState(false);
+  const [selectedBoss, setSelectedBoss] = useState<DndMonster | undefined>(undefined);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { awardXP } = useGamification();
 
@@ -250,16 +253,16 @@ export default function ArcadeContent() {
 
             {/* Trivia Dungeon Card */}
             <motion.div whileHover={{ y: -4 }} whileTap={{ scale: 0.98 }}>
-              <Card padding="lg" hover className="cursor-pointer h-full relative overflow-hidden" onClick={() => setActiveGame('dungeon')}>
+              <Card padding="lg" hover className="cursor-pointer h-full relative overflow-hidden" onClick={() => { setSelectedBoss(undefined); setActiveGame('dungeon'); }}>
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-600/10 via-transparent to-red-500/10 pointer-events-none" />
                 <div className="text-center space-y-4 relative z-10">
                   <motion.span className="text-6xl block" animate={{ y: [0, -8, 0], scale: [1, 1.05, 1] }} transition={{ duration: 2.5, repeat: Infinity }}>⚔️</motion.span>
                   <div>
                     <h2 className="text-xl font-heading font-black">Trivia Dungeon</h2>
-                    <p className="text-sm text-[var(--muted-foreground)] mt-1">Battle monsters with knowledge from your notes</p>
+                    <p className="text-sm text-[var(--muted-foreground)] mt-1">Battle 762 D&D monsters with knowledge from your notes</p>
                   </div>
                   <div className="flex gap-2 justify-center flex-wrap">
-                    <Badge variant="amber" size="sm">🐉 Bosses</Badge>
+                    <Badge variant="amber" size="sm">🐉 762 Bosses</Badge>
                     <Badge variant="primary" size="sm">🧠 AI Quiz</Badge>
                     <Badge variant="teal" size="sm">💰 Loot</Badge>
                   </div>
@@ -269,25 +272,55 @@ export default function ArcadeContent() {
             </motion.div>
 
             {/* Pet Catch Card */}
-            <motion.div whileHover={{ y: -4 }} whileTap={{ scale: 0.98 }} className="md:col-span-2">
+            <motion.div whileHover={{ y: -4 }} whileTap={{ scale: 0.98 }}>
               <Card padding="lg" hover className="cursor-pointer h-full relative overflow-hidden" onClick={() => setActiveGame('catch')}>
                 <div className="absolute inset-0 bg-gradient-to-br from-teal/10 via-transparent to-amber/10 pointer-events-none" />
-                <div className="flex flex-col sm:flex-row items-center text-center sm:text-left gap-4 sm:gap-6 relative z-10">
-                  <motion.span className="text-6xl block flex-shrink-0" animate={{ y: [0, -8, 0] }} transition={{ duration: 1.8, repeat: Infinity }}>🐾</motion.span>
-                  <div className="flex-1">
+                <div className="text-center space-y-4 relative z-10">
+                  <motion.span className="text-6xl block" animate={{ y: [0, -8, 0] }} transition={{ duration: 1.8, repeat: Infinity }}>🐾</motion.span>
+                  <div>
                     <h2 className="text-xl font-heading font-black">Pet Catch</h2>
-                    <p className="text-sm text-[var(--muted-foreground)] mt-1">Move your pet to catch falling food & treats. Avoid bombs!</p>
-                    <div className="flex gap-2 mt-2 flex-wrap justify-center sm:justify-start">
-                      <Badge variant="teal" size="sm">❤️ 3 Lives</Badge>
-                      <Badge variant="amber" size="sm">🔥 Combos</Badge>
-                      <Badge variant="primary" size="sm">🐾 Pet Mood</Badge>
-                    </div>
+                    <p className="text-sm text-[var(--muted-foreground)] mt-1">Catch falling treats & power up your companion</p>
+                  </div>
+                  <div className="flex gap-2 justify-center flex-wrap">
+                    <Badge variant="teal" size="sm">❤️ 3 Lives</Badge>
+                    <Badge variant="amber" size="sm">🔥 Combos</Badge>
+                    <Badge variant="primary" size="sm">🐾 Pet Mood</Badge>
                   </div>
                   <Button variant="teal" size="sm" icon={<HiPlay />}>Play</Button>
                 </div>
               </Card>
             </motion.div>
+
+            {/* D&D Monster Bestiary Card */}
+            <motion.div whileHover={{ y: -4 }} whileTap={{ scale: 0.98 }}>
+              <Card padding="lg" hover className="cursor-pointer h-full relative overflow-hidden" onClick={() => setIsBestiaryOpen(true)}>
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-red-500/10 pointer-events-none" />
+                <div className="text-center space-y-4 relative z-10">
+                  <motion.span className="text-6xl block" animate={{ y: [0, -6, 0], rotate: [0, 4, -4, 0] }} transition={{ duration: 2.2, repeat: Infinity }}>🐉</motion.span>
+                  <div>
+                    <h2 className="text-xl font-heading font-black">Monster Bestiary</h2>
+                    <p className="text-sm text-[var(--muted-foreground)] mt-1">Explore 762 mythical creatures & challenge custom bosses</p>
+                  </div>
+                  <div className="flex gap-2 justify-center flex-wrap">
+                    <Badge variant="amber" size="sm">📖 762 Monsters</Badge>
+                    <Badge variant="primary" size="sm">⚡ CR Stats</Badge>
+                    <Badge variant="coral" size="sm">⚔️ Boss Raids</Badge>
+                  </div>
+                  <Button variant="outline" size="sm" icon={<HiPlay />}>Open Bestiary</Button>
+                </div>
+              </Card>
+            </motion.div>
           </div>
+
+          {/* D&D Bestiary Modal */}
+          <DndBestiaryModal
+            isOpen={isBestiaryOpen}
+            onClose={() => setIsBestiaryOpen(false)}
+            onChallengeMonster={(m) => {
+              setSelectedBoss(m);
+              setActiveGame('dungeon');
+            }}
+          />
         </div>
       </PageTransition>
     );
@@ -297,7 +330,7 @@ export default function ArcadeContent() {
   if (activeGame === 'dungeon') {
     return (
       <PageTransition>
-        <TriviaDungeon onExit={() => setActiveGame('hub')} />
+        <TriviaDungeon onExit={() => { setActiveGame('hub'); setSelectedBoss(undefined); }} initialBoss={selectedBoss} />
       </PageTransition>
     );
   }

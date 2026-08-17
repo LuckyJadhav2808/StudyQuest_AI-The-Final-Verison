@@ -22,6 +22,7 @@ import Button from '@/components/ui/Button';
 import DsaHeaderStats from '@/components/dsa/DsaHeaderStats';
 import DsaAnalyticsSection from '@/components/dsa/DsaAnalyticsSection';
 import DsaRoadmapView from '@/components/dsa/DsaRoadmapView';
+import DsaCuratedSheetView from '@/components/dsa/DsaCuratedSheetView';
 import DsaProblemDetailModal from '@/components/dsa/DsaProblemDetailModal';
 import DsaAiAssistantModal from '@/components/dsa/DsaAiAssistantModal';
 import { useDsaTracker } from '@/hooks/useDsaTracker';
@@ -53,6 +54,9 @@ function DsaPageContent() {
     saveNotes,
   } = useDsaTracker();
 
+  // Curated Sheet Tracker State ('neetcode150' | 'striverA2Z' | 'blind75' | 'all')
+  const [activeCuratedSheet, setActiveCuratedSheet] = useState<'neetcode150' | 'striverA2Z' | 'blind75' | 'all'>('neetcode150');
+
   // Search & Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all');
@@ -65,6 +69,15 @@ function DsaPageContent() {
   // Modals state
   const [activeProblem, setActiveProblem] = useState<DsaProblem | null>(null);
   const [aiModalProblem, setAiModalProblem] = useState<DsaProblem | null>(null);
+
+  // Map of all problems for instant O(1) modal hydration
+  const allProblemsMap = useMemo(() => {
+    const map: Record<string, DsaProblem> = {};
+    allProblems.forEach((p) => {
+      map[p.id] = p;
+    });
+    return map;
+  }, [allProblems]);
 
   // Auto-open problem if specified in URL query
   useEffect(() => {
@@ -166,125 +179,168 @@ function DsaPageContent() {
         {/* Pattern & Performance Analytics Sub-Section */}
         <DsaAnalyticsSection stats={stats} />
 
-        {/* Search & Filter Toolbar */}
-        <div className="bg-[var(--card-bg)] border border-[var(--card-border)] p-4 rounded-2xl space-y-4 shadow-sm">
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-            {/* Search Input with 1-Click Clear */}
-            <div className="relative flex-1">
-              <HiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] text-base" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search any question by name, # (e.g. 51), topic, or pattern..."
-                className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-surface-hover border border-[var(--card-border)] text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--muted-foreground)] hover:text-[var(--foreground)] rounded-full hover:bg-[var(--card-bg)] transition-colors cursor-pointer"
-                  title="Clear search text"
-                >
-                  <HiX className="text-sm" />
-                </button>
-              )}
-            </div>
-
-            {/* Layout Switcher */}
-            <div className="inline-flex p-1 bg-surface-hover rounded-xl border border-[var(--card-border)] w-full sm:w-auto justify-center">
-              <button
-                onClick={() => setViewLayout('roadmap')}
-                className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                  viewLayout === 'roadmap'
-                    ? 'bg-primary text-white shadow-sm'
-                    : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
-                }`}
-              >
-                <HiViewList />
-                Roadmap
-              </button>
-              <button
-                onClick={() => setViewLayout('grid')}
-                className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                  viewLayout === 'grid'
-                    ? 'bg-primary text-white shadow-sm'
-                    : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
-                }`}
-              >
-                <HiViewGrid />
-                Library ({allProblems.length})
-              </button>
-            </div>
-          </div>
-
-          {/* Secondary Filter Chips */}
-          <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-[var(--card-border)] overflow-x-auto no-scrollbar py-1">
-            <div className="flex items-center gap-2">
-              <HiFilter className="text-[var(--muted-foreground)] text-xs" />
-              <span className="text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-wider">
-                Filters:
-              </span>
-            </div>
-
-            {/* Difficulty Filter */}
-            <div className="flex items-center gap-1">
-              <select
-                value={selectedDifficulty}
-                onChange={(e) => setSelectedDifficulty(e.target.value)}
-                className="px-2.5 py-1 rounded-lg bg-surface-hover border border-[var(--card-border)] text-xs text-[var(--foreground)] focus:outline-none cursor-pointer"
-              >
-                <option value="all">All Difficulties</option>
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-              </select>
-            </div>
-
-            {/* Status Filter */}
-            <div className="flex items-center gap-1">
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="px-2.5 py-1 rounded-lg bg-surface-hover border border-[var(--card-border)] text-xs text-[var(--foreground)] focus:outline-none cursor-pointer"
-              >
-                <option value="all">All Statuses</option>
-                <option value="solved">Solved</option>
-                <option value="unsolved">Unsolved</option>
-                <option value="starred">Starred ⭐</option>
-              </select>
-            </div>
-
-            {/* Reset All Filters Button */}
-            {hasActiveFilters && (
-              <button
-                onClick={handleResetFilters}
-                className="px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
-                title="Reset all search queries and active filters"
-              >
-                <HiX className="text-xs" /> Reset Filters
-              </button>
-            )}
-
-            <div className="ml-auto text-xs text-[var(--muted-foreground)] font-medium">
-              {viewLayout === 'roadmap' && !searchQuery ? (
-                <span>📍 Curated Essential Roadmap (<strong>{filteredProblems.length}</strong> top problems)</span>
-              ) : (
-                <span>Showing <strong>{filteredProblems.length}</strong> matching questions in library</span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content Area: Roadmap or Grid */}
-        {viewLayout === 'roadmap' ? (
-          <DsaRoadmapView
-            problems={filteredProblems}
-            userProgress={userProgress}
+        {/* Curated Track Mode vs Full Library */}
+        {activeCuratedSheet !== 'all' ? (
+          <DsaCuratedSheetView
+            activeSheetId={activeCuratedSheet}
+            onSelectSheet={(sheetId) => setActiveCuratedSheet(sheetId)}
+            userProgressMap={userProgress as any}
+            allProblemsMap={allProblemsMap}
             onSelectProblem={(p) => setActiveProblem(p)}
-            onToggleStar={(id) => toggleStar(id)}
-            onToggleSolved={(id, e) => handleToggleSolved(id, e)}
+            onSetStatus={(id, status) => {
+              const mappedStatus: ProblemStatus = status === 'completed' ? 'solved' : 'unsolved';
+              setProblemStatus(id, mappedStatus);
+              if (mappedStatus === 'solved') {
+                spawnXPFromEvent(25);
+                playSuccess();
+                toast.success('🎉 Problem marked as Solved! +25 XP');
+              } else {
+                toast('Problem marked as Unsolved.', { icon: '⭕' });
+              }
+            }}
           />
         ) : (
+          <>
+            {/* Full 3,369 Database Search & Filter Toolbar */}
+            <div className="bg-[var(--card-bg)] border border-[var(--card-border)] p-4 rounded-2xl space-y-4 shadow-sm">
+              <div className="flex items-center justify-between gap-4 pb-2 border-b border-[var(--card-border)]">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black text-slate-100">🗺️ Full Library Roadmap</span>
+                  <span className="text-xs font-bold text-slate-400">({allProblems.length} questions)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setActiveCuratedSheet('neetcode150')}
+                    className="px-3 py-1 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 text-xs font-bold transition-all cursor-pointer"
+                  >
+                    ⚡ NeetCode 150
+                  </button>
+                  <button
+                    onClick={() => setActiveCuratedSheet('striverA2Z')}
+                    className="px-3 py-1 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 text-purple-400 border border-purple-500/30 text-xs font-bold transition-all cursor-pointer"
+                  >
+                    🚀 Striver A2Z
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+                {/* Search Input with 1-Click Clear */}
+                <div className="relative flex-1">
+                  <HiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] text-base" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search any question by name, # (e.g. 51), topic, or pattern..."
+                    className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-surface-hover border border-[var(--card-border)] text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--muted-foreground)] hover:text-[var(--foreground)] rounded-full hover:bg-[var(--card-bg)] transition-colors cursor-pointer"
+                      title="Clear search text"
+                    >
+                      <HiX className="text-sm" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Layout Switcher */}
+                <div className="inline-flex p-1 bg-surface-hover rounded-xl border border-[var(--card-border)] w-full sm:w-auto justify-center">
+                  <button
+                    onClick={() => setViewLayout('roadmap')}
+                    className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      viewLayout === 'roadmap'
+                        ? 'bg-primary text-white shadow-sm'
+                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+                    }`}
+                  >
+                    <HiViewList />
+                    Roadmap
+                  </button>
+                  <button
+                    onClick={() => setViewLayout('grid')}
+                    className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      viewLayout === 'grid'
+                        ? 'bg-primary text-white shadow-sm'
+                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+                    }`}
+                  >
+                    <HiViewGrid />
+                    Library ({allProblems.length})
+                  </button>
+                </div>
+              </div>
+
+              {/* Secondary Filter Chips */}
+              <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-[var(--card-border)] overflow-x-auto no-scrollbar py-1">
+                <div className="flex items-center gap-2">
+                  <HiFilter className="text-[var(--muted-foreground)] text-xs" />
+                  <span className="text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-wider">
+                    Filters:
+                  </span>
+                </div>
+
+                {/* Difficulty Filter */}
+                <div className="flex items-center gap-1">
+                  <select
+                    value={selectedDifficulty}
+                    onChange={(e) => setSelectedDifficulty(e.target.value)}
+                    className="px-2.5 py-1 rounded-lg bg-surface-hover border border-[var(--card-border)] text-xs text-[var(--foreground)] focus:outline-none cursor-pointer"
+                  >
+                    <option value="all">All Difficulties</option>
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                  </select>
+                </div>
+
+                {/* Status Filter */}
+                <div className="flex items-center gap-1">
+                  <select
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value)}
+                    className="px-2.5 py-1 rounded-lg bg-surface-hover border border-[var(--card-border)] text-xs text-[var(--foreground)] focus:outline-none cursor-pointer"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="solved">Solved</option>
+                    <option value="unsolved">Unsolved</option>
+                    <option value="starred">Starred ⭐</option>
+                  </select>
+                </div>
+
+                {/* Reset All Filters Button */}
+                {hasActiveFilters && (
+                  <button
+                    onClick={handleResetFilters}
+                    className="px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                    title="Reset all search queries and active filters"
+                  >
+                    <HiX className="text-xs" /> Reset Filters
+                  </button>
+                )}
+
+                <div className="ml-auto text-xs text-[var(--muted-foreground)] font-medium">
+                  {viewLayout === 'roadmap' && !searchQuery ? (
+                    <span>📍 Curated Essential Roadmap (<strong>{filteredProblems.length}</strong> top problems)</span>
+                  ) : (
+                    <span>Showing <strong>{filteredProblems.length}</strong> matching questions in library</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Main Content Area: Roadmap or Grid */}
+            {viewLayout === 'roadmap' ? (
+              <DsaRoadmapView
+                problems={filteredProblems}
+                userProgress={userProgress}
+                onSelectProblem={(p) => setActiveProblem(p)}
+                onToggleStar={(id) => toggleStar(id)}
+                onToggleSolved={(id, e) => handleToggleSolved(id, e)}
+              />
+            ) : (
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {paginatedProblems.map((problem) => {
@@ -409,6 +465,8 @@ function DsaPageContent() {
             )}
           </div>
         )}
+        </>
+      )}
 
         {/* Problem Detail Solver Workspace Modal */}
         {activeProblem && (

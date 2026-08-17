@@ -469,6 +469,25 @@ export default function PetContent() {
                 })()}
               </Card>
             )}
+
+            {/* D&D Monster Bestiary & Dungeon Raids Card */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 via-amber-500/10 to-red-500/10 border border-purple-500/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3 text-center sm:text-left">
+                <span className="text-3xl">🐉</span>
+                <div>
+                  <h4 className="text-sm font-black text-slate-100">Dungeon Raids & Monster Bestiary</h4>
+                  <p className="text-xs text-slate-400">Battle 762 D&D mythical creatures to level up your pet and earn rare loot!</p>
+                </div>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => { window.location.href = '/arcade'; }}
+                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black shadow-md shadow-amber-500/20 whitespace-nowrap"
+              >
+                ⚔️ Enter Dungeon Battle
+              </Button>
+            </div>
           </>
         )}
 

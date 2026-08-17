@@ -25,6 +25,16 @@ export function useDsaTracker() {
   const [customProblems, setCustomProblems] = useState<DsaProblem[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Load initial progress from localStorage for instant offline/guest caching
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem('sq_dsa_user_progress');
+      if (cached) {
+        setUserProgress(JSON.parse(cached));
+      }
+    } catch (e) { /* ignore */ }
+  }, []);
+
   // Subscribe to user's DSA progress document in Firestore
   useEffect(() => {
     if (!user?.uid) {
@@ -35,7 +45,12 @@ export function useDsaTracker() {
     const unsub = onSnapshot(ref, (snap) => {
       if (snap.exists()) {
         const data = snap.data();
-        setUserProgress(data.progress || {});
+        if (data.progress) {
+          setUserProgress(data.progress);
+          try {
+            localStorage.setItem('sq_dsa_user_progress', JSON.stringify(data.progress));
+          } catch (e) { /* ignore */ }
+        }
         if (Array.isArray(data.customProblems)) {
           setCustomProblems(data.customProblems);
         }
@@ -86,12 +101,9 @@ function sanitizeFirestoreData<T>(data: T): T {
   return copy;
 }
 
-  // Save progress changes to Firestore
+  // Save progress changes to Firestore and localStorage
   const updateProgress = useCallback(
     async (problemId: string, updates: Partial<UserProblemProgress>) => {
-      if (!user?.uid) return;
-      const ref = doc(db, 'users', user.uid, 'data', 'dsaProgress');
-
       setUserProgress((prev) => {
         const current = prev[problemId] || { status: 'unsolved' };
         const next = { ...current, ...updates };
@@ -102,11 +114,19 @@ function sanitizeFirestoreData<T>(data: T): T {
         }
         const updatedMap = { ...prev, [problemId]: cleanNext };
 
-        // Async write to Firestore with clean serialized map
-        const payload = sanitizeFirestoreData({ progress: updatedMap, updatedAt: Date.now() });
-        setDoc(ref, payload, { merge: true }).catch((err) => {
-          console.error('Failed to update DSA progress:', err);
-        });
+        // Persist to localStorage
+        try {
+          localStorage.setItem('sq_dsa_user_progress', JSON.stringify(updatedMap));
+        } catch (e) { /* ignore */ }
+
+        // Async write to Firestore if logged in
+        if (user?.uid) {
+          const ref = doc(db, 'users', user.uid, 'data', 'dsaProgress');
+          const payload = sanitizeFirestoreData({ progress: updatedMap, updatedAt: Date.now() });
+          setDoc(ref, payload, { merge: true }).catch((err) => {
+            console.error('Failed to update DSA progress:', err);
+          });
+        }
 
         return updatedMap;
       });

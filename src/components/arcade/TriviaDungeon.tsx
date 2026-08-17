@@ -16,17 +16,10 @@ import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import './TriviaDungeon.css';
 
-// ── Types ──
-interface Monster {
-  id: string;
-  name: string;
-  emoji: string;
-  maxHp: number;
-  attack: number;
-  xpReward: number;
-  coinReward: number;
-  tier: 'minion' | 'elite' | 'boss';
-}
+import { DndMonster, DND_MONSTERS, getRandomMonster, MONSTERS_BY_TIER } from '@/data/dndMonstersDataset';
+import DndBestiaryModal from '@/components/arcade/DndBestiaryModal';
+
+export type Monster = DndMonster;
 
 interface QuizQuestion {
   question: string;
@@ -36,16 +29,6 @@ interface QuizQuestion {
 }
 
 type GamePhase = 'note-select' | 'battle' | 'answering' | 'result' | 'victory' | 'defeat';
-
-// ── Monster Roster ──
-const MONSTERS: Monster[] = [
-  { id: 'slime', name: 'Study Slime', emoji: '🟢', maxHp: 30, attack: 8, xpReward: 15, coinReward: 5, tier: 'minion' },
-  { id: 'goblin', name: 'Distraction Goblin', emoji: '👺', maxHp: 50, attack: 12, xpReward: 25, coinReward: 10, tier: 'minion' },
-  { id: 'skeleton', name: 'Procrastination Skeleton', emoji: '💀', maxHp: 70, attack: 15, xpReward: 35, coinReward: 15, tier: 'elite' },
-  { id: 'wizard', name: 'Confusion Wizard', emoji: '🧙', maxHp: 90, attack: 18, xpReward: 50, coinReward: 20, tier: 'elite' },
-  { id: 'dragon', name: 'Exam Dragon', emoji: '🐉', maxHp: 120, attack: 22, xpReward: 80, coinReward: 35, tier: 'boss' },
-  { id: 'demon', name: 'Final Boss Demon', emoji: '👿', maxHp: 150, attack: 25, xpReward: 120, coinReward: 50, tier: 'boss' },
-];
 
 const PLAYER_MAX_HP = 100;
 const PLAYER_ATTACK = 20;
@@ -59,15 +42,17 @@ const PARTICLES = Array.from({ length: 10 }, (_, i) => ({
   delay: `${i * 1.3}s`,
 }));
 
-// ── Pick weighted random monster ──
-function pickMonster(): Monster {
-  const roll = Math.random();
-  const pool = roll < 0.4
-    ? MONSTERS.filter(m => m.tier === 'minion')
-    : roll < 0.75
-      ? MONSTERS.filter(m => m.tier === 'elite')
-      : MONSTERS.filter(m => m.tier === 'boss');
-  return pool[Math.floor(Math.random() * pool.length)];
+// ── Pick weighted random monster matching floor level ──
+function pickMonsterForFloor(floorNum: number): DndMonster {
+  if (floorNum >= 30) {
+    return getRandomMonster('mythic');
+  } else if (floorNum >= 15) {
+    return getRandomMonster('boss');
+  } else if (floorNum >= 6) {
+    return getRandomMonster('elite');
+  } else {
+    return getRandomMonster('minion');
+  }
 }
 
 // ── Fallback Trivia Question Bank (General Computer Science) ──
@@ -234,9 +219,10 @@ ${stripped}`;
 // ── Component ──
 interface TriviaDungeonProps {
   onExit: () => void;
+  initialBoss?: DndMonster;
 }
 
-export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
+export default function TriviaDungeon({ onExit, initialBoss }: TriviaDungeonProps) {
   const { user, profile } = useAuthContext();
   const { gamification, awardXP } = useGamification();
   const { addCoins } = useShop();
@@ -245,7 +231,7 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
   // Game state
   const [phase, setPhase] = useState<GamePhase>('note-select');
   const [selectedNotes, setSelectedNotes] = useState<string[]>([]);
-  const [monster, setMonster] = useState<Monster | null>(null);
+  const [monster, setMonster] = useState<Monster | null>(initialBoss || null);
   const [monsterHp, setMonsterHp] = useState(0);
   const [playerHp, setPlayerHp] = useState(PLAYER_MAX_HP);
   const [floor, setFloor] = useState(1);
@@ -257,6 +243,7 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
   const [floatingDmg, setFloatingDmg] = useState<{ id: number; value: string; type: string } | null>(null);
+  const [isBestiaryOpen, setIsBestiaryOpen] = useState(false);
 
   // Pre-loaded questions batch
   const [dungeonQuestions, setDungeonQuestions] = useState<QuizQuestion[]>([]);
@@ -331,7 +318,7 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
   };
 
   // Start the dungeon
-  const startDungeon = useCallback(() => {
+  const startDungeon = useCallback((customMonster?: DndMonster) => {
     const contents = notes.filter(n => selectedNotes.includes(n.id)).map(n => n.content);
     noteContentsRef.current = contents;
     setPlayerHp(PLAYER_MAX_HP);
@@ -343,12 +330,13 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
     setDungeonQuestions([]);
     setCurrentQuestionIndex(0);
     setAnsweredQuestionsLog([]); // Reset answered questions log when entering/restarting
-    spawnMonster(contents, startFloor);
-  }, [notes, selectedNotes, startFloor]);
+    spawnMonster(contents, startFloor, customMonster || initialBoss);
+  }, [notes, selectedNotes, startFloor, initialBoss]);
 
   // Spawn a new monster
-  const spawnMonster = async (contents?: string[], startFromFloor?: number) => {
-    const m = pickMonster();
+  const spawnMonster = async (contents?: string[], floorNum?: number, customMonster?: DndMonster) => {
+    const currentFloorNum = floorNum || floor;
+    const m = customMonster || (initialBoss && currentFloorNum === 1 ? initialBoss : pickMonsterForFloor(currentFloorNum));
     setMonster(m);
     setMonsterHp(m.maxHp);
     setPhase('battle');
@@ -598,7 +586,7 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
   if (phase === 'note-select') {
     return (
       <div className="dungeon-container space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <button onClick={onExit} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors">
               <HiArrowLeft size={18} />
@@ -607,9 +595,16 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
               <h1 className="text-2xl font-heading font-black flex items-center gap-2">
                 <span>⚔️</span> Trivia Dungeon
               </h1>
-              <p className="text-sm text-[var(--muted-foreground)]">Select up to 3 notes to battle with</p>
+              <p className="text-sm text-[var(--muted-foreground)]">Battle 762 D&D monsters with knowledge from your notes</p>
             </div>
           </div>
+
+          <button
+            onClick={() => setIsBestiaryOpen(true)}
+            className="px-3.5 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+          >
+            <span>🐉</span> Open Monster Bestiary (762)
+          </button>
         </div>
 
         {/* Global Starting Floor Selector */}
@@ -755,7 +750,7 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
                   variant="coral"
                   size="lg"
                   icon={<HiLightningBolt />}
-                  onClick={startDungeon}
+                  onClick={() => startDungeon()}
                   disabled={selectedNotes.length === 0}
                 >
                   Enter Dungeon ⚔️
@@ -851,7 +846,7 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
             {renderBattleReview()}
 
             <div className="flex gap-3 justify-center pt-4">
-              <Button variant="coral" icon={<HiLightningBolt />} onClick={startDungeon}>Try Again</Button>
+              <Button variant="coral" icon={<HiLightningBolt />} onClick={() => startDungeon()}>Try Again</Button>
               <Button variant="ghost" icon={<HiArrowLeft />} onClick={onExit}>Leave Dungeon</Button>
             </div>
           </div>
@@ -875,7 +870,17 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
         </button>
         <div className="flex items-center gap-2">
           <Badge variant="primary" size="sm">⚔️ Floor {floor}</Badge>
+          {monster && (
+            <Badge variant="amber" size="sm">CR {monster.crDisplay}</Badge>
+          )}
           <Badge variant="teal" size="sm">✅ {totalCorrect}/{totalQuestions}</Badge>
+          <button
+            onClick={() => setIsBestiaryOpen(true)}
+            className="p-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 text-xs font-bold transition-all cursor-pointer"
+            title="Open Monster Bestiary"
+          >
+            📖 Bestiary
+          </button>
         </div>
       </div>
 
@@ -897,13 +902,19 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
               {/* Monster HP */}
               <div className="health-bar-container">
                 <div className="health-bar-label">
-                  <span>{monster.name}</span>
+                  <span className="flex items-center gap-1.5 font-black">
+                    {monster.name}
+                    <span className="text-[10px] text-amber-300 font-bold capitalize">({monster.type})</span>
+                  </span>
                   <span>{monsterHp}/{monster.maxHp}</span>
                 </div>
                 <div className="health-bar-track">
                   <div className={`health-bar-fill monster ${hpClass(monsterHpPct)}`} style={{ width: `${monsterHpPct}%` }} />
                 </div>
-                <span className={`monster-tier ${monster.tier}`}>{monster.tier.toUpperCase()}</span>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-slate-300">
+                  <span className={`monster-tier ${monster.tier}`}>{monster.tier.toUpperCase()}</span>
+                  <span className="font-bold">CR {monster.crDisplay} • 🛡️ {monster.ac} AC • ⚡ {monster.attack} ATK</span>
+                </div>
               </div>
 
               {/* Monster Emoji */}
@@ -1067,6 +1078,16 @@ export default function TriviaDungeon({ onExit }: TriviaDungeonProps) {
           </div>
         </div>
       </div>
+
+      {/* D&D Monster Bestiary Modal */}
+      <DndBestiaryModal
+        isOpen={isBestiaryOpen}
+        onClose={() => setIsBestiaryOpen(false)}
+        onChallengeMonster={(m) => {
+          setPhase('note-select');
+          startDungeon(m);
+        }}
+      />
     </div>
   );
 }

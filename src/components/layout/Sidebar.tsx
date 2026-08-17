@@ -23,6 +23,8 @@ import StreakCounter from '@/components/gamification/StreakCounter';
 import QuestieMascot from '@/components/gamification/QuestieMascot';
 import AvatarBorder from '@/components/gamification/AvatarBorder';
 import { useTheme } from '@/context/ThemeContext';
+import { isFeatureEnabled, FeatureFlags } from '@/config/featureFlags';
+
 
 const iconMap: Record<string, React.ComponentType<{ className?: string; size?: number }>> = {
   HiHome, HiClipboardCheck, HiPencilAlt, HiLightningBolt,
@@ -43,6 +45,7 @@ const NAV_SECTIONS = [
     title: 'Adventure',
     items: [
       { label: 'Dashboard', href: '/', icon: 'HiHome' },
+      { label: 'Syllabus Tracker', href: '/tracker', icon: 'HiAcademicCap', featureFlag: 'studyTracker' },
       { label: 'Quest Log', href: '/tasks', icon: 'HiClipboardCheck' },
       { label: 'Notes & Scrolls', href: '/notes', icon: 'HiPencilAlt' },
       { label: 'Daily Quests', href: '/habits', icon: 'HiLightningBolt' },
@@ -101,12 +104,24 @@ export default function Sidebar() {
     ? getAvatarUrl(profile.avatarSeed, profile.avatarStyle)
     : '';
 
-  // Filter out Admin section for non-admin users
+  // Filter out Admin section for non-admin users & features disabled by Feature Flags
   const visibleSections = useMemo(() => {
     const isAdmin = profile?.email && ADMIN_EMAILS.includes(profile.email);
-    if (isAdmin) return NAV_SECTIONS;
-    return NAV_SECTIONS.filter((s) => s.title !== 'Admin');
+    const sections = isAdmin ? NAV_SECTIONS : NAV_SECTIONS.filter((s) => s.title !== 'Admin');
+
+    return sections
+      .map((sec) => ({
+        ...sec,
+        items: sec.items.filter((item) => {
+          if ('featureFlag' in item && item.featureFlag) {
+            return isFeatureEnabled(item.featureFlag as keyof FeatureFlags);
+          }
+          return true;
+        }),
+      }))
+      .filter((sec) => sec.items.length > 0);
   }, [profile?.email]);
+
 
   // Scroll indicators for nav
   const navRef = useRef<HTMLElement>(null);
@@ -153,9 +168,10 @@ export default function Sidebar() {
   // Build all items lookup map for Pinned section
   const allNavItems = useMemo(() => {
     const list: Array<{ label: string; href: string; icon: string }> = [];
-    NAV_SECTIONS.forEach((s) => s.items.forEach((item) => list.push(item)));
+    visibleSections.forEach((s) => s.items.forEach((item) => list.push(item)));
     return list;
-  }, []);
+  }, [visibleSections]);
+
 
   const pinnedItems = useMemo(() => {
     return pinnedHrefs

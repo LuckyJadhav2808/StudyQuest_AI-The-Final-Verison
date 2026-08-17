@@ -55,17 +55,17 @@ export default function ResourcesContent() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-heading font-black">Resources Vault</h1>
+          <h1 className="text-2xl font-heading font-black">Academic Resources</h1>
           <p className="text-sm text-[var(--muted-foreground)]">
-            Organize your study links, PDFs, and notes in folders.
+            Organize study materials, bookmarks, PDFs, and external links into curated folders.
           </p>
         </div>
+
         <div className="flex items-center gap-2">
-          {/* Mobile sidebar toggle */}
           <button
             onClick={() => setShowSidebar(!showSidebar)}
             className="lg:hidden p-2 rounded-xl border-2 border-[var(--card-border)] hover:bg-[var(--card-border)]/40 transition-colors"

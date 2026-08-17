@@ -418,3 +418,61 @@ export interface SkillTreeData {
   skillPoints: number;
   unlockedSkills: string[]; // skill IDs
 }
+
+// ----- Study & Syllabus Progress Tracker -----
+export type TopicStatus = 'todo' | 'in-progress' | 'mastered';
+
+export interface TrackerTopic {
+  id: string;
+  title: string;
+  status: TopicStatus;
+  confidence: number;         // 1 to 5 stars
+  revisionCount: number;
+  notes?: string;
+  estimatedHours?: number;
+  completedAt?: number;
+}
+
+export interface TrackerUnit {
+  id: string;
+  unitNumber: number;
+  title: string;
+  description?: string;
+  topics: TrackerTopic[];
+}
+
+export interface TrackerSubject {
+  id: string;
+  name: string;
+  code?: string;
+  color: string;              // theme color / hex accent
+  icon: string;               // emoji
+  weightage?: number;         // marks or percentage weightage
+  targetExamDate?: string;    // ISO date YYYY-MM-DD
+  units: TrackerUnit[];
+}
+
+export interface SyllabusTrack {
+  id: string;
+  title: string;              // e.g. "GATE CSE 2026", "Semester 6 Exams", "Self-Taught ML"
+  description?: string;
+  isDefault?: boolean;
+  subjects: TrackerSubject[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface TrackerKPIs {
+  totalTopics: number;
+  completedTopics: number;
+  inProgressTopics: number;
+  todoTopics: number;
+  overallCompletionPct: number;
+  weightedReadinessScore: number; // 0-100 based on status & confidence
+  averageConfidence: number;      // 1-5 scale
+  totalSubjects: number;
+  weakTopicsCount: number;        // low confidence (<= 2) or stuck in-progress
+  estimatedHoursLeft: number;
+  completedThisWeekCount: number;
+}
+

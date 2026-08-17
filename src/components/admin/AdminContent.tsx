@@ -5,12 +5,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   HiShieldCheck, HiUsers, HiExclamation, HiSpeakerphone,
   HiSearch, HiRefresh, HiCheck, HiClock, HiChartBar, HiCurrencyDollar,
+  HiAdjustments, HiCheckCircle, HiXCircle, HiLightningBolt, HiSparkles,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import { useAuthContext } from '@/context/AuthContext';
 import { ADMIN_EMAILS, PATCH_NOTES, getAvatarUrl } from '@/lib/constants';
 import { db } from '@/lib/firebase';
 import { getProfileRef, getGamificationRef } from '@/lib/firestore';
+import {
+  FeatureFlags,
+  getAllFeatureFlags,
+  setFeatureFlagOverride,
+  resetFeatureFlags,
+  DEFAULT_FEATURE_FLAGS,
+} from '@/config/featureFlags';
 import {
   collection, getDocs, getDoc, doc, updateDoc,
   query, orderBy, onSnapshot, deleteDoc,
@@ -21,7 +29,7 @@ import Badge from '@/components/ui/Badge';
 import PageTransition from '@/components/layout/PageTransition';
 
 // ── Types ──────────────────────────────────────────────────────
-type Tab = 'overview' | 'users' | 'bugs' | 'patchnotes';
+type Tab = 'overview' | 'users' | 'featureflags' | 'bugs' | 'patchnotes';
 
 interface LeaderboardUser {
   uid: string;
@@ -56,9 +64,11 @@ interface Stats {
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <HiChartBar /> },
   { id: 'users', label: 'Users', icon: <HiUsers /> },
+  { id: 'featureflags', label: 'Feature Flags', icon: <HiAdjustments /> },
   { id: 'bugs', label: 'Bug Reports', icon: <HiExclamation /> },
   { id: 'patchnotes', label: 'Patch Notes', icon: <HiSpeakerphone /> },
 ];
+
 
 const STATUS_BADGE: Record<string, 'coral' | 'amber' | 'teal'> = {
   open: 'coral',
@@ -323,6 +333,7 @@ export default function AdminContent() {
               grantCoins={grantCoins} grantXP={grantXP}
             />
           )}
+          {tab === 'featureflags' && <FeatureFlagsTab />}
           {tab === 'bugs' && (
             <BugsTab bugs={bugs} updateStatus={updateBugStatus} updateNote={updateBugNote}
               formatDate={formatDate}
@@ -606,3 +617,373 @@ function PatchNotesTab() {
     </div>
   );
 }
+
+// ═══════════════════════════════════════════════════════════════
+// ── Tab: Feature Flags (Kill-Switch Control Center) ───────────
+// ═══════════════════════════════════════════════════════════════
+
+interface FlagMeta {
+  key: keyof FeatureFlags;
+  name: string;
+  category: 'Core Learning' | 'Gamification & RPG' | 'Developer Tools' | 'Social';
+  description: string;
+  route: string;
+  icon: string;
+}
+
+const FEATURE_METADATA: FlagMeta[] = [
+  {
+    key: 'studyTracker',
+    name: 'Study & Syllabus Progress Tracker',
+    category: 'Core Learning',
+    description: 'Dynamic syllabus checklist, unit KPIs, revision tracker, and SPPU / GATE presets.',
+    route: '/tracker',
+    icon: '📘',
+  },
+  {
+    key: 'dsaDungeon',
+    name: 'DSA Dungeon & Problem Sheets',
+    category: 'Core Learning',
+    description: 'Striver SDE Sheet, curated algorithmic problems, test cases, and difficulty filtering.',
+    route: '/dsa',
+    icon: '⚔️',
+  },
+  {
+    key: 'typingArcade',
+    name: 'Typing Speed Arcade',
+    category: 'Gamification & RPG',
+    description: 'Retro game-infused typing drills, WPM tracking, and competitive leaderboards.',
+    route: '/arcade',
+    icon: '🕹️',
+  },
+  {
+    key: 'alchemyLab',
+    name: 'Knowledge & Formula Alchemy Lab',
+    category: 'Core Learning',
+    description: 'Interactive formula synthesis, concept combinations, and elemental study cards.',
+    route: '/alchemy',
+    icon: '⚗️',
+  },
+  {
+    key: 'whiteboard',
+    name: 'Collaborative Canvas & Whiteboard',
+    category: 'Developer Tools',
+    description: 'Infinite visual canvas for architecture diagrams, flowcharts, and sticky brainstorming.',
+    route: '/whiteboard',
+    icon: '🎨',
+  },
+  {
+    key: 'codeRunner',
+    name: 'Code Runner IDE & Playground',
+    category: 'Developer Tools',
+    description: 'Multi-language code execution environment for Python, JavaScript, C++, and Java.',
+    route: '/coderunner',
+    icon: '💻',
+  },
+  {
+    key: 'sqlLab',
+    name: 'Interactive SQL Database Sandbox',
+    category: 'Developer Tools',
+    description: 'In-browser SQLite query runner, schema visualizer, and relational practice sets.',
+    route: '/sql',
+    icon: '🗄️',
+  },
+  {
+    key: 'petSystem',
+    name: 'Virtual Mascot Companion & Pets',
+    category: 'Gamification & RPG',
+    description: 'Evolving study pets (Owl, Cat, Dino) that gain XP and buff user study streaks.',
+    route: '/pets',
+    icon: '🦉',
+  },
+  {
+    key: 'itemShop',
+    name: 'XP Shop & Avatar Customization',
+    category: 'Gamification & RPG',
+    description: 'Spend study coins on avatar cosmetics, custom themes, and profile badges.',
+    route: '/shop',
+    icon: '🛍️',
+  },
+  {
+    key: 'skillTree',
+    name: 'Academic Skill Tree Progression',
+    category: 'Gamification & RPG',
+    description: 'RPG-style skill unlock tree across Computer Science and Engineering branches.',
+    route: '/skills',
+    icon: '🌳',
+  },
+  {
+    key: 'studyGroups',
+    name: 'Multiplayer Study Squads & Rooms',
+    category: 'Social',
+    description: 'Real-time collaborative study lobbies with shared timers and squad challenges.',
+    route: '/groups',
+    icon: '👥',
+  },
+  {
+    key: 'examsCountdown',
+    name: 'Exam Countdown & Prep Timers',
+    category: 'Core Learning',
+    description: 'Milestone timers for University In-Sem, End-Sem, and competitive exams.',
+    route: '/exams',
+    icon: '⏳',
+  },
+];
+
+function FeatureFlagsTab() {
+  const [flags, setFlags] = useState<FeatureFlags>(() => getAllFeatureFlags());
+  const [search, setSearch] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
+  // Listen for real-time changes across the application
+  useEffect(() => {
+    const handleUpdate = () => {
+      setFlags(getAllFeatureFlags());
+    };
+    window.addEventListener('featureflags_updated', handleUpdate);
+    return () => window.removeEventListener('featureflags_updated', handleUpdate);
+  }, []);
+
+  const handleToggle = (key: keyof FeatureFlags) => {
+    const nextState = !flags[key];
+    setFeatureFlagOverride(key, nextState);
+    setFlags((prev) => ({ ...prev, [key]: nextState }));
+
+    if (nextState) {
+      toast.success(`🟢 Feature flag "${key}" ENABLED`, { duration: 3000 });
+    } else {
+      toast.error(`🔴 Feature flag "${key}" DISABLED (Kill-Switch Engaged)`, { duration: 4000 });
+    }
+  };
+
+  const handleEnableAll = () => {
+    FEATURE_METADATA.forEach((f) => {
+      setFeatureFlagOverride(f.key, true);
+    });
+    setFlags(getAllFeatureFlags());
+    toast.success('All platform features enabled!');
+  };
+
+  const handleDisableAll = () => {
+    FEATURE_METADATA.forEach((f) => {
+      setFeatureFlagOverride(f.key, false);
+    });
+    setFlags(getAllFeatureFlags());
+    toast.error('⚠️ All feature flags disabled (Global Kill-Switch Active)!');
+  };
+
+  const handleResetDefaults = () => {
+    resetFeatureFlags();
+    setFlags(getAllFeatureFlags());
+    toast.success('Feature flags reset to system defaults');
+  };
+
+  // Filter flags
+  const filteredFlags = FEATURE_METADATA.filter((f) => {
+    const matchesSearch =
+      f.name.toLowerCase().includes(search.toLowerCase()) ||
+      f.key.toLowerCase().includes(search.toLowerCase()) ||
+      f.description.toLowerCase().includes(search.toLowerCase()) ||
+      f.route.toLowerCase().includes(search.toLowerCase());
+
+    const matchesCategory = selectedCategory === 'all' || f.category === selectedCategory;
+
+    return matchesSearch && matchesCategory;
+  });
+
+  const activeCount = Object.values(flags).filter(Boolean).length;
+  const totalCount = FEATURE_METADATA.length;
+  const disabledCount = totalCount - activeCount;
+
+  return (
+    <div className="space-y-6">
+      
+      {/* 1. Header Control Banner */}
+      <Card hover={false} className="border-2 border-primary/20 bg-gradient-to-br from-[var(--card-bg)] via-[#0B0F19] to-red-950/20 p-5 sm:p-6 shadow-xl">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <Badge variant="coral" size="sm" className="font-bold">
+                <HiShieldCheck size={13} className="mr-1" /> Production Feature Flags
+              </Badge>
+              <span className="text-[11px] font-mono text-[var(--muted-foreground)]">
+                Local + Runtime Overrides
+              </span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-heading font-black text-white">
+              Instant Kill-Switch Command Center
+            </h2>
+            <p className="text-xs text-[var(--muted-foreground)] mt-1 max-w-2xl">
+              Toggle any platform feature ON or OFF in 0-seconds. When a feature is disabled, its sidebar entry, direct route, and subcomponents are instantly guarded.
+            </p>
+          </div>
+
+          {/* Quick Action Buttons */}
+          <div className="flex items-center gap-2 flex-wrap self-start md:self-auto">
+            <Button
+              variant="teal"
+              size="sm"
+              icon={<HiCheckCircle size={15} />}
+              onClick={handleEnableAll}
+            >
+              Enable All
+            </Button>
+            <Button
+              variant="coral"
+              size="sm"
+              icon={<HiXCircle size={15} />}
+              onClick={handleDisableAll}
+            >
+              Kill All
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<HiRefresh size={14} />}
+              onClick={handleResetDefaults}
+            >
+              Reset Defaults
+            </Button>
+          </div>
+        </div>
+
+        {/* Status Metrics Strip */}
+        <div className="grid grid-cols-3 gap-3 mt-5 pt-4 border-t border-slate-800/80">
+          <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--muted-foreground)] block">
+              Total Modules
+            </span>
+            <span className="text-xl font-heading font-black text-white">{totalCount}</span>
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-400 block">
+              Active Flags
+            </span>
+            <span className="text-xl font-heading font-black text-emerald-400">{activeCount}</span>
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-red-400 block">
+              Killed / Disabled
+            </span>
+            <span className="text-xl font-heading font-black text-red-400">{disabledCount}</span>
+          </div>
+        </div>
+      </Card>
+
+      {/* 2. Filter & Search Controls */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="relative flex-1">
+          <HiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" size={16} />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search feature flags by name, key, route or description..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--card-bg)] border-2 border-[var(--card-border)] text-xs sm:text-sm text-white focus:border-primary outline-none transition-colors"
+          />
+        </div>
+
+        {/* Category Filter Pills */}
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-900 border border-slate-800 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {['all', 'Core Learning', 'Gamification & RPG', 'Developer Tools', 'Social'].map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                selectedCategory === cat ? 'bg-primary text-white' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              {cat === 'all' ? 'All Categories' : cat}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 3. Feature Flag Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {filteredFlags.map((flag) => {
+          const isEnabled = flags[flag.key];
+
+          return (
+            <Card
+              key={flag.key}
+              hover={false}
+              className={`border-2 transition-all p-4 sm:p-5 flex flex-col justify-between ${
+                isEnabled
+                  ? 'border-slate-800/80 bg-[var(--card-bg)]/80 hover:border-primary/40'
+                  : 'border-red-500/30 bg-red-950/10'
+              }`}
+            >
+              <div>
+                {/* Header: Icon, Name & Status Toggle */}
+                <div className="flex items-start justify-between gap-3 mb-2.5">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-xl flex-shrink-0">
+                      {flag.icon}
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-heading font-bold text-sm sm:text-base text-white truncate">
+                        {flag.name}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="font-mono text-[11px] text-primary">
+                          {flag.key}
+                        </span>
+                        <span className="text-[11px] text-[var(--muted-foreground)]">•</span>
+                        <span className="font-mono text-[11px] text-sky-400">
+                          {flag.route}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Toggle Switch */}
+                  <button
+                    onClick={() => handleToggle(flag.key)}
+                    className={`relative w-12 h-6.5 rounded-full p-0.5 transition-colors duration-200 ease-in-out focus:outline-none flex-shrink-0 ${
+                      isEnabled ? 'bg-emerald-500 shadow-md shadow-emerald-500/20' : 'bg-slate-700'
+                    }`}
+                    title={isEnabled ? 'Click to disable / kill feature' : 'Click to enable feature'}
+                  >
+                    <motion.div
+                      layout
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                      className={`w-5.5 h-5.5 rounded-full bg-white shadow-md transform ${
+                        isEnabled ? 'translate-x-5.5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <p className="text-xs text-[var(--muted-foreground)] leading-relaxed mb-4">
+                  {flag.description}
+                </p>
+              </div>
+
+              {/* Footer: Category & Status Badge */}
+              <div className="flex items-center justify-between pt-3 border-t border-slate-800/60">
+                <span className="text-[11px] text-slate-400 font-semibold">
+                  {flag.category}
+                </span>
+
+                {isEnabled ? (
+                  <Badge variant="teal" size="sm" className="font-bold">
+                    <HiCheckCircle size={12} className="mr-1" /> ACTIVE
+                  </Badge>
+                ) : (
+                  <Badge variant="coral" size="sm" className="font-bold">
+                    <HiXCircle size={12} className="mr-1" /> KILLED (OFF)
+                  </Badge>
+                )}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
+    </div>
+  );
+}
+
