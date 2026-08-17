@@ -69,14 +69,49 @@ export async function getCollection<T>(
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as T);
 }
 
+/**
+ * Recursively removes `undefined` properties from an object without breaking
+ * Firestore Sentinels / FieldValues (like increment(), serverTimestamp(), arrayUnion(), Timestamp, etc.).
+ */
+export function sanitizeFirestoreData<T = any>(obj: T): T {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj !== 'object') return obj;
+
+  // Preserve FieldValue / Sentinel instances, Date, and Firestore custom types
+  if (
+    obj.constructor &&
+    obj.constructor.name !== 'Object' &&
+    obj.constructor.name !== 'Array'
+  ) {
+    return obj;
+  }
+
+  // Preserve Firestore FieldValue sentinels if they have _methodName or toJSON/isEqual
+  if ('_methodName' in (obj as any) || typeof (obj as any).isEqual === 'function') {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeFirestoreData) as any;
+  }
+
+  const result: any = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      result[key] = sanitizeFirestoreData(value);
+    }
+  }
+  return result;
+}
+
 /** Set a document (create or overwrite) */
 export async function setDocument(
   docRef: ReturnType<typeof doc>,
   data: DocumentData,
   merge: boolean = true,
 ): Promise<void> {
-  // Strip out any `undefined` properties to prevent Firestore serialization errors
-  const sanitized = JSON.parse(JSON.stringify(data));
+  // Strip out any `undefined` properties cleanly without corrupting FieldValues
+  const sanitized = sanitizeFirestoreData(data);
   await setDoc(docRef, sanitized, { merge });
 }
 
@@ -85,9 +120,10 @@ export async function updateDocument(
   docRef: ReturnType<typeof doc>,
   data: Partial<DocumentData>,
 ): Promise<void> {
-  const sanitized = JSON.parse(JSON.stringify(data));
+  const sanitized = sanitizeFirestoreData(data);
   await updateDoc(docRef, sanitized);
 }
+
 
 
 /** Delete a document */

@@ -706,17 +706,18 @@ h4 { font-size: 1.125rem; }
   border: none;
   font-family: 'Inter', system-ui, sans-serif;
   font-size: 14px;
-  min-height: 550px;
-  max-height: 75vh;
-  overflow-y: auto;
+  min-height: 450px;
+  height: auto;
+  overflow: visible;
 }
 
 .quill-wrapper .ql-editor {
   padding: 24px;
   line-height: 1.8;
-  min-height: 550px;
+  min-height: 450px;
   color: var(--foreground);
 }
+
 
 /* Themed scrollbar for the notes editor */
 .quill-wrapper .ql-container.ql-snow::-webkit-scrollbar {
@@ -806,12 +807,13 @@ h4 { font-size: 1.125rem; }
 
 .quill-wrapper .ql-container.ql-snow {
   flex: 1;
-  overflow-y: auto;
-  height: calc(100vh - 280px);
+  overflow: visible;
+  height: auto;
   min-height: 480px;
   border: none !important;
   background: var(--card-bg);
 }
+
 
 .quill-wrapper .ql-editor blockquote {
   border-left: 4px solid #7C3AED;

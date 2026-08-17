@@ -15,6 +15,7 @@ import QuizModal from '@/components/notes/QuizModal';
 import { marked } from 'marked';
 import 'react-quill-new/dist/quill.snow.css';
 import { autocorrectWord, isMisspelled, getSpellingSuggestions, cleanWord, addToCustomDictionary } from '@/lib/spellcheck';
+import { getAutocompleteSuggestions } from '@/data/notesAutocompleteDataset';
 
 const sanitizeHtmlForQuill = (html: string): string => {
   if (!html) return '';
@@ -71,6 +72,28 @@ const sanitizeHtmlForQuill = (html: string): string => {
     return html;
   }
 };
+
+const getPlainTextPreview = (html: string): string => {
+  if (!html) return 'Empty note...';
+  try {
+    const clean = html
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\s+/g, ' ')
+      .trim();
+    return clean || 'Empty note...';
+  } catch {
+    return 'Empty note...';
+  }
+};
+
 
 const ReactQuill = dynamic(
   async () => {
@@ -390,29 +413,60 @@ export default function NotesContent() {
     }, 1000);
   };
 
-  // ── Spellcheck & Autocorrect states & effects for Quill ──
+  // ── Spellcheck & Autocorrect & Autocomplete states for Quill ──
   const quillRef = useRef<any>(null);
+  const [autocorrectEnabled, setAutocorrectEnabled] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('studyquest_notes_autocorrect_enabled');
+      return saved !== null ? saved === 'true' : true;
+    }
+    return true;
+  });
+  const autocorrectEnabledRef = useRef(true);
   const [quillSuggestions, setQuillSuggestions] = useState<string[]>([]);
+  const [quillAutocomplete, setQuillAutocomplete] = useState<string[]>([]);
   const [quillActiveWord, setQuillActiveWord] = useState('');
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
   const [quillActiveWordRange, setQuillActiveWordRange] = useState<{ start: number; end: number } | null>(null);
+  const [caretPosition, setCaretPosition] = useState<{ top: number; left: number } | null>(null);
   const quillActiveWordRangeRef = useRef<{ start: number; end: number } | null>(null);
+  const activeSuggestionIndexRef = useRef(0);
+  const quillAutocompleteRef = useRef<string[]>([]);
+  const quillSuggestionsRef = useRef<string[]>([]);
   const isReplacingRef = useRef(false);
   const lastSelectionIndexRef = useRef<number | null>(null);
   const quillSuggestionsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  useEffect(() => { autocorrectEnabledRef.current = autocorrectEnabled; }, [autocorrectEnabled]);
+  useEffect(() => { quillAutocompleteRef.current = quillAutocomplete; }, [quillAutocomplete]);
+  useEffect(() => { quillSuggestionsRef.current = quillSuggestions; }, [quillSuggestions]);
+  useEffect(() => { activeSuggestionIndexRef.current = activeSuggestionIndex; }, [activeSuggestionIndex]);
+
   const checkQuillSpelling = useCallback(() => {
-    if (isReplacingRef.current) return;
+    if (isReplacingRef.current || !autocorrectEnabledRef.current) {
+      if (!autocorrectEnabledRef.current) {
+        setQuillActiveWord('');
+        setQuillSuggestions([]);
+        setQuillAutocomplete([]);
+        setQuillActiveWordRange(null);
+        setCaretPosition(null);
+        setActiveSuggestionIndex(0);
+      }
+      return;
+    }
 
     const quill = quillRef.current?.getEditor();
     if (!quill) return;
+
 
     const range = quill.getSelection();
     if (!range) {
       setQuillActiveWord('');
       setQuillSuggestions([]);
+      setQuillAutocomplete([]);
       setQuillActiveWordRange(null);
-      // Note: We do not clear quillActiveWordRangeRef.current on blur (when range is null)
-      // to preserve the range bounds of the misspelled word for the click handler.
+      setCaretPosition(null);
+      setActiveSuggestionIndex(0);
       return;
     }
 
@@ -433,11 +487,14 @@ export default function NotesContent() {
     }
 
     const word = text.slice(start, end);
-    // Only check if we have a non-empty word (skip pure whitespace)
-    if (!word || !word.trim()) {
+    // Only check if we have a non-empty word of at least 2 characters (skip whitespace or erased state)
+    if (!word || !word.trim() || word.trim().length < 2) {
       setQuillActiveWord('');
       setQuillSuggestions([]);
+      setQuillAutocomplete([]);
       setQuillActiveWordRange(null);
+      setCaretPosition(null);
+      setActiveSuggestionIndex(0);
       return;
     }
     const clean = cleanWord(word);
@@ -448,21 +505,55 @@ export default function NotesContent() {
       quillSuggestionsTimeoutRef.current = null;
     }
 
-    if (clean.base && isMisspelled(word)) {
+    if (clean.base && clean.base.length >= 2) {
       setQuillActiveWord(word);
       setQuillActiveWordRange({ start, end });
       quillActiveWordRangeRef.current = { start, end };
+      setActiveSuggestionIndex(0);
 
-      // Debounce the heavy suggestions lookup (Levenshtein search over 97k words)
-      quillSuggestionsTimeoutRef.current = setTimeout(() => {
-        setQuillSuggestions(getSpellingSuggestions(word));
-      }, 150);
+      // Calculate pixel bounds for floating caret popover directly at the cursor
+      try {
+        const bounds = quill.getBounds(pos);
+        if (bounds) {
+          // Adjust for toolbar / editor top offset
+          const toolbarEl = quillWrapperRef.current?.querySelector('.ql-toolbar');
+          const toolbarHeight = toolbarEl ? toolbarEl.getBoundingClientRect().height : 42;
+          setCaretPosition({
+            top: bounds.bottom + toolbarHeight + 10,
+            left: Math.max(16, bounds.left + 16),
+          });
+        }
+      } catch (e) {
+        // Ignore fallback
+      }
+
+      // 1. Instant Autocomplete Suggestions from 19k vocabulary dataset
+      const autoMatches = getAutocompleteSuggestions(clean.base, 4).filter(
+        (w) => w.toLowerCase() !== clean.base.toLowerCase()
+      );
+      setQuillAutocomplete(autoMatches);
+
+      // 2. Spellcheck suggestions if misspelled
+      if (isMisspelled(word)) {
+        quillSuggestionsTimeoutRef.current = setTimeout(() => {
+          setQuillSuggestions(getSpellingSuggestions(word));
+        }, 150);
+      } else {
+        setQuillSuggestions([]);
+      }
     } else {
       setQuillActiveWord('');
       setQuillSuggestions([]);
+      setQuillAutocomplete([]);
       setQuillActiveWordRange(null);
+      setCaretPosition(null);
+      setActiveSuggestionIndex(0);
     }
   }, []);
+
+
+
+
 
   const replaceQuillWord = useCallback((replacement: string) => {
     const quill = quillRef.current?.getEditor();
@@ -539,7 +630,9 @@ export default function NotesContent() {
         quill.setSelection(newCursorPos);
         setQuillActiveWord('');
         setQuillSuggestions([]);
+        setQuillAutocomplete([]);
         setQuillActiveWordRange(null);
+        setCaretPosition(null);
         quillActiveWordRangeRef.current = null;
         lastSelectionIndexRef.current = null;
         isReplacingRef.current = false;
@@ -551,7 +644,9 @@ export default function NotesContent() {
     addToCustomDictionary(word);
     setQuillActiveWord('');
     setQuillSuggestions([]);
+    setQuillAutocomplete([]);
     setQuillActiveWordRange(null);
+    setCaretPosition(null);
     quillActiveWordRangeRef.current = null;
     lastSelectionIndexRef.current = null;
 
@@ -587,7 +682,26 @@ export default function NotesContent() {
     };
   }, []);
 
-  // Keydown listener for space and punctuation autocorrect in Quill
+  // Global Escape listener to immediately dismiss popover from anywhere
+  useEffect(() => {
+    if (!isEditing) return;
+
+    const handleGlobalEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setCaretPosition(null);
+        setQuillAutocomplete([]);
+        setQuillSuggestions([]);
+        setQuillActiveWord('');
+        setActiveSuggestionIndex(0);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalEscape, true);
+    return () => window.removeEventListener('keydown', handleGlobalEscape, true);
+  }, [isEditing]);
+
+
+  // Keydown listener for space and punctuation autocorrect in Quill + Tab autocomplete
   useEffect(() => {
     if (!isEditing || !quillWrapperRef.current) return;
     
@@ -601,9 +715,77 @@ export default function NotesContent() {
         return;
       }
 
+
       listener = (e: KeyboardEvent) => {
         const quill = quillRef.current?.getEditor();
         if (!quill) return;
+
+        const allSuggestions = [
+          ...quillAutocompleteRef.current,
+          ...quillSuggestionsRef.current,
+        ];
+
+        // If autocorrect is disabled, don't intercept suggestions
+        if (!autocorrectEnabledRef.current) return;
+
+        // 1. Tab / Shift+Tab: Cycle through suggestions
+        if (e.key === 'Tab' && allSuggestions.length > 0) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          if (e.shiftKey) {
+            // Shift+Tab: cycle backward
+            setActiveSuggestionIndex((prev) => (prev - 1 + allSuggestions.length) % allSuggestions.length);
+          } else {
+            // Tab: cycle forward
+            setActiveSuggestionIndex((prev) => (prev + 1) % allSuggestions.length);
+          }
+          return;
+        }
+
+        // ArrowDown / ArrowRight: Cycle to next suggestion
+        if ((e.key === 'ArrowDown' || e.key === 'ArrowRight') && allSuggestions.length > 1) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          setActiveSuggestionIndex((prev) => (prev + 1) % allSuggestions.length);
+          return;
+        }
+
+        // ArrowUp / ArrowLeft: Cycle to previous suggestion
+        if ((e.key === 'ArrowUp' || e.key === 'ArrowLeft') && allSuggestions.length > 1) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          setActiveSuggestionIndex((prev) => (prev - 1 + allSuggestions.length) % allSuggestions.length);
+          return;
+        }
+
+        // 2. Enter key: If suggestions are active, accept the highlighted suggestion without creating a newline!
+        if (e.key === 'Enter' && allSuggestions.length > 0) {
+          const selected = allSuggestions[activeSuggestionIndexRef.current] || allSuggestions[0];
+          if (selected) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            replaceQuillWord(selected);
+            return;
+          }
+        }
+
+        // 3. Escape key: Dismiss floating suggestions popover
+        if (e.key === 'Escape') {
+          if (allSuggestions.length > 0) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+          }
+          setCaretPosition(null);
+          setQuillAutocomplete([]);
+          setQuillSuggestions([]);
+          setActiveSuggestionIndex(0);
+          return;
+        }
 
         const triggers = [' ', '.', ',', '!', '?', ';', ':', 'Enter'];
         if (!triggers.includes(e.key)) return;
@@ -635,6 +817,12 @@ export default function NotesContent() {
           const appendChar = e.key === 'Enter' ? '' : e.key;
           if (e.key !== 'Enter') {
             e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+          } else {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
           }
 
           // Use updateContents for atomic change
@@ -663,19 +851,21 @@ export default function NotesContent() {
         }
       };
 
-      editorEl.addEventListener('keydown', listener);
+      // Capture phase: ensures we intercept Enter and Tab BEFORE Quill's internal Keyboard module splits the line!
+      editorEl.addEventListener('keydown', listener, true);
     };
 
     setupListener();
 
     return () => {
       if (editorEl && listener) {
-        editorEl.removeEventListener('keydown', listener);
+        editorEl.removeEventListener('keydown', listener, true);
       }
     };
   }, [isEditing, checkQuillSpelling]);
 
   // Hook up text-change and selection-change events
+
   useEffect(() => {
     if (!isEditing) return;
     
@@ -879,6 +1069,11 @@ export default function NotesContent() {
       triggerAutosave(content, editTitle);
     }, 5000);
 
+    // Sync spellcheck and autocomplete on every keystroke / erase
+    requestAnimationFrame(() => {
+      checkQuillSpelling();
+    });
+
     // Calculate new word count & incremental Mana Bar tracking
     const textOnly = content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim();
     const currentWordCount = textOnly.split(/\s+/).filter(Boolean).length;
@@ -940,7 +1135,8 @@ export default function NotesContent() {
         }
       }
     }
-  }, [editTitle, triggerAutosave, lastWordCount, wordsWrittenSession, awardXP]);
+  }, [editTitle, triggerAutosave, lastWordCount, wordsWrittenSession, awardXP, checkQuillSpelling]);
+
 
   // Cleanup autosave timer
   useEffect(() => {
@@ -2203,6 +2399,38 @@ Rules:
                         >
                           {isListening ? 'Listening...' : 'Dictate'}
                         </Button>
+
+                        {/* Autocorrect & Autocomplete Tool ON/OFF Toggle */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextState = !autocorrectEnabled;
+                            setAutocorrectEnabled(nextState);
+                            if (typeof window !== 'undefined') {
+                              localStorage.setItem('studyquest_notes_autocorrect_enabled', String(nextState));
+                            }
+                            if (!nextState) {
+                              setCaretPosition(null);
+                              setQuillAutocomplete([]);
+                              setQuillSuggestions([]);
+                              setQuillActiveWord('');
+                              setActiveSuggestionIndex(0);
+                              toast('🪄 Autocorrect & Autocomplete: OFF', { icon: '🔕' });
+                            } else {
+                              toast.success('🪄 Autocorrect & Autocomplete: ON', { icon: '✨' });
+                            }
+                          }}
+                          className={`px-2.5 py-1.5 rounded-xl border-2 transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer select-none ${
+                            autocorrectEnabled
+                              ? 'border-teal-500/50 bg-teal-500/15 text-teal-400 shadow-[0_0_8px_rgba(20,184,166,0.25)] hover:bg-teal-500/25'
+                              : 'border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--muted-foreground)] opacity-70 hover:opacity-100 hover:border-teal-500/30'
+                          }`}
+                          title={autocorrectEnabled ? 'Click to disable Autocorrect & Autocomplete' : 'Click to enable Autocorrect & Autocomplete'}
+                        >
+                          <span>{autocorrectEnabled ? '🪄' : '🪄⃠'}</span>
+                          <span className="hidden sm:inline font-mono text-[11px]">{autocorrectEnabled ? 'Auto-Spell: ON' : 'Auto-Spell: OFF'}</span>
+                        </button>
+
                         <button onClick={() => setShowShortcuts(!showShortcuts)} className={`p-2 rounded-xl border-2 transition-all text-xs ${showShortcuts ? 'border-primary bg-primary/10 text-primary' : 'border-[var(--card-border)] hover:border-primary/30 text-[var(--muted-foreground)]'}`} title="Keyboard Shortcuts"><HiInformationCircle size={18} /></button>
                         <Button variant="teal" size="sm" icon={<HiBeaker size={14} />} onClick={() => setShowCauldron(true)}>Cauldron</Button>
                         <Button variant="coral" size="sm" icon={<HiCode size={14} />} onClick={() => setShowDiagram(true)}>Insert Diagram</Button>
@@ -2211,7 +2439,115 @@ Rules:
                   )}
 
                   {isEditing ? (
-                    <div className="quill-wrapper" ref={quillWrapperRef}>
+                    <div className="quill-wrapper relative" ref={quillWrapperRef}>
+                      {/* Floating Caret Popover for Autocomplete & Spellcheck (Grammarly / VS Code style) */}
+                      <AnimatePresence>
+                        {autocorrectEnabled && (quillAutocomplete.length > 0 || quillSuggestions.length > 0) && caretPosition && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                            transition={{ duration: 0.12 }}
+                            style={{
+                              position: 'absolute',
+                              top: `${caretPosition.top}px`,
+                              left: `${caretPosition.left}px`,
+                              zIndex: 50,
+                            }}
+                            className="pointer-events-auto flex flex-col gap-1.5 p-2 rounded-2xl bg-slate-900/95 dark:bg-[#12132a]/95 backdrop-blur-xl border border-slate-700/60 dark:border-purple-500/40 shadow-[0_12px_36px_rgba(0,0,0,0.5)] max-w-[calc(100vw-32px)] select-none"
+                          >
+
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {/* Autocomplete pills */}
+                              {quillAutocomplete.map((word, idx) => {
+                                const isFocused = activeSuggestionIndex === idx;
+                                return (
+                                  <button
+                                    key={`caret-auto-${word}-${idx}`}
+                                    type="button"
+                                    onMouseEnter={() => setActiveSuggestionIndex(idx)}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      replaceQuillWord(word);
+                                    }}
+                                    className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer shadow-sm ${
+                                      isFocused
+                                        ? 'bg-teal-500/40 text-white ring-2 ring-teal-400 shadow-[0_0_14px_rgba(45,212,191,0.6)] scale-105 font-black'
+                                        : 'bg-teal-500/15 hover:bg-teal-500/30 text-teal-300 border border-teal-500/30 opacity-80 hover:opacity-100'
+                                    }`}
+                                    title={`Click or press Enter/Tab to autocomplete "${word}"`}
+                                  >
+                                    <span className="text-[10px] text-teal-400">✨</span> {word}
+                                    {isFocused && (
+                                      <kbd className="ml-1 px-1.5 py-0.2 text-[8px] bg-teal-400 text-slate-950 font-bold rounded font-mono shadow-sm">
+                                        ↵ Enter
+                                      </kbd>
+                                    )}
+                                  </button>
+                                );
+                              })}
+
+                              {/* Spelling suggestions */}
+                              {quillSuggestions.map((suggestion, idx) => {
+                                const overallIdx = quillAutocomplete.length + idx;
+                                const isFocused = activeSuggestionIndex === overallIdx;
+                                return (
+                                  <button
+                                    key={`caret-sug-${suggestion}-${idx}`}
+                                    type="button"
+                                    onMouseEnter={() => setActiveSuggestionIndex(overallIdx)}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      replaceQuillWord(suggestion);
+                                    }}
+                                    className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm ${
+                                      isFocused
+                                        ? 'bg-purple-500/45 text-white ring-2 ring-purple-400 shadow-[0_0_14px_rgba(192,132,252,0.6)] scale-105 font-black'
+                                        : 'bg-purple-500/15 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 opacity-80 hover:opacity-100'
+                                    }`}
+                                    title={`Click or press Enter/Tab to correct to "${suggestion}"`}
+                                  >
+                                    <span className="text-[10px] text-purple-400">💡</span> {suggestion}
+                                    {isFocused && (
+                                      <kbd className="ml-1 px-1.5 py-0.2 text-[8px] bg-purple-400 text-slate-950 font-bold rounded font-mono shadow-sm">
+                                        ↵ Enter
+                                      </kbd>
+                                    )}
+                                  </button>
+                                );
+                              })}
+
+                              {/* Add word option if misspelled */}
+                              {quillSuggestions.length > 0 && (
+                                <button
+                                  type="button"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    addQuillWordToDictionary(quillActiveWord);
+                                  }}
+                                  className="px-2 py-0.5 text-[10px] text-slate-400 hover:text-purple-300 font-semibold transition-colors cursor-pointer"
+                                >
+                                  + Add word
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Keyboard shortcut helper strip */}
+                            <div className="flex items-center justify-between pt-1 border-t border-slate-700/50 text-[9px] text-slate-400 font-medium px-1">
+                              <span className="flex items-center gap-1.5">
+                                <span>⌨️</span>
+                                <span><kbd className="px-1 py-0.2 bg-slate-800 text-teal-300 rounded font-mono border border-slate-700">Tab</kbd> cycle</span>
+                                <span>•</span>
+                                <span><kbd className="px-1 py-0.2 bg-slate-800 text-teal-300 rounded font-mono border border-slate-700">Enter ↵</kbd> accept</span>
+                                <span>•</span>
+                                <span><kbd className="px-1 py-0.2 bg-slate-800 text-slate-400 rounded font-mono border border-slate-700">Esc</kbd> dismiss</span>
+                              </span>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+
                        <ReactQuill
                         key={selectedNote?.id || 'new'}
                         ref={quillRef}
@@ -2226,56 +2562,86 @@ Rules:
                               setSelectedText('');
                             }
                           }
+                          checkQuillSpelling();
                         }}
+
                         modules={QUILL_MODULES}
                         formats={QUILL_FORMATS}
                         placeholder="Start typing your study notes here... 💡 Hint: Type '/compare Topic A vs Topic B' and press Enter to instantly generate a comparison card, or use the 🎙️ Dictate button for voice commands!"
                         preserveWhitespace={true}
                         useSemanticHTML={false}
                       />
-                      {/* Editor footer: word count & stats */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-2 border-t border-[var(--card-border)] text-[10px] text-[var(--muted-foreground)] font-semibold gap-2">
-                        <div className="flex items-center gap-4 flex-wrap">
-                          <span>{wordCount.words} words</span>
-                          <span>{wordCount.chars} chars</span>
-                          <span>{wordCount.readingTime}</span>
+                      {/* Sticky Glass Footer: Autocomplete, Spelling & Stats — ALWAYS accessible while typing! */}
+                      <div className="sticky bottom-0 z-30 bg-[var(--card-bg)]/95 backdrop-blur-xl border-t border-[var(--card-border)] shadow-[0_-4px_24px_rgba(0,0,0,0.18)] rounded-b-2xl transition-all">
 
-                          {/* Spelling suggestions */}
-                          {quillSuggestions.length > 0 && (
-                            <div className="flex flex-wrap items-center gap-1.5 ml-0 sm:ml-4 bg-purple-500/10 px-2 py-0.5 rounded-lg border border-purple-500/20">
-                              <span className="text-purple-400">💡 Did you mean:</span>
-                              {quillSuggestions.map((suggestion, idx) => (
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-2.5 text-[11px] text-[var(--muted-foreground)] font-semibold gap-2">
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <span className="font-mono">{wordCount.words} words</span>
+                            <span>•</span>
+                            <span className="font-mono">{wordCount.chars} chars</span>
+                            <span>•</span>
+                            <span>{wordCount.readingTime}</span>
+
+                            {/* Autocomplete suggestions from 19k dataset */}
+                            {autocorrectEnabled && quillAutocomplete.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1.5 ml-0 sm:ml-2 bg-teal-500/15 px-3 py-1 rounded-xl border border-teal-500/30 shadow-sm animate-fade-in">
+                                <span className="text-teal-400 font-bold flex items-center gap-1 text-xs">✨ Complete:</span>
+                                {quillAutocomplete.map((word, idx) => (
+                                  <button
+                                    key={`auto-${word}-${idx}`}
+                                    type="button"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      replaceQuillWord(word);
+                                    }}
+                                    className="text-teal-200 hover:text-white transition-all px-2.5 py-0.5 bg-teal-500/25 hover:bg-teal-500/50 rounded-lg font-mono text-[11px] font-bold cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+                                    title={`Click to autocomplete "${word}"`}
+                                  >
+                                    {word}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Spelling suggestions */}
+                            {autocorrectEnabled && quillSuggestions.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1.5 ml-0 sm:ml-2 bg-purple-500/15 px-3 py-1 rounded-xl border border-purple-500/30 shadow-sm animate-fade-in">
+                                <span className="text-purple-400 font-bold text-xs">💡 Did you mean:</span>
+                                {quillSuggestions.map((suggestion, idx) => (
+                                  <button
+                                    key={`${suggestion}-${idx}`}
+                                    type="button"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      replaceQuillWord(suggestion);
+                                    }}
+                                    className="text-purple-200 hover:text-white transition-all px-2 py-0.5 bg-purple-500/30 hover:bg-purple-500/50 rounded-md cursor-pointer font-bold hover:scale-105 active:scale-95 text-[11px]"
+                                  >
+                                    {suggestion}
+                                  </button>
+                                ))}
+                                <span className="text-[var(--muted-foreground)]/30 mx-1">|</span>
                                 <button
-                                  key={`${suggestion}-${idx}`}
                                   type="button"
                                   onMouseDown={(e) => {
                                     e.preventDefault();
-                                    replaceQuillWord(suggestion);
+                                    addQuillWordToDictionary(quillActiveWord);
                                   }}
-                                  className="text-purple-300 hover:text-white hover:underline transition-colors px-1 bg-purple-500/25 rounded cursor-pointer"
+                                  className="text-purple-400 hover:text-purple-300 transition-colors font-bold underline cursor-pointer text-[11px]"
                                 >
-                                  {suggestion}
+                                  ➕ Add "{quillActiveWord.replace(/^[^\w'-]+|[^\w'-]+$/g, '') || quillActiveWord}"
                                 </button>
-                              ))}
-                              <span className="text-[var(--muted-foreground)]/30 mx-1">|</span>
-                              <button
-                                type="button"
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  addQuillWordToDictionary(quillActiveWord);
-                                }}
-                                className="text-purple-400 hover:text-purple-300 transition-colors font-bold underline cursor-pointer"
-                              >
-                                ➕ Add "{quillActiveWord.replace(/^[^\w'-]+|[^\w'-]+$/g, '') || quillActiveWord}"
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex gap-3 shrink-0 self-end sm:self-auto">
-                          {saveStatus === 'saving' && <span className="text-amber flex items-center gap-1"><HiRefresh className="animate-spin" size={10} /> Autosaving...</span>}
-                          {saveStatus === 'saved' && <span className="text-teal flex items-center gap-1"><HiCheck size={10} /> Autosaved</span>}
+                              </div>
+                            )}
+
+                          </div>
+                          <div className="flex gap-3 shrink-0 self-end sm:self-auto">
+                            {saveStatus === 'saving' && <span className="text-amber-400 flex items-center gap-1"><HiRefresh className="animate-spin" size={12} /> Autosaving...</span>}
+                            {saveStatus === 'saved' && <span className="text-teal-400 flex items-center gap-1"><HiCheck size={12} /> Autosaved</span>}
+                          </div>
                         </div>
                       </div>
+
 
                       {/* Mana Writing Bar */}
                       <div className="px-4 py-3 border-t border-[var(--card-border)] bg-purple-500/5 dark:bg-purple-950/15 flex items-center justify-between gap-4">
@@ -2800,14 +3166,22 @@ Rules:
   return (
     <PageTransition>
       <div className="max-w-5xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-heading font-bold">Notes & Scrolls</h1>
-            <p className="text-sm text-[var(--muted-foreground)]">Your knowledge base. Write, organize, remember.</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-heading font-black text-[var(--foreground)] tracking-tight">
+              Notes & Scrolls
+            </h1>
+            <p className="text-xs sm:text-sm text-[var(--muted-foreground)] mt-0.5 font-medium">
+              Your knowledge base. Write, organize, remember.
+            </p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="ghost" size="sm" icon={<HiPencil size={14} />} onClick={() => window.location.href = '/whiteboard'}>Whiteboard</Button>
-            <Button variant="primary" size="sm" icon={<HiPlus />} onClick={() => setShowNewModal(true)}>New Note</Button>
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap flex-shrink-0">
+            <Button variant="ghost" size="sm" icon={<HiPencil size={14} />} onClick={() => window.location.href = '/whiteboard'}>
+              Whiteboard
+            </Button>
+            <Button variant="primary" size="sm" icon={<HiPlus />} onClick={() => setShowNewModal(true)}>
+              + New Note
+            </Button>
           </div>
         </div>
 
@@ -2837,8 +3211,10 @@ Rules:
                 {folderNotes.map((note, i) => (
                   <motion.div key={note.id} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
                     <Card padding="md" className="cursor-pointer group" onClick={() => openNote(note)}>
-                      <div className="flex items-start justify-between mb-2">
-                        <h4 className="text-sm font-heading font-bold group-hover:text-primary transition-colors truncate">{note.title}</h4>
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h4 className="text-sm font-heading font-bold group-hover:text-primary transition-colors leading-snug break-words flex-1 min-w-0">
+                          {note.title}
+                        </h4>
                         <div className="flex items-center gap-1.5 flex-shrink-0">
                           <button
                             onClick={(e) => {
@@ -2847,7 +3223,7 @@ Rules:
                               setRenameTitle(note.title);
                               setRenameFolder(note.folder);
                             }}
-                            className="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-primary/10 text-primary transition-all"
+                            className="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-primary/10 text-primary transition-all cursor-pointer"
                             title="Rename Note"
                           >
                             <HiPencil size={12} />
@@ -2855,7 +3231,9 @@ Rules:
                           <HiDocumentText className="text-[var(--muted-foreground)]" size={16} />
                         </div>
                       </div>
-                      <p className="text-xs text-[var(--muted-foreground)] line-clamp-3 mb-3">{note.content || 'Empty note...'}</p>
+                      <p className="text-xs text-[var(--muted-foreground)] line-clamp-3 mb-3 leading-relaxed break-words font-normal">
+                        {getPlainTextPreview(note.content)}
+                      </p>
                       <div className="flex items-center gap-2">
                         <span className="text-[9px] text-[var(--muted-foreground)] font-semibold"><HiClock className="inline mr-0.5" size={10} />{timeAgo(note.updatedAt)}</span>
                       </div>
@@ -2866,6 +3244,7 @@ Rules:
             </div>
           ))
         )}
+
 
         <Modal isOpen={showNewModal} onClose={() => setShowNewModal(false)} title="Create New Note">
           <div className="space-y-4">

@@ -11,35 +11,43 @@ interface StreakCounterProps {
 
 export default function StreakCounter({ streak, size = 'md' }: StreakCounterProps) {
   const sizes = {
-    sm: { icon: 14, text: 'text-xs', gap: 'gap-0.5' },
-    md: { icon: 20, text: 'text-sm', gap: 'gap-1' },
-    lg: { icon: 28, text: 'text-lg', gap: 'gap-1.5' },
+    sm: { icon: 13, text: 'text-xs', gap: 'gap-1', padding: 'px-2 py-0.5' },
+    md: { icon: 16, text: 'text-sm', gap: 'gap-1.5', padding: 'px-2.5 py-1' },
+    lg: { icon: 22, text: 'text-base', gap: 'gap-2', padding: 'px-3 py-1.5' },
   };
 
   const s = sizes[size];
-  const isActive = streak > 0;
+  const rawStreak = streak as any;
+  const numericStreak = typeof rawStreak === 'number'
+    ? rawStreak
+    : typeof rawStreak === 'object' && rawStreak && 'bc' in rawStreak
+    ? Number(rawStreak.bc) || 0
+    : 0;
+  const isActive = numericStreak > 0;
 
   return (
     <motion.div
-      className={`inline-flex items-center ${s.gap} font-heading font-bold`}
-      whileHover={{ scale: 1.1 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+      className={`inline-flex items-center ${s.gap} ${s.padding} rounded-full bg-orange-500/10 border border-orange-500/25 font-heading font-black shadow-sm flex-shrink-0 select-none`}
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      title={`${numericStreak} Day Study Streak 🔥`}
     >
       <motion.div
         animate={isActive ? {
-          scale: [1, 1.2, 1],
-          rotate: [0, -5, 5, 0],
+          scale: [1, 1.15, 1],
         } : undefined}
-        transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+        className="flex-shrink-0"
       >
         <HiFire
           size={s.icon}
-          className={isActive ? 'text-orange-500 drop-shadow-[0_0_6px_rgba(249,115,22,0.5)]' : 'text-[var(--muted-foreground)]'}
+          className={isActive ? 'text-orange-500 drop-shadow-[0_0_6px_rgba(249,115,22,0.6)]' : 'text-[var(--muted-foreground)]'}
         />
       </motion.div>
-      <span className={`${s.text} ${isActive ? 'text-orange-500' : 'text-[var(--muted-foreground)]'}`}>
-        {streak}
+      <span className={`${s.text} ${isActive ? 'text-orange-400 font-mono' : 'text-[var(--muted-foreground)]'}`}>
+        {numericStreak}
       </span>
     </motion.div>
   );
+
 }

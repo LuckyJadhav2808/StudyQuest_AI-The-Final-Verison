@@ -23,18 +23,19 @@ export default function Header() {
   };
 
   return (
-    <header className="min-h-16 pt-[env(safe-area-inset-top,0px)] bg-[var(--card-bg)]/80 backdrop-blur-lg border-b border-[var(--card-border)] flex items-center justify-between px-4 md:px-6 sticky top-0 z-30">
-      {/* Left — Page title area */}
-      <div className="flex items-center gap-3">
+    <header className="h-14 sm:h-16 pt-[env(safe-area-inset-top,0px)] bg-[var(--card-bg)]/85 backdrop-blur-lg border-b border-[var(--card-border)] flex items-center justify-between px-3.5 sm:px-6 sticky top-0 z-30">
+      {/* Left — Brand Logo (Guaranteed Full Width, Zero Truncation) */}
+      <div className="flex items-center gap-2.5 sm:gap-3 flex-shrink-0">
         <motion.h1
-          className="text-lg md:text-xl font-heading font-black text-gradient"
+          className="text-base sm:text-xl font-heading font-black text-gradient whitespace-nowrap flex-shrink-0 select-none cursor-pointer"
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
+          onClick={() => router.push('/')}
         >
           StudyQuest
         </motion.h1>
 
-        {/* Ctrl+K Search Hint */}
+        {/* Ctrl+K Search Hint (Desktop only) */}
         <button
           onClick={openCommandPalette}
           className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[var(--card-border)] hover:border-primary/40 hover:bg-primary/5 transition-all group cursor-pointer"
@@ -49,9 +50,9 @@ export default function Header() {
         </button>
       </div>
 
-      {/* Right — Stats & Actions */}
-      <div className="flex items-center gap-2 md:gap-4">
-        {/* Streak */}
+      {/* Right — Gamification HUD & Actions */}
+      <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+        {/* Streak Capsule */}
         {gamification && (
           <StreakCounter streak={gamification.streak} size="sm" />
         )}
@@ -63,7 +64,9 @@ export default function Header() {
           whileHover={{ scale: 1.05 }}
         >
           <span className="text-xs">🪙</span>
-          <span className="text-[11px] font-bold text-amber-400">{coins}</span>
+          <span className="text-[11px] font-bold text-amber-400">
+            {typeof coins === 'number' ? coins : typeof coins === 'object' && coins && 'bc' in (coins as any) ? Number((coins as any).bc) || 0 : 0}
+          </span>
         </motion.button>
 
         {/* XP Badge */}
@@ -73,15 +76,16 @@ export default function Header() {
             whileHover={{ scale: 1.05 }}
           >
             <span className="text-[11px] font-bold text-primary-light">
-              {gamification.xp.toLocaleString()} XP
+              {typeof gamification.xp === 'number' ? gamification.xp.toLocaleString() : '0'} XP
             </span>
           </motion.div>
         )}
 
-        {/* Theme Toggle */}
+
+        {/* Theme Toggle (Desktop / Tablet) */}
         <motion.button
           onClick={toggleTheme}
-          className="p-2 rounded-xl hover:bg-[var(--muted)]/30 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+          className="hidden sm:flex p-2 rounded-xl hover:bg-[var(--muted)]/30 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9, rotate: 180 }}
           aria-label="Toggle theme"
@@ -92,22 +96,23 @@ export default function Header() {
         {/* Notifications — navigates to Dashboard */}
         <motion.button
           onClick={() => router.push('/')}
-          className="p-2 rounded-xl hover:bg-[var(--muted)]/30 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors relative"
+          className="p-1.5 sm:p-2 rounded-xl hover:bg-[var(--muted)]/30 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors relative"
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           aria-label="Notifications"
         >
-          <HiBell size={20} />
+          <HiBell size={18} className="sm:text-xl" />
           {incomingRequests.length > 0 && (
             <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-coral text-white text-[8px] font-bold flex items-center justify-center">{incomingRequests.length}</span>
           )}
         </motion.button>
 
-        {/* Avatar (Mobile + Desktop) */}
+        {/* Level Avatar Badge (Mobile + Desktop) */}
         <div className="md:hidden">
           {gamification && <LevelBadge level={gamification.level} size="sm" />}
         </div>
       </div>
     </header>
+
   );
 }

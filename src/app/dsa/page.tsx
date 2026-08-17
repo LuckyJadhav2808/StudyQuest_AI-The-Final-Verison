@@ -203,23 +203,29 @@ function DsaPageContent() {
           <>
             {/* Full 3,369 Database Search & Filter Toolbar */}
             <div className="bg-[var(--card-bg)] border border-[var(--card-border)] p-4 rounded-2xl space-y-4 shadow-sm">
-              <div className="flex items-center justify-between gap-4 pb-2 border-b border-[var(--card-border)]">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--card-border)]">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-black text-slate-100">🗺️ Full Library Roadmap</span>
                   <span className="text-xs font-bold text-slate-400">({allProblems.length} questions)</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden py-0.5 max-w-full">
                   <button
                     onClick={() => setActiveCuratedSheet('neetcode150')}
-                    className="px-3 py-1 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 text-xs font-bold transition-all cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 text-xs font-bold transition-all cursor-pointer whitespace-nowrap"
                   >
                     ⚡ NeetCode 150
                   </button>
                   <button
                     onClick={() => setActiveCuratedSheet('striverA2Z')}
-                    className="px-3 py-1 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 text-purple-400 border border-purple-500/30 text-xs font-bold transition-all cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 text-purple-400 border border-purple-500/30 text-xs font-bold transition-all cursor-pointer whitespace-nowrap"
                   >
                     🚀 Striver A2Z
+                  </button>
+                  <button
+                    onClick={() => setActiveCuratedSheet('blind75')}
+                    className="px-3 py-1.5 rounded-xl bg-teal-500/15 hover:bg-teal-500/25 text-teal-400 border border-teal-500/30 text-xs font-bold transition-all cursor-pointer whitespace-nowrap"
+                  >
+                    🎯 Blind 75
                   </button>
                 </div>
               </div>

@@ -232,11 +232,12 @@ export default function DsaRoadmapView({
                               onClick={() => onSelectProblem(problem)}
                               className="min-w-0 flex-1 space-y-1"
                             >
-                              {/* Line 1: Problem Title (Full Width) */}
-                              <h3 className="text-xs sm:text-sm font-bold text-[var(--foreground)] group-hover:text-primary transition-colors leading-snug truncate">
+                              {/* Line 1: Problem Title (Full Name, No Truncation) */}
+                              <h3 className="text-xs sm:text-sm font-bold text-[var(--foreground)] group-hover:text-primary transition-colors leading-snug break-words">
                                 {problem.leetcodeId ? `${problem.leetcodeId}. ` : ''}
                                 {problem.title}
                               </h3>
+
 
                               {/* Line 2: Compact Meta Badges */}
                               <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">

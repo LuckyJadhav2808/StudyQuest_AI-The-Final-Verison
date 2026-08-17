@@ -76,33 +76,30 @@ export default function DsaAnalyticsSection({ stats }: DsaAnalyticsSectionProps)
 
   return (
     <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl overflow-hidden shadow-sm">
-      {/* Analytics Collapsible Header */}
-      <div className="p-4 sm:p-5 flex items-center justify-between gap-4 border-b border-[var(--card-border)] bg-gradient-to-r from-purple-500/10 via-primary/5 to-cyan-500/10">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30">
-            <HiTrendingUp className="text-xl" />
+      {/* Analytics Collapsible Header (Fully readable and clickable on all screen sizes) */}
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        className="p-3.5 sm:p-5 flex items-center justify-between gap-3 border-b border-[var(--card-border)] bg-gradient-to-r from-purple-500/10 via-primary/5 to-cyan-500/10 cursor-pointer select-none hover:bg-slate-800/30 transition-colors"
+      >
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className="p-2 sm:p-2.5 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex-shrink-0">
+            <HiTrendingUp className="text-lg sm:text-xl" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-heading font-black text-[var(--foreground)]">
-                DSA Pattern & Performance Analytics
-              </h2>
-              <Badge variant="pink" size="sm">
-                KPI Hub
-              </Badge>
-            </div>
-            <p className="text-xs text-[var(--muted-foreground)] font-medium">
-              Real-time pattern mastery, topic distribution, and interview readiness score.
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm sm:text-base font-heading font-black text-[var(--foreground)] leading-snug">
+              DSA Analytics & KPIs
+            </h2>
+            <p className="text-[11px] text-[var(--muted-foreground)] font-medium leading-tight mt-0.5 line-clamp-1">
+              Pattern mastery & readiness score
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
           {/* Readiness Score Pill */}
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/60 border border-slate-800">
-            <span className="text-xs text-[var(--muted-foreground)] font-semibold">Readiness:</span>
+          <div className="px-2.5 py-1 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center gap-1">
             <span
-              className={`text-sm font-black font-mono ${
+              className={`text-xs font-black font-mono ${
                 readinessScore >= 70
                   ? 'text-emerald-400'
                   : readinessScore >= 40
@@ -114,17 +111,20 @@ export default function DsaAnalyticsSection({ stats }: DsaAnalyticsSectionProps)
             </span>
           </div>
 
+          {/* Prominent Chevron Button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="p-2 rounded-lg hover:bg-surface-hover transition-colors text-[var(--muted-foreground)] hover:text-[var(--foreground)] cursor-pointer"
+            className="p-1.5 sm:p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white transition-all cursor-pointer flex-shrink-0"
             title={isOpen ? 'Collapse Analytics' : 'Expand Analytics'}
           >
             <HiChevronDown
-              className={`text-lg transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+              className={`text-base sm:text-lg transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
             />
           </button>
         </div>
       </div>
+
+
 
       {/* Analytics Content Area */}
       <AnimatePresence>

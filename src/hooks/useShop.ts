@@ -56,7 +56,13 @@ export function useShop() {
     return doc(db, 'users', user.uid, 'data', 'inventory');
   }, [user?.uid]);
 
-  const coins = inventory.coins;
+  const rawCoins = inventory?.coins as any;
+  const coins = typeof rawCoins === 'number'
+    ? rawCoins
+    : typeof rawCoins === 'object' && rawCoins && 'bc' in rawCoins
+    ? Number(rawCoins.bc) || 0
+    : 0;
+
 
   const ownsItem = useCallback((itemId: string) => {
     return inventoryRef.current.ownedItems.includes(itemId);

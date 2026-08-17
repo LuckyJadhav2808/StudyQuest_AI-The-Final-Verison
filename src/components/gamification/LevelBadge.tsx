@@ -9,6 +9,13 @@ interface LevelBadgeProps {
 }
 
 export default function LevelBadge({ level, size = 'md' }: LevelBadgeProps) {
+  const rawLevel = level as any;
+  const numericLevel = typeof rawLevel === 'number'
+    ? rawLevel
+    : typeof rawLevel === 'object' && rawLevel && 'bc' in rawLevel
+    ? Number(rawLevel.bc) || 1
+    : 1;
+
   const sizes = {
     sm: 'w-7 h-7 text-[10px]',
     md: 'w-10 h-10 text-sm',
@@ -18,13 +25,14 @@ export default function LevelBadge({ level, size = 'md' }: LevelBadgeProps) {
 
   return (
     <motion.div
-      className={`${sizes[size]} rounded-full bg-gradient-to-br from-primary via-purple-500 to-coral flex items-center justify-center font-heading font-bold text-white shadow-lg`}
+      className={`${sizes[size]} rounded-full bg-gradient-to-br from-primary via-purple-500 to-coral flex items-center justify-center font-heading font-bold text-white shadow-lg flex-shrink-0 select-none`}
       whileHover={{ scale: 1.15, rotate: 10 }}
       whileTap={{ scale: 0.95 }}
       transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-      title={`Level ${level}`}
+      title={`Level ${numericLevel}`}
     >
-      {level}
+      {numericLevel}
     </motion.div>
   );
 }
+
