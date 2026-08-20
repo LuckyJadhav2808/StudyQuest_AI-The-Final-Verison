@@ -49,6 +49,7 @@ export const getSqlDataRef = (uid: string) => doc(db, 'users', uid, 'data', 'sql
 
 // ----- Global Collections -----
 export const getFriendRequestsCollection = () => collection(db, 'friendRequests');
+export const getGlobalDsaCollection = () => collection(db, 'globalDsaProblems');
 
 // ----- Generic CRUD Operations -----
 

@@ -55,6 +55,8 @@ export default function DsaProblemDetailModal({
   onSaveNotes,
   onOpenAiAssistant,
 }: DsaProblemDetailModalProps) {
+  const [currentProblem, setCurrentProblem] = useState<DsaProblem | null>(problem);
+  const [isFetchingSolutions, setIsFetchingSolutions] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [showCodeEditor, setShowCodeEditor] = useState(false);
   const [activeLeftTab, setActiveLeftTab] = useState<LeftTabMode>('description');
@@ -74,6 +76,7 @@ export default function DsaProblemDetailModal({
 
   useEffect(() => {
     if (problem) {
+      setCurrentProblem(problem);
       document.body.style.overflow = 'hidden';
       const savedCode = userProgress?.userCode?.[selectedLanguage];
       setCode(savedCode || problem.templates[selectedLanguage] || '');
@@ -89,7 +92,32 @@ export default function DsaProblemDetailModal({
     };
   }, [problem, selectedLanguage, userProgress]);
 
-  if (!mounted || !problem) return null;
+  const handleFetchSolutions = async () => {
+    if (!currentProblem) return;
+    setIsFetchingSolutions(true);
+    const toastId = toast.loading('Fetching full multi-language solutions from LeetCode...');
+    try {
+      const query = currentProblem.id || String(currentProblem.leetcodeId || '');
+      const res = await fetch('/api/dsa/fetch-leetcode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+      const data = await res.json();
+      if (data.success && data.problem) {
+        setCurrentProblem(data.problem);
+        toast.success(`✨ Loaded ${data.problem.approaches?.length || 1} full working solutions!`, { id: toastId });
+      } else {
+        toast.error(data.error || 'No additional community solutions found on LeetCode.', { id: toastId });
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to fetch solutions.', { id: toastId });
+    } finally {
+      setIsFetchingSolutions(false);
+    }
+  };
+
+  if (!mounted || !problem || !currentProblem) return null;
 
   const handleLanguageChange = (lang: 'javascript' | 'python' | 'java' | 'cpp') => {
     setSelectedLanguage(lang);
@@ -323,9 +351,19 @@ export default function DsaProblemDetailModal({
                 </div>
 
                 <div className="flex-1 p-5 overflow-y-auto space-y-5 text-xs text-slate-200">
-                  {activeLeftTab === 'description' && renderProblemStatement(problem)}
-                  {activeLeftTab === 'approaches' && renderApproaches(problem, selectedLanguage, activeApproachIdx, setActiveApproachIdx, (c) => setCode(c), copiedCode, handleCopySolutionCode)}
-                  {activeLeftTab === 'testcases' && renderTestCases(problem)}
+                  {activeLeftTab === 'description' && renderProblemStatement(currentProblem)}
+                  {activeLeftTab === 'approaches' && renderApproaches(
+                    currentProblem,
+                    selectedLanguage,
+                    activeApproachIdx,
+                    setActiveApproachIdx,
+                    (c) => setCode(c),
+                    copiedCode,
+                    handleCopySolutionCode,
+                    handleFetchSolutions,
+                    isFetchingSolutions
+                  )}
+                  {activeLeftTab === 'testcases' && renderTestCases(currentProblem)}
                   {activeLeftTab === 'notes' && renderNotes(notes, setNotes, handleSavePersonalNotes)}
                 </div>
               </div>
@@ -490,9 +528,19 @@ export default function DsaProblemDetailModal({
 
               {/* Study Mode Content Area */}
               <div className="flex-1 p-6 sm:p-8 overflow-y-auto max-w-5xl mx-auto w-full space-y-6 text-sm text-slate-200">
-                {activeLeftTab === 'description' && renderProblemStatement(problem)}
-                {activeLeftTab === 'approaches' && renderApproaches(problem, selectedLanguage, activeApproachIdx, setActiveApproachIdx, (c) => { setCode(c); setShowCodeEditor(true); }, copiedCode, handleCopySolutionCode)}
-                {activeLeftTab === 'testcases' && renderTestCases(problem)}
+                {activeLeftTab === 'description' && renderProblemStatement(currentProblem)}
+                {activeLeftTab === 'approaches' && renderApproaches(
+                  currentProblem,
+                  selectedLanguage,
+                  activeApproachIdx,
+                  setActiveApproachIdx,
+                  (c) => { setCode(c); setShowCodeEditor(true); },
+                  copiedCode,
+                  handleCopySolutionCode,
+                  handleFetchSolutions,
+                  isFetchingSolutions
+                )}
+                {activeLeftTab === 'testcases' && renderTestCases(currentProblem)}
                 {activeLeftTab === 'notes' && renderNotes(notes, setNotes, handleSavePersonalNotes)}
               </div>
             </div>
@@ -624,7 +672,9 @@ function renderApproaches(
   setApproachIdx: (idx: number) => void,
   onLoadCode: (code: string) => void,
   copied: boolean,
-  onCopy: (code: string) => void
+  onCopy: (code: string) => void,
+  onRefreshSolutions: () => void,
+  isRefreshing: boolean
 ) {
   const approaches = problem.approaches || [];
   const currentApproach = approaches[approachIdx] || approaches[0];
@@ -633,15 +683,32 @@ function renderApproaches(
     return <div className="text-slate-400">No solution walkthrough available for this question.</div>;
   }
 
-  const solutionCode = currentApproach.code[selectedLanguage] || currentApproach.code['cpp'] || '';
-  const explanationSteps = currentApproach.explanation || [];
+  const rawCode = currentApproach.code[selectedLanguage] || currentApproach.code['cpp'] || '';
+  const solutionCode = rawCode
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, '    ')
+    .replace(/\\r/g, '')
+    .replace(/^\[\]\s*\n*/, '')
+    .trim();
+
+  const intuitionText = (currentApproach.intuition || '')
+    .replace(/\\n/g, ' ')
+    .replace(/\\r/g, '')
+    .replace(/\\t/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const explanationSteps = (currentApproach.explanation || []).map((step) =>
+    step.replace(/\\n/g, ' ').replace(/\\r/g, '').replace(/\s+/g, ' ').trim()
+  );
+
   const sampleTestCase = (problem.testCases?.[0] || problem.examples?.[0]) as any;
   const sampleInput = (sampleTestCase && 'input' in sampleTestCase ? sampleTestCase.input : '') || 'Sample Input';
   const sampleOutput = (sampleTestCase && 'expectedOutput' in sampleTestCase ? sampleTestCase.expectedOutput : sampleTestCase && 'output' in sampleTestCase ? sampleTestCase.output : '') || 'Sample Output';
 
   return (
     <div className="space-y-6">
-      {/* Approach Switcher Tabs */}
+      {/* Approach Switcher Tabs & Live Fetch Button */}
       <div className="flex items-center justify-between gap-2 flex-wrap pb-2 border-b border-slate-800">
         <div className="flex items-center gap-2 flex-wrap">
           {approaches.map((app, idx) => (
@@ -660,6 +727,15 @@ function renderApproaches(
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={onRefreshSolutions}
+            disabled={isRefreshing}
+            className="px-2.5 py-1 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
+            title="Fetch full working solutions from LeetCode live"
+          >
+            <HiSparkles className={isRefreshing ? 'animate-spin text-amber-300' : 'text-amber-300'} />
+            {isRefreshing ? 'Fetching...' : '⚡ Fetch Fresh Solutions'}
+          </button>
           <Badge variant="pink" size="sm">
             ⏱️ Time: {currentApproach.timeComplexity}
           </Badge>
@@ -677,7 +753,7 @@ function renderApproaches(
             Core Intuition & Algorithmic Strategy
           </div>
           <p className="text-slate-200 leading-relaxed text-xs sm:text-sm">
-            {currentApproach.intuition}
+            {intuitionText}
           </p>
         </div>
 

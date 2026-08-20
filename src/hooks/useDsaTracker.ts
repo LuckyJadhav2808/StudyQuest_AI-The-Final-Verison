@@ -1,9 +1,9 @@
 // ============================================================
-// StudyQuest AI — DSA Problem Tracker Hook
+// StudyQuest AI — DSA Problem Tracker Hook with Global Cloud Ingestion
 // ============================================================
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, collection, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuthContext } from '@/context/AuthContext';
 import { DSA_PROBLEMS } from '@/data/dsaDataset';
@@ -23,9 +23,11 @@ export function useDsaTracker() {
   const { user } = useAuthContext();
   const [userProgress, setUserProgress] = useState<UserDsaMap>({});
   const [customProblems, setCustomProblems] = useState<DsaProblem[]>([]);
+  const [globalProblems, setGlobalProblems] = useState<DsaProblem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [apiProblems, setApiProblems] = useState<DsaProblem[]>([]);
 
-  // Load initial progress from localStorage for instant offline/guest caching
+  // 1. Load initial progress from localStorage for instant offline/guest caching
   useEffect(() => {
     try {
       const cached = localStorage.getItem('sq_dsa_user_progress');
@@ -35,7 +37,28 @@ export function useDsaTracker() {
     } catch (e) { /* ignore */ }
   }, []);
 
-  // Subscribe to user's DSA progress document in Firestore
+  // 2. Subscribe to Global Shared Problems collection (available to ALL users)
+  useEffect(() => {
+    const globalCol = collection(db, 'globalDsaProblems');
+    const unsubGlobal = onSnapshot(
+      globalCol,
+      (snap) => {
+        const list: DsaProblem[] = [];
+        snap.forEach((docSnap) => {
+          if (docSnap.exists()) {
+            list.push(docSnap.data() as DsaProblem);
+          }
+        });
+        setGlobalProblems(list);
+      },
+      (err) => {
+        console.warn('Global DSA cloud subscription error (falling back to local):', err);
+      }
+    );
+    return unsubGlobal;
+  }, []);
+
+  // 3. Subscribe to user's personal DSA progress & custom problems in Firestore
   useEffect(() => {
     if (!user?.uid) {
       setLoading(false);
@@ -60,9 +83,7 @@ export function useDsaTracker() {
     return unsub;
   }, [user?.uid]);
 
-  const [apiProblems, setApiProblems] = useState<DsaProblem[]>([]);
-
-  // Fetch full dataset from API on load
+  // 4. Fetch full dataset from API on load (cached in-memory)
   useEffect(() => {
     fetch('/api/dsa/dataset')
       .then((res) => res.json())
@@ -81,25 +102,50 @@ export function useDsaTracker() {
     return DSA_PROBLEMS;
   }, []);
 
-  // Full 2,360+ LeetCode Library (for search, lookup, and full library grid)
+  // Full LeetCode Library (Local Dataset + Global Cloud Ingested + Personal Custom)
   const allProblems = useMemo(() => {
-    const customIds = new Set(customProblems.map((p) => p.id));
-    const baseList = apiProblems.length > 0 ? apiProblems : DSA_PROBLEMS;
-    const merged = [...customProblems, ...baseList.filter((p) => !customIds.has(p.id))];
-    return merged;
-  }, [customProblems, apiProblems]);
+    const seenIds = new Set<string>();
+    const result: DsaProblem[] = [];
 
-function sanitizeFirestoreData<T>(data: T): T {
-  if (data === null || typeof data !== 'object') return data;
-  if (Array.isArray(data)) return data.map(sanitizeFirestoreData) as any;
-  const copy: any = {};
-  for (const [k, v] of Object.entries(data)) {
-    if (v !== undefined) {
-      copy[k] = sanitizeFirestoreData(v);
+    // 1. Add user custom problems
+    customProblems.forEach((p) => {
+      if (!seenIds.has(p.id)) {
+        seenIds.add(p.id);
+        result.push(p);
+      }
+    });
+
+    // 2. Add global cloud problems (ingested by any user on StudyQuest)
+    globalProblems.forEach((p) => {
+      if (!seenIds.has(p.id)) {
+        seenIds.add(p.id);
+        result.push(p);
+      }
+    });
+
+    // 3. Add base API / curated list
+    const baseList = apiProblems.length > 0 ? apiProblems : DSA_PROBLEMS;
+    baseList.forEach((p) => {
+      if (!seenIds.has(p.id)) {
+        seenIds.add(p.id);
+        result.push(p);
+      }
+    });
+
+    return result;
+  }, [customProblems, globalProblems, apiProblems]);
+
+  function sanitizeFirestoreData<T>(data: T): T {
+    if (data === null || typeof data !== 'object') return data;
+    if (Array.isArray(data)) return data.map(sanitizeFirestoreData) as any;
+    const copy: any = {};
+    for (const [k, v] of Object.entries(data)) {
+      if (v !== undefined) {
+        copy[k] = sanitizeFirestoreData(v);
+      }
     }
+    return copy;
   }
-  return copy;
-}
 
   // Save progress changes to Firestore and localStorage
   const updateProgress = useCallback(
@@ -134,6 +180,46 @@ function sanitizeFirestoreData<T>(data: T): T {
     [user?.uid],
   );
 
+  // 1-Click Import LeetCode Problem (Live Fetch + Global Cloud Broadcast)
+  const importProblem = useCallback(
+    async (query: string): Promise<DsaProblem> => {
+      const res = await fetch('/api/dsa/fetch-leetcode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+
+      const data = await res.json();
+      if (!data.success || !data.problem) {
+        throw new Error(data.error || 'Failed to fetch problem from LeetCode.');
+      }
+
+      const problem: DsaProblem = data.problem;
+
+      // 1. Optimistically update local in-memory globalProblems state for 0ms latency
+      setGlobalProblems((prev) => [problem, ...prev.filter((p) => p.id !== problem.id)]);
+
+      // 2. Save to Global Shared Firestore collection so ALL users get it instantly
+      try {
+        const globalRef = doc(db, 'globalDsaProblems', problem.id);
+        await setDoc(globalRef, sanitizeFirestoreData({ ...problem, importedAt: Date.now() }), { merge: true });
+      } catch (err) {
+        console.warn('Could not persist to globalDsaProblems (offline or rules):', err);
+      }
+
+      // 3. Also save to user's customProblems if logged in
+      if (user?.uid) {
+        const merged = [problem, ...customProblems.filter((p) => p.id !== problem.id)];
+        setCustomProblems(merged);
+        const ref = doc(db, 'users', user.uid, 'data', 'dsaProgress');
+        await setDoc(ref, { customProblems: sanitizeFirestoreData(merged), updatedAt: Date.now() }, { merge: true });
+      }
+
+      return problem;
+    },
+    [user?.uid, customProblems]
+  );
+
   // Import custom Kaggle Dataset
   const importKaggleDataset = useCallback(
     async (jsonContent: string) => {
@@ -145,7 +231,7 @@ function sanitizeFirestoreData<T>(data: T): T {
       setCustomProblems(mergedCustom);
 
       const ref = doc(db, 'users', user.uid, 'data', 'dsaProgress');
-      await setDoc(ref, { customProblems: mergedCustom, updatedAt: Date.now() }, { merge: true });
+      await setDoc(ref, { customProblems: sanitizeFirestoreData(mergedCustom), updatedAt: Date.now() }, { merge: true });
     },
     [user?.uid, customProblems],
   );
@@ -283,6 +369,7 @@ function sanitizeFirestoreData<T>(data: T): T {
     userProgress,
     loading,
     stats,
+    importProblem,
     setProblemStatus,
     saveUserCode,
     toggleStar,

@@ -25,6 +25,7 @@ import DsaRoadmapView from '@/components/dsa/DsaRoadmapView';
 import DsaCuratedSheetView from '@/components/dsa/DsaCuratedSheetView';
 import DsaProblemDetailModal from '@/components/dsa/DsaProblemDetailModal';
 import DsaAiAssistantModal from '@/components/dsa/DsaAiAssistantModal';
+import DsaImportModal from '@/components/dsa/DsaImportModal';
 import { useDsaTracker } from '@/hooks/useDsaTracker';
 import { DsaProblem, DsaDifficulty, ProblemStatus } from '@/types/dsa';
 import { spawnXPFromEvent } from '@/components/gamification/FloatingXP';
@@ -48,6 +49,7 @@ function DsaPageContent() {
     userProgress,
     loading,
     stats,
+    importProblem,
     setProblemStatus,
     saveUserCode,
     toggleStar,
@@ -64,6 +66,8 @@ function DsaPageContent() {
   const [selectedTopic, setSelectedTopic] = useState<string>('all');
   const [viewLayout, setViewLayout] = useState<'roadmap' | 'grid'>('roadmap');
   const [currentPage, setCurrentPage] = useState(1);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [isAutoFetching, setIsAutoFetching] = useState(false);
   const itemsPerPage = 24;
 
   // Modals state
@@ -97,15 +101,32 @@ function DsaPageContent() {
   // Filtered Problems Calculation
   const filteredProblems = useMemo(() => {
     return datasetSource.filter((problem) => {
-      // 1. Search Query (Title, ID, or Pattern)
+      // 1. Smart Multi-Token Search (Matches "1301. Title", "#1301", Title, Pattern, Category)
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchesTitle = problem.title.toLowerCase().includes(q);
-        const matchesId = problem.leetcodeId ? String(problem.leetcodeId) === q : false;
-        const matchesPattern = problem.pattern.toLowerCase().includes(q);
-        const matchesCategory = problem.category.toLowerCase().includes(q);
-        if (!matchesTitle && !matchesId && !matchesPattern && !matchesCategory) {
-          return false;
+        const rawQ = searchQuery.toLowerCase().trim();
+        const fullWithNum = `${problem.leetcodeId || ''}. ${problem.title}`.toLowerCase();
+        const fullWithHash = `#${problem.leetcodeId || ''} ${problem.title}`.toLowerCase();
+        const fullWithDash = `${problem.leetcodeId || ''} - ${problem.title}`.toLowerCase();
+        const combined = `${problem.leetcodeId || ''} ${problem.title} ${problem.pattern} ${problem.category} ${problem.id}`.toLowerCase();
+
+        if (
+          fullWithNum.includes(rawQ) ||
+          fullWithHash.includes(rawQ) ||
+          fullWithDash.includes(rawQ) ||
+          combined.includes(rawQ)
+        ) {
+          // Direct match
+        } else {
+          // Multi-token match (splits "1301. Number of Paths" into ['1301', 'number', 'of', 'paths'])
+          const noiseWords = new Set(['leetcode', 'lc', 'problem', 'question']);
+          const tokens = rawQ
+            .replace(/[#.,:;()[\]{}_-]/g, ' ')
+            .split(/\s+/)
+            .filter((t) => t.length > 0 && !noiseWords.has(t));
+
+          if (tokens.length === 0 || !tokens.every((token) => combined.includes(token))) {
+            return false;
+          }
         }
       }
 
@@ -209,6 +230,13 @@ function DsaPageContent() {
                   <span className="text-xs font-bold text-slate-400">({allProblems.length} questions)</span>
                 </div>
                 <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden py-0.5 max-w-full">
+                  <button
+                    onClick={() => setShowImportModal(true)}
+                    className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-500 text-white font-bold text-xs shadow-md shadow-primary/20 transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  >
+                    <HiSparkles className="text-amber-300" />
+                    📥 Ingest Any LeetCode # / URL
+                  </button>
                   <button
                     onClick={() => setActiveCuratedSheet('neetcode150')}
                     className="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 text-xs font-bold transition-all cursor-pointer whitespace-nowrap"
@@ -337,8 +365,55 @@ function DsaPageContent() {
               </div>
             </div>
 
-            {/* Main Content Area: Roadmap or Grid */}
-            {viewLayout === 'roadmap' ? (
+            {/* Main Content Area: Roadmap or Grid or Search-Miss Auto Fetch */}
+            {filteredProblems.length === 0 && searchQuery.trim() ? (
+              <div className="p-8 rounded-2xl bg-gradient-to-r from-primary/10 via-purple-500/10 to-teal/10 border border-primary/25 text-center space-y-4 shadow-lg my-6">
+                <div className="w-12 h-12 rounded-2xl bg-primary/20 border border-primary/30 flex items-center justify-center mx-auto text-2xl">
+                  ✨
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-base font-bold text-slate-100">
+                    Problem &ldquo;{searchQuery}&rdquo; is not in the local index yet
+                  </h4>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                    StudyQuest can fetch and ingest any LeetCode question (including 2025/2026 contest problems like <strong>#3471</strong>) live from LeetCode servers in ~200ms.
+                  </p>
+                </div>
+                <div className="pt-2 flex items-center justify-center gap-3 flex-wrap">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    loading={isAutoFetching}
+                    onClick={async () => {
+                      setIsAutoFetching(true);
+                      const toastId = toast.loading(`Fetching "${searchQuery}" from LeetCode...`);
+                      try {
+                        const problem = await importProblem(searchQuery);
+                        toast.success(
+                          `✨ Ingested #${problem.leetcodeId ? `${problem.leetcodeId} ` : ''}${problem.title}!\n💾 Saved to your library & synced to the main global dataset for all users.`,
+                          { id: toastId, duration: 5000 }
+                        );
+                        setActiveProblem(problem);
+                      } catch (err: any) {
+                        toast.error(err.message || 'Failed to fetch problem', { id: toastId });
+                      } finally {
+                        setIsAutoFetching(false);
+                      }
+                    }}
+                    icon={<HiSparkles className="text-amber-300" />}
+                  >
+                    ⚡ Fetch & Ingest &ldquo;{searchQuery}&rdquo; Live from LeetCode
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowImportModal(true)}
+                  >
+                    Open Full Importer
+                  </Button>
+                </div>
+              </div>
+            ) : viewLayout === 'roadmap' ? (
               <DsaRoadmapView
                 problems={filteredProblems}
                 userProgress={userProgress}
@@ -495,6 +570,14 @@ function DsaPageContent() {
             onClose={() => setAiModalProblem(null)}
           />
         )}
+
+        {/* 1-Click Universal LeetCode Ingestion Modal */}
+        <DsaImportModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          onImportSuccess={(problem) => setActiveProblem(problem)}
+          onImportProblem={importProblem}
+        />
       </div>
     </PageTransition>
   );

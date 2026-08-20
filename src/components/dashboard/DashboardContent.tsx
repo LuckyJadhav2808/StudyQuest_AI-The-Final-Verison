@@ -287,21 +287,31 @@ export default function DashboardContent() {
 
   const weeklyXPData = useMemo(() => {
     const dates = getWeeklyDates();
-    return dates.map(d => {
+    return dates.map((d) => {
       const dateStr = getLocalDateString(d);
-      return xpHistory && xpHistory[dateStr] ? xpHistory[dateStr] : 0;
+      const raw = xpHistory?.[dateStr];
+      const num = typeof raw === 'number' && Number.isFinite(raw) ? raw : Number(raw);
+      return Number.isFinite(num) && num > 0 ? num : 0;
     });
   }, [xpHistory]);
 
   const svgPath = useMemo(() => {
-    const maxVal = Math.max(10, ...weeklyXPData);
+    const safeData = (weeklyXPData || []).map((v) => (Number.isFinite(v) ? Number(v) : 0));
+    const maxVal = Math.max(10, ...safeData);
     const height = 60; // chart area height
     const width = 280; // chart area width
-    const points = weeklyXPData.map((val, idx) => {
+    const points = safeData.map((val, idx) => {
       const x = (idx / 6) * width;
-      const y = height - (val / maxVal) * (height - 15) - 10; // leave margins
-      return { x, y };
+      const y = height - (val / (maxVal || 10)) * (height - 15) - 10; // leave margins
+      return {
+        x: Number.isFinite(x) ? x : 0,
+        y: Number.isFinite(y) ? y : height - 10,
+      };
     });
+
+    if (points.length === 0) {
+      return { path: '', area: '', points: [] };
+    }
     
     let d = `M ${points[0].x} ${points[0].y}`;
     for (let i = 0; i < points.length - 1; i++) {
@@ -1144,12 +1154,20 @@ export default function DashboardContent() {
               fill="url(#chartGrad)"
             />
             {svgPath.points.map((pt, i) => (
-              <circle key={i} cx={pt.x} cy={pt.y} r="3" fill="#2563EB" stroke="#FFFFFF" strokeWidth="1" />
+              <circle
+                key={i}
+                cx={Number.isFinite(pt.x) ? pt.x : 0}
+                cy={Number.isFinite(pt.y) ? pt.y : 50}
+                r="3"
+                fill="#2563EB"
+                stroke="#FFFFFF"
+                strokeWidth="1"
+              />
             ))}
             {svgPath.points[new Date().getDay()] && (
               <circle
-                cx={svgPath.points[new Date().getDay()].x}
-                cy={svgPath.points[new Date().getDay()].y}
+                cx={Number.isFinite(svgPath.points[new Date().getDay()].x) ? svgPath.points[new Date().getDay()].x : 0}
+                cy={Number.isFinite(svgPath.points[new Date().getDay()].y) ? svgPath.points[new Date().getDay()].y : 50}
                 r="5"
                 fill="#2563EB"
                 stroke="#FFFFFF"

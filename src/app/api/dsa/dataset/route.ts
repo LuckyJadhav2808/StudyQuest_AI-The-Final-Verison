@@ -68,10 +68,19 @@ function normalizeDifficulty(diffStr?: string): DsaDifficulty {
 
 // In-memory cache for parsed problems
 let cachedProblems: DsaProblem[] | null = null;
+let lastSyncedMtime = 0;
 
 export async function GET() {
   try {
-    if (cachedProblems && cachedProblems.length > 0) {
+    const syncedPath = path.join(process.cwd(), 'src', 'data', 'datasets', 'synced_contest_problems.json');
+    let currentMtime = 0;
+    if (fs.existsSync(syncedPath)) {
+      try {
+        currentMtime = fs.statSync(syncedPath).mtimeMs;
+      } catch {}
+    }
+
+    if (cachedProblems && cachedProblems.length > 0 && currentMtime === lastSyncedMtime) {
       return NextResponse.json({ success: true, problems: cachedProblems, count: cachedProblems.length });
     }
 
@@ -204,13 +213,88 @@ export async function GET() {
       }
     }
 
-    // 3. Ensure canonical definitions for foundational 150 questions
+    // 3. Parse synced_contest_problems.json if available
+    if (fs.existsSync(syncedPath)) {
+      try {
+        const syncedItems = JSON.parse(fs.readFileSync(syncedPath, 'utf-8'));
+        if (Array.isArray(syncedItems)) {
+          for (const s of syncedItems) {
+            const numId = parseInt(s.frontendQuestionId, 10);
+            const title = s.title || `Problem ${numId}`;
+            const id = s.titleSlug || `problem-${numId}`;
+            const difficulty = normalizeDifficulty(s.difficulty);
+            const tagStr = (s.topicTags || []).join(' ');
+            const category = normalizeTopic(tagStr, title);
+            const pattern = normalizePattern(tagStr, title);
+            const cleanDesc = (s.content || '').replace(/<[^>]*>/g, '').trim();
+
+            const snippets = s.codeSnippets || [];
+            const cppSnippet = snippets.find((x: any) => x.langSlug === 'cpp')?.code || `#include <iostream>\n\nclass Solution {\npublic:\n    // Solution for ${title}\n};`;
+            const javaSnippet = snippets.find((x: any) => x.langSlug === 'java')?.code || `class Solution {\n    // Solution for ${title}\n}`;
+            const pySnippet = snippets.find((x: any) => x.langSlug === 'python3' || x.langSlug === 'python')?.code || `class Solution:\n    # Solution for ${title}\n    pass`;
+            const jsSnippet = snippets.find((x: any) => x.langSlug === 'javascript')?.code || `var solution = function() {\n  // Solution for ${title}\n};`;
+
+            const templates = {
+              cpp: cppSnippet,
+              java: javaSnippet,
+              python: pySnippet,
+              javascript: jsSnippet,
+            };
+
+            const hints = s.hints || [];
+            const approaches = [
+              {
+                title: 'Optimal Approach',
+                type: 'optimal' as const,
+                intuition: hints[0] ? `Official Hint: ${hints[0].replace(/<[^>]*>/g, '')}` : `Apply ${pattern} strategy to solve within time limits.`,
+                timeComplexity: difficulty === 'easy' ? 'O(N)' : difficulty === 'medium' ? 'O(N log N)' : 'O(N^2)',
+                spaceComplexity: difficulty === 'easy' ? 'O(1)' : 'O(N)',
+                explanation: hints.length > 0
+                  ? hints.map((h: string) => h.replace(/<[^>]*>/g, ''))
+                  : [
+                      'Analyze problem constraints and state invariants.',
+                      `Apply ${pattern} to traverse elements and maintain state.`,
+                      'Return the optimal result in the required format.',
+                    ],
+                code: templates,
+              },
+            ];
+
+            problemsMap.set(id, {
+              id,
+              leetcodeId: numId,
+              title,
+              difficulty,
+              category,
+              pattern,
+              description: cleanDesc || s.content || 'No description available.',
+              statementExplanation: `This challenge asks you to solve ${title}. Review the constraints and apply the optimal ${pattern} strategy.`,
+              problemBreakdown: [
+                `💡 Goal: Implement a tested solution for ${title} (#${numId}).`,
+                `🎯 Category & Pattern: ${category} (${pattern}).`,
+                `⚡ Target Complexity: ${difficulty === 'easy' ? 'O(N) Time, O(1) Space' : 'Optimal Execution'}.`,
+              ],
+              constraints: ['1 <= N <= 10^5'],
+              examples: [{ input: s.sampleTestCase || 'Sample Input', output: 'Sample Output' }],
+              templates,
+              testCases: [{ id: 1, input: s.sampleTestCase || 'Sample Test', expectedOutput: 'Expected' }],
+              approaches,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Error reading synced contest problems:', err);
+      }
+    }
+
+    // 4. Ensure canonical definitions for foundational 150 questions
     DSA_PROBLEMS.forEach((dp) => {
       problemsMap.set(dp.id, dp);
     });
 
     const combinedList = Array.from(problemsMap.values());
     cachedProblems = combinedList;
+    lastSyncedMtime = currentMtime;
 
     return NextResponse.json({
       success: true,

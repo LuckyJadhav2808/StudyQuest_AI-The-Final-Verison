@@ -58,6 +58,8 @@ export interface ApproachSolution {
   code: CodeTemplates;
 }
 
+export type DsaApproach = ApproachSolution;
+
 export interface DsaProblem {
   id: string;
   leetcodeId?: number;
