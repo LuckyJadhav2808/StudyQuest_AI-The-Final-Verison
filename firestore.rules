@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // 1. User Profiles and Private Subcollections
+    // Users can read/write their own subcollections (tasks, notes, habits, dsaProgress, etc.)
+    // Authenticated users can read basic user profile info for friends & search
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+
+      match /{subcollection=**} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // 2. Global Shared DSA Problems Collection
+    // Any authenticated user can read problems or contribute ingested solutions
+    match /globalDsaProblems/{problemId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // 3. Groups & Study Rooms
+    match /groups/{groupId} {
+      allow read, write: if isAuthenticated();
+
+      match /{subcollection=**} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+
+    // 4. Friend Requests
+    match /friendRequests/{requestId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // 5. User Online Presence Status
+    match /presence/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+
+    // 6. Global Leaderboard
+    match /leaderboard/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // 7. Bug Reports & Feedback
+    match /bugReports/{reportId} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated();
+    }
+  }
+}

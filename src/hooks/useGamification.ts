@@ -168,8 +168,13 @@ export function useGamification(): UseGamificationReturn {
           updatedAt: Date.now(),
         }).catch(() => {});
 
-        // Log daily XP for heatmap (non-blocking)
+        // Log daily XP for heatmap & optimistically update local state immediately
         const today = getLocalDateString();
+        setXpHistory((prev) => ({
+          ...prev,
+          [today]: (prev[today] || 0) + amount,
+        }));
+
         const dayLogRef = doc(db, 'users', user.uid, 'xpLog', today);
         setDocument(dayLogRef, { totalXp: increment(amount), lastUpdated: Date.now() })
           .catch(() => setDocument(dayLogRef, { totalXp: amount, lastUpdated: Date.now() }, false))

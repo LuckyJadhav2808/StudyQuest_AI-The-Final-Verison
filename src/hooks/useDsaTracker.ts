@@ -37,8 +37,9 @@ export function useDsaTracker() {
     } catch (e) { /* ignore */ }
   }, []);
 
-  // 2. Subscribe to Global Shared Problems collection (available to ALL users)
+  // 2. Subscribe to Global Shared Problems collection (available to authenticated users)
   useEffect(() => {
+    if (!user?.uid) return;
     const globalCol = collection(db, 'globalDsaProblems');
     const unsubGlobal = onSnapshot(
       globalCol,
@@ -56,7 +57,7 @@ export function useDsaTracker() {
       }
     );
     return unsubGlobal;
-  }, []);
+  }, [user?.uid]);
 
   // 3. Subscribe to user's personal DSA progress & custom problems in Firestore
   useEffect(() => {

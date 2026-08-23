@@ -92,10 +92,12 @@ export default function DsaProblemDetailModal({
     };
   }, [problem, selectedLanguage, userProgress]);
 
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+
   const handleFetchSolutions = async () => {
     if (!currentProblem) return;
     setIsFetchingSolutions(true);
-    const toastId = toast.loading('Fetching full multi-language solutions from LeetCode...');
+    const toastId = toast.loading('Fetching full multi-language solutions from LeetCode & Open Repositories...');
     try {
       const query = currentProblem.id || String(currentProblem.leetcodeId || '');
       const res = await fetch('/api/dsa/fetch-leetcode', {
@@ -106,14 +108,39 @@ export default function DsaProblemDetailModal({
       const data = await res.json();
       if (data.success && data.problem) {
         setCurrentProblem(data.problem);
-        toast.success(`✨ Loaded ${data.problem.approaches?.length || 1} full working solutions!`, { id: toastId });
+        toast.success(`✨ Loaded ${data.problem.approaches?.length || 1} verified multi-approach solutions!`, { id: toastId });
       } else {
-        toast.error(data.error || 'No additional community solutions found on LeetCode.', { id: toastId });
+        toast.error(data.error || 'No additional solutions found on repository.', { id: toastId });
       }
     } catch (err: any) {
       toast.error(err.message || 'Failed to fetch solutions.', { id: toastId });
     } finally {
       setIsFetchingSolutions(false);
+    }
+  };
+
+  const handleGenerateAiApproaches = async () => {
+    if (!currentProblem) return;
+    setIsGeneratingAi(true);
+    const toastId = toast.loading('Generating 3 progressive approaches (Brute Force → Better → Optimal)...');
+    try {
+      const openRouterKey = typeof window !== 'undefined' ? localStorage.getItem('studyquest_openrouter_key') : undefined;
+      const res = await fetch('/api/dsa/generate-approaches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ problem: currentProblem, openRouterKey }),
+      });
+      const data = await res.json();
+      if (data.success && data.approaches?.length > 0) {
+        setCurrentProblem((prev) => prev ? { ...prev, approaches: data.approaches } : prev);
+        toast.success(`✨ Generated ${data.approaches.length} progressive learning approaches!`, { id: toastId });
+      } else {
+        toast.error(data.error || 'Failed to generate progressive approaches.', { id: toastId });
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to generate approaches.', { id: toastId });
+    } finally {
+      setIsGeneratingAi(false);
     }
   };
 
@@ -361,7 +388,9 @@ export default function DsaProblemDetailModal({
                     copiedCode,
                     handleCopySolutionCode,
                     handleFetchSolutions,
-                    isFetchingSolutions
+                    isFetchingSolutions,
+                    handleGenerateAiApproaches,
+                    isGeneratingAi
                   )}
                   {activeLeftTab === 'testcases' && renderTestCases(currentProblem)}
                   {activeLeftTab === 'notes' && renderNotes(notes, setNotes, handleSavePersonalNotes)}
@@ -538,7 +567,9 @@ export default function DsaProblemDetailModal({
                   copiedCode,
                   handleCopySolutionCode,
                   handleFetchSolutions,
-                  isFetchingSolutions
+                  isFetchingSolutions,
+                  handleGenerateAiApproaches,
+                  isGeneratingAi
                 )}
                 {activeLeftTab === 'testcases' && renderTestCases(currentProblem)}
                 {activeLeftTab === 'notes' && renderNotes(notes, setNotes, handleSavePersonalNotes)}
@@ -674,7 +705,9 @@ function renderApproaches(
   copied: boolean,
   onCopy: (code: string) => void,
   onRefreshSolutions: () => void,
-  isRefreshing: boolean
+  isRefreshing: boolean,
+  onGenerateAi: () => void,
+  isGeneratingAi: boolean
 ) {
   const approaches = problem.approaches || [];
   const currentApproach = approaches[approachIdx] || approaches[0];
@@ -708,33 +741,49 @@ function renderApproaches(
 
   return (
     <div className="space-y-6">
-      {/* Approach Switcher Tabs & Live Fetch Button */}
-      <div className="flex items-center justify-between gap-2 flex-wrap pb-2 border-b border-slate-800">
-        <div className="flex items-center gap-2 flex-wrap">
-          {approaches.map((app, idx) => (
-            <button
-              key={idx}
-              onClick={() => setApproachIdx(idx)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                approachIdx === idx
-                  ? 'bg-purple-600 text-white shadow-md'
-                  : 'bg-slate-800 text-slate-400 hover:text-white'
-              }`}
-            >
-              {app.title}
-            </button>
-          ))}
+      {/* Approach Switcher Tabs & Live Multi-Tier Actions */}
+      <div className="flex items-center justify-between gap-2 flex-wrap pb-3 border-b border-slate-800">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {approaches.map((app, idx) => {
+            const isOpt = app.type === 'optimal' || app.title.toLowerCase().includes('optimal') || app.title.includes('3.');
+            const isNaive = app.type === 'brute-force' || app.title.toLowerCase().includes('brute') || app.title.includes('1.');
+            const isInter = app.type === 'better' || app.title.toLowerCase().includes('better') || app.title.includes('2.');
+            
+            return (
+              <button
+                key={idx}
+                onClick={() => setApproachIdx(idx)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  approachIdx === idx
+                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/40 border border-purple-400/30'
+                    : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 border border-transparent'
+                }`}
+              >
+                <span>{isOpt ? '⭐' : isNaive ? '🐢' : isInter ? '⚡' : '💡'}</span>
+                <span>{app.title}</span>
+              </button>
+            );
+          })}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={onGenerateAi}
+            disabled={isGeneratingAi}
+            className="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
+            title="Generate 3 progressive pedagogical approaches (Brute Force → Better → Optimal)"
+          >
+            <HiSparkles className={isGeneratingAi ? 'animate-spin text-emerald-300' : 'text-emerald-300'} />
+            {isGeneratingAi ? 'Generating 3 Tiers...' : '✨ AI 3-Tier Breakdown'}
+          </button>
           <button
             onClick={onRefreshSolutions}
             disabled={isRefreshing}
             className="px-2.5 py-1 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
-            title="Fetch full working solutions from LeetCode live"
+            title="Fetch full working solutions from repository"
           >
             <HiSparkles className={isRefreshing ? 'animate-spin text-amber-300' : 'text-amber-300'} />
-            {isRefreshing ? 'Fetching...' : '⚡ Fetch Fresh Solutions'}
+            {isRefreshing ? 'Fetching...' : '⚡ Fetch Fresh'}
           </button>
           <Badge variant="pink" size="sm">
             ⏱️ Time: {currentApproach.timeComplexity}

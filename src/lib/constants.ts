@@ -433,27 +433,27 @@ export interface TreasureReward {
 export const TREASURE_CHEST_REWARDS: { weight: number; reward: Omit<TreasureReward, 'coins' | 'xp'>; coinRange: [number, number]; xpRange: [number, number] }[] = [
   {
     weight: 60,
-    reward: { rarity: 'common', emoji: '🪙', title: 'A Handful of Coins', description: 'A modest but welcome find!' },
-    coinRange: [5, 15],
-    xpRange: [0, 0],
+    reward: { rarity: 'common', emoji: '🪙', title: 'A Handful of Coins & XP', description: 'A modest but welcome find!' },
+    coinRange: [8, 18],
+    xpRange: [10, 20],
   },
   {
     weight: 25,
     reward: { rarity: 'rare', emoji: '💎', title: 'Hidden Gems', description: 'You found something special!' },
-    coinRange: [15, 30],
-    xpRange: [15, 25],
+    coinRange: [18, 35],
+    xpRange: [25, 40],
   },
   {
     weight: 12,
     reward: { rarity: 'epic', emoji: '🔮', title: 'Arcane Treasures', description: 'An ancient power surges through you!' },
-    coinRange: [30, 50],
-    xpRange: [40, 60],
+    coinRange: [35, 60],
+    xpRange: [50, 75],
   },
   {
     weight: 3,
     reward: { rarity: 'legendary', emoji: '👑', title: 'LEGENDARY HAUL!', description: 'The rarest of finds! Fortune smiles upon you!' },
-    coinRange: [75, 120],
-    xpRange: [80, 120],
+    coinRange: [80, 150],
+    xpRange: [100, 160],
   },
 ];
 

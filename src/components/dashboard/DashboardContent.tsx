@@ -7,7 +7,7 @@ import {
   HiClock, HiTrendingUp, HiStar, HiCalendar,
   HiPlay, HiSparkles, HiFire, HiUserAdd, HiTrash,
   HiCheck, HiBell, HiClipboardCopy, HiPencilAlt,
-  HiSearch, HiTemplate,
+  HiSearch, HiTemplate, HiRefresh,
 } from 'react-icons/hi';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
@@ -170,9 +170,30 @@ export default function DashboardContent() {
     } catch (e) { /* ignore */ }
   };
 
+  const resetModernLayout = () => {
+    const defaultLeft = ['banner', 'quests', 'scrolls', 'heatmap', 'exams', 'jukebox'];
+    const defaultRight = ['profile', 'stats', 'friends', 'shortcuts', 'halloffame', 'calendar', 'activity', 'tasks'];
+    saveModernOrders(defaultLeft, defaultRight);
+    toast.success('Dashboard layout reset to default! 🔄');
+  };
+
   const handleModernDragEnd = (result: any) => {
     if (!result.destination) return;
-    const { source, destination } = result;
+    const { source, destination, draggableId } = result;
+
+    // Prevent wide components from being dragged into the narrow sidebar
+    const WIDE_ONLY_WIDGETS = ['banner', 'heatmap', 'exams', 'quests', 'scrolls', 'jukebox'];
+    if (destination.droppableId === 'modern-right' && WIDE_ONLY_WIDGETS.includes(draggableId)) {
+      toast.error(`"${draggableId.toUpperCase()}" is a wide component and must stay in the main area! 📐`, {
+        icon: '⚠️',
+        duration: 3500,
+      });
+      return;
+    }
+
+    if (source.droppableId === destination.droppableId && source.index === destination.index) {
+      return;
+    }
 
     let newLeft = [...modernLeftOrder];
     let newRight = [...modernRightOrder];
@@ -1479,32 +1500,47 @@ export default function DashboardContent() {
                   </button>
                 </div>
 
-                {/* Customize Dashboard layout */}
-                <button
-                  onClick={() => setIsModernEditMode(!isModernEditMode)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border-2 transition-all cursor-pointer ${
-                    isModernEditMode
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-primary/30'
-                  }`}
-                >
-                  <HiTemplate size={14} />
-                  {isModernEditMode ? 'Done' : 'Customize'}
-                </button>
+                {/* Customize Dashboard layout & Reset */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setIsModernEditMode(!isModernEditMode)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border-2 transition-all cursor-pointer ${
+                      isModernEditMode
+                        ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                        : 'border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-primary/30'
+                    }`}
+                  >
+                    <HiTemplate size={14} />
+                    {isModernEditMode ? 'Done' : 'Customize'}
+                  </button>
+                  {isModernEditMode && (
+                    <motion.button
+                      onClick={resetModernLayout}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border-2 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-coral/40 hover:text-coral hover:bg-coral/5 transition-all cursor-pointer"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      whileTap={{ scale: 0.95 }}
+                      title="Reset modern layout to default"
+                    >
+                      <HiRefresh size={13} />
+                      Reset
+                    </motion.button>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Draggable Bento Columns */}
+            {/* Draggable Bento Columns with Layout Guards */}
             <DragDropContext onDragEnd={handleModernDragEnd}>
-              <div className="modern-dashboard-bg -mx-4 md:-mx-6 px-4 md:px-6 py-2 flex flex-col lg:flex-row gap-6">
+              <div className="modern-dashboard-bg -mx-4 md:-mx-6 px-4 md:px-6 py-2 flex flex-col lg:flex-row gap-6 items-start">
                 
-                {/* LEFT Column (Droppable) */}
+                {/* LEFT Column (Main Wide Droppable) */}
                 <Droppable droppableId="modern-left">
                   {(provided) => (
                     <div
                       ref={provided.innerRef}
                       {...provided.droppableProps}
-                      className="flex-1 flex flex-col gap-6 min-w-0"
+                      className="flex-1 flex flex-col gap-6 min-w-0 w-full overflow-hidden"
                     >
                       {modernLeftOrder.map((widgetId, index) => {
                         const widget = modernWidgetMap[widgetId as keyof typeof modernWidgetMap];
@@ -1521,7 +1557,7 @@ export default function DashboardContent() {
                               <div
                                 ref={dragProvided.innerRef}
                                 {...dragProvided.draggableProps}
-                                className={`transition-all duration-200 rounded-3xl ${
+                                className={`transition-all duration-200 rounded-3xl min-w-0 w-full overflow-hidden ${
                                   snapshot.isDragging
                                     ? 'shadow-2xl shadow-primary/20 ring-2 ring-primary/30 bg-white dark:bg-[#111328] z-50'
                                     : ''
@@ -1535,7 +1571,7 @@ export default function DashboardContent() {
                                     <span>:: Drag {widgetId}</span>
                                   </div>
                                 )}
-                                <div className={isModernEditMode ? 'pointer-events-none opacity-80' : ''}>
+                                <div className={isModernEditMode ? 'pointer-events-none opacity-80' : 'w-full min-w-0'}>
                                   {widget}
                                 </div>
                               </div>
@@ -1548,13 +1584,13 @@ export default function DashboardContent() {
                   )}
                 </Droppable>
 
-                {/* RIGHT Column (Droppable) */}
+                {/* RIGHT Column (Sidebar Droppable with Fixed Clean Width) */}
                 <Droppable droppableId="modern-right">
                   {(provided) => (
                     <div
                       ref={provided.innerRef}
                       {...provided.droppableProps}
-                      className="w-full lg:w-[320px] flex-shrink-0 flex flex-col gap-6"
+                      className="w-full lg:w-[340px] flex-shrink-0 flex flex-col gap-6 min-w-0 overflow-hidden"
                     >
                       {modernRightOrder.map((widgetId, index) => {
                         const widget = modernWidgetMap[widgetId as keyof typeof modernWidgetMap];
@@ -1571,7 +1607,7 @@ export default function DashboardContent() {
                               <div
                                 ref={dragProvided.innerRef}
                                 {...dragProvided.draggableProps}
-                                className={`transition-all duration-200 rounded-3xl ${
+                                className={`transition-all duration-200 rounded-3xl min-w-0 w-full overflow-hidden ${
                                   snapshot.isDragging
                                     ? 'shadow-2xl shadow-primary/20 ring-2 ring-primary/30 bg-white dark:bg-[#111328] z-50'
                                     : ''
@@ -1585,7 +1621,7 @@ export default function DashboardContent() {
                                     <span>:: Drag {widgetId}</span>
                                   </div>
                                 )}
-                                <div className={isModernEditMode ? 'pointer-events-none opacity-80' : ''}>
+                                <div className={isModernEditMode ? 'pointer-events-none opacity-80' : 'w-full min-w-0'}>
                                   {widget}
                                 </div>
                               </div>

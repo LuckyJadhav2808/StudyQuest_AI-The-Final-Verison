@@ -5,6 +5,7 @@ import {
   resolveTitleSlug,
   fetchLeetcodeQuestionDetail,
   fetchLeetcodeCommunitySolutions,
+  fetchOpenRepositorySolution,
   formatLeetcodeToDsaProblem,
 } from '@/lib/leetcodeApi';
 
@@ -48,11 +49,15 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3. Fetch Top Community Solutions
-    const rawSolutions = await fetchLeetcodeCommunitySolutions(titleSlug);
+    // 3. Fetch Verified Open Repository Solutions (doocs/walkccc) & Top Community Solutions in Parallel
+    const numId = parseInt(rawQuestion.questionFrontendId, 10) || parseInt(rawQuestion.questionId, 10);
+    const [openRepoSolution, rawSolutions] = await Promise.all([
+      fetchOpenRepositorySolution(numId, rawQuestion.title, titleSlug),
+      fetchLeetcodeCommunitySolutions(titleSlug),
+    ]);
 
-    // 4. Format into standardized StudyQuest DsaProblem
-    const problem = formatLeetcodeToDsaProblem(rawQuestion, rawSolutions);
+    // 4. Format into standardized StudyQuest DsaProblem with verified multi-language solutions
+    const problem = formatLeetcodeToDsaProblem(rawQuestion, rawSolutions, openRepoSolution);
 
     // 5. Append to Main Server-Side Dataset (synced_contest_problems.json)
     try {

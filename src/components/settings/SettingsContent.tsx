@@ -123,8 +123,9 @@ export default function SettingsContent() {
       // Scan all users in Firestore to locate previous UIDs associated with this email
       const usersSnap = await getDocs(collection(db, 'users'));
       
-      let bestAvatarSeed = profile?.avatarSeed || user.uid;
-      let bestAvatarStyle = profile?.avatarStyle || 'adventurer';
+      // ALWAYS preserve user's current chosen avatar
+      const currentAvatarSeed = profile?.avatarSeed || user.uid;
+      const currentAvatarStyle = profile?.avatarStyle || 'adventurer';
       let bestFriendCode = profile?.friendCode || '';
       let oldestTimestamp = profile?.createdAt || Date.now();
       let bestPetData: Record<string, any> | null = null;
@@ -153,15 +154,9 @@ export default function SettingsContent() {
           const iData = iSnap.exists() ? iSnap.data() : null;
 
           const pEmail = (pData?.email || uDoc.data()?.email || '').toLowerCase().trim();
-          const isMatch = uUid === user.uid || (targetEmail && pEmail === targetEmail) || targetEmail === 'luckymanojjadhav@gmail.com';
+          const isMatch = uUid === user.uid || (targetEmail && pEmail === targetEmail);
 
           if (isMatch) {
-            if (pData?.avatarSeed && pData.avatarSeed !== uUid) {
-              bestAvatarSeed = pData.avatarSeed;
-            }
-            if (pData?.avatarStyle) {
-              bestAvatarStyle = pData.avatarStyle;
-            }
             if (pData?.friendCode && (!bestFriendCode || pData.createdAt < oldestTimestamp)) {
               bestFriendCode = pData.friendCode;
             }
@@ -291,8 +286,8 @@ export default function SettingsContent() {
       await setDoc(profileRef, {
         displayName: profile?.displayName || user.displayName || 'Adventurer',
         email: user.email || profile?.email || '',
-        avatarSeed: bestAvatarSeed,
-        avatarStyle: bestAvatarStyle,
+        avatarSeed: currentAvatarSeed,
+        avatarStyle: currentAvatarStyle,
         friendCode: finalFriendCode,
         createdAt: oldestTimestamp,
         updatedAt: Date.now(),
@@ -310,8 +305,8 @@ export default function SettingsContent() {
       await setDoc(leaderboardRef, {
         uid: user.uid,
         displayName: profile?.displayName || user.displayName || 'Adventurer',
-        avatarSeed: bestAvatarSeed,
-        avatarStyle: bestAvatarStyle,
+        avatarSeed: currentAvatarSeed,
+        avatarStyle: currentAvatarStyle,
         xp: finalXP,
         level: calculatedLevel,
         streak: finalCurrentStreak,
