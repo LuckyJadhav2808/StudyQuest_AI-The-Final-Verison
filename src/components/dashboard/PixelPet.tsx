@@ -204,9 +204,29 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
         level: currentLevel,
         exp: currentExp
       });
-      // Species Index mapping: cat=0, owl=1, dino=2
-      const speciesIndex = pet.species === 'cat' ? 0 : pet.species === 'owl' ? 1 : 2;
-      setSkinIndex(speciesIndex);
+      // Respect local skin choice if user previously chose Dino (index 2) or another skin
+      try {
+        const storedSkin = localStorage.getItem('sq-pixel-pet-skin');
+        if (storedSkin !== null) {
+          const sIndex = parseInt(storedSkin, 10);
+          if (!isNaN(sIndex) && sIndex >= 0 && sIndex < skins.length) {
+            setSkinIndex(sIndex);
+            const localSpecies: 'cat' | 'owl' | 'dragon' = sIndex === 0 ? 'cat' : sIndex === 1 ? 'owl' : 'dragon';
+            if (pet.species !== localSpecies) {
+              updatePet({ species: localSpecies });
+            }
+          } else {
+            const speciesIndex = pet.species === 'cat' ? 0 : pet.species === 'owl' ? 1 : 2;
+            setSkinIndex(speciesIndex);
+          }
+        } else {
+          const speciesIndex = pet.species === 'cat' ? 0 : pet.species === 'owl' ? 1 : 2;
+          setSkinIndex(speciesIndex);
+        }
+      } catch {
+        const speciesIndex = pet.species === 'cat' ? 0 : pet.species === 'owl' ? 1 : 2;
+        setSkinIndex(speciesIndex);
+      }
     }
   }, [pet, updatePet]);
 
@@ -546,7 +566,12 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
       localStorage.setItem('sq-pixel-pet-skin', nextIndex.toString());
     } catch (e) { /* ignore */ }
     
-    speak(`Tada! Meet my new look! ✨`);
+    const nextSpecies: 'cat' | 'owl' | 'dragon' = nextIndex === 0 ? 'cat' : nextIndex === 1 ? 'owl' : 'dragon';
+    if (updatePet) {
+      updatePet({ species: nextSpecies });
+    }
+
+    speak(`Tada! Meet my new look! ✨ (${skinNames[nextIndex]})`);
     playClick();
   };
 

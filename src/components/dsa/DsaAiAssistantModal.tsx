@@ -17,6 +17,7 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import { DsaProblem } from '@/types/dsa';
 import { useAuthContext } from '@/context/AuthContext';
+import { callAiCompletion, resolveOpenRouterKey } from '@/lib/ai';
 
 interface DsaAiAssistantModalProps {
   problem: DsaProblem | null;
@@ -35,12 +36,7 @@ export default function DsaAiAssistantModal({
   onClose,
 }: DsaAiAssistantModalProps) {
   const { profile } = useAuthContext();
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      sender: 'assistant',
-      text: `Hello! I'm your AI DSA Tutor. I can give you step-by-step intuition, check edge cases, or explain time & space complexity for "${problem?.title || 'this problem'}" without spoiling the full solution. What would you like help with?`,
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [userInput, setUserInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [engineMode, setEngineMode] = useState<'browser' | 'cloud'>('browser');
@@ -59,24 +55,16 @@ export default function DsaAiAssistantModal({
     setLoading(true);
 
     try {
-      // Check if user has OpenRouter API Key configured or use built-in intelligent engine
-      const openRouterKey = profile?.openRouterKey || (typeof window !== 'undefined' ? localStorage.getItem('studyquest_openrouter_key') : null);
-
-      if (openRouterKey && engineMode === 'cloud') {
-        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${openRouterKey}`,
-            'HTTP-Referer': window.location.origin,
-            'X-Title': 'StudyQuest AI DSA Assistant',
-          },
-          body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
-            messages: [
-              {
-                role: 'system',
-                content: `You are an expert DSA coding tutor. The student is solving LeetCode problem: "${problem.title}" (Difficulty: ${problem.difficulty}, Pattern: ${problem.pattern}). 
+      // Connect to unified AI completion (free system tier or custom key)
+      if (engineMode === 'cloud') {
+        const result = await callAiCompletion({
+          apiKey: profile?.openRouterKey,
+          feature: 'dsa',
+          title: 'StudyQuest AI DSA Assistant',
+          messages: [
+            {
+              role: 'system',
+              content: `You are an expert DSA coding tutor. The student is solving LeetCode problem: "${problem.title}" (Difficulty: ${problem.difficulty}, Pattern: ${problem.pattern}). 
 Problem Description: ${problem.description}
 Problem Explanation: ${problem.statementExplanation || ''}
 Current Student Code:
@@ -87,37 +75,39 @@ Guidelines:
 2. DO NOT immediately give the full code solution unless explicitly asked.
 3. Guide the student using the ${problem.pattern} technique.
 4. Explain Time and Space complexity clearly with Big-O notation.`,
-              },
-              { role: 'user', content: promptText },
-            ],
-          }),
+            },
+            ...messages.map((m) => ({
+              role: (m.sender === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+              content: m.text,
+            })),
+            { role: 'user', content: promptText },
+          ],
         });
 
-        const data = await res.json();
-        const reply = data.choices?.[0]?.message?.content || 'I encountered an issue generating a response.';
-        setMessages((prev) => [...prev, { sender: 'assistant', text: reply }]);
-      } else {
-        // Fast In-Browser Intelligent Engine Response Simulation
-        await new Promise((r) => setTimeout(r, 600));
-
-        let localReply = '';
-        const lower = promptText.toLowerCase();
-
-        if (lower.includes('hint') || lower.includes('clue') || lower.includes('approach')) {
-          localReply = `💡 **Step-by-Step Intuition Hint for ${problem.title}**:\n\n1. Notice that this problem is categorized under the **${problem.pattern}** pattern.\n2. ${problem.approaches?.[0]?.intuition || 'Think about how storing previously seen elements can reduce nested iterations.'}\n3. **Key Question**: What data structure allows you to look up elements in $O(1)$ constant time?`;
-        } else if (lower.includes('complexity') || lower.includes('big o') || lower.includes('time')) {
-          const optimal = problem.approaches?.find((a) => a.type === 'optimal') || problem.approaches?.[0];
-          localReply = `⏱️ **Time & Space Complexity Breakdown**:\n\n- **Target Time Complexity**: \`${optimal?.timeComplexity || 'O(N)'}\`\n- **Target Space Complexity**: \`${optimal?.spaceComplexity || 'O(1)'}\`\n\n**Why?** By applying the **${problem.pattern}** approach, you only need to traverse the input elements once without nested quadratic loops.`;
-        } else if (lower.includes('edge') || lower.includes('corner') || lower.includes('test')) {
-          localReply = `🧪 **Key Edge Cases to Test**:\n\n- **Empty or single-element inputs**: Verify boundary conditions.\n- **Duplicate values**: Does your logic handle identical numbers correctly?\n- **Negative numbers & integer bounds**: Watch out for zero or negative values.\n- **Constraints**: Remember $N \\le 10^5$, so an $O(N^2)$ solution will result in Time Limit Exceeded (TLE).`;
-        } else if (lower.includes('debug') || lower.includes('code')) {
-          localReply = `🔍 **Code Review & Guidance**:\n\nLooking at your active template, make sure:\n1. Your base cases or empty input checks are placed at the very start.\n2. Pointers or indices are incremented properly inside the loop to avoid infinite loops.\n3. The return value strictly matches the expected return format (e.g. array of indices vs boolean).`;
-        } else {
-          localReply = `🤖 **DSA Tutor Guidance for ${problem.title}**:\n\nTo solve this optimally using **${problem.pattern}**:\n\n- **Step 1**: Identify what information you need to maintain as you scan the input.\n- **Step 2**: Check if you can achieve $O(N)$ time by using a Hash Map or Two Pointers.\n- **Step 3**: Walk through an example with pen and paper before coding.`;
+        if (result.success && result.content) {
+          setMessages((prev) => [...prev, { sender: 'assistant', text: result.content! }]);
+          return;
         }
-
-        setMessages((prev) => [...prev, { sender: 'assistant', text: localReply }]);
       }
+
+      // Fast Pattern Heuristic Guidance (instant response when no key or in fast mode)
+      let localReply = '';
+      const lower = promptText.toLowerCase();
+
+      if (lower.includes('hint') || lower.includes('clue') || lower.includes('approach')) {
+        localReply = `💡 **Step-by-Step Intuition Hint for ${problem.title}**:\n\n1. Notice that this problem is categorized under the **${problem.pattern}** pattern.\n2. ${problem.approaches?.[0]?.intuition || 'Think about how storing previously seen elements can reduce nested iterations.'}\n3. **Key Question**: What data structure allows you to look up elements in $O(1)$ constant time?`;
+      } else if (lower.includes('complexity') || lower.includes('big o') || lower.includes('time')) {
+        const optimal = problem.approaches?.find((a) => a.type === 'optimal') || problem.approaches?.[0];
+        localReply = `⏱️ **Time & Space Complexity Breakdown**:\n\n- **Target Time Complexity**: \`${optimal?.timeComplexity || 'O(N)'}\`\n- **Target Space Complexity**: \`${optimal?.spaceComplexity || 'O(1)'}\`\n\n**Why?** By applying the **${problem.pattern}** approach, you only need to traverse the input elements once without nested quadratic loops.`;
+      } else if (lower.includes('edge') || lower.includes('corner') || lower.includes('test')) {
+        localReply = `🧪 **Key Edge Cases to Test**:\n\n- **Empty or single-element inputs**: Verify boundary conditions.\n- **Duplicate values**: Does your logic handle identical numbers correctly?\n- **Negative numbers & integer bounds**: Watch out for zero or negative values.\n- **Constraints**: Remember $N \\le 10^5$, so an $O(N^2)$ solution will result in Time Limit Exceeded (TLE).`;
+      } else if (lower.includes('debug') || lower.includes('code')) {
+        localReply = `🔍 **Code Review & Guidance**:\n\nLooking at your active template, make sure:\n1. Your base cases or empty input checks are placed at the very start.\n2. Pointers or indices are incremented properly inside the loop to avoid infinite loops.\n3. The return value strictly matches the expected return format (e.g. array of indices vs boolean).`;
+      } else {
+        localReply = `🤖 **DSA Tutor Guidance for ${problem.title}**:\n\nTo solve this optimally using **${problem.pattern}**:\n\n- **Step 1**: Identify what information you need to maintain as you scan the input.\n- **Step 2**: Check if you can achieve $O(N)$ time by using a Hash Map or Two Pointers.\n- **Step 3**: Walk through an example with pen and paper before coding.`;
+      }
+
+      setMessages((prev) => [...prev, { sender: 'assistant', text: localReply }]);
     } catch (err) {
       toast.error('Failed to get AI response. Please try again.');
       setMessages((prev) => [

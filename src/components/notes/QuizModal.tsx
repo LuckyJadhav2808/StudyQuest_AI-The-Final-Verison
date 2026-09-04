@@ -12,6 +12,7 @@ import { useAuthContext } from '@/context/AuthContext';
 import { useGamification } from '@/hooks/useGamification';
 import { QuizQuestion } from '@/types';
 import { playSuccess, playClick } from '@/lib/sounds';
+import { callAiCompletion, resolveOpenRouterKey, parseAiJsonResponse } from '@/lib/ai';
 
 interface QuizModalProps {
   isOpen: boolean;
@@ -44,12 +45,6 @@ export default function QuizModal({ isOpen, onClose, noteTitle, noteContent }: Q
     setAnswered(false);
     setError('');
 
-    const apiKey = profile?.openRouterKey;
-    if (!apiKey) {
-      setError('Please add your OpenRouter API key in Settings to use AI features.');
-      return;
-    }
-
     const stripped = stripHtml(noteContent);
     if (stripped.length < 50) {
       setError('Note content is too short to generate a quiz. Add more content first!');
@@ -57,42 +52,38 @@ export default function QuizModal({ isOpen, onClose, noteTitle, noteContent }: Q
     }
 
     try {
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-          'HTTP-Referer': window.location.origin,
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          max_tokens: 2048,
-          messages: [
-            {
-              role: 'user',
-              content: `Based on the following study notes, generate exactly 5 multiple-choice questions.
+      const result = await callAiCompletion({
+        apiKey: profile?.openRouterKey,
+        title: 'StudyQuest AI Quiz Generator',
+        feature: 'quiz',
+        max_tokens: 2048,
+        messages: [
+          {
+            role: 'user',
+            content: `Based on the following study notes, generate exactly 5 multiple-choice questions.
 Each question should test understanding, not just recall.
 Return ONLY a valid JSON array, no other text or markdown:
 [{"question": "...", "options": ["A) ...", "B) ...", "C) ...", "D) ..."], "correctIndex": 0, "explanation": "..."}]
 
 Notes:
 ${stripped.slice(0, 4000)}`,
-            },
-          ],
-        }),
+          },
+        ],
       });
 
-      const data = await res.json();
-      const content = data.choices?.[0]?.message?.content || '';
-      // Extract JSON from response (handle markdown code blocks)
-      const jsonMatch = content.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) throw new Error('Invalid response format');
-      const parsed: QuizQuestion[] = JSON.parse(jsonMatch[0]);
-      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('No questions');
+      if (!result.success || !result.content) {
+        throw new Error(result.error || 'Failed to generate quiz');
+      }
+
+      const parsed = parseAiJsonResponse<QuizQuestion[]>(result.content);
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        throw new Error('Could not parse quiz questions');
+      }
+
       setQuestions(parsed.slice(0, 5));
       setState('quiz');
-    } catch (err) {
-      setError('Failed to generate quiz. Please try again.');
+    } catch (err: any) {
+      setError(err?.message || 'Failed to generate quiz. Please try again.');
       toast.error('Quiz generation failed');
     }
   }, [noteContent, profile?.openRouterKey]);

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { DsaApproach, DsaProblem } from '@/types/dsa';
+import { parseAiJsonResponse } from '@/lib/ai';
+import { executeServerAiCompletion } from '@/lib/serverAi';
 
 export async function POST(req: Request) {
   try {
@@ -18,9 +20,8 @@ export async function POST(req: Request) {
 
     let approaches: DsaApproach[] = [];
 
-    // If OpenRouter API Key is provided, use Google Gemini 2.5 Flash for high-precision generation
-    if (openRouterKey && openRouterKey.startsWith('sk-')) {
-      try {
+    // Use high-precision Server AI (Gemini 2.0 Flash / OpenRouter)
+    try {
         const prompt = `You are a Principal DSA Instructor.
 Generate 3 distinct, progressive solution approaches for this problem:
 Title: ${problem.title} (#${problem.leetcodeId || problem.id})
@@ -54,41 +55,29 @@ Return ONLY valid JSON matching this exact structure:
   ]
 }`;
 
-        const aiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${openRouterKey}`,
-            'HTTP-Referer': 'https://studyquest.ai',
-            'X-Title': 'StudyQuest DSA Solution Generator',
-          },
-          body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
-            response_format: { type: 'json_object' },
-            messages: [
-              {
-                role: 'system',
-                content: 'You are an expert DSA instructor. Always output valid JSON with an "approaches" array.',
-              },
-              { role: 'user', content: prompt },
-            ],
-          }),
+        const aiResult = await executeServerAiCompletion({
+          userApiKey: openRouterKey,
+          title: 'StudyQuest DSA Solution Generator',
+          feature: 'dsa',
+          response_format: { type: 'json_object' },
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert DSA instructor. Always output valid JSON with an "approaches" array.',
+            },
+            { role: 'user', content: prompt },
+          ],
         });
 
-        if (aiRes.ok) {
-          const aiData = await aiRes.json();
-          const content = aiData?.choices?.[0]?.message?.content;
-          if (content) {
-            const parsed = JSON.parse(content);
-            if (Array.isArray(parsed?.approaches) && parsed.approaches.length > 0) {
-              approaches = parsed.approaches;
-            }
+        if (aiResult.success && aiResult.content) {
+          const parsed = parseAiJsonResponse<{ approaches?: DsaApproach[] }>(aiResult.content);
+          if (Array.isArray(parsed?.approaches) && parsed.approaches.length > 0) {
+            approaches = parsed.approaches;
           }
         }
       } catch (aiErr) {
         console.warn('AI generation error, falling back to structured synthesis:', aiErr);
       }
-    }
 
     // Fallback: If AI is not configured or failed, synthesize 3 progressive structured approaches
     if (approaches.length === 0) {

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { HiSparkles, HiLightBulb, HiX, HiCode, HiExclamation, HiClipboardCopy, HiCheck } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import { useAuthContext } from '@/context/AuthContext';
+import { callAiCompletion, resolveOpenRouterKey } from '@/lib/ai';
 
 /* ============================================================
    CodeAIPanel — AI-powered code assistant for the IDE
@@ -74,11 +75,6 @@ export default function CodeAIPanel({ code, fileName = '', language }: CodeAIPan
   const lang = language || detectLanguage(fileName);
 
   const handleAction = useCallback(async (action: AIAction) => {
-    if (!profile?.openRouterKey) {
-      toast.error('Set your OpenRouter API key in Settings first!');
-      return;
-    }
-
     if (!code.trim()) {
       toast.error('No code to analyze — write some code first!');
       return;
@@ -93,28 +89,24 @@ export default function CodeAIPanel({ code, fileName = '', language }: CodeAIPan
     const systemPrompt = config.prompt(code.slice(0, 4000), lang); // Limit to avoid token overflow
 
     try {
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${profile.openRouterKey}`,
-          'HTTP-Referer': window.location.origin,
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'system', content: 'You are Questie 🦉, a helpful coding assistant inside the StudyQuest IDE. Be concise, clear, and friendly. Use emojis sparingly. Format with markdown.' },
-            { role: 'user', content: systemPrompt },
-          ],
-          max_tokens: 1500,
-        }),
+      const result = await callAiCompletion({
+        apiKey: profile?.openRouterKey,
+        title: 'StudyQuest IDE Code Assistant',
+        feature: 'code',
+        max_tokens: 1500,
+        messages: [
+          { role: 'system', content: 'You are Questie 🦉, a helpful coding assistant inside the StudyQuest IDE. Be concise, clear, and friendly. Use emojis sparingly. Format with markdown.' },
+          { role: 'user', content: systemPrompt },
+        ],
       });
 
-      const data = await res.json();
-      const text = data.choices?.[0]?.message?.content || 'No response received. Please try again.';
-      setResponse(text);
-    } catch (err) {
-      setResponse('❌ Failed to connect to AI. Check your API key and internet connection.');
+      if (result.success && result.content) {
+        setResponse(result.content);
+      } else {
+        setResponse(`❌ ${result.error || 'No response received. Please try again.'}`);
+      }
+    } catch (err: any) {
+      setResponse(`❌ ${err?.message || 'Failed to connect to AI. Check your API key and internet connection.'}`);
     } finally {
       setLoading(false);
     }

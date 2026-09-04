@@ -6,6 +6,7 @@ import {
   HiUser, HiMail, HiKey, HiColorSwatch,
   HiClipboardCopy, HiCheck, HiSave, HiShieldCheck, HiLockClosed, HiViewGrid, HiHome,
   HiDownload, HiUpload, HiDatabase, HiExclamationCircle, HiFlag, HiTrash, HiSparkles,
+  HiLightningBolt,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import { useAuthContext } from '@/context/AuthContext';
@@ -65,6 +66,8 @@ export default function SettingsContent() {
   const [avatarSeed, setAvatarSeed] = useState('');
   const [avatarStyle, setAvatarStyle] = useState('adventurer');
   const [openRouterKey, setOpenRouterKey] = useState('');
+  const [aiMode, setAiMode] = useState<'system' | 'custom'>('system');
+  const [dailyQuotaUsed, setDailyQuotaUsed] = useState<number>(0);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -116,101 +119,66 @@ export default function SettingsContent() {
   const handleRepairGamification = async () => {
     if (!user) return;
     setRepairing(true);
-    const toastId = toast.loading('Scanning all database accounts and restoring your profile...');
+    const toastId = toast.loading('Restoring your profile, coins, avatar & streak from database logs...');
+
     try {
-      const targetEmail = (user.email || profile?.email || '').toLowerCase().trim();
+      // 1. Direct fetch of user's own data (Guaranteed by Firestore rules: isOwner(userId))
+      const [pSnap, gSnap, iSnap, petSnap, skillSnap, lbSnap, xpSnap, tSnap] = await Promise.all([
+        getDoc(getProfileRef(user.uid)),
+        getDoc(getGamificationRef(user.uid)),
+        getDoc(doc(db, 'users', user.uid, 'data', 'inventory')),
+        getDoc(doc(db, 'users', user.uid, 'data', 'pet')),
+        getDoc(doc(db, 'users', user.uid, 'data', 'skillTree')),
+        getDoc(doc(db, 'leaderboard', user.uid)),
+        getDocs(collection(db, 'users', user.uid, 'xpLog')),
+        getDocs(collection(db, 'users', user.uid, 'tasks')),
+      ]);
 
-      // Scan all users in Firestore to locate previous UIDs associated with this email
-      const usersSnap = await getDocs(collection(db, 'users'));
-      
-      // ALWAYS preserve user's current chosen avatar
-      const currentAvatarSeed = profile?.avatarSeed || user.uid;
-      const currentAvatarStyle = profile?.avatarStyle || 'adventurer';
-      let bestFriendCode = profile?.friendCode || '';
-      let oldestTimestamp = profile?.createdAt || Date.now();
-      let bestPetData: Record<string, any> | null = null;
-      let bestSkillTreeData: Record<string, any> | null = null;
+      const pData = pSnap.exists() ? pSnap.data() : null;
+      const gData = gSnap.exists() ? (gSnap.data() as GamificationData) : null;
+      const iData = iSnap.exists() ? iSnap.data() : null;
+      const lbData = lbSnap.exists() ? lbSnap.data() : null;
 
-      let combinedXP = 0;
-      let combinedCompletedTasks = 0;
-      let combinedCoins = 0;
+      // ── Recover Avatar & Identity ──
+      // Check public leaderboard doc first (it preserves historical avatar prior to any local reset)
+      const historicalAvatarSeed =
+        lbData?.avatarSeed && lbData.avatarSeed !== user.uid ? lbData.avatarSeed : null;
+      const profileAvatarSeed =
+        pData?.avatarSeed && pData.avatarSeed !== user.uid ? pData.avatarSeed : null;
+
+      const finalAvatarSeed =
+        historicalAvatarSeed ||
+        profileAvatarSeed ||
+        profile?.avatarSeed ||
+        user.displayName ||
+        user.email?.split('@')[0] ||
+        'Adventurer';
+
+      const finalAvatarStyle =
+        lbData?.avatarStyle || pData?.avatarStyle || profile?.avatarStyle || 'adventurer';
+
+      const todayStr = getLocalDateString();
+      const yesterdayStr = getLocalYesterdayDateString();
+
+      const finalDisplayName =
+        pData?.displayName || lbData?.displayName || profile?.displayName || user.displayName || 'Student';
+
+      let logSumXP = 0;
       const combinedDateMap: Record<string, number> = {};
 
-      for (const uDoc of usersSnap.docs) {
-        const uUid = uDoc.id;
-        try {
-          const [pSnap, gSnap, iSnap, petSnap, skillSnap, xpSnap, tSnap] = await Promise.all([
-            getDoc(getProfileRef(uUid)),
-            getDoc(getGamificationRef(uUid)),
-            getDoc(doc(db, 'users', uUid, 'data', 'inventory')),
-            getDoc(doc(db, 'users', uUid, 'data', 'pet')),
-            getDoc(doc(db, 'users', uUid, 'data', 'skillTree')),
-            getDocs(collection(db, 'users', uUid, 'xpLog')),
-            getDocs(collection(db, 'users', uUid, 'tasks')),
-          ]);
+      xpSnap.docs.forEach((xDoc) => {
+        const val = (xDoc.data().totalXp as number) || 0;
+        combinedDateMap[xDoc.id] = val;
+        logSumXP += val;
+      });
 
-          const pData = pSnap.exists() ? pSnap.data() : null;
-          const gData = gSnap.exists() ? (gSnap.data() as GamificationData) : null;
-          const iData = iSnap.exists() ? iSnap.data() : null;
-
-          const pEmail = (pData?.email || uDoc.data()?.email || '').toLowerCase().trim();
-          const isMatch = uUid === user.uid || (targetEmail && pEmail === targetEmail);
-
-          if (isMatch) {
-            if (pData?.friendCode && (!bestFriendCode || pData.createdAt < oldestTimestamp)) {
-              bestFriendCode = pData.friendCode;
-            }
-            if (pData?.createdAt && pData.createdAt < oldestTimestamp) {
-              oldestTimestamp = pData.createdAt;
-            }
-
-            if (petSnap.exists()) {
-              const petVal = petSnap.data();
-              if (!bestPetData || (petVal.xp || 0) > (bestPetData.xp || 0) || (petVal.stage || 0) > (bestPetData.stage || 0)) {
-                bestPetData = petVal;
-              }
-            }
-
-            if (skillSnap.exists()) {
-              const skillVal = skillSnap.data();
-              if (!bestSkillTreeData || (skillVal.unlockedNodes?.length || 0) > (bestSkillTreeData.unlockedNodes?.length || 0)) {
-                bestSkillTreeData = skillVal;
-              }
-            }
-
-            if (gData?.xp) {
-              combinedXP = Math.max(combinedXP, gData.xp);
-            }
-            if (iData?.coins) {
-              combinedCoins = Math.max(combinedCoins, iData.coins);
-            }
-
-            xpSnap.docs.forEach((xDoc) => {
-              const val = xDoc.data().totalXp || 0;
-              combinedDateMap[xDoc.id] = (combinedDateMap[xDoc.id] || 0) + val;
-              const dParsed = Date.parse(xDoc.id);
-              if (!isNaN(dParsed) && dParsed < oldestTimestamp) {
-                oldestTimestamp = dParsed;
-              }
-            });
-
-            const taskCount = tSnap.docs.filter(t => t.data().completed).length;
-            combinedCompletedTasks += taskCount;
-          }
-        } catch (e) {
-          console.warn(`Error scanning UID ${uUid}:`, e);
-        }
-      }
-
-      // Calculate total aggregated XP
-      let logSumXP = 0;
-      Object.values(combinedDateMap).forEach((val) => { logSumXP += val; });
-      const finalXP = Math.max(combinedXP, logSumXP, combinedCompletedTasks * 25);
+      const completedTasksCount = tSnap.docs.filter((t) => t.data().completed).length;
+      const currentXP = gData?.xp || 0;
+      const finalXP = Math.max(currentXP, logSumXP, completedTasksCount * 25);
       const calculatedLevel = getLevelFromXP(finalXP);
 
-      // Calculate streak & longestStreak from combinedDateMap
       const sortedDates = Object.keys(combinedDateMap)
-        .filter(id => /^\d{4}-\d{2}-\d{2}$/.test(id))
+        .filter((id) => /^\d{4}-\d{2}-\d{2}$/.test(id))
         .sort();
 
       let longestStreak = 0;
@@ -235,93 +203,46 @@ export default function SettingsContent() {
         prevDate = currentDate;
       });
 
-      const todayStr = getLocalDateString();
-      const yesterdayStr = getLocalYesterdayDateString();
-
-      let restoredCurrentStreak = 0;
+      let restoredCurrentStreak = gData?.streak || 0;
       if (sortedDates.length > 0) {
         const lastDateStr = sortedDates[sortedDates.length - 1];
         if (lastDateStr === todayStr || lastDateStr === yesterdayStr) {
-          restoredCurrentStreak = currentConsecutive;
+          restoredCurrentStreak = Math.max(restoredCurrentStreak, currentConsecutive);
         }
       }
+      const finalLongestStreak = Math.max(gData?.longestStreak || 0, longestStreak, restoredCurrentStreak);
 
-      const finalFriendCode = bestFriendCode || Math.random().toString(36).substring(2, 8).toUpperCase();
+      const rawCurrentCoins = iData?.coins;
+      const currentCoins =
+        typeof rawCurrentCoins === 'number'
+          ? rawCurrentCoins
+          : !isNaN(Number(rawCurrentCoins))
+          ? Number(rawCurrentCoins)
+          : 0;
 
-      // Restore Pet Companion data if found
-      if (bestPetData) {
-        await setDoc(doc(db, 'users', user.uid, 'data', 'pet'), bestPetData, { merge: true });
-      }
+      const xpCoins = Math.floor(finalXP / 5);
+      const taskCoins = completedTasksCount * 15;
+      const levelCoins = calculatedLevel * 50;
+      const restoredCoins = Math.max(currentCoins, xpCoins + taskCoins + levelCoins, 500);
 
-      // Restore Skill Tree data if found
-      if (bestSkillTreeData) {
-        await setDoc(doc(db, 'users', user.uid, 'data', 'skillTree'), bestSkillTreeData, { merge: true });
-      }
-
-      // 1. Repair Gamification Data doc
       const gamRef = doc(db, 'users', user.uid, 'data', 'gamification');
-      const gamSnap = await getDoc(gamRef);
-      const existingGam = gamSnap.exists() ? gamSnap.data() : {};
-
-      const finalCurrentStreak = Math.max(existingGam.streak || 0, restoredCurrentStreak);
-      const finalLongestStreak = Math.max(existingGam.longestStreak || 0, longestStreak);
-
       await setDoc(gamRef, {
         xp: finalXP,
         level: calculatedLevel,
-        streak: finalCurrentStreak,
+        streak: restoredCurrentStreak,
         longestStreak: finalLongestStreak,
+        lastActiveDate: todayStr,
       }, { merge: true });
 
-      // 2. Repair Coins in Inventory
-      const estimatedCoins = Math.floor(finalXP / 5) + (combinedCompletedTasks * 15);
       const invRef = doc(db, 'users', user.uid, 'data', 'inventory');
-      const invSnap = await getDoc(invRef);
-      const currentCoins = invSnap.exists() ? (invSnap.data().coins || 0) : 0;
-      const finalCoins = Math.max(currentCoins, combinedCoins, estimatedCoins);
-      await setDoc(invRef, { coins: finalCoins }, { merge: true });
-
-      // 3. Repair Profile Doc (Avatar, Friend Code, Join Date)
-      const profileRef = getProfileRef(user.uid);
-      await setDoc(profileRef, {
-        displayName: profile?.displayName || user.displayName || 'Adventurer',
-        email: user.email || profile?.email || '',
-        avatarSeed: currentAvatarSeed,
-        avatarStyle: currentAvatarStyle,
-        friendCode: finalFriendCode,
-        createdAt: oldestTimestamp,
-        updatedAt: Date.now(),
+      await setDoc(invRef, {
+        coins: restoredCoins,
       }, { merge: true });
 
-      // Sync top-level user doc for friendCode query lookup
-      await setDoc(doc(db, 'users', user.uid), {
-        friendCode: finalFriendCode,
-        uid: user.uid,
-        displayName: profile?.displayName || user.displayName || 'Adventurer',
-      }, { merge: true });
-
-      // 4. Update Leaderboard Entry
-      const leaderboardRef = doc(db, 'leaderboard', user.uid);
-      await setDoc(leaderboardRef, {
-        uid: user.uid,
-        displayName: profile?.displayName || user.displayName || 'Adventurer',
-        avatarSeed: currentAvatarSeed,
-        avatarStyle: currentAvatarStyle,
-        xp: finalXP,
-        level: calculatedLevel,
-        streak: finalCurrentStreak,
-        updatedAt: Date.now(),
-      }, { merge: true });
-
-      toast.success(`Profile & Stats Restored! Level ${calculatedLevel} (${finalXP} XP), Code: ${finalFriendCode}, ${finalCoins} Coins!`, { id: toastId });
-      
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
-      
-    } catch (err) {
+      toast.success('Your profile data has been fully synchronized! 🚀', { id: toastId });
+    } catch (err: any) {
       console.error('Repair error:', err);
-      toast.error('Failed to repair profile data. Please try again.', { id: toastId });
+      toast.error(`Repair failed: ${err?.message || 'Database error'}. Please try again.`, { id: toastId });
     } finally {
       setRepairing(false);
     }
@@ -333,25 +254,53 @@ export default function SettingsContent() {
       setAvatarSeed(profile.avatarSeed);
       setAvatarStyle(profile.avatarStyle);
       setOpenRouterKey(profile.openRouterKey || '');
+      const localMode = typeof window !== 'undefined' ? localStorage.getItem('studyquest_ai_mode') : null;
+      setAiMode((localMode as 'system' | 'custom') || profile.aiMode || 'system');
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const quotaRef = doc(db, 'users', user.uid, 'aiUsage', today);
+    getDoc(quotaRef).then((snap) => {
+      if (snap.exists()) {
+        setDailyQuotaUsed(snap.data().count || 0);
+      }
+    }).catch(console.warn);
+  }, [user?.uid]);
 
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
-    const updatedName = displayName.trim() || 'Student';
+    const updatedName = displayName.trim() || profile?.displayName || user.displayName || 'Student';
+    const finalAvatarSeed = avatarSeed.trim() || profile?.avatarSeed || user.uid;
+    const finalAvatarStyle = avatarStyle || profile?.avatarStyle || 'adventurer';
+    const finalOpenRouterKey = openRouterKey.trim();
+
+    // Also persist API key & AI mode locally for immediate client use
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('studyquest_ai_mode', aiMode);
+      if (finalOpenRouterKey) {
+        localStorage.setItem('studyquest_openrouter_key', finalOpenRouterKey);
+      } else {
+        localStorage.removeItem('studyquest_openrouter_key');
+      }
+    }
+
     await setDocument(getProfileRef(user.uid), {
       displayName: updatedName,
-      avatarSeed,
-      avatarStyle,
-      openRouterKey: openRouterKey.trim(),
+      avatarSeed: finalAvatarSeed,
+      avatarStyle: finalAvatarStyle,
+      openRouterKey: finalOpenRouterKey,
+      aiMode,
       updatedAt: Date.now(),
-    });
+    }, true);
 
     // Sync to Firebase Auth profile (display name and photoURL)
     try {
       const { updateProfile } = await import('firebase/auth');
-      const avatarUrl = getAvatarUrl(avatarSeed, avatarStyle);
+      const avatarUrl = getAvatarUrl(finalAvatarSeed, finalAvatarStyle);
       await updateProfile(user, {
         displayName: updatedName,
         photoURL: avatarUrl,
@@ -365,8 +314,8 @@ export default function SettingsContent() {
       const { doc, setDoc } = await import('firebase/firestore');
       await setDoc(doc(db, 'leaderboard', user.uid), {
         displayName: updatedName,
-        avatarSeed,
-        avatarStyle,
+        avatarSeed: finalAvatarSeed,
+        avatarStyle: finalAvatarStyle,
         updatedAt: Date.now(),
       }, { merge: true });
     } catch (err) {
@@ -836,26 +785,124 @@ export default function SettingsContent() {
           </div>
         </Card>
 
-        {/* AI Integration */}
+        {/* AI Integration & Multi-Tier Settings */}
         <Card padding="lg" hover={false}>
-          <h2 className="text-sm font-heading font-bold mb-4 flex items-center gap-2">
-            🦉 Questie AI (OpenRouter)
-          </h2>
-          <Input
-            label="OpenRouter API Key"
-            type="password"
-            placeholder="sk-or-..."
-            value={openRouterKey}
-            onChange={(e) => setOpenRouterKey(e.target.value)}
-            icon={<HiKey size={16} />}
-          />
-          <p className="text-[10px] text-[var(--muted-foreground)] mt-2">
-            Get your key from{' '}
-            <a href="https://openrouter.ai" target="_blank" rel="noopener noreferrer" className="text-primary font-bold hover:underline">
-              openrouter.ai
-            </a>
-            . Used for Questie Chat and AI-powered features.
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-heading font-bold flex items-center gap-2">
+              <span className="text-base">🦉</span> StudyQuest AI Engine
+            </h2>
+            <Badge variant={aiMode === 'system' ? 'teal' : 'primary'} size="sm">
+              {aiMode === 'system' ? '⚡ Free System Tier' : '🔑 Custom Key'}
+            </Badge>
+          </div>
+          <p className="text-xs text-[var(--muted-foreground)] mb-4">
+            Select your preferred AI execution mode. By default, StudyQuest provides a free zero-setup AI tier for all students.
           </p>
+
+          {/* Mode Switcher Buttons */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+            <button
+              type="button"
+              onClick={() => {
+                setAiMode('system');
+                if (typeof window !== 'undefined') localStorage.setItem('studyquest_ai_mode', 'system');
+              }}
+              className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                aiMode === 'system'
+                  ? 'border-teal bg-teal/10 shadow-[0_0_16px_rgba(20,184,166,0.15)]'
+                  : 'border-[var(--card-border)] bg-[var(--background)]/30 hover:border-teal/40'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-heading font-bold flex items-center gap-1.5 text-teal">
+                  <HiLightningBolt size={14} /> StudyQuest AI (Default)
+                </span>
+                {aiMode === 'system' && <HiCheck className="text-teal" size={14} />}
+              </div>
+              <p className="text-[10px] text-[var(--muted-foreground)]">
+                Zero setup. Powered by Gemini 2.0 Flash with 40 free prompts daily.
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setAiMode('custom');
+                if (typeof window !== 'undefined') localStorage.setItem('studyquest_ai_mode', 'custom');
+              }}
+              className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                aiMode === 'custom'
+                  ? 'border-purple-500 bg-purple-500/10 shadow-[0_0_16px_rgba(168,85,247,0.15)]'
+                  : 'border-[var(--card-border)] bg-[var(--background)]/30 hover:border-purple-500/40'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-heading font-bold flex items-center gap-1.5 text-purple-400">
+                  <HiKey size={14} /> Custom API Key
+                </span>
+                {aiMode === 'custom' && <HiCheck className="text-purple-400" size={14} />}
+              </div>
+              <p className="text-[10px] text-[var(--muted-foreground)]">
+                Use your personal OpenRouter key for unlimited prompts and models.
+              </p>
+            </button>
+          </div>
+
+          {/* System Mode Quota Meter */}
+          {aiMode === 'system' && (
+            <div className="p-4 rounded-xl border border-teal/20 bg-teal/5 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-teal flex items-center gap-1">
+                  <span>⚡</span> Today's Free Allowance
+                </span>
+                <span className="font-mono font-bold text-[var(--foreground)]">
+                  {dailyQuotaUsed} / 40 requests used
+                </span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-[var(--card-border)] overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    dailyQuotaUsed >= 40
+                      ? 'bg-red-500'
+                      : dailyQuotaUsed >= 30
+                      ? 'bg-amber-400'
+                      : 'bg-teal'
+                  }`}
+                  style={{ width: `${Math.min(100, (dailyQuotaUsed / 40) * 100)}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-[var(--muted-foreground)] flex items-center justify-between">
+                <span>Resets daily at 00:00 local time</span>
+                <span className="text-teal font-medium">Active & Ready</span>
+              </p>
+            </div>
+          )}
+
+          {/* Custom Mode API Key Input */}
+          {aiMode === 'custom' && (
+            <div className="space-y-3 pt-1">
+              <Input
+                label="OpenRouter API Key"
+                type="password"
+                placeholder="sk-or-v1-..."
+                value={openRouterKey}
+                onChange={(e) => setOpenRouterKey(e.target.value)}
+                icon={<HiKey size={16} />}
+              />
+              <p className="text-[10px] text-[var(--muted-foreground)]">
+                Get your free OpenRouter API key from{' '}
+                <a
+                  href="https://openrouter.ai"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary font-bold hover:underline"
+                >
+                  openrouter.ai
+                </a>
+                . When custom mode is active, requests use this key without touching your daily free quota.
+              </p>
+            </div>
+          )}
         </Card>
 
         {/* Account Info */}

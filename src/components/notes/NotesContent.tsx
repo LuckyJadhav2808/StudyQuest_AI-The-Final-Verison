@@ -16,6 +16,7 @@ import { marked } from 'marked';
 import 'react-quill-new/dist/quill.snow.css';
 import { autocorrectWord, isMisspelled, getSpellingSuggestions, cleanWord, addToCustomDictionary } from '@/lib/spellcheck';
 import { getAutocompleteSuggestions } from '@/data/notesAutocompleteDataset';
+import { callAiCompletion, resolveOpenRouterKey, parseAiJsonResponse } from '@/lib/ai';
 
 const sanitizeHtmlForQuill = (html: string): string => {
   if (!html) return '';
@@ -338,36 +339,29 @@ export default function NotesContent() {
   }, [wordsWrittenSession]);
 
   const finishBrew = async (recipe: 'scroll' | 'cards') => {
-    if (!profile?.openRouterKey) {
-      toast.error('Set your OpenRouter API key in Settings to brew! 🧪');
-      setBrewingRecipe(null);
-      return;
-    }
     setAiLoading(true);
     try {
       if (recipe === 'scroll') {
-        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${profile.openRouterKey}`,
-            'HTTP-Referer': window.location.origin
-          },
-          body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
-            messages: [
-              {
-                role: 'system',
-                content:
-                  'You are a grand wizard alchemist. Summarize the user note content into a visually gorgeous, comprehensive "Mastery Scroll" revision guide. Use markdown tables, bold key points, bullet groups, and clear section dividers. Wrap the final output inside clean HTML (do not include markdown ticks like ```html).'
-              },
-              { role: 'user', content: editContent }
-            ],
-            max_tokens: 1500
-          })
+        const result = await callAiCompletion({
+          apiKey: profile?.openRouterKey,
+          title: 'StudyQuest Mastery Scroll Brewing',
+          feature: 'notes',
+          max_tokens: 1500,
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are a grand wizard alchemist. Summarize the user note content into a visually gorgeous, comprehensive "Mastery Scroll" revision guide. Use markdown tables, bold key points, bullet groups, and clear section dividers. Wrap the final output inside clean HTML (do not include markdown ticks like ```html).'
+            },
+            { role: 'user', content: editContent }
+          ],
         });
-        const data = await res.json();
-        const scrollHtml = data.choices?.[0]?.message?.content || 'Could not brew mastery scroll.';
+
+        if (!result.success || !result.content) {
+          throw new Error(result.error || 'Could not brew mastery scroll.');
+        }
+
+        const scrollHtml = result.content;
 
         const newId = await addNote({
           title: `${editTitle} - Mastery Scroll 📜`,
@@ -381,8 +375,8 @@ export default function NotesContent() {
       } else if (recipe === 'cards') {
         await aiFlashcards();
       }
-    } catch (err) {
-      toast.error('Brewing failed - check OpenRouter key');
+    } catch (err: any) {
+      toast.error(err?.message || 'Brewing failed - check OpenRouter key');
     } finally {
       setAiLoading(false);
       setBrewingRecipe(null);
@@ -1326,7 +1320,7 @@ export default function NotesContent() {
 
   // Insert diagram image into note content
   const handleInsertDiagram = (dataUrl: string) => {
-    const imgTag = `<p><img src="${dataUrl}" alt="Diagram" style="max-width:100%;border-radius:12px;margin:8px 0;" /></p>`;
+    const imgTag = `<p><img src="${dataUrl}" alt="Flowchart Diagram" style="max-width:100%;height:auto;border-radius:12px;margin:12px 0;display:block;box-shadow:0 4px 16px rgba(0,0,0,0.08);" /></p><p><br></p>`;
     
     const quill = quillRef.current?.getEditor();
     if (quill) {
@@ -1335,6 +1329,9 @@ export default function NotesContent() {
       quill.clipboard.dangerouslyPasteHTML(index, imgTag);
       const newContent = quill.root.innerHTML;
       setEditContent(newContent);
+      try {
+        quill.setSelection(index + 2, 0);
+      } catch {}
       if (selectedNote) {
         updateNote(selectedNote.id, { content: newContent });
         setSelectedNote({ ...selectedNote, content: newContent, updatedAt: Date.now() });
@@ -1796,23 +1793,27 @@ export default function NotesContent() {
   // =================== AI SUMMARIZE ===================
   const aiSummarize = async () => {
     if (!selectedNote?.content) { toast.error('Nothing to summarize'); return; }
-    if (!profile?.openRouterKey) { toast.error('Set your API key in Settings first'); return; }
 
     setAiLoading(true);
     try {
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${profile.openRouterKey}`, 'HTTP-Referer': window.location.origin },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [{ role: 'system', content: 'You are a study assistant. Summarize the following notes concisely into key points with bullet points. Keep it focused and useful for revision.' }, { role: 'user', content: selectedNote.content }],
-          max_tokens: 1024,
-        }),
+      const result = await callAiCompletion({
+        apiKey: profile?.openRouterKey,
+        title: 'StudyQuest Note Summarizer',
+        feature: 'notes',
+        max_tokens: 1024,
+        messages: [
+          { role: 'system', content: 'You are a study assistant. Summarize the following notes concisely into key points with bullet points. Keep it focused and useful for revision.' },
+          { role: 'user', content: selectedNote.content }
+        ],
       });
-      const data = await res.json();
-      const summary = data.choices?.[0]?.message?.content || 'Could not generate summary.';
-      setSummaryText(summary);
-      setShowSummary(true);
-      toast.success('Summary generated! ✨');
+
+      if (result.success && result.content) {
+        setSummaryText(result.content);
+        setShowSummary(true);
+        toast.success('Summary generated! ✨');
+      } else {
+        toast.error(result.error || 'Failed to summarize');
+      }
     } catch { toast.error('Failed to summarize'); }
     finally { setAiLoading(false); }
   };
@@ -1820,30 +1821,34 @@ export default function NotesContent() {
   // =================== AI FLASHCARDS ===================
   const aiFlashcards = async () => {
     if (!selectedNote?.content) { toast.error('Nothing to create flashcards from'); return; }
-    if (!profile?.openRouterKey) { toast.error('Set your API key in Settings first'); return; }
 
     setAiLoading(true);
     try {
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${profile.openRouterKey}`, 'HTTP-Referer': window.location.origin },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [{ role: 'system', content: 'Create 5-8 flashcards from the following notes. Return ONLY valid JSON array with objects having "question" and "answer" fields. No markdown, no explanation, just JSON.' }, { role: 'user', content: selectedNote.content }],
-          max_tokens: 1024,
-        }),
+      const result = await callAiCompletion({
+        apiKey: profile?.openRouterKey,
+        title: 'StudyQuest Flashcard Generator',
+        feature: 'notes',
+        max_tokens: 1024,
+        messages: [
+          { role: 'system', content: 'Create 5-8 flashcards from the following notes. Return ONLY valid JSON array with objects having "question" and "answer" fields. No markdown, no explanation, just JSON.' },
+          { role: 'user', content: selectedNote.content }
+        ],
       });
-      const data = await res.json();
-      const raw = data.choices?.[0]?.message?.content || '[]';
-      // Extract JSON from response
-      const jsonMatch = raw.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        const cards: Flashcard[] = JSON.parse(jsonMatch[0]);
-        setFlashcards(cards);
-        setCardIndex(0);
-        setCardFlipped(false);
-        setShowFlashcards(true);
-        toast.success(`${cards.length} flashcards created! 🃏`);
-      } else { toast.error('Could not parse flashcards'); }
+
+      if (result.success && result.content) {
+        const cards = parseAiJsonResponse<Flashcard[]>(result.content);
+        if (Array.isArray(cards) && cards.length > 0) {
+          setFlashcards(cards);
+          setCardIndex(0);
+          setCardFlipped(false);
+          setShowFlashcards(true);
+          toast.success(`${cards.length} flashcards created! 🃏`);
+        } else {
+          toast.error('Could not parse flashcards');
+        }
+      } else {
+        toast.error(result.error || 'Failed to generate flashcards');
+      }
     } catch { toast.error('Failed to generate flashcards'); }
     finally { setAiLoading(false); }
   };
@@ -1897,14 +1902,14 @@ export default function NotesContent() {
       // HTML content with placeholders to send to AI
       const contentWithPlaceholders = tempDiv.innerHTML;
 
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${profile.openRouterKey}`, 'HTTP-Referer': window.location.origin },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [{
-            role: 'system',
-            content: `You are a note formatting assistant for a rich text editor (Quill.js).
+      const result = await callAiCompletion({
+        apiKey: profile?.openRouterKey,
+        title: 'StudyQuest AI Note Beautifier',
+        feature: 'notes',
+        max_tokens: 4096,
+        messages: [{
+          role: 'system',
+          content: `You are a note formatting assistant for a rich text editor (Quill.js).
 
 Your job is to take note content (or a selected portion of it) in HTML format and return a beautifully structured, clean HTML version.
 
@@ -1930,22 +1935,22 @@ CRITICAL RULES:
 10. DO NOT use <br> tags.
 
 Return ONLY the formatted HTML. No explanations, no markdown, no wrapper.`
-          }, {
-            role: 'user',
-            content: `Here are the notes (in HTML format) to beautify:\n\n${contentWithPlaceholders}`
-          }],
-          max_tokens: 4096,
-        }),
+        }, {
+          role: 'user',
+          content: `Here are the notes (in HTML format) to beautify:\n\n${contentWithPlaceholders}`
+        }],
       });
-      const data = await res.json();
-      let result = data.choices?.[0]?.message?.content || '';
 
-      // Strip markdown code fences if the AI wrapped it
-      result = result.replace(/^```html?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+      if (!result.success || !result.content) {
+        throw new Error(result.error || 'Could not beautify notes');
+      }
 
-      if (result) {
+      let resultHtml = result.content;
+      resultHtml = resultHtml.replace(/^```html?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+
+      if (resultHtml) {
         // Restore images
-        let finalResult = result;
+        let finalResult = resultHtml;
         savedImages.forEach((imgHtml, idx) => {
           const placeholder = `[[IMG_PLACEHOLDER_${idx}]]`;
           if (finalResult.includes(placeholder)) {
@@ -1964,7 +1969,7 @@ Return ONLY the formatted HTML. No explanations, no markdown, no wrapper.`
           const placeholder = `[[IMG_PLACEHOLDER_${idx}]]`;
           const escapedPlaceholder = placeholder.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
           const regex = new RegExp(escapedPlaceholder, 'i');
-          if (!regex.test(result)) {
+          if (!regex.test(resultHtml)) {
             missingImagesHtml += `<p>${imgHtml}</p>`;
           }
         });
@@ -2012,31 +2017,17 @@ Return ONLY the formatted HTML. No explanations, no markdown, no wrapper.`
 
   // =================== /COMPARE SLASH COMMAND ===================
   const handleCompareCommand = async (topicA: string, topicB: string, placeholderText: string) => {
-    if (!profile?.openRouterKey) {
-      toast.error('Set your API key in Settings first');
-      // Remove placeholder on failure
-      const quill = quillRef.current?.getEditor();
-      if (quill) {
-        const fullText = quill.getText();
-        const start = fullText.indexOf(placeholderText);
-        if (start !== -1) {
-          quill.deleteText(start, placeholderText.length);
-        }
-      }
-      return false;
-    }
-
     toast.loading(`Generating comparison: ${topicA} vs ${topicB}...`, { id: 'compare' });
 
     try {
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${profile.openRouterKey}`, 'HTTP-Referer': window.location.origin },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [{
-            role: 'system',
-            content: `You are a study assistant. Generate a beautifully structured comparison block comparing two topics.
+      const result = await callAiCompletion({
+        apiKey: profile?.openRouterKey,
+        title: 'StudyQuest Note Comparison Generator',
+        feature: 'notes',
+        max_tokens: 2048,
+        messages: [{
+          role: 'system',
+          content: `You are a study assistant. Generate a beautifully structured comparison block comparing two topics.
 
 Return ONLY valid HTML using this structure:
 <h3>📊 Comparison: [Topic A] vs [Topic B]</h3>
@@ -2059,16 +2050,17 @@ Rules:
 - DO NOT nest lists or other elements inside <blockquote>. Use <blockquote> ONLY for the aspect header lines.
 - Keep comparisons concise and highly informative.
 - Return ONLY the HTML code. No explanation or code fences.`
-          }, {
-            role: 'user',
-            content: `Compare: ${topicA} vs ${topicB}`
-          }],
-          max_tokens: 2048,
-        }),
+        }, {
+          role: 'user',
+          content: `Compare: ${topicA} vs ${topicB}`
+        }],
       });
 
-      const data = await res.json();
-      let tableHtml = data.choices?.[0]?.message?.content || '';
+      if (!result.success || !result.content) {
+        throw new Error(result.error || 'Could not generate comparison card');
+      }
+
+      let tableHtml = result.content;
       tableHtml = tableHtml.replace(/^```html?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 
       if (!tableHtml.includes('<blockquote')) {
@@ -2171,35 +2163,24 @@ Rules:
       return;
     }
 
-    if (!profile?.openRouterKey) {
-      toast.error('Set your OpenRouter API key in Settings to convert text formulas.');
-      return;
-    }
-
     setLatexConverting(true);
     const toastId = toast.loading('Converting text to LaTeX formula...');
 
     try {
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${profile.openRouterKey}`,
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          max_tokens: 500,
-          messages: [
-            {
-              role: 'user',
-              content: `Convert the following plain-text or handwritten-style math expression into clean LaTeX code. Output ONLY the raw LaTeX string. Do not wrap in markdown, code blocks, or delimiters like $ or $$. Here is the math expression:\n\n${selectedText}`
-            }
-          ]
-        })
+      const result = await callAiCompletion({
+        apiKey: profile?.openRouterKey,
+        title: 'StudyQuest Text to LaTeX Converter',
+        feature: 'notes',
+        max_tokens: 500,
+        messages: [
+          {
+            role: 'user',
+            content: `Convert the following plain-text or handwritten-style math expression into clean LaTeX code. Output ONLY the raw LaTeX string. Do not wrap in markdown, code blocks, or delimiters like $ or $$. Here is the math expression:\n\n${selectedText}`
+          }
+        ]
       });
 
-      const data = await res.json();
-      const latex = data.choices?.[0]?.message?.content?.trim();
+      const latex = result.content?.trim();
       if (latex) {
         const quill = quillRef.current?.getEditor();
         if (quill) {

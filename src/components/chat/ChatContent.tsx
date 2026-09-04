@@ -13,6 +13,7 @@ import Badge from '@/components/ui/Badge';
 import PageTransition from '@/components/layout/PageTransition';
 import Link from 'next/link';
 import { useSpellingAssistant } from '@/hooks/useSpellingAssistant';
+import { callAiCompletion, resolveOpenRouterKey } from '@/lib/ai';
 
 interface Message {
   id: string;
@@ -55,7 +56,7 @@ export default function ChatContent() {
     addActiveWordToDictionary
   } = useSpellingAssistant(input, setInput);
 
-  const hasApiKey = !!profile?.openRouterKey;
+  const hasApiKey = true; // Always available via system tier or custom key
 
   // Load chat history from Firestore
   useEffect(() => {
@@ -94,7 +95,7 @@ export default function ChatContent() {
   }, [messages]);
 
   const sendMessage = async () => {
-    if (!input.trim() || !hasApiKey || loading) return;
+    if (!input.trim() || loading) return;
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
@@ -109,31 +110,30 @@ export default function ChatContent() {
     setLoading(true);
 
     try {
-      const chatHistory = messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
+      const chatHistory = messages
+        .filter((m) => m.id !== 'welcome')
+        .map((m) => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        }));
 
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${profile!.openRouterKey}`,
-          'HTTP-Referer': window.location.origin,
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            ...chatHistory,
-            { role: 'user', content: userMsg.content },
-          ],
-          max_tokens: 1024,
-        }),
+      const result = await callAiCompletion({
+        apiKey: profile?.openRouterKey,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          ...chatHistory,
+          { role: 'user', content: userMsg.content },
+        ],
+        title: 'StudyQuest AI Questie Chat',
+        feature: 'chat',
+        max_tokens: 1024,
       });
 
-      const data = await res.json();
-      const reply = data.choices?.[0]?.message?.content || "🦉 Hoot! Something went wrong. Try again?";
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to generate response');
+      }
+
+      const reply = result.content || "🦉 Hoot! Something went wrong. Try again?";
 
       const assistantMsg: Message = {
         id: crypto.randomUUID(),
@@ -144,11 +144,11 @@ export default function ChatContent() {
 
       setMessages((prev) => [...prev, assistantMsg]);
       saveMessage(assistantMsg);
-    } catch {
+    } catch (err: any) {
       const errMsg: Message = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: "🦉 Oops! I couldn't connect to my brain right now. Check your API key in Settings and try again.",
+        content: `🦉 ${err?.message || "Oops! I couldn't connect to my brain right now. Check your API key in Settings and try again."}`,
         timestamp: Date.now(),
       };
       setMessages((prev) => [...prev, errMsg]);
@@ -206,15 +206,10 @@ export default function ChatContent() {
               </div>
             </div>
           </div>
-          <div className="flex gap-2">
-            {!hasApiKey && (
-              <Link href="/settings">
-                <Button variant="coral" size="sm" icon={<HiKey size={14} />}>Add API Key</Button>
-              </Link>
-            )}
+          <div className="flex items-center gap-2">
             <button
               onClick={clearChat}
-              className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-coral/30 hover:text-coral transition-colors"
+              className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-coral/30 hover:text-coral transition-colors cursor-pointer"
               title="Clear chat"
             >
               <HiTrash size={18} />
@@ -225,17 +220,6 @@ export default function ChatContent() {
         {/* Messages */}
         <Card padding="none" hover={false} className="flex-1 overflow-y-auto mb-4">
           <div className="p-4 space-y-4">
-            {!hasApiKey && (
-              <div className="p-4 rounded-xl bg-amber/10 border-2 border-amber/20 text-center">
-                <HiKey className="text-amber mx-auto mb-2" size={24} />
-                <p className="text-xs font-semibold">API Key Required</p>
-                <p className="text-[10px] text-[var(--muted-foreground)] mt-1">
-                  Add your OpenRouter API key in{' '}
-                  <Link href="/settings" className="text-primary font-bold hover:underline">Settings</Link>
-                  {' '}to start chatting with Questie.
-                </p>
-              </div>
-            )}
 
             <AnimatePresence>
               {messages.map((msg) => (
@@ -339,15 +323,15 @@ export default function ChatContent() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onSelect={handleSpellcheckSelect}
-                placeholder={hasApiKey ? "Ask Questie anything..." : "Add your API key in Settings first..."}
-                disabled={!hasApiKey || loading}
+                placeholder="Ask Questie anything (study tips, homework help, concept explanations)..."
+                disabled={loading}
                 rows={1}
                 className="w-full px-4 py-3 pr-12 rounded-xl border-2 border-[var(--card-border)] bg-[var(--card-bg)] text-sm font-medium resize-none focus:border-primary focus:outline-none transition-colors disabled:opacity-50"
               />
             </div>
             <motion.button
               onClick={sendMessage}
-              disabled={!input.trim() || !hasApiKey || loading}
+              disabled={!input.trim() || loading}
               className="px-4 py-3 rounded-xl bg-gradient-to-r from-primary to-secondary text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_0_rgba(88,28,135,0.3)] active:translate-y-[2px] active:shadow-[0_2px_0_rgba(88,28,135,0.3)] transition-all"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}

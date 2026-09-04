@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { HiX, HiPlus, HiPhotograph, HiDocumentText, HiSearch, HiZoomIn, HiZoomOut } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import Button from '@/components/ui/Button';
+import { callAiCompletion, resolveOpenRouterKey } from '@/lib/ai';
 import './MultitaskPanels.css';
 
 // ════════════════════════════════════════════
@@ -141,7 +142,6 @@ export function AITutorPanel({ onClose, onInsertText, noteContent, selectedText,
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
-    if (!apiKey) { toast.error('Add your OpenRouter API key in Settings'); return; }
 
     const userMsg = input.trim();
     setInput('');
@@ -155,23 +155,30 @@ export function AITutorPanel({ onClose, onInsertText, noteContent, selectedText,
         ? `You are a friendly study tutor helping a student understand their notes. Focus your explanations and help specifically on this highlighted selection from their notes: "${selectedText.slice(0, 1500)}". Be concise and clear. Use simple language. Here is the full note content for additional context:\n\n${strippedNotes}`
         : `You are a friendly study tutor helping a student understand their notes. Be concise and clear. Use simple language. Here are their current notes for context:\n\n${strippedNotes}`;
 
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          max_tokens: 1024,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...messages.filter(m => m.role === 'user').slice(-5).map(m => ({ role: 'user' as const, content: m.content })),
-            { role: 'user', content: userMsg },
-          ],
-        }),
+      const historyMessages = messages
+        .filter(m => m.role === 'user' || m.role === 'ai')
+        .slice(-5)
+        .map(m => ({ role: (m.role === 'ai' ? 'assistant' : 'user') as 'assistant' | 'user', content: m.content }));
+
+      const result = await callAiCompletion({
+        apiKey,
+        title: 'StudyQuest Homework Tutor',
+        feature: 'notes',
+        max_tokens: 1024,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...historyMessages,
+          { role: 'user', content: userMsg },
+        ],
       });
-      const data = await res.json();
-      const reply = data.choices?.[0]?.message?.content || 'Sorry, I couldn\'t generate a response.';
-      setMessages(prev => [...prev, { role: 'ai', content: reply }]);
-      scrollToBottom();
+
+      if (result.success && result.content) {
+        setMessages(prev => [...prev, { role: 'ai', content: result.content }]);
+        scrollToBottom();
+      } else {
+        toast.error(result.error || 'Failed to get response');
+        setMessages(prev => [...prev, { role: 'ai', content: `Sorry, ${result.error || 'something went wrong. Try again!'}` }]);
+      }
     } catch {
       toast.error('Failed to get response');
       setMessages(prev => [...prev, { role: 'ai', content: 'Sorry, something went wrong. Try again!' }]);
@@ -308,53 +315,40 @@ export function ReferenceViewerPanel({ onClose, onInsertText, apiKey }: Referenc
 
   const handleOCR = async () => {
     if (!refSrc || activeTab !== 'image') return;
-    if (!apiKey) {
-      toast.error('Please enter your OpenRouter API key in Settings first to enable vision tools.');
-      return;
-    }
 
     setOcrLoading(true);
     const toastId = toast.loading('Vision AI is reading the image...');
 
     try {
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          max_tokens: 1500,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: 'Transcribe all handwritten and printed text from this study slide or textbook image. Format the output cleanly. Return ONLY the transcribed text, with absolutely no introductions, no explanations, no wrappers, and no code blocks.'
-                },
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: refSrc
-                  }
+      const result = await callAiCompletion({
+        apiKey,
+        title: 'StudyQuest Vision OCR',
+        feature: 'ocr',
+        max_tokens: 1500,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Transcribe all handwritten and printed text from this study slide or textbook image. Format the output cleanly. Return ONLY the transcribed text, with absolutely no introductions, no explanations, no wrappers, and no code blocks.'
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: refSrc
                 }
-              ]
-            }
-          ]
-        })
+              }
+            ]
+          }
+        ]
       });
 
-      const data = await res.json();
-      console.log('OCR API Response:', data);
-      const text = data.choices?.[0]?.message?.content;
-      if (text) {
-        setOcrResult(text.trim());
+      if (result.success && result.content) {
+        setOcrResult(result.content.trim());
         toast.success('Text extracted! 🔍', { id: toastId });
       } else {
-        const errorDetail = data.error?.message || data.error || 'Could not extract readable text.';
-        toast.error(`OCR Error: ${typeof errorDetail === 'object' ? JSON.stringify(errorDetail) : errorDetail}`, { id: toastId });
+        toast.error(result.error || 'Could not extract readable text.', { id: toastId });
       }
     } catch (err: any) {
       console.error('OCR request failed:', err);

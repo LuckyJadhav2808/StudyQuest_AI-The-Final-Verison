@@ -12,6 +12,7 @@ export interface UserProfile {
   friendCode: string;       // 6-char shareable code
   lastSeen: number;         // timestamp for online status
   openRouterKey?: string;
+  aiMode?: 'system' | 'custom';
   equippedTitle?: string;   // equipped title ID from TITLES
   theme: 'light' | 'dark';
   createdAt: number;
@@ -474,5 +475,35 @@ export interface TrackerKPIs {
   weakTopicsCount: number;        // low confidence (<= 2) or stuck in-progress
   estimatedHoursLeft: number;
   completedThisWeekCount: number;
+}
+
+// ----- AI Quota & System Telemetry -----
+export interface UserDailyAiUsage {
+  count: number;
+  lastUsedAt: number;
+  date: string;
+}
+
+export interface SystemAiUsageDoc {
+  date: string;                     // YYYY-MM-DD
+  totalRequests: number;
+  systemTierRequests: number;
+  customTierRequests: number;
+  uniqueUsersCount?: number;
+  features: {
+    chat: number;
+    dsa: number;
+    notes: number;
+    quiz: number;
+    code: number;
+    ocr: number;
+    other: number;
+  };
+  providers: {
+    gemini: number;
+    openrouter: number;
+    groq: number;
+  };
+  updatedAt: number;
 }
 

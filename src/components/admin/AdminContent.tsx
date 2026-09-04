@@ -27,9 +27,10 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import PageTransition from '@/components/layout/PageTransition';
+import AdminAiUsage from './AdminAiUsage';
 
 // ── Types ──────────────────────────────────────────────────────
-type Tab = 'overview' | 'users' | 'featureflags' | 'bugs' | 'patchnotes';
+type Tab = 'overview' | 'users' | 'aiusage' | 'featureflags' | 'bugs' | 'patchnotes';
 
 interface LeaderboardUser {
   uid: string;
@@ -64,6 +65,7 @@ interface Stats {
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <HiChartBar /> },
   { id: 'users', label: 'Users', icon: <HiUsers /> },
+  { id: 'aiusage', label: 'AI & Quotas', icon: <HiSparkles /> },
   { id: 'featureflags', label: 'Feature Flags', icon: <HiAdjustments /> },
   { id: 'bugs', label: 'Bug Reports', icon: <HiExclamation /> },
   { id: 'patchnotes', label: 'Patch Notes', icon: <HiSpeakerphone /> },
@@ -333,6 +335,7 @@ export default function AdminContent() {
               grantCoins={grantCoins} grantXP={grantXP}
             />
           )}
+          {tab === 'aiusage' && <AdminAiUsage />}
           {tab === 'featureflags' && <FeatureFlagsTab />}
           {tab === 'bugs' && (
             <BugsTab bugs={bugs} updateStatus={updateBugStatus} updateNote={updateBugNote}

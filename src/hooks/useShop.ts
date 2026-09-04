@@ -59,6 +59,8 @@ export function useShop() {
   const rawCoins = inventory?.coins as any;
   const coins = typeof rawCoins === 'number'
     ? rawCoins
+    : typeof rawCoins === 'string' && !isNaN(Number(rawCoins))
+    ? Number(rawCoins)
     : typeof rawCoins === 'object' && rawCoins && 'bc' in rawCoins
     ? Number(rawCoins.bc) || 0
     : 0;

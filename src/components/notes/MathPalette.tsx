@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { HiX, HiArrowLeft } from 'react-icons/hi';
 import Button from '@/components/ui/Button';
 import toast from 'react-hot-toast';
+import { callAiCompletion, resolveOpenRouterKey } from '@/lib/ai';
 
 // ── Math Formula Categories & Templates ──
 interface Placeholder {
@@ -797,52 +798,40 @@ export default function MathPalette({ isOpen, onClose, onInsert, editLatex = '',
       toast.error('Draw something on the canvas first!');
       return;
     }
-    if (!apiKey) {
-      toast.error('Add your OpenRouter API key in Settings to recognize equations.');
-      return;
-    }
-
     setOcrLoading(true);
     const toastId = toast.loading('Transcribing math drawing...');
 
     try {
       const dataUrl = canvas.toDataURL('image/png');
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          max_tokens: 500,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: 'Identify the handwritten mathematical or scientific equation in this drawing. Transcribe it directly into valid LaTeX markup. Return ONLY the LaTeX code, with absolutely no markdown backticks, no introductions, no explanations, and no inline delimiters like $ or $$.'
-                },
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: dataUrl
-                  }
+      const result = await callAiCompletion({
+        apiKey,
+        title: 'StudyQuest Math OCR',
+        feature: 'ocr',
+        max_tokens: 500,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Identify the handwritten mathematical or scientific equation in this drawing. Transcribe it directly into valid LaTeX markup. Return ONLY the LaTeX code, with absolutely no markdown backticks, no introductions, no explanations, and no inline delimiters like $ or $$.'
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: dataUrl
                 }
-              ]
-            }
-          ]
-        })
+              }
+            ]
+          }
+        ]
       });
 
-      const data = await res.json();
-      const latex = data.choices?.[0]?.message?.content;
-      if (latex) {
-        setOcrText(latex.trim());
+      if (result.success && result.content) {
+        setOcrText(result.content.trim());
         toast.success('Drawing converted! 🧠', { id: toastId });
       } else {
-        toast.error('Could not read equation from canvas.', { id: toastId });
+        toast.error(result.error || 'Could not read equation from canvas.', { id: toastId });
       }
     } catch (err) {
       console.error(err);

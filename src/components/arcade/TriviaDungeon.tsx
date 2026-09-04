@@ -14,6 +14,7 @@ import { useAuthContext } from '@/context/AuthContext';
 import { playClick, playSuccess, playXP, playCelebration } from '@/lib/sounds';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { callAiCompletion, parseAiJsonResponse, resolveOpenRouterKey } from '@/lib/ai';
 import './TriviaDungeon.css';
 
 import { DndMonster, DND_MONSTERS, getRandomMonster, MONSTERS_BY_TIER } from '@/data/dndMonstersDataset';
@@ -163,16 +164,20 @@ const FALLBACK_QUESTIONS: QuizQuestion[] = [
 async function generateQuestionsBatch(
   noteContents: string[],
   apiKey: string,
-  seenQuestionTexts: string[],
+  seenQuestionTexts: string[] = [],
   count: number = 6
 ): Promise<QuizQuestion[] | null> {
+  const resolvedKey = resolveOpenRouterKey(apiKey);
+  if (!resolvedKey) return null;
+
   const stripped = noteContents.map(c => c.replace(/<[^>]*>/g, '')).join('\n\n').slice(0, 3000);
-  
+  if (stripped.length < 50) return null;
+
   const seenStr = seenQuestionTexts.length > 0
     ? `Do NOT repeat or generate any of the following questions that the user has already answered or seen:\n${seenQuestionTexts.map(q => `- "${q}"`).join('\n')}`
     : '';
 
-  const prompt = `Based on these study notes, generate exactly ${count} multiple-choice questions.
+  const prompt = `Based on these study notes, generate exactly ${count} multiple-choice questions for a trivia game.
 Test understanding, not just recall. Make them challenging but fair.
 ${seenStr}
 
@@ -183,39 +188,26 @@ Notes:
 ${stripped}`;
 
   try {
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: { 
-        'Authorization': `Bearer ${apiKey}`, 
-        'Content-Type': 'application/json',
-        'HTTP-Referer': window.location.origin,
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        max_tokens: 2048,
-        messages: [{ role: 'user', content: prompt }],
-      }),
+    const result = await callAiCompletion({
+      apiKey: apiKey || null,
+      title: 'StudyQuest Trivia Dungeon Batch Generator',
+      feature: 'quiz',
+      max_tokens: 2048,
+      messages: [{ role: 'user', content: prompt }],
     });
-    const data = await res.json();
-    if (data.error) {
-      console.error('OpenRouter API Error Details:', JSON.stringify(data.error, null, 2));
-      console.error('OpenRouter Full Response:', data);
+
+    if (!result.success || !result.content) {
       return null;
     }
-    const text = data.choices?.[0]?.message?.content || '';
-    // Extract JSON array from response
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
-      console.warn('AI response did not contain a valid JSON array:', text);
-      return null;
-    }
-    return JSON.parse(jsonMatch[0]) as QuizQuestion[];
+
+    const parsed = parseAiJsonResponse<QuizQuestion[]>(result.content);
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    return parsed;
   } catch (err) {
     console.error('Failed to generate questions batch:', err);
     return null;
   }
 }
-
 // ── Component ──
 interface TriviaDungeonProps {
   onExit: () => void;
