@@ -80,12 +80,18 @@ export async function executeServerAiCompletion(payload: ServerAiPayload): Promi
   const today = getTodayKey();
   let currentUsageCount = 0;
 
-  // 1. Quota Check for System Key users
+  // 1. Quota Check for System Key users (with 1.5s fast timeout to prevent network latency from blocking AI)
   if (!isCustomKey && uid && typeof uid === 'string') {
     try {
-      const usageRef = doc(db, 'users', uid, 'aiUsage', today);
-      const usageSnap = await getDoc(usageRef);
-      if (usageSnap.exists()) {
+      const quotaPromise = (async () => {
+        const usageRef = doc(db, 'users', uid, 'aiUsage', today);
+        return await getDoc(usageRef);
+      })();
+
+      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500));
+      const usageSnap = await Promise.race([quotaPromise, timeoutPromise]);
+
+      if (usageSnap && usageSnap.exists()) {
         currentUsageCount = usageSnap.data().count || 0;
         if (currentUsageCount >= DAILY_SYSTEM_QUOTA) {
           return {
@@ -98,7 +104,7 @@ export async function executeServerAiCompletion(payload: ServerAiPayload): Promi
         }
       }
     } catch (quotaErr) {
-      console.warn('[Server AI] Quota check warning:', quotaErr);
+      console.warn('[Server AI] Quota check warning (proceeding):', quotaErr);
     }
   }
 

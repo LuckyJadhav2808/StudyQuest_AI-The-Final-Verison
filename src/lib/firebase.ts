@@ -39,8 +39,14 @@ if (typeof window !== 'undefined') {
     db = getFirestore(app);
   }
 } else {
-  // Server-side initialization (no persistent local cache browser APIs)
-  db = getFirestore(app);
+  // Server-side initialization (force HTTP long-polling instead of gRPC HTTP/2 streams to prevent connection drops)
+  try {
+    db = initializeFirestore(app, {
+      experimentalForceLongPolling: true,
+    });
+  } catch {
+    db = getFirestore(app);
+  }
 }
 export { db };
 
