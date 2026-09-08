@@ -69,11 +69,25 @@ class PyodideBridgeManager {
           this.handleWorkerMessage(e);
         };
 
-        this.worker.onerror = (err) => {
+        this.worker.onerror = async (err) => {
           console.error('[Pyodide Bridge] Worker Error:', err);
-          this.setStatus('error', err.message || 'Worker initialization failed');
-          this.initPromise = null;
-          reject(err);
+          const isOomOrFatal =
+            err?.message?.includes('memory') ||
+            err?.message?.includes('out of bounds') ||
+            err?.message?.includes('aborted') ||
+            err?.message?.includes('unhandled');
+
+          if (this.status === 'ready' || this.status === 'busy') {
+            await this.recoverKernel(
+              isOomOrFatal
+                ? 'Kernel auto-recovered from memory limit / WASM crash. Files & code are safe.'
+                : 'Kernel auto-recovered from unexpected worker crash.'
+            );
+          } else {
+            this.setStatus('error', err.message || 'Worker initialization failed');
+            this.initPromise = null;
+            reject(err);
+          }
         };
 
         // Listen for initial ready signal
@@ -125,6 +139,18 @@ class PyodideBridgeManager {
           const req = this.pendingRequests.get(requestId)!;
           this.pendingRequests.delete(requestId);
           req.reject(data);
+
+          // Detect fatal Emscripten runtime abort or OOM
+          const errMsg = data.error || '';
+          if (
+            errMsg.includes('memory access out of bounds') ||
+            errMsg.includes('Cannot enlarge memory arrays') ||
+            errMsg.includes('Aborted(native code called abort())')
+          ) {
+            this.recoverKernel(
+              'Kernel auto-recovered from fatal WASM memory limit. Your code & files in /workspace are preserved.'
+            ).catch(() => {});
+          }
         }
         break;
 
@@ -208,6 +234,40 @@ class PyodideBridgeManager {
 
     this.setStatus('unloaded', 'Kernel interrupted. Re-initializing...');
     await this.init();
+  }
+
+  public async recoverKernel(reason = 'Kernel auto-recovered from unexpected crash.'): Promise<void> {
+    console.warn('[Pyodide Bridge] Initiating kernel auto-recovery:', reason);
+    if (this.worker) {
+      try {
+        this.worker.terminate();
+      } catch {}
+      this.worker = null;
+    }
+    this.initPromise = null;
+
+    // Fail in-flight pending requests with an informative message
+    this.pendingRequests.forEach((req) => {
+      req.reject({
+        error: reason,
+        ename: 'KernelRecoveryNotice',
+        evalue: reason,
+        traceback: [
+          reason,
+          'The Python WebAssembly worker was automatically restarted.',
+          'Your notebook code and virtual files in /workspace remain intact.',
+        ],
+      });
+    });
+    this.pendingRequests.clear();
+
+    this.setStatus('loading', 'Auto-recovering Python kernel...');
+    try {
+      await this.init();
+      this.setStatus('ready', reason);
+    } catch {
+      this.setStatus('error', 'Kernel auto-recovery failed. Please refresh the page.');
+    }
   }
 
   public async resetKernel(): Promise<void> {

@@ -477,13 +477,47 @@ export function useNotebooks() {
     );
   }, [user, saveNotebookToFirestore]);
 
+  const deletedCellsStack = useRef<{ notebookId: string; cell: NotebookCell; index: number }[]>([]);
+
+  const restoreLastDeletedCell = useCallback((notebookId: string): boolean => {
+    const stack = deletedCellsStack.current;
+    const lastIdx = stack.map((item) => item.notebookId).lastIndexOf(notebookId);
+    if (lastIdx === -1) {
+      toast('No deleted cell to restore', { icon: 'ℹ️' });
+      return false;
+    }
+
+    const [restored] = stack.splice(lastIdx, 1);
+    setNotebooks((prev) =>
+      prev.map((nb) => {
+        if (nb.id !== notebookId) return nb;
+        const cells = [...nb.cells];
+        const insertIdx = Math.min(Math.max(0, restored.index), cells.length);
+        cells.splice(insertIdx, 0, restored.cell);
+        const updated = { ...nb, cells, updatedAt: Date.now() };
+        if (user) {
+          saveNotebookToFirestore(user.uid, updated, false);
+        }
+        return updated;
+      })
+    );
+    toast.success('Restored deleted cell! ↩️');
+    return true;
+  }, [user, saveNotebookToFirestore]);
+
   const deleteCell = useCallback((notebookId: string, cellId: string) => {
+    let deletedItem: { cell: NotebookCell; index: number } | null = null;
+
     setNotebooks((prev) =>
       prev.map((nb) => {
         if (nb.id !== notebookId) return nb;
         if (nb.cells.length <= 1) {
           toast.error('Notebook must have at least one cell');
           return nb;
+        }
+        const idx = nb.cells.findIndex((c) => c.id === cellId);
+        if (idx !== -1) {
+          deletedItem = { cell: nb.cells[idx], index: idx };
         }
         const cells = nb.cells.filter((c) => c.id !== cellId);
         const updated = { ...nb, cells, updatedAt: Date.now() };
@@ -493,6 +527,19 @@ export function useNotebooks() {
         return updated;
       })
     );
+
+    if (deletedItem) {
+      const item = deletedItem as { cell: NotebookCell; index: number };
+      deletedCellsStack.current.push({
+        notebookId,
+        cell: item.cell,
+        index: item.index,
+      });
+
+      if (deletedCellsStack.current.length > 20) {
+        deletedCellsStack.current.shift();
+      }
+    }
   }, [user, saveNotebookToFirestore]);
 
   const moveCell = useCallback((notebookId: string, cellId: string, direction: 'up' | 'down') => {
@@ -582,6 +629,7 @@ export function useNotebooks() {
     addCell,
     updateCell,
     deleteCell,
+    restoreLastDeletedCell,
     moveCell,
     duplicateCell,
     clearOutputs,

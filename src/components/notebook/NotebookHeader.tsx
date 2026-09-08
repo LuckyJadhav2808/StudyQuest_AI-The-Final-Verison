@@ -20,6 +20,8 @@ import {
   HiTrash,
   HiLightningBolt,
   HiTerminal,
+  HiBookOpen,
+  HiPrinter,
 } from 'react-icons/hi';
 import { KernelStatus } from '@/types/notebook';
 import Button from '@/components/ui/Button';
@@ -38,6 +40,8 @@ interface NotebookHeaderProps {
   onExportIpynb: () => void;
   onExportPython: () => void;
   onImportIpynb: () => void;
+  onOpenRecipes?: () => void;
+  onExportLabReport?: () => void;
 }
 
 export default function NotebookHeader({
@@ -54,6 +58,8 @@ export default function NotebookHeader({
   onExportIpynb,
   onExportPython,
   onImportIpynb,
+  onOpenRecipes,
+  onExportLabReport,
 }: NotebookHeaderProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(title);
@@ -200,6 +206,18 @@ export default function NotebookHeader({
                   <HiDownload size={14} />
                   <span>Export as .py (Script)</span>
                 </button>
+                {onExportLabReport && (
+                  <>
+                    <div className="h-[1px] bg-[var(--card-border)] my-1" />
+                    <button
+                      onClick={onExportLabReport}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-primary/10 hover:text-primary flex items-center gap-2 text-indigo-400 font-semibold"
+                    >
+                      <HiPrinter size={14} />
+                      <span>Export Lab Report (PDF / Print)</span>
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -293,6 +311,18 @@ export default function NotebookHeader({
           >
             Run All
           </Button>
+
+          {onOpenRecipes && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onOpenRecipes}
+              icon={<HiBookOpen size={13} className="text-amber-400" />}
+              title="Browse Data Science Recipes & Snippets"
+            >
+              Recipes 📖
+            </Button>
+          )}
 
           {kernelStatus === 'busy' && (
             <button

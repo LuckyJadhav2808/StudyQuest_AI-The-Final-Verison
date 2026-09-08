@@ -14,11 +14,16 @@ import { KernelStatus, NotebookCell as INotebookCell, CellType, StreamOutput } f
 import NotebookHeader from './NotebookHeader';
 import NotebookSidebar from './NotebookSidebar';
 import NotebookCell from './NotebookCell';
+import RecipesModal from './RecipesModal';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
-import { HiMenuAlt2, HiSparkles, HiPlus, HiPlay } from 'react-icons/hi';
+import { HiMenuAlt2, HiSparkles, HiPlus, HiPlay, HiExclamation, HiStop } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import { askSmartAI } from '@/lib/geminiNano';
+import { useGamification } from '@/hooks/useGamification';
+import { useAuthContext } from '@/context/AuthContext';
+import confetti from 'canvas-confetti';
+import { exportLabReportPrint } from '@/lib/reportExporter';
 
 export default function NotebookContainer() {
   const {
@@ -36,15 +41,24 @@ export default function NotebookContainer() {
     addCell,
     updateCell,
     deleteCell,
+    restoreLastDeletedCell,
     moveCell,
     duplicateCell,
     clearOutputs,
   } = useNotebooks();
 
+  const { awardXP } = useGamification();
+  const { user } = useAuthContext();
+  const hasRunFirstCellRef = useRef(false);
+
   const [kernelStatus, setKernelStatus] = useState<KernelStatus>('unloaded');
   const [kernelMessage, setKernelMessage] = useState<string>('');
   const [selectedCellId, setSelectedCellId] = useState<string>(activeNotebook.cells[0]?.id || '');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Watchdog & Execution state
+  const [runningSeconds, setRunningSeconds] = useState(0);
+  const [showWatchdogBanner, setShowWatchdogBanner] = useState(false);
 
   // AI Traceback Assistant Modal
   const [aiModalOpen, setAiModalOpen] = useState(false);
@@ -59,6 +73,9 @@ export default function NotebookContainer() {
   const [autoFixLoading, setAutoFixLoading] = useState(false);
   const [autoFixFixedCode, setAutoFixFixedCode] = useState('');
   const [autoFixExplanation, setAutoFixExplanation] = useState('');
+
+  // Data Science Recipes Palette State
+  const [recipesModalOpen, setRecipesModalOpen] = useState(false);
 
   // Ref to track currently executing cell for stream chunks
   const activeRunningCellIdRef = useRef<string | null>(null);
@@ -80,6 +97,25 @@ export default function NotebookContainer() {
     };
   }, []);
 
+  // Global keyboard shortcuts (Ctrl+Z / Cmd+Z to restore deleted cells)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        const target = e.target as HTMLElement;
+        const isInput =
+          target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable;
+        if (!isInput) {
+          e.preventDefault();
+          restoreLastDeletedCell(activeNotebook.id);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [activeNotebook.id, restoreLastDeletedCell]);
+
   // Helper to append stdout/stderr stream chunks
   const appendStreamChunk = (outputs: any[], name: 'stdout' | 'stderr', text: string) => {
     const next = [...outputs];
@@ -100,6 +136,18 @@ export default function NotebookContainer() {
 
       activeRunningCellIdRef.current = cellId;
       let cellOutputs: any[] = [];
+      setRunningSeconds(0);
+      setShowWatchdogBanner(false);
+
+      const watchdogInterval = setInterval(() => {
+        setRunningSeconds((s) => {
+          const next = s + 1;
+          if (next >= 30) {
+            setShowWatchdogBanner(true);
+          }
+          return next;
+        });
+      }, 1000);
 
       // Clear previous outputs & set status to running
       updateCell(activeNotebook.id, cellId, {
@@ -159,6 +207,22 @@ export default function NotebookContainer() {
           outputs: cellOutputs,
           executionTimeMs: res.executionTimeMs,
         });
+
+        // Gamification: Award XP for execution & bonus for ML models
+        const isMlModel = /(?:\.fit\(|RandomForest|KMeans|LogisticRegression|LinearRegression|train_test_split|SVC|GradientBoosting)/i.test(cell.source);
+        if (isMlModel) {
+          confetti({
+            particleCount: 50,
+            spread: 65,
+            origin: { y: 0.65 },
+          });
+          awardXP(35, 'Trained ML Model in Data Forge', 15);
+          toast.success('🤖 ML Model Trained! +35 XP & 15 Coins! 🎉', { id: 'ml-award-xp' });
+        } else if (!hasRunFirstCellRef.current) {
+          hasRunFirstCellRef.current = true;
+          awardXP(10, 'Executed Python Cell in Data Forge');
+          toast.success('🐍 Python Code Executed! +10 XP', { id: 'cell-award-xp' });
+        }
       } catch (err: any) {
         cellOutputs.push({
           type: 'error',
@@ -173,6 +237,9 @@ export default function NotebookContainer() {
           executionTimeMs: err.executionTimeMs,
         });
       } finally {
+        clearInterval(watchdogInterval);
+        setRunningSeconds(0);
+        setShowWatchdogBanner(false);
         activeRunningCellIdRef.current = null;
       }
     },
@@ -200,6 +267,31 @@ export default function NotebookContainer() {
       addCell(activeNotebook.id, 'code', cellId);
     },
     [executeCell, activeNotebook.id, addCell]
+  );
+
+  // Handle Cell Delete with Interactive Undo Toast
+  const handleDeleteCell = useCallback(
+    (cellId: string) => {
+      deleteCell(activeNotebook.id, cellId);
+      toast(
+        (t) => (
+          <div className="flex items-center gap-3 font-sans">
+            <span className="text-xs">Cell deleted</span>
+            <button
+              onClick={() => {
+                toast.dismiss(t.id);
+                restoreLastDeletedCell(activeNotebook.id);
+              }}
+              className="px-2.5 py-1 text-xs font-bold bg-primary text-white rounded-lg hover:brightness-110 active:scale-95 transition-all shadow"
+            >
+              Undo ↩️
+            </button>
+          </div>
+        ),
+        { duration: 8000 }
+      );
+    },
+    [activeNotebook.id, deleteCell, restoreLastDeletedCell]
   );
 
   // 4. Run All Cells in sequential order
@@ -407,6 +499,12 @@ export default function NotebookContainer() {
         onExportIpynb={handleExportIpynb}
         onExportPython={handleExportPython}
         onImportIpynb={() => importInputRef.current?.click()}
+        onOpenRecipes={() => setRecipesModalOpen(true)}
+        onExportLabReport={() => {
+          const author = user?.displayName || 'Student';
+          toast('Preparing Academic Lab Report...', { icon: '📄' });
+          exportLabReportPrint(activeNotebook, author);
+        }}
       />
 
       {/* Hidden File Input for .ipynb imports */}
@@ -454,6 +552,41 @@ export default function NotebookContainer() {
           ref={cellsContainerRef}
           className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 max-w-5xl mx-auto w-full"
         >
+          {/* Recovery Notification Banner */}
+          {kernelMessage && kernelMessage.includes('recovered') && (
+            <div className="p-3 bg-emerald-500/15 border border-emerald-500/40 rounded-2xl flex items-center justify-between text-xs text-emerald-300 shadow-md">
+              <div className="flex items-center gap-2.5 font-sans">
+                <span className="text-base">🛡️</span>
+                <span>{kernelMessage}</span>
+              </div>
+              <button
+                onClick={() => setKernelMessage('')}
+                className="text-emerald-400 hover:text-white px-2 py-0.5 rounded-lg hover:bg-emerald-500/20 font-bold transition-colors"
+              >
+                Dismiss ✕
+              </button>
+            </div>
+          )}
+
+          {/* 30-Second Infinite Loop Watchdog Alert */}
+          {showWatchdogBanner && (
+            <div className="p-3 bg-amber-500/15 border border-amber-500/40 rounded-2xl flex items-center justify-between animate-pulse shadow-lg">
+              <div className="flex items-center gap-2.5 text-amber-300 font-sans text-xs">
+                <HiExclamation size={18} className="text-amber-400 shrink-0" />
+                <span>
+                  <strong>Potential Infinite Loop / Long Task:</strong> Cell has been executing for{' '}
+                  <strong>{runningSeconds}s</strong>.
+                </span>
+              </div>
+              <button
+                onClick={handleInterrupt}
+                className="px-3 py-1 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl flex items-center gap-1 shadow transition-transform active:scale-95"
+              >
+                <HiStop size={14} />
+                <span>Interrupt Kernel</span>
+              </button>
+            </div>
+          )}
           {activeNotebook.cells.map((cell, idx) => (
             <div key={cell.id} id={`nb-cell-${cell.id}`}>
               <NotebookCell
@@ -466,7 +599,7 @@ export default function NotebookContainer() {
                 onRun={() => executeCell(cell.id)}
                 onRunAndAdvance={() => handleRunAndAdvance(cell.id)}
                 onRunAndInsert={() => handleRunAndInsert(cell.id)}
-                onDelete={() => deleteCell(activeNotebook.id, cell.id)}
+                onDelete={() => handleDeleteCell(cell.id)}
                 onDuplicate={() => duplicateCell(activeNotebook.id, cell.id)}
                 onMoveUp={() => moveCell(activeNotebook.id, cell.id, 'up')}
                 onMoveDown={() => moveCell(activeNotebook.id, cell.id, 'down')}
@@ -599,6 +732,15 @@ export default function NotebookContainer() {
           )}
         </div>
       </Modal>
+
+      {/* Data Science Recipes Palette Modal */}
+      <RecipesModal
+        isOpen={recipesModalOpen}
+        onClose={() => setRecipesModalOpen(false)}
+        onInsertRecipe={(code) => {
+          addCell(activeNotebook.id, 'code', selectedCellId, code);
+        }}
+      />
     </div>
   );
 }
