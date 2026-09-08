@@ -37,6 +37,13 @@ async function initPyodide(loadPackages = true) {
     }
     pyodide.FS.chdir('/workspace');
 
+    // Restore persistent virtual files from IndexedDB
+    try {
+      await restoreAllPersistedFiles();
+    } catch (e) {
+      console.warn('[Pyodide Worker] VFS restore notice:', e);
+    }
+
     // Create custom globals dictionary
     pyGlobals = pyodide.toPy({});
 
@@ -461,7 +468,96 @@ function listFiles(requestId) {
   }
 }
 
-function writeFile(requestId, name, data, isBinary = false) {
+// --- Persistent IndexedDB VFS Store ---
+const VFS_DB_NAME = 'studyquest_notebook_vfs';
+const VFS_DB_VERSION = 1;
+const VFS_STORE_NAME = 'virtual_files';
+
+function openVfsDb() {
+  return new Promise((resolve) => {
+    if (typeof indexedDB === 'undefined') {
+      return resolve(null);
+    }
+    try {
+      const req = indexedDB.open(VFS_DB_NAME, VFS_DB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(VFS_STORE_NAME)) {
+          db.createObjectStore(VFS_STORE_NAME, { keyPath: 'name' });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+async function persistFileToDb(name, data, isBinary) {
+  try {
+    const db = await openVfsDb();
+    if (!db) return;
+    const tx = db.transaction(VFS_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(VFS_STORE_NAME);
+    const storedData = data instanceof Uint8Array ? data.buffer : data;
+    store.put({
+      name,
+      data: storedData,
+      isBinary: Boolean(isBinary),
+      updatedAt: Date.now(),
+    });
+  } catch (e) {
+    console.warn('[VFS DB] Failed to persist file:', name, e);
+  }
+}
+
+async function removeFileFromDb(name) {
+  try {
+    const db = await openVfsDb();
+    if (!db) return;
+    const tx = db.transaction(VFS_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(VFS_STORE_NAME);
+    store.delete(name);
+  } catch (e) {
+    console.warn('[VFS DB] Failed to delete file:', name, e);
+  }
+}
+
+async function restoreAllPersistedFiles() {
+  try {
+    const db = await openVfsDb();
+    if (!db) return;
+    return new Promise((resolve) => {
+      const tx = db.transaction(VFS_STORE_NAME, 'readonly');
+      const store = tx.objectStore(VFS_STORE_NAME);
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const files = req.result || [];
+        for (const f of files) {
+          try {
+            if (f.isBinary) {
+              pyodide.FS.writeFile(`/workspace/${f.name}`, new Uint8Array(f.data));
+            } else {
+              pyodide.FS.writeFile(`/workspace/${f.name}`, f.data);
+            }
+          } catch (writeErr) {
+            console.warn('[VFS DB] Failed to restore file:', f.name, writeErr);
+          }
+        }
+        if (files.length > 0) {
+          console.log(`[Pyodide Worker] Successfully restored ${files.length} workspace file(s) from IndexedDB.`);
+        }
+        resolve();
+      };
+      req.onerror = () => resolve();
+    });
+  } catch (e) {
+    console.warn('[VFS DB] Error restoring files:', e);
+  }
+}
+
+async function writeFile(requestId, name, data, isBinary = false) {
   if (!pyodide) return;
   try {
     if (isBinary) {
@@ -469,6 +565,8 @@ function writeFile(requestId, name, data, isBinary = false) {
     } else {
       pyodide.FS.writeFile(`/workspace/${name}`, data);
     }
+    // Persist to IndexedDB so it survives browser refreshes
+    await persistFileToDb(name, data, isBinary);
     sendMsg('FILE_WRITE_SUCCESS', { requestId, name });
     listFiles(requestId);
   } catch (err) {
@@ -488,10 +586,12 @@ function readFile(requestId, name, isBinary = false) {
   }
 }
 
-function deleteFile(requestId, name) {
+async function deleteFile(requestId, name) {
   if (!pyodide) return;
   try {
     pyodide.FS.unlink(`/workspace/${name}`);
+    // Permanently remove from IndexedDB
+    await removeFileFromDb(name);
     sendMsg('FILE_DELETE_SUCCESS', { requestId, name });
     listFiles(requestId);
   } catch (err) {
