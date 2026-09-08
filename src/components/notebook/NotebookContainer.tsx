@@ -65,21 +65,11 @@ export default function NotebookContainer() {
   const importInputRef = useRef<HTMLInputElement>(null);
   const cellsContainerRef = useRef<HTMLDivElement>(null);
 
-  // 1. Initialize Pyodide & listen to status and stream output
+  // 1. Initialize Pyodide & listen to status
   useEffect(() => {
     const unsubStatus = pyodideBridge.onStatusChange((status, msg) => {
       setKernelStatus(status);
       if (msg) setKernelMessage(msg);
-    });
-
-    const unsubStream = pyodideBridge.onStream((name, text) => {
-      const runningCellId = activeRunningCellIdRef.current;
-      if (!runningCellId) return;
-
-      // Append live stream chunk to the running cell
-      updateCell(activeNotebook.id, runningCellId, {
-        outputs: appendStreamChunk(activeNotebook.cells.find((c) => c.id === runningCellId)?.outputs || [], name, text),
-      });
     });
 
     // Start loading Pyodide in background worker
@@ -87,9 +77,8 @@ export default function NotebookContainer() {
 
     return () => {
       unsubStatus();
-      unsubStream();
     };
-  }, [activeNotebook.id, activeNotebook.cells, updateCell]);
+  }, []);
 
   // Helper to append stdout/stderr stream chunks
   const appendStreamChunk = (outputs: any[], name: 'stdout' | 'stderr', text: string) => {
@@ -109,8 +98,10 @@ export default function NotebookContainer() {
       const cell = activeNotebook.cells.find((c) => c.id === cellId);
       if (!cell || cell.cell_type !== 'code') return;
 
-      // Clear previous outputs & set status to running
       activeRunningCellIdRef.current = cellId;
+      let cellOutputs: any[] = [];
+
+      // Clear previous outputs & set status to running
       updateCell(activeNotebook.id, cellId, {
         status: 'running',
         outputs: [],
@@ -118,14 +109,21 @@ export default function NotebookContainer() {
       });
 
       try {
-        const res: ExecutionResponse = await pyodideBridge.executeCell(cellId, cell.source);
-
-        const newOutputs: any[] = [...(activeNotebook.cells.find((c) => c.id === cellId)?.outputs || [])];
+        const res: ExecutionResponse = await pyodideBridge.executeCell(
+          cellId,
+          cell.source,
+          (name, text) => {
+            cellOutputs = appendStreamChunk(cellOutputs, name, text);
+            updateCell(activeNotebook.id, cellId, {
+              outputs: [...cellOutputs],
+            });
+          }
+        );
 
         // Append Matplotlib plots
         if (res.images && res.images.length > 0) {
           res.images.forEach((img) => {
-            newOutputs.push({
+            cellOutputs.push({
               type: 'display_data',
               data: { 'image/png': img },
             });
@@ -134,12 +132,18 @@ export default function NotebookContainer() {
 
         // Append Pandas DataFrame or structured table
         if (res.tableData) {
-          newOutputs.push(res.tableData);
+          cellOutputs.push({
+            type: 'table',
+            columns: res.tableData.columns,
+            rows: res.tableData.rows,
+            totalRows: res.tableData.totalRows,
+            totalCols: res.tableData.totalCols,
+          });
         }
 
         // Append plain text expression evaluation
         if (res.plainText) {
-          newOutputs.push({
+          cellOutputs.push({
             type: 'execute_result',
             execution_count: (activeNotebook.cells.filter((c) => c.execution_count).length || 0) + 1,
             data: { 'text/plain': [res.plainText] },
@@ -152,12 +156,11 @@ export default function NotebookContainer() {
         updateCell(activeNotebook.id, cellId, {
           status: 'success',
           execution_count: maxExec + 1,
-          outputs: newOutputs,
+          outputs: cellOutputs,
           executionTimeMs: res.executionTimeMs,
         });
       } catch (err: any) {
-        const newOutputs: any[] = [...(activeNotebook.cells.find((c) => c.id === cellId)?.outputs || [])];
-        newOutputs.push({
+        cellOutputs.push({
           type: 'error',
           ename: err.ename || err.error?.split(':')?.[0] || 'PythonError',
           evalue: err.evalue || err.error || 'Execution failed',
@@ -166,7 +169,7 @@ export default function NotebookContainer() {
 
         updateCell(activeNotebook.id, cellId, {
           status: 'error',
-          outputs: newOutputs,
+          outputs: cellOutputs,
           executionTimeMs: err.executionTimeMs,
         });
       } finally {

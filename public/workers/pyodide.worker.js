@@ -44,7 +44,11 @@ async function initPyodide(loadPackages = true) {
     sendMsg('STATUS', { status: 'loading', message: 'Configuring Python stream handlers & graphics...' });
 
     await pyodide.runPythonAsync(`
-import sys, io, base64
+import sys, io, base64, os
+try:
+    os.chdir('/workspace')
+except Exception:
+    pass
 
 class _JupyterStream(io.TextIOBase):
     def __init__(self, stream_name):
@@ -277,6 +281,7 @@ async function runCode(requestId, cellId, code, isRetry = false) {
           const serialized = serializedProxy.toJs({ dict_converter: Object.fromEntries });
           if (serialized?.is_dataframe) {
             tableData = {
+              type: 'table',
               columns: serialized.columns,
               rows: serialized.rows,
               totalRows: serialized.total_rows,

@@ -157,22 +157,43 @@ class PyodideBridgeManager {
     }
   }
 
-  public async executeCell(cellId: string, code: string): Promise<ExecutionResponse> {
-    if (!this.worker || this.status !== 'ready') {
-      await this.init();
-    }
+  private executionQueue: Promise<any> = Promise.resolve();
 
-    const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  public executeCell(
+    cellId: string,
+    code: string,
+    onStream?: (name: 'stdout' | 'stderr', text: string) => void
+  ): Promise<ExecutionResponse> {
+    const task = async (): Promise<ExecutionResponse> => {
+      if (!this.worker || this.status !== 'ready') {
+        await this.init();
+      }
 
-    return new Promise((resolve, reject) => {
-      this.pendingRequests.set(requestId, { resolve, reject });
-      this.worker!.postMessage({
-        type: 'RUN_CODE',
-        requestId,
-        cellId,
-        code,
-      });
-    });
+      const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      let removeStreamListener: (() => void) | null = null;
+      if (onStream) {
+        removeStreamListener = this.onStream(onStream);
+      }
+
+      try {
+        return await new Promise<ExecutionResponse>((resolve, reject) => {
+          this.pendingRequests.set(requestId, { resolve, reject });
+          this.worker!.postMessage({
+            type: 'RUN_CODE',
+            requestId,
+            cellId,
+            code,
+          });
+        });
+      } finally {
+        if (removeStreamListener) removeStreamListener();
+      }
+    };
+
+    // Chain into FIFO sequential queue
+    const result = this.executionQueue.then(task, task);
+    this.executionQueue = result.catch(() => {});
+    return result;
   }
 
   public async interrupt(): Promise<void> {

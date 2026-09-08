@@ -278,14 +278,14 @@ export async function GET(req: NextRequest) {
     }
 
     // 3. Check repository datasets directory (e.g. LeetCode questions)
-    if (fs.existsSync(REPO_DATASETS_DIR)) {
-      let targetPath = path.join(REPO_DATASETS_DIR, safeFilename);
-      if (safeFilename === 'leetcode_questions.csv') {
-        targetPath = path.join(REPO_DATASETS_DIR, 'Leetcode_Questions_updated (2024-11-02).csv');
-      } else if (safeFilename === 'leetcode_analytics.csv') {
-        targetPath = path.join(REPO_DATASETS_DIR, 'leetcode_dataset - lc.csv');
-      }
+    const REPO_FILE_MAP: Record<string, string> = {
+      'leetcode_questions.csv': 'Leetcode_Questions_updated (2024-11-02).csv',
+      'leetcode_analytics.csv': 'leetcode_dataset - lc.csv',
+    };
 
+    const targetFileName = REPO_FILE_MAP[safeFilename];
+    if (targetFileName && fs.existsSync(REPO_DATASETS_DIR)) {
+      const targetPath = path.join(REPO_DATASETS_DIR, targetFileName);
       if (fs.existsSync(targetPath)) {
         const content = fs.readFileSync(targetPath, 'utf-8');
         return new NextResponse(content, {
