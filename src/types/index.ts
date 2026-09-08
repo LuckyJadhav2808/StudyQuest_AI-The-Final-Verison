@@ -507,3 +507,4 @@ export interface SystemAiUsageDoc {
   updatedAt: number;
 }
 
+export * from './notebook';

@@ -26,6 +26,13 @@ import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
 import PageTransition from '@/components/layout/PageTransition';
 import AvatarBorder, { getAvatarTier } from '@/components/gamification/AvatarBorder';
+import {
+  getGeminiNanoCapabilities,
+  isGeminiNanoPreferred,
+  setGeminiNanoPreferred,
+  promptGeminiNano,
+  GeminiNanoAvailability,
+} from '@/lib/geminiNano';
 
 export default function SettingsContent() {
   const { user, profile, deleteAccount } = useAuthContext();
@@ -94,6 +101,52 @@ export default function SettingsContent() {
 
   // Dashboard mode preference
   const [dashboardMode, setDashboardModeState] = useState<'classic' | 'lofi'>('classic');
+
+  // Chrome Built-in AI (Gemini Nano) State
+  const [nanoAvailability, setNanoAvailability] = useState<GeminiNanoAvailability>('unsupported');
+  const [preferNano, setPreferNano] = useState<boolean>(false);
+  const [nanoTesting, setNanoTesting] = useState(false);
+  const [nanoTestResult, setNanoTestResult] = useState('');
+  const [nanoTestLatency, setNanoTestLatency] = useState<number | null>(null);
+
+  useEffect(() => {
+    getGeminiNanoCapabilities().then((caps) => {
+      setNanoAvailability(caps.available);
+    });
+    setPreferNano(isGeminiNanoPreferred());
+  }, []);
+
+  const handleToggleNano = () => {
+    const nextVal = !preferNano;
+    setPreferNano(nextVal);
+    setGeminiNanoPreferred(nextVal);
+    toast.success(
+      nextVal
+        ? 'Gemini Nano prioritized for instant on-device processing! ⚡'
+        : 'Cloud AI prioritized for all tasks.'
+    );
+  };
+
+  const runNanoSpeedTest = async () => {
+    setNanoTesting(true);
+    setNanoTestResult('');
+    setNanoTestLatency(null);
+    const start = Date.now();
+
+    try {
+      const text = await promptGeminiNano('In 1 clear sentence, why is active recall effective for studying?', {
+        onStream: (chunk) => setNanoTestResult(chunk),
+      });
+      const duration = Date.now() - start;
+      setNanoTestResult(text);
+      setNanoTestLatency(duration);
+      toast.success(`Generated on-device in ${duration}ms! 🚀`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Gemini Nano speed test failed');
+    } finally {
+      setNanoTesting(false);
+    }
+  };
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -903,6 +956,95 @@ export default function SettingsContent() {
               </p>
             </div>
           )}
+
+          {/* Chrome Built-in AI (Gemini Nano) Section */}
+          <div className="mt-5 pt-5 border-t border-[var(--card-border)] space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-start gap-2.5">
+                <span className="text-xl">✨</span>
+                <div>
+                  <h3 className="text-xs font-heading font-bold flex items-center gap-2 flex-wrap">
+                    Chrome Built-in AI (Gemini Nano)
+                    {nanoAvailability === 'readily' ? (
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        ● Ready on Device
+                      </span>
+                    ) : nanoAvailability === 'after-download' ? (
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">
+                        ● Downloading in Chrome
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-500/10 text-slate-400 border border-slate-500/20">
+                        ○ Not Detected in this Browser
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5">
+                    Runs on-device via Chrome's <code className="text-primary font-mono font-bold">window.ai</code>. 0ms network latency, 100% private, and works offline!
+                  </p>
+                </div>
+              </div>
+
+              {/* Toggle Switch */}
+              <button
+                type="button"
+                onClick={handleToggleNano}
+                className={`w-12 h-6 rounded-full p-1 transition-colors duration-200 shrink-0 ${
+                  preferNano ? 'bg-primary' : 'bg-[var(--card-border)]'
+                }`}
+                title="Toggle Gemini Nano on-device preference"
+              >
+                <div
+                  className={`w-4 h-4 rounded-full bg-white transition-transform duration-200 ${
+                    preferNano ? 'translate-x-6' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* If Not Detected, show helpful setup tips */}
+            {nanoAvailability !== 'readily' && (
+              <div className="p-3.5 rounded-xl bg-slate-900/30 border border-[var(--card-border)] text-[11px] space-y-1.5 text-slate-300">
+                <p className="font-semibold text-[var(--foreground)] flex items-center gap-1.5">
+                  <span>💡</span> How to enable Gemini Nano in Google Chrome:
+                </p>
+                <ol className="list-decimal list-inside space-y-1 text-[10px] text-[var(--muted-foreground)]">
+                  <li>Use Google Chrome version 128+ on Desktop.</li>
+                  <li>Go to <code className="text-primary font-mono bg-primary/10 px-1 py-0.5 rounded">chrome://flags/#prompt-api-for-gemini-nano</code> and set to <strong>Enabled</strong>.</li>
+                  <li>Go to <code className="text-primary font-mono bg-primary/10 px-1 py-0.5 rounded">chrome://flags/#optimization-guide-on-device-model</code> and select <strong>Enabled BypassPerfRequirement</strong>.</li>
+                  <li>Relaunch Chrome. The status badge will turn green automatically!</li>
+                </ol>
+              </div>
+            )}
+
+            {/* Speed Test Button */}
+            {nanoAvailability === 'readily' && (
+              <div className="pt-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={runNanoSpeedTest}
+                  disabled={nanoTesting}
+                  className="text-xs flex items-center gap-1.5"
+                >
+                  <HiLightningBolt className={nanoTesting ? 'animate-spin text-primary' : 'text-amber-400'} size={14} />
+                  <span>{nanoTesting ? 'Testing Local Neural Engine...' : '⚡ Test On-Device Speed'}</span>
+                </Button>
+
+                {nanoTestResult && (
+                  <div className="mt-2.5 p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/30 text-xs space-y-1">
+                    <div className="flex items-center justify-between text-emerald-400 font-bold text-[10px]">
+                      <span>⚡ On-Device Gemini Nano Output</span>
+                      {nanoTestLatency && <span>⏱ {nanoTestLatency}ms Latency</span>}
+                    </div>
+                    <p className="text-slate-200 font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
+                      {nanoTestResult}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </Card>
 
         {/* Account Info */}
