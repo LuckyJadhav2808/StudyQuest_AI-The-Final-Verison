@@ -1,14 +1,16 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePet } from '@/hooks/usePet';
 import { useGamification } from '@/hooks/useGamification';
 import { PixelPetSprite } from '@/components/dashboard/PixelPet';
 import { PET_STAGES } from '@/lib/constants';
+import { playClick, playSuccess } from '@/lib/sounds';
 
 /* ============================================================
-   PomodoroPet — Focus companion that evolves with your XP!
+   PomodoroPet — Reactive Mascot Companion Engine
+   Implements mascot-character-companion emotional state machine
    ============================================================ */
 
 interface PomodoroPetProps {
@@ -20,7 +22,7 @@ interface PomodoroPetProps {
   wasAbandoned?: boolean;  // user reset mid-focus
 }
 
-type PetMood = 'idle' | 'focused' | 'happy' | 'sad' | 'celebrating';
+type PetMood = 'idle' | 'focused' | 'happy' | 'sad' | 'celebrating' | 'night-owl';
 
 const STAGE_COLORS: Record<number, string> = {
   0: 'from-stone-400/20 to-amber-400/20',
@@ -38,51 +40,92 @@ const STAGE_BORDER_GLOW: Record<number, string> = {
   4: 'shadow-[0_0_20px_rgba(139,92,246,0.5)]',
 };
 
-// Generic messages for different moods
+// Emotional state dialogue messages
 const MOOD_MESSAGES: Record<PetMood, string[]> = {
   idle: [
-    "Ready to start the next quest! ⚔️",
-    "Resting up for a deep study session... 💤",
-    "Ready when you are, adventurer! 🐾"
+    "Ready to embark on the next quest! ⚔️",
+    "Resting up for a high-yield study sprint... 💤",
+    "Ready whenever you are, scholar! 🐾",
+    "Review your objectives and let's dive in! 📜",
   ],
   focused: [
-    "Focus mode activated! We got this! ⚡",
-    "Deep studying... do not disturb! 🧠",
-    "Powering through the syllabus! 💥"
+    "Focus mode active! Zero distractions! ⚡",
+    "Deep studying in progress... do not disturb! 🧠",
+    "Channeling flow state! Powering through! 💥",
+    "Every minute brings you closer to mastery! 📚",
   ],
   happy: [
-    "Great work! Let's keep it up! 🌟",
-    "Taking a short breath of fresh air! 🌸",
-    "Hydration check! Grab some water. 💧"
+    "Great work on that session! Keep the momentum! 🌟",
+    "Hydration check! Grab some water and stretch. 💧",
+    "Taking a well-deserved breather! 🌸",
+    "Rest fuels the memory consolidation! ☕",
   ],
   sad: [
-    "Aw, did we get distracted? We can try again! 😢",
-    "Focus timer was interrupted... 😞",
-    "Let's reset and focus together! 🤝"
+    "Aw, did we get interrupted? We can reset and try again! 😢",
+    "It's okay, study quests have bumps. Let's restart! 🤝",
+    "Deep breath. Regain focus and conquer! 🛡️",
   ],
   celebrating: [
-    "Woohoo! Quest Completed! 🎉",
-    "Champion studying! Levels incoming! 🏆",
-    "We did it! Time for victory loot! 👑"
-  ]
+    "Woohoo! Quest Completed! Victory loot incoming! 🎉",
+    "Champion studying! Massive XP unlocked! 🏆",
+    "Outstanding discipline! Levels rising! 👑",
+  ],
+  'night-owl': [
+    "Night owl shift active! Midnight focus is legendary. 🦉",
+    "The stars shine upon your dedication! 🌙",
+    "Quiet late hours make for deep knowledge absorption... ✨",
+    "Rest well once you conquer this milestone! 💤",
+  ],
 };
 
 export default function PomodoroPet({ isRunning, phase, progress, sessions, wasAbandoned = false }: PomodoroPetProps) {
   const { pet, getEvolutionProgress } = usePet();
   const { gamification } = useGamification();
+  const [squishCount, setSquishCount] = useState(0);
+  const [customDialogue, setCustomDialogue] = useState<string | null>(null);
 
+  // Mascot Emotional State Machine
   const mood: PetMood = useMemo(() => {
     if (wasAbandoned) return 'sad';
     if (phase !== 'focus' && !isRunning && sessions > 0 && progress === 0) return 'celebrating';
     if (phase !== 'focus') return 'happy';
     if (isRunning) return 'focused';
+    const hour = new Date().getHours();
+    if (hour >= 21 || hour < 5) return 'night-owl';
     return 'idle';
   }, [isRunning, phase, progress, sessions, wasAbandoned]);
 
-  const message = useMemo(() => {
+  const defaultMessage = useMemo(() => {
     const list = MOOD_MESSAGES[mood];
     return list[Math.floor(Math.random() * list.length)];
   }, [mood, sessions]);
+
+  // Ambient aura luminescence
+  const auraColor = useMemo(() => {
+    switch (mood) {
+      case 'focused':
+        return 'bg-emerald-500/25 blur-xl';
+      case 'celebrating':
+        return 'bg-amber-400/35 blur-2xl';
+      case 'night-owl':
+        return 'bg-violet-600/30 blur-xl';
+      case 'happy':
+        return 'bg-sky-400/20 blur-lg';
+      case 'sad':
+        return 'bg-red-500/15 blur-md';
+      default:
+        return 'bg-primary/20 blur-lg';
+    }
+  }, [mood]);
+
+  // Interactive Mascot Tap / Squish Reaction
+  const handleMascotClick = () => {
+    playClick();
+    setSquishCount((prev) => prev + 1);
+    const list = MOOD_MESSAGES[mood];
+    const randomMsg = list[Math.floor(Math.random() * list.length)];
+    setCustomDialogue(randomMsg);
+  };
 
   // Happiness level for the progress bar
   const happiness = useMemo(() => {
@@ -97,9 +140,9 @@ export default function PomodoroPet({ isRunning, phase, progress, sessions, wasA
     return (
       <div className="rounded-2xl border-2 border-[var(--card-border)] p-4 bg-[var(--card-bg)] text-center relative overflow-hidden">
         <span className="text-3xl block mb-2">🥚</span>
-        <p className="text-xs font-heading font-bold mb-1">Adopt your study buddy!</p>
+        <p className="text-xs font-heading font-bold mb-1">Adopt your study companion!</p>
         <p className="text-[10px] text-[var(--muted-foreground)] mb-3 leading-relaxed">
-          Visit the Companion Sanctuary to hatch your very first study companion!
+          Visit the Companion Sanctuary to hatch your very first pixel companion!
         </p>
         <a 
           href="/pets" 
@@ -114,7 +157,7 @@ export default function PomodoroPet({ isRunning, phase, progress, sessions, wasA
   const stageInfo = PET_STAGES[pet.stage] || PET_STAGES[0];
   const nextStageInfo = pet.stage < 4 ? PET_STAGES[pet.stage + 1] : null;
 
-  // Compute evolution progress using the companion pet's actual paths
+  // Compute evolution progress
   const evolutionPaths = getEvolutionProgress(gamification);
   const bestPath = evolutionPaths.length > 0 
     ? [...evolutionPaths].sort((a, b) => (b.current / b.target) - (a.current / a.target))[0]
@@ -123,45 +166,55 @@ export default function PomodoroPet({ isRunning, phase, progress, sessions, wasA
 
   const bgGradient = STAGE_COLORS[pet.stage] || 'from-primary/10 to-secondary/10';
   const glow = STAGE_BORDER_GLOW[pet.stage] || '';
+  const speciesEmoji = pet.species === 'owl' ? '🦉' : pet.species === 'dragon' ? '🦖' : '🐱';
 
   return (
     <motion.div
-      className={`rounded-2xl border-2 border-[var(--card-border)] p-4 bg-[var(--card-bg)] ${glow}`}
+      className={`rounded-2xl border-2 border-[var(--card-border)] p-4 bg-[var(--card-bg)] relative overflow-hidden ${glow}`}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
     >
       <div className="flex items-center gap-4">
-        {/* Pet sprite */}
+        {/* Pet Sprite with Ambient Aura & Tactile Squish */}
         <div className="relative flex-shrink-0">
+          {/* Ambient Lighting / Aura Disk */}
+          <div className={`absolute -inset-1 rounded-2xl ${auraColor} transition-all duration-700 pointer-events-none`} />
+
           <motion.div
-            className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${bgGradient} border-2 border-[var(--card-border)] flex items-center justify-center`}
+            key={squishCount}
+            onClick={handleMascotClick}
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.88 }}
+            className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${bgGradient} border-2 border-[var(--card-border)] flex items-center justify-center cursor-pointer relative z-10 select-none drop-shadow-[0_8px_16px_rgba(0,0,0,0.35)]`}
             animate={
               mood === 'focused'
                 ? { scale: [1, 1.08, 1], rotate: [0, 2, -2, 0] }
                 : mood === 'celebrating'
-                ? { scale: [1, 1.15, 1], y: [0, -8, 0] }
+                ? { scale: [1, 1.18, 1], y: [0, -8, 0] }
+                : mood === 'night-owl'
+                ? { y: [0, -4, 0] }
                 : mood === 'sad'
-                ? { y: [0, 2, 0] }
-                : mood === 'idle'
-                ? { y: [0, -3, 0] }
-                : {}
+                ? { y: [0, 3, 0] }
+                : { y: [0, -3, 0] }
             }
             transition={{
-              duration: mood === 'focused' ? 1.5 : mood === 'celebrating' ? 0.8 : 3,
+              duration: mood === 'focused' ? 1.6 : mood === 'celebrating' ? 0.75 : 3,
               repeat: Infinity,
               ease: 'easeInOut',
             }}
+            title="Tap companion to interact!"
           >
             <div className="w-12 h-12 flex items-center justify-center">
               <PixelPetSprite species={pet.species} stage={pet.stage} className="w-10 h-10" />
             </div>
           </motion.div>
 
-          {/* Mood indicator dot */}
+          {/* Mood indicator status pill */}
           <div
-            className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-[var(--card-bg)] ${
+            className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-[var(--card-bg)] z-20 ${
               mood === 'celebrating' ? 'bg-amber-400' :
               mood === 'focused' ? 'bg-emerald-400' :
+              mood === 'night-owl' ? 'bg-violet-400' :
               mood === 'happy' ? 'bg-sky-400' :
               mood === 'sad' ? 'bg-red-400' :
               'bg-gray-400'
@@ -175,7 +228,7 @@ export default function PomodoroPet({ isRunning, phase, progress, sessions, wasA
                 {[...Array(3)].map((_, i) => (
                   <motion.div
                     key={`particle-${i}`}
-                    className="absolute w-1.5 h-1.5 rounded-full bg-amber-400"
+                    className="absolute w-1.5 h-1.5 rounded-full bg-emerald-400 z-20"
                     style={{
                       left: `${30 + i * 15}%`,
                       bottom: '100%',
@@ -197,14 +250,44 @@ export default function PomodoroPet({ isRunning, phase, progress, sessions, wasA
             )}
           </AnimatePresence>
 
-          {/* Legendary glow sparks */}
+          {/* Night Owl Stars / Cosmic Dust */}
+          <AnimatePresence>
+            {mood === 'night-owl' && (
+              <>
+                {[...Array(3)].map((_, i) => (
+                  <motion.div
+                    key={`night-${i}`}
+                    className="absolute text-[8px] pointer-events-none z-20"
+                    style={{
+                      left: `${15 + i * 30}%`,
+                      top: `${-10 + (i % 2) * 20}%`,
+                    }}
+                    animate={{
+                      opacity: [0.3, 1, 0.3],
+                      scale: [0.8, 1.2, 0.8],
+                      y: [0, -4, 0],
+                    }}
+                    transition={{
+                      duration: 2.2 + i * 0.5,
+                      repeat: Infinity,
+                      delay: i * 0.4,
+                    }}
+                  >
+                    {i === 0 ? '🌙' : '⭐'}
+                  </motion.div>
+                ))}
+              </>
+            )}
+          </AnimatePresence>
+
+          {/* Max evolution legendary glow sparks */}
           <AnimatePresence>
             {pet.stage === 4 && (
               <>
                 {[...Array(4)].map((_, i) => (
                   <motion.div
                     key={`sparkle-${i}`}
-                    className="absolute w-1 h-1 rounded-full bg-violet-400"
+                    className="absolute w-1 h-1 rounded-full bg-violet-400 z-20"
                     style={{
                       left: `${10 + i * 25}%`,
                       top: `${15 + (i % 2) * 50}%`,
@@ -225,28 +308,36 @@ export default function PomodoroPet({ isRunning, phase, progress, sessions, wasA
           </AnimatePresence>
         </div>
 
-        {/* Pet info */}
+        {/* Pet Info & Tactile Speech Bubble */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <p className="text-xs font-heading font-bold truncate max-w-[100px]">{pet.name}</p>
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-sm">{speciesEmoji}</span>
+            <p className="text-xs font-heading font-black truncate max-w-[110px] text-[var(--foreground)]">
+              {pet.name}
+            </p>
             <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider ${
-              pet.stage === 4 ? 'bg-gradient-to-r from-violet-500/20 to-cyan-500/20 text-violet-400' :
-              pet.stage === 3 ? 'bg-purple-500/10 text-purple-400' :
-              'bg-primary/10 text-primary'
+              pet.stage === 4 ? 'bg-gradient-to-r from-violet-500/20 to-cyan-500/20 text-violet-400 border border-violet-500/30' :
+              pet.stage === 3 ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
+              'bg-primary/10 text-primary border border-primary/20'
             }`}>
               Lv.{pet.level} · {stageInfo.name}
             </span>
           </div>
 
-          <p className="text-[10px] text-[var(--muted-foreground)] mb-2 truncate">
-            {message}
-          </p>
+          {/* Tactile Speech Bubble */}
+          <div className="relative px-3 py-1.5 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)] shadow-sm mb-2 text-[10px] text-[var(--muted-foreground)] leading-snug cursor-pointer hover:border-primary/40 transition-colors" onClick={handleMascotClick}>
+            <p className="line-clamp-2">
+              {customDialogue || defaultMessage}
+            </p>
+            {/* Speech bubble tail pointing to companion */}
+            <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 bg-[var(--card-bg)] border-l border-b border-[var(--card-border)] rotate-45" />
+          </div>
 
-          {/* Happiness bar */}
+          {/* Happiness Meter */}
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-[8px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider">
-                Happiness
+                Companion Affinity
               </span>
               <span className="text-[8px] font-bold text-primary">{happiness}%</span>
             </div>
@@ -263,12 +354,12 @@ export default function PomodoroPet({ isRunning, phase, progress, sessions, wasA
             </div>
           </div>
 
-          {/* Evolution progress */}
+          {/* Evolution Progression */}
           {nextStageInfo ? (
             <div className="mt-1.5 space-y-0.5">
               <div className="flex items-center justify-between">
                 <span className="text-[8px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider">
-                  Next Stage → {nextStageInfo.name}
+                  Evolution → {nextStageInfo.name}
                 </span>
                 <span className="text-[8px] font-bold text-[var(--muted-foreground)]">
                   {bestPath ? `${Math.round(bestPath.current)}/${bestPath.target} ${bestPath.label}` : ''}
@@ -285,7 +376,7 @@ export default function PomodoroPet({ isRunning, phase, progress, sessions, wasA
           ) : (
             <div className="mt-1.5">
               <span className="text-[8px] font-bold text-violet-400 uppercase tracking-wider flex items-center gap-1">
-                ✨ MAX EVOLUTION — LEGENDARY!
+                ✨ MAX EVOLUTION — TRANSCENDED COMPANION!
               </span>
             </div>
           )}

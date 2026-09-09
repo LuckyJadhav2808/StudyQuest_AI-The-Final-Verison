@@ -263,8 +263,8 @@ export function useGamification(): UseGamificationReturn {
         if (wasActiveYesterday) {
           newStreak = (current.streak || 0) + 1;
         } else if (!current.lastActiveDate) {
-          // Brand-new user, first ever session
-          newStreak = 1;
+          // Preserve existing streak if already present, otherwise start at 1
+          newStreak = (current.streak && current.streak > 1) ? current.streak : 1;
         } else {
           // Check for active Streak Shield scroll
           const invRef = doc(db, 'users', user.uid, 'data', 'inventory');
@@ -291,7 +291,7 @@ export function useGamification(): UseGamificationReturn {
           }
         }
 
-        const longestStreak = Math.max(current.longestStreak || 0, newStreak);
+        const longestStreak = Math.max(current.longestStreak || 0, current.streak || 0, newStreak);
 
         transaction.set(ref, {
           streak: newStreak,

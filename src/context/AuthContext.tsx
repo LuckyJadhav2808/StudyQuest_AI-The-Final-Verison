@@ -20,7 +20,6 @@ import {
   User,
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { doc } from 'firebase/firestore';
 import {
   getProfileRef,
   getGamificationRef,
@@ -31,7 +30,8 @@ import {
 } from '@/lib/firestore';
 import { UserProfile, GamificationData } from '@/types';
 import { getAvatarUrl, getLevelFromXP } from '@/lib/constants';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc } from 'firebase/firestore';
+import { getLocalDateString, getLocalYesterdayDateString } from '@/lib/dateUtils';
 
 interface AuthContextValue {
   user: User | null;
@@ -49,141 +49,299 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const googleProvider = new GoogleAuthProvider();
 
+function parseAvatarFromUrl(url: string | null | undefined): { seed?: string; style?: string } {
+  if (!url) return {};
+  try {
+    const match = url.match(/dicebear\.com\/7\.x\/([^/]+)\/svg\?seed=([^&]+)/);
+    if (match) {
+      return {
+        style: decodeURIComponent(match[1]),
+        seed: decodeURIComponent(match[2]),
+      };
+    }
+  } catch {}
+  return {};
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Initialize or fetch user profile from Firestore safely
+  // Initialize or fetch user profile and gamification from Firestore safely (NON-DESTRUCTIVE)
   const initializeProfile = useCallback(async (firebaseUser: User) => {
     try {
-      const profileRef = getProfileRef(firebaseUser.uid);
-      const gamRef = getGamificationRef(firebaseUser.uid);
+      const uid = firebaseUser.uid;
+      const profileRef = getProfileRef(uid);
+      const gamRef = getGamificationRef(uid);
+      const invRef = doc(db, 'users', uid, 'data', 'inventory');
+      const lbRef = doc(db, 'leaderboard', uid);
+      const userRef = getUserRef(uid);
 
-      const [existingProfile, existingGamification] = await Promise.all([
+      // 1. Fetch existing profile and gamification documents from cache / server
+      let [existingProfile, existingGamification] = await Promise.all([
         getDocument<UserProfile>(profileRef),
         getDocument<GamificationData>(gamRef),
       ]);
 
-      if (existingProfile) {
-        // Set profile immediately from the successful read — UI unblocks here
-        let updatedProfile = { ...existingProfile, lastSeen: Date.now() };
-        if (!existingProfile.friendCode) {
-          updatedProfile = { ...updatedProfile, friendCode: Math.random().toString(36).substring(2, 8).toUpperCase() };
-        }
-        setProfile(updatedProfile);
-
-        // Background non-blocking metadata update
+      // Direct server check fallback if local cache returned empty (cold start / fresh tab)
+      if (!existingProfile) {
         try {
-          if (!existingProfile.friendCode) {
-            await setDocument(profileRef, { lastSeen: Date.now(), friendCode: updatedProfile.friendCode });
-          } else {
-            await setDocument(profileRef, { lastSeen: Date.now() });
+          const { getDocFromServer } = await import('firebase/firestore');
+          const pSnap = await getDocFromServer(profileRef);
+          if (pSnap.exists()) {
+            existingProfile = { id: pSnap.id, ...pSnap.data() } as unknown as UserProfile;
           }
-          await setDocument(getUserRef(firebaseUser.uid), {
-            friendCode: updatedProfile.friendCode,
-            uid: firebaseUser.uid,
-            displayName: updatedProfile.displayName,
-          });
-        } catch (writeError) {
-          console.warn('Non-critical: Failed to update profile metadata:', writeError);
-        }
-      } else {
-        // Profile doc missing or new UID login.
-        // Auto-heal from existing gamification doc or xpLog subcollection so progress is NEVER reset!
-        let initialXP = existingGamification?.xp || 0;
-        let initialLevel = existingGamification?.level || 0;
-        let oldestDateStr = '';
-
-        try {
-          const xpLogRef = collection(db, 'users', firebaseUser.uid, 'xpLog');
-          const xpLogSnap = await getDocs(xpLogRef);
-          let sumXP = 0;
-          xpLogSnap.docs.forEach((d) => {
-            sumXP += d.data().totalXp || 0;
-            if (!oldestDateStr || d.id < oldestDateStr) oldestDateStr = d.id;
-          });
-          if (sumXP > initialXP) {
-            initialXP = sumXP;
-            initialLevel = getLevelFromXP(sumXP);
-          }
-        } catch (logErr) {
-          console.warn('Could not scan xpLog during initialization:', logErr);
-        }
-
-        const seed = firebaseUser.displayName || firebaseUser.email || firebaseUser.uid;
-        const friendCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-        
-        let createdTimestamp = Date.now();
-        if (oldestDateStr) {
-          const parsed = Date.parse(oldestDateStr);
-          if (!isNaN(parsed)) createdTimestamp = parsed;
-        }
-
-        const newProfile: Omit<UserProfile, 'uid'> = {
-          displayName: firebaseUser.displayName || 'Student',
-          email: firebaseUser.email || '',
-          avatarSeed: seed,
-          avatarStyle: 'adventurer',
-          friendCode,
-          lastSeen: Date.now(),
-          theme: 'dark',
-          createdAt: createdTimestamp,
-          updatedAt: Date.now(),
-        };
-
-        setProfile({ uid: firebaseUser.uid, ...newProfile });
-
-        try {
-          await setDocument(profileRef, newProfile);
-
-          // Write new gamification ONLY if it does not exist yet.
-          if (!existingGamification) {
-            const newGamification: GamificationData = {
-              xp: initialXP,
-              level: initialLevel,
-              streak: 0,
-              longestStreak: 0,
-              lastActiveDate: '',
-              achievements: [],
-              unlockedTitles: [],
-              totalTasksCompleted: 0,
-              totalFocusMinutes: 0,
-              totalNotesCreated: 0,
-              totalCodeRuns: 0,
-              nightOwlCount: 0,
-              dailyChallengeStreak: 0,
-              lastDailyChallengeDate: '',
-            };
-            await setDocument(gamRef, newGamification);
-          } else if (initialXP > existingGamification.xp) {
-            await setDocument(gamRef, { xp: initialXP, level: initialLevel }, true);
-          }
-
-          await setDocument(getUserRef(firebaseUser.uid), { friendCode, uid: firebaseUser.uid });
-          await setDocument(doc(db, 'leaderboard', firebaseUser.uid), {
-            uid: firebaseUser.uid,
-            displayName: newProfile.displayName,
-            avatarSeed: seed,
-            avatarStyle: 'adventurer',
-            xp: initialXP,
-            level: initialLevel,
-            streak: existingGamification?.streak || 0,
-            updatedAt: Date.now(),
-          }).catch(() => {});
-        } catch (writeError) {
-          console.warn('Non-critical: Failed to write new profile to Firestore:', writeError);
+        } catch {
+          // Server unreachable or offline — continue with safe recovery
         }
       }
+
+      if (!existingGamification) {
+        try {
+          const { getDocFromServer } = await import('firebase/firestore');
+          const gSnap = await getDocFromServer(gamRef);
+          if (gSnap.exists()) {
+            existingGamification = { id: gSnap.id, ...gSnap.data() } as unknown as GamificationData;
+          }
+        } catch {
+          // Server unreachable or offline — continue with safe recovery
+        }
+      }
+
+      // 2. Fetch supplementary records to auto-heal any previously wiped data (leaderboard, xpLog, tasks, inventory)
+      let lbData: any = null;
+      let invData: any = null;
+      let logSumXP = 0;
+      let logStreak = 0;
+      let oldestDateStr = '';
+      let completedTasksCount = 0;
+
+      try {
+        const [lbSnap, invSnap, xpLogSnap, tasksSnap] = await Promise.all([
+          getDocument<any>(lbRef).catch(() => null),
+          getDocument<any>(invRef).catch(() => null),
+          getDocs(collection(db, 'users', uid, 'xpLog')).catch(() => null),
+          getDocs(collection(db, 'users', uid, 'tasks')).catch(() => null),
+        ]);
+
+        lbData = lbSnap;
+        invData = invSnap;
+
+        if (xpLogSnap && !xpLogSnap.empty) {
+          const combinedDateMap: Record<string, number> = {};
+          xpLogSnap.docs.forEach((d) => {
+            const val = (d.data().totalXp as number) || 0;
+            logSumXP += val;
+            combinedDateMap[d.id] = val;
+            if (!oldestDateStr || d.id < oldestDateStr) oldestDateStr = d.id;
+          });
+
+          const todayStr = getLocalDateString();
+          const yesterdayStr = getLocalYesterdayDateString();
+          const sortedDates = Object.keys(combinedDateMap)
+            .filter((id) => /^\d{4}-\d{2}-\d{2}$/.test(id))
+            .sort();
+
+          let consecutive = 0;
+          let prevDate: Date | null = null;
+          sortedDates.forEach((dStr) => {
+            const currentDate = new Date(dStr + 'T00:00:00');
+            if (!prevDate) {
+              consecutive = 1;
+            } else {
+              const diffDays = Math.round((currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+              if (diffDays === 1) consecutive += 1;
+              else if (diffDays > 1) consecutive = 1;
+            }
+            prevDate = currentDate;
+          });
+
+          if (sortedDates.length > 0) {
+            const lastDateStr = sortedDates[sortedDates.length - 1];
+            if (lastDateStr === todayStr || lastDateStr === yesterdayStr) {
+              logStreak = consecutive;
+            }
+          }
+        }
+
+        if (tasksSnap && !tasksSnap.empty) {
+          completedTasksCount = tasksSnap.docs.filter(
+            (t) => t.data()?.completed === true || t.data()?.status === 'done'
+          ).length;
+        }
+      } catch (scanErr) {
+        console.warn('Non-critical: secondary recovery scan note:', scanErr);
+      }
+
+      // 3. Resolve Identity & Avatar (NEVER overwrite customized avatars with default)
+      const parsedPhoto = parseAvatarFromUrl(firebaseUser.photoURL);
+      const finalAvatarSeed =
+        existingProfile?.avatarSeed ||
+        (lbData?.avatarSeed && lbData.avatarSeed !== uid ? lbData.avatarSeed : null) ||
+        parsedPhoto.seed ||
+        firebaseUser.displayName ||
+        firebaseUser.email?.split('@')[0] ||
+        'Adventurer';
+
+      const finalAvatarStyle =
+        existingProfile?.avatarStyle ||
+        lbData?.avatarStyle ||
+        parsedPhoto.style ||
+        'adventurer';
+
+      const finalDisplayName =
+        existingProfile?.displayName ||
+        lbData?.displayName ||
+        firebaseUser.displayName ||
+        'Student';
+
+      const finalFriendCode =
+        existingProfile?.friendCode ||
+        Math.random().toString(36).substring(2, 8).toUpperCase();
+
+      // 4. Resolve Gamification (XP, Level, Streak — NEVER reset streak to 0!)
+      const finalXP = Math.max(
+        existingGamification?.xp || 0,
+        lbData?.xp || 0,
+        logSumXP,
+        completedTasksCount * 25
+      );
+
+      const finalLevel = Math.max(
+        existingGamification?.level || 0,
+        lbData?.level || 0,
+        getLevelFromXP(finalXP)
+      );
+
+      const finalStreak = Math.max(
+        existingGamification?.streak || 0,
+        lbData?.streak || 0,
+        logStreak
+      );
+
+      const finalLongestStreak = Math.max(
+        existingGamification?.longestStreak || 0,
+        lbData?.streak || 0,
+        finalStreak
+      );
+
+      const todayStr = getLocalDateString();
+      const finalLastActiveDate = existingGamification?.lastActiveDate || todayStr;
+
+      // 5. Resolve Coins & Inventory (NEVER reset coins to 0!)
+      const rawCoins = invData?.coins;
+      const currentCoins =
+        typeof rawCoins === 'number'
+          ? rawCoins
+          : !isNaN(Number(rawCoins))
+          ? Number(rawCoins)
+          : 0;
+
+      const estimatedCoins = Math.floor(finalXP / 5) + completedTasksCount * 15 + finalLevel * 50;
+      const finalCoins =
+        currentCoins > 0
+          ? currentCoins
+          : finalXP > 0 || completedTasksCount > 0
+          ? Math.max(estimatedCoins, 500)
+          : 0;
+
+      // 6. Set profile state immediately so UI unblocks
+      const updatedProfile: UserProfile = {
+        uid,
+        displayName: finalDisplayName,
+        email: firebaseUser.email || existingProfile?.email || '',
+        avatarSeed: finalAvatarSeed,
+        avatarStyle: finalAvatarStyle,
+        friendCode: finalFriendCode,
+        lastSeen: Date.now(),
+        theme: existingProfile?.theme || 'dark',
+        createdAt:
+          existingProfile?.createdAt ||
+          (oldestDateStr ? Date.parse(oldestDateStr) || Date.now() : Date.now()),
+        updatedAt: Date.now(),
+        ...(existingProfile?.openRouterKey ? { openRouterKey: existingProfile.openRouterKey } : {}),
+        ...(existingProfile?.aiMode ? { aiMode: existingProfile.aiMode } : {}),
+        ...(existingProfile?.equippedTitle ? { equippedTitle: existingProfile.equippedTitle } : {}),
+      };
+
+      setProfile(updatedProfile);
+
+      // 7. Non-destructive background sync with { merge: true }
+      try {
+        await Promise.all([
+          setDocument(profileRef, updatedProfile, true),
+          setDocument(
+            gamRef,
+            {
+              xp: finalXP,
+              level: finalLevel,
+              streak: finalStreak,
+              longestStreak: finalLongestStreak,
+              lastActiveDate: finalLastActiveDate,
+              achievements: existingGamification?.achievements || [],
+              unlockedTitles: existingGamification?.unlockedTitles || [],
+              totalTasksCompleted: Math.max(
+                existingGamification?.totalTasksCompleted || 0,
+                completedTasksCount
+              ),
+              totalFocusMinutes: existingGamification?.totalFocusMinutes || 0,
+              totalNotesCreated: existingGamification?.totalNotesCreated || 0,
+              totalCodeRuns: existingGamification?.totalCodeRuns || 0,
+              nightOwlCount: existingGamification?.nightOwlCount || 0,
+              dailyChallengeStreak: existingGamification?.dailyChallengeStreak || 0,
+              lastDailyChallengeDate: existingGamification?.lastDailyChallengeDate || '',
+            },
+            true
+          ),
+          setDocument(
+            invRef,
+            {
+              coins: finalCoins,
+              ownedItems: invData?.ownedItems || [],
+              equippedItems: invData?.equippedItems || {},
+              gachaHistory: invData?.gachaHistory || [],
+              ingredients: invData?.ingredients || {},
+              activeEffects: invData?.activeEffects || [],
+            },
+            true
+          ),
+          setDocument(
+            lbRef,
+            {
+              uid,
+              displayName: finalDisplayName,
+              avatarSeed: finalAvatarSeed,
+              avatarStyle: finalAvatarStyle,
+              xp: finalXP,
+              level: finalLevel,
+              streak: finalStreak,
+              updatedAt: Date.now(),
+            },
+            true
+          ),
+          setDocument(
+            userRef,
+            {
+              friendCode: finalFriendCode,
+              uid,
+              displayName: finalDisplayName,
+            },
+            true
+          ),
+        ]);
+      } catch (writeError) {
+        console.warn('Non-critical: safe profile sync notice:', writeError);
+      }
     } catch (e) {
-      console.error('Failed to initialize user profile document:', e);
-      throw e;
+      console.error('Failed to initialize user profile document safely:', e);
     }
   }, []);
 
-  // Listen to auth state
+  // Listen to auth state with persistence assurance
   useEffect(() => {
     let profileUnsub: (() => void) | null = null;
+    let isMounted = true;
 
     // Resolve redirect results (crucial for mobile Google Sign-In)
     getRedirectResult(auth)
@@ -197,6 +355,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!isMounted) return;
       try {
         setUser(firebaseUser);
 
@@ -207,18 +366,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (firebaseUser) {
+          // Cache authenticated session in localStorage to protect against reload drops
+          try {
+            localStorage.setItem('sq_auth_uid', firebaseUser.uid);
+          } catch {}
+
           // Set up real-time listener first, so profile loads instantly from cache or server
           const { onSnapshot } = await import('firebase/firestore');
           const profileRef = getProfileRef(firebaseUser.uid);
-          profileUnsub = onSnapshot(profileRef, (snap) => {
-            if (snap.exists()) {
-              setProfile({ uid: firebaseUser.uid, ...snap.data() } as UserProfile);
+          profileUnsub = onSnapshot(
+            profileRef,
+            (snap) => {
+              if (snap.exists() && isMounted) {
+                setProfile({ uid: firebaseUser.uid, ...snap.data() } as UserProfile);
+              }
+            },
+            (error) => {
+              console.warn('Profile listener error:', error);
             }
-          }, (error) => {
-            console.warn('Profile listener error:', error);
-          });
+          );
 
-          // Run initialization (lastSeen, first login checks) asynchronously/non-blocking
+          // Run safe auto-heal and initialization non-blocking
           initializeProfile(firebaseUser).catch((initErr) => {
             console.warn('Non-blocking profile initialization warning:', initErr);
           });
@@ -226,13 +394,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(null);
         }
       } catch (error) {
-        console.error('Error during authentication initialization:', error);
-      } finally {
-        setLoading(false);
+        console.error('Error during authentication state transition:', error);
       }
     });
 
+    // Wait until Firebase Auth has fully resolved stored credentials from IndexedDB before clearing loading
+    if (auth.authStateReady) {
+      auth
+        .authStateReady()
+        .then(() => {
+          if (isMounted) setLoading(false);
+        })
+        .catch(() => {
+          if (isMounted) setLoading(false);
+        });
+    } else {
+      setLoading(false);
+    }
+
     return () => {
+      isMounted = false;
       unsubscribe();
       if (profileUnsub) profileUnsub();
     };
@@ -248,9 +429,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
-    const isMobile = typeof window !== 'undefined' && 
+    const isMobile =
+      typeof window !== 'undefined' &&
       /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
+
     if (isMobile) {
       await signInWithRedirect(auth, googleProvider);
     } else {
@@ -259,8 +441,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    try {
+      localStorage.removeItem('sq_auth_uid');
+    } catch {}
     await firebaseSignOut(auth);
     setProfile(null);
+    setUser(null);
   };
 
   const resetPassword = async (email: string) => {

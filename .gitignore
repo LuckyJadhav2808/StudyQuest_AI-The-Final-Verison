@@ -48,3 +48,7 @@ next-env.d.ts
 src/data/datasets/ML dataset/*.pdf
 src/data/datasets/ML dataset/*.parquet
 src/data/datasets/ML dataset/*.jsonl
+
+# Testing artifacts
+.playwright-mcp/
+

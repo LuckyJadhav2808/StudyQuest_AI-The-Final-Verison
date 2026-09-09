@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   HiPlus, HiTrash, HiPencil, HiSearch,
   HiEye, HiCode, HiDocumentText, HiFolder,
-  HiChevronLeft, HiClock, HiDownload, HiSparkles,
+  HiChevronLeft, HiChevronRight, HiClock, HiDownload, HiSparkles,
   HiLightningBolt, HiRefresh, HiInformationCircle, HiShare,
   HiClipboardCopy, HiX, HiReply, HiCheck, HiAcademicCap,
   HiBeaker, HiMicrophone,
@@ -283,6 +284,9 @@ export default function NotesContent() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [showPdfThemeModal, setShowPdfThemeModal] = useState(false);
   const [selectedPdfTheme, setSelectedPdfTheme] = useState<'modern' | 'editor' | 'parchment' | 'grimoire' | 'druid'>('modern');
+  const searchParams = useSearchParams();
+  const [selectedFolder, setSelectedFolder] = useState<string>('all');
+  const [catalogCollapsed, setCatalogCollapsed] = useState<boolean>(false);
 
   // ── Mana Writing Bar & Alchemy Cauldron states ──
   const [mana, setMana] = useState(0);
@@ -984,16 +988,34 @@ export default function NotesContent() {
 
   const noteRef = useRef<HTMLDivElement>(null);
 
+  // Unique folders for filter pills
+  const uniqueFolders = useMemo(() => {
+    const set = new Set<string>();
+    notes.forEach((n) => set.add(n.folder || 'General'));
+    return Array.from(set).sort();
+  }, [notes]);
+
   // Filter + group
   const filteredNotes = useMemo(() => {
-    if (!search.trim()) return notes;
-    const q = search.toLowerCase();
-    return notes.filter((n) => n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q) || n.folder.toLowerCase().includes(q));
-  }, [notes, search]);
+    return notes.filter((n) => {
+      const q = search.trim().toLowerCase();
+      const matchesSearch = !q ||
+        n.title.toLowerCase().includes(q) ||
+        n.content.toLowerCase().includes(q) ||
+        (n.folder || '').toLowerCase().includes(q);
+      const matchesFolder = selectedFolder === 'all' || (n.folder || 'General') === selectedFolder;
+      return matchesSearch && matchesFolder;
+    });
+  }, [notes, search, selectedFolder]);
 
   const folders = useMemo(() => {
     const map = new Map<string, Note[]>();
-    filteredNotes.forEach((n) => { const g = map.get(n.folder) || []; g.push(n); map.set(n.folder, g); });
+    filteredNotes.forEach((n) => {
+      const f = n.folder || 'General';
+      const g = map.get(f) || [];
+      g.push(n);
+      map.set(f, g);
+    });
     return map;
   }, [filteredNotes]);
 
@@ -1195,7 +1217,7 @@ export default function NotesContent() {
     return { words, chars, readingTime: `${mins} min read` };
   }, [editContent]);
 
-  const openNote = (note: Note) => {
+  const openNote = useCallback((note: Note) => {
     setSelectedNote(note);
     setEditContent(note.content);
     setEditTitle(note.title);
@@ -1209,8 +1231,44 @@ export default function NotesContent() {
     const count = text.split(/\s+/).filter(Boolean).length;
     setLastWordCount(count);
     setWordsWrittenSession(0);
-  };
-  const backToList = () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current); setSelectedNote(null); setIsEditing(false); setPreview(false); setViewMode(false); setSaveStatus('idle'); };
+
+    // Sync URL without reload
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('id') !== note.id) {
+        url.searchParams.set('id', note.id);
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
+  }, []);
+
+  const backToList = useCallback(() => {
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    setSelectedNote(null);
+    setIsEditing(false);
+    setPreview(false);
+    setViewMode(false);
+    setSaveStatus('idle');
+
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('id')) {
+        url.searchParams.delete('id');
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
+  }, []);
+
+  // Hydrate selectedNote from ?id=... URL query parameter
+  const noteIdParam = searchParams.get('id');
+  useEffect(() => {
+    if (noteIdParam && notes.length > 0) {
+      const target = notes.find((n) => n.id === noteIdParam);
+      if (target && selectedNote?.id !== target.id) {
+        openNote(target);
+      }
+    }
+  }, [noteIdParam, notes, selectedNote?.id, openNote]);
 
   // Convert markdown to HTML (with Mermaid diagram rendering) and save into the note
   const handleMarkdownImport = async () => {
@@ -2272,14 +2330,219 @@ Rules:
     }
   }, [selectedNote?.content, isEditing, viewMode, renderMathInHtml, mathRenderKey]);
 
-  // ----- Note Detail View -----
-  if (selectedNote) {
-    return (
-      <PageTransition>
-        <div className={`${multitaskPanel && isEditing ? 'max-w-[95vw]' : 'max-w-4xl'} mx-auto space-y-4 transition-all duration-300`}>
-          {/* Header */}
-          <div className="flex items-center gap-3">
-            <button onClick={backToList} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors"><HiChevronLeft size={20} /></button>
+  return (
+    <PageTransition>
+      <div className="w-full max-w-[1700px] mx-auto space-y-4">
+        {/* Master-Detail Split Layout */}
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+          {/* Master Catalog Pane (Left) */}
+          <div
+            className={`${selectedNote ? 'hidden lg:flex' : 'flex'} flex-col w-full ${
+              catalogCollapsed ? 'lg:w-[76px]' : 'lg:w-[350px] xl:w-[390px]'
+            } flex-shrink-0 transition-all duration-300 space-y-3.5`}
+          >
+            {catalogCollapsed ? (
+              /* Collapsed Slim Dock on Desktop */
+              <div className="w-full flex flex-col items-center gap-3 p-3 rounded-2xl border-2 border-[var(--card-border)] bg-[var(--card-bg)] shadow-sm">
+                <button
+                  onClick={() => setCatalogCollapsed(false)}
+                  className="p-2.5 rounded-xl border border-[var(--card-border)] hover:border-primary/40 text-[var(--muted-foreground)] hover:text-primary transition-colors"
+                  title="Expand Scrolls Catalog"
+                >
+                  <HiChevronRight size={18} />
+                </button>
+                <div className="w-8 h-[1px] bg-[var(--card-border)] my-1" />
+                <button
+                  onClick={() => setShowNewModal(true)}
+                  className="p-2.5 rounded-xl bg-primary text-white hover:bg-primary/90 transition-colors shadow-sm"
+                  title="New Note"
+                >
+                  <HiPlus size={18} />
+                </button>
+                <button
+                  onClick={() => window.location.href = '/whiteboard'}
+                  className="p-2.5 rounded-xl border border-[var(--card-border)] hover:border-primary/40 text-[var(--muted-foreground)] hover:text-primary transition-colors"
+                  title="Whiteboard"
+                >
+                  <HiPencil size={18} />
+                </button>
+                <span className="text-[10px] font-heading font-black text-[var(--muted-foreground)] mt-2">{notes.length}</span>
+              </div>
+            ) : (
+              /* Full Scroll Catalog */
+              <div className="w-full flex flex-col space-y-3.5">
+                {/* Catalog Header */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-heading font-black text-[var(--foreground)] tracking-tight">
+                        Scrolls & Notes
+                      </h2>
+                      <Badge variant="primary" size="sm">{notes.length}</Badge>
+                    </div>
+                    <p className="text-xs text-[var(--muted-foreground)] truncate">Grind & preserve knowledge</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <button
+                      onClick={() => window.location.href = '/whiteboard'}
+                      className="p-1.5 rounded-lg border border-[var(--card-border)] hover:border-primary/40 text-[var(--muted-foreground)] hover:text-primary transition-colors"
+                      title="Open Whiteboard"
+                    >
+                      <HiPencil size={15} />
+                    </button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon={<HiPlus size={15} />}
+                      onClick={() => setShowNewModal(true)}
+                    >
+                      New
+                    </Button>
+                    <button
+                      onClick={() => setCatalogCollapsed(true)}
+                      className="hidden lg:flex p-1.5 rounded-lg border border-[var(--card-border)] hover:border-primary/40 text-[var(--muted-foreground)] hover:text-primary transition-colors"
+                      title="Collapse catalog"
+                    >
+                      <HiChevronLeft size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative">
+                  <HiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" size={16} />
+                  <input
+                    type="text"
+                    placeholder="Search notes, formulas, tags..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2.5 rounded-xl border-2 border-[var(--card-border)] bg-[var(--card-bg)] text-xs font-medium focus:border-primary focus:outline-none transition-colors"
+                  />
+                  {search && (
+                    <button
+                      onClick={() => setSearch('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                    >
+                      <HiX size={14} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Folder Filter Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
+                  <button
+                    onClick={() => setSelectedFolder('all')}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
+                      selectedFolder === 'all'
+                        ? 'bg-primary text-white shadow-sm'
+                        : 'bg-[var(--card-bg)] text-[var(--muted-foreground)] border border-[var(--card-border)] hover:border-primary/40'
+                    }`}
+                  >
+                    All ({notes.length})
+                  </button>
+                  {uniqueFolders.map((f) => {
+                    const count = notes.filter((n) => (n.folder || 'General') === f).length;
+                    return (
+                      <button
+                        key={f}
+                        onClick={() => setSelectedFolder(f)}
+                        className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                          selectedFolder === f
+                            ? 'bg-primary text-white shadow-sm'
+                            : 'bg-[var(--card-bg)] text-[var(--muted-foreground)] border border-[var(--card-border)] hover:border-primary/40'
+                        }`}
+                      >
+                        <span>{f}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${selectedFolder === f ? 'bg-white/25 text-white' : 'bg-[var(--muted)] text-[var(--muted-foreground)]'}`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Catalog Card List */}
+                <div className="space-y-2.5 max-h-[calc(100vh-17rem)] overflow-y-auto pr-1">
+                  {filteredNotes.length === 0 && !loading ? (
+                    <div className="text-center py-8 px-4 rounded-xl border border-dashed border-[var(--card-border)] bg-[var(--card-bg)]/40">
+                      <span className="text-3xl block mb-2">📜</span>
+                      <p className="text-xs font-heading font-bold text-[var(--foreground)]">No scrolls found</p>
+                      <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5 mb-3">Try adjusting your search or filters.</p>
+                      {search || selectedFolder !== 'all' ? (
+                        <Button variant="ghost" size="sm" onClick={() => { setSearch(''); setSelectedFolder('all'); }}>
+                          Reset Filters
+                        </Button>
+                      ) : (
+                        <Button variant="primary" size="sm" icon={<HiPlus size={14} />} onClick={() => setShowNewModal(true)}>
+                          Create First Scroll
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    filteredNotes.map((note) => {
+                      const isSelected = selectedNote?.id === note.id;
+                      return (
+                        <div
+                          key={note.id}
+                          onClick={() => openNote(note)}
+                          className={`p-3 rounded-xl border-2 transition-all cursor-pointer group relative ${
+                            isSelected
+                              ? 'border-primary bg-primary/10 shadow-[0_0_15px_rgba(124,58,237,0.18)] ring-1 ring-primary/40'
+                              : 'border-[var(--card-border)] bg-[var(--card-bg)] hover:border-primary/30 hover:bg-primary/5'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <h4 className={`text-xs font-heading font-bold leading-snug break-words flex-1 min-w-0 ${
+                              isSelected ? 'text-primary' : 'group-hover:text-primary transition-colors text-[var(--foreground)]'
+                            }`}>
+                              {note.title}
+                            </h4>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRenameNoteObj(note);
+                                  setRenameTitle(note.title);
+                                  setRenameFolder(note.folder);
+                                }}
+                                className="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-primary/10 text-primary transition-all cursor-pointer"
+                                title="Rename Note"
+                              >
+                                <HiPencil size={12} />
+                              </button>
+                              <HiDocumentText className={isSelected ? 'text-primary' : 'text-[var(--muted-foreground)]'} size={14} />
+                            </div>
+                          </div>
+                          <p className="text-[11px] text-[var(--muted-foreground)] line-clamp-2 mb-2 leading-relaxed break-words font-normal">
+                            {getPlainTextPreview(note.content)}
+                          </p>
+                          <div className="flex items-center justify-between gap-2">
+                            <Badge variant={isSelected ? 'primary' : 'muted'} size="sm">
+                              {note.folder || 'General'}
+                            </Badge>
+                            <span className="text-[9px] text-[var(--muted-foreground)] font-semibold">
+                              <HiClock className="inline mr-0.5" size={10} />
+                              {timeAgo(note.updatedAt)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Workspace Detail Pane (Right) */}
+          <div className={`${!selectedNote ? 'hidden lg:flex' : 'flex'} flex-1 min-w-0 w-full flex-col space-y-4`}>
+            {selectedNote ? (
+              <div className="space-y-4 w-full">
+                {/* Header */}
+                <div className="flex items-center gap-3">
+                  <button onClick={backToList} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors lg:hidden" title="Back to scrolls">
+                    <HiChevronLeft size={20} />
+                  </button>
             <div className="flex-1 min-w-0">
               {isEditing ? (
                 <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="text-2xl font-heading font-bold bg-transparent border-none outline-none w-full" placeholder="Note title..." />
@@ -2795,8 +3058,77 @@ Rules:
             )}
           </AnimatePresence>
         </div>
+      ) : (
+      /* Empty Workspace State */
+      <div className="w-full flex-1 flex flex-col items-center justify-center min-h-[560px] p-8 text-center rounded-2xl border-2 border-dashed border-[var(--card-border)] bg-gradient-to-b from-primary/[0.04] via-transparent to-transparent">
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.3 }}
+          className="max-w-lg space-y-5"
+        >
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-primary/20 to-purple-500/20 border border-primary/30 flex items-center justify-center text-3xl shadow-lg shadow-primary/10">
+            📜
+          </div>
+          <div>
+            <h3 className="text-xl font-heading font-black text-[var(--foreground)] tracking-tight">
+              Select a Scroll or Forge a New Grimoire
+            </h3>
+            <p className="text-xs sm:text-sm text-[var(--muted-foreground)] leading-relaxed mt-1.5">
+              Choose any study note from the catalog on the left to read, annotate, or transmute with AI. Or forge a brand-new parchment to begin capturing knowledge.
+            </p>
+          </div>
+          <div className="pt-1 flex justify-center gap-3">
+            <Button variant="primary" icon={<HiPlus size={16} />} onClick={() => setShowNewModal(true)}>
+              Create New Scroll
+            </Button>
+            <Button variant="ghost" icon={<HiPencil size={14} />} onClick={() => window.location.href = '/whiteboard'}>
+              Open Whiteboard
+            </Button>
+          </div>
 
-        {/* Delete confirm */}
+          {/* Feature Highlights Grid */}
+          <div className="grid grid-cols-2 gap-3 pt-6 text-left border-t border-[var(--card-border)]/70">
+            <div className="p-3.5 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)]">
+              <div className="text-xs font-heading font-bold text-[var(--foreground)] flex items-center gap-1.5">
+                <span className="text-base">∑</span> KaTeX & Math
+              </div>
+              <p className="text-[10px] text-[var(--muted-foreground)] mt-1 leading-normal">
+                Inline equations & blocks with live KaTeX rendering.
+              </p>
+            </div>
+            <div className="p-3.5 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)]">
+              <div className="text-xs font-heading font-bold text-[var(--foreground)] flex items-center gap-1.5">
+                <span className="text-base">✨</span> AI Beautifier
+              </div>
+              <p className="text-[10px] text-[var(--muted-foreground)] mt-1 leading-normal">
+                Transforms raw bullet points into polished study guides.
+              </p>
+            </div>
+            <div className="p-3.5 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)]">
+              <div className="text-xs font-heading font-bold text-[var(--foreground)] flex items-center gap-1.5">
+                <span className="text-base">📺</span> Multitask Panels
+              </div>
+              <p className="text-[10px] text-[var(--muted-foreground)] mt-1 leading-normal">
+                Split-screen with YouTube, PDF references, or AI Tutor.
+              </p>
+            </div>
+            <div className="p-3.5 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)]">
+              <div className="text-xs font-heading font-bold text-[var(--foreground)] flex items-center gap-1.5">
+                <span className="text-base">🧪</span> Alchemy Cauldron
+              </div>
+              <p className="text-[10px] text-[var(--muted-foreground)] mt-1 leading-normal">
+                Channel writing Mana into flashcards & cheat scrolls.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    )}
+  </div>
+</div>
+
+{/* Delete confirm */}
         <ConfirmDialog
           isOpen={!!confirmDelete}
           onClose={() => setConfirmDelete(null)}
@@ -3139,94 +3471,8 @@ Rules:
             </div>
           </div>
         </Modal>
-      </PageTransition>
-    );
-  }
 
-  // ----- Notes List View -----
-  return (
-    <PageTransition>
-      <div className="max-w-5xl mx-auto space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-heading font-black text-[var(--foreground)] tracking-tight">
-              Notes & Scrolls
-            </h1>
-            <p className="text-xs sm:text-sm text-[var(--muted-foreground)] mt-0.5 font-medium">
-              Your knowledge base. Write, organize, remember.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap flex-shrink-0">
-            <Button variant="ghost" size="sm" icon={<HiPencil size={14} />} onClick={() => window.location.href = '/whiteboard'}>
-              Whiteboard
-            </Button>
-            <Button variant="primary" size="sm" icon={<HiPlus />} onClick={() => setShowNewModal(true)}>
-              + New Note
-            </Button>
-          </div>
-        </div>
-
-        <div className="relative">
-          <HiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" size={18} />
-          <input type="text" placeholder="Search notes..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-11 pr-4 py-3 rounded-xl border-2 border-[var(--card-border)] bg-[var(--card-bg)] text-sm font-medium focus:border-primary focus:outline-none transition-colors" />
-        </div>
-
-        {notes.length === 0 && !loading ? (
-          <Card padding="lg" hover={false}>
-            <div className="text-center py-8">
-              <motion.span className="text-5xl block mb-4" animate={{ y: [0, -8, 0] }} transition={{ duration: 2, repeat: Infinity }}>📝</motion.span>
-              <h3 className="text-lg font-heading font-bold mb-2">No notes yet!</h3>
-              <p className="text-sm text-[var(--muted-foreground)] mb-4">Create your first note to start your knowledge base.</p>
-              <Button variant="primary" icon={<HiPlus />} onClick={() => setShowNewModal(true)}>Create First Note</Button>
-            </div>
-          </Card>
-        ) : (
-          Array.from(folders.entries()).map(([folder, folderNotes]) => (
-            <div key={folder}>
-              <div className="flex items-center gap-2 mb-2">
-                <HiFolder className="text-primary" size={16} />
-                <h3 className="text-xs font-heading font-bold uppercase tracking-wider text-[var(--muted-foreground)]">{folder}</h3>
-                <Badge variant="muted" size="sm">{folderNotes.length}</Badge>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {folderNotes.map((note, i) => (
-                  <motion.div key={note.id} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
-                    <Card padding="md" className="cursor-pointer group" onClick={() => openNote(note)}>
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <h4 className="text-sm font-heading font-bold group-hover:text-primary transition-colors leading-snug break-words flex-1 min-w-0">
-                          {note.title}
-                        </h4>
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setRenameNoteObj(note);
-                              setRenameTitle(note.title);
-                              setRenameFolder(note.folder);
-                            }}
-                            className="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-primary/10 text-primary transition-all cursor-pointer"
-                            title="Rename Note"
-                          >
-                            <HiPencil size={12} />
-                          </button>
-                          <HiDocumentText className="text-[var(--muted-foreground)]" size={16} />
-                        </div>
-                      </div>
-                      <p className="text-xs text-[var(--muted-foreground)] line-clamp-3 mb-3 leading-relaxed break-words font-normal">
-                        {getPlainTextPreview(note.content)}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[9px] text-[var(--muted-foreground)] font-semibold"><HiClock className="inline mr-0.5" size={10} />{timeAgo(note.updatedAt)}</span>
-                      </div>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          ))
-        )}
-
-
+        {/* Create New Note Modal */}
         <Modal isOpen={showNewModal} onClose={() => setShowNewModal(false)} title="Create New Note">
           <div className="space-y-4">
             <Input label="Title" placeholder="e.g. Physics Chapter 4 Notes" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />

@@ -19,7 +19,7 @@ import { useGamification } from '@/hooks/useGamification';
 import { useTasks } from '@/hooks/useTasks';
 import { useFriends } from '@/hooks/useFriends';
 import { useDailyQuests } from '@/hooks/useDailyQuests';
-import { getAvatarUrl, ACHIEVEMENTS, XP_AWARDS } from '@/lib/constants';
+import { getAvatarUrl, ACHIEVEMENTS, XP_AWARDS, TITLES } from '@/lib/constants';
 import { getLocalDateString } from '@/lib/dateUtils';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -113,7 +113,25 @@ export default function DashboardContent() {
   const classicNotifRef = useRef<HTMLDivElement>(null);
   const modernNotifRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Global Ctrl+K / Cmd+K listener for spotlight search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const equippedTitleDef = useMemo(() => {
+    if (!profile?.equippedTitle) return null;
+    return TITLES.find((t) => t.id === profile.equippedTitle) || null;
+  }, [profile?.equippedTitle]);
 
   const [modernLeftOrder, setModernLeftOrder] = useState<string[]>([
     'banner', 'quests', 'scrolls', 'heatmap', 'exams', 'jukebox'
@@ -712,102 +730,170 @@ export default function DashboardContent() {
 
   const modernWidgetMap = useMemo(() => ({
     'banner': (
-      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-4 sm:p-6 md:p-8 pr-28 sm:pr-36 md:pr-48 text-white shadow-xl">
-        <div className="relative z-10 max-w-lg">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/15 text-[10px] font-bold text-blue-100 mb-2 backdrop-blur-sm">
-            <span>✨</span> Daily Study Quest
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-700 via-indigo-600 to-violet-700 p-5 sm:p-7 md:p-8 pr-28 sm:pr-40 md:pr-52 text-white shadow-2xl border border-white/15">
+        {/* Dynamic ambient mesh glow underlay */}
+        <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-cyan-400/20 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 right-12 w-80 h-80 rounded-full bg-violet-500/25 blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 max-w-xl">
+          {/* Header pill badge */}
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 border border-white/20 text-xs font-semibold text-blue-100 mb-3 backdrop-blur-md shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>✨ Command Deck</span>
+            <span className="opacity-60">•</span>
+            <span>+25 XP Active Daily Bonus</span>
           </div>
-          <h2 className="text-base sm:text-xl md:text-3xl font-heading font-black mb-1.5 sm:mb-2 leading-tight">
-            The right choice of study quest
+
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-heading font-black mb-2 leading-tight tracking-tight text-white drop-shadow-sm">
+            Ready for your next study breakthrough?
           </h2>
-          <p className="text-[11px] sm:text-xs md:text-sm text-blue-100 mb-3 sm:mb-6 leading-relaxed line-clamp-2 sm:line-clamp-none">
-            Choose from your active notes scrolls, track daily habits, or run code runner files to level up your study adventure today.
+
+          <p className="text-xs sm:text-sm text-blue-100/90 mb-5 leading-relaxed max-w-md">
+            Review active scrolls, conquer your daily quests, and jump straight into deep work.
           </p>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+
+          {/* Quick-Launch Command Dock */}
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
             <Link href="/timer">
-              <button className="px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs font-bold bg-slate-950 text-white rounded-xl shadow-lg hover:bg-slate-900 transition-all hover:scale-105 cursor-pointer flex items-center gap-1.5">
-                <span>⚡</span> Start Focus Session
-              </button>
+              <motion.button
+                whileHover={{ scale: 1.04, y: -1 }}
+                whileTap={{ scale: 0.96 }}
+                className="px-4 sm:px-5 py-2.5 text-xs font-bold bg-slate-950 text-white rounded-xl shadow-xl hover:bg-slate-900 transition-all border border-white/10 flex items-center gap-2 cursor-pointer"
+              >
+                <span className="text-amber-400 text-sm">⚡</span>
+                <span>Start Focus</span>
+              </motion.button>
             </Link>
-            <button
+
+            <motion.button
+              whileHover={{ scale: 1.04, y: -1 }}
+              whileTap={{ scale: 0.96 }}
               onClick={() => { playClick(); setShowTreasureChest(true); }}
-              className={`px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs font-bold rounded-xl shadow transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-4 sm:px-5 py-2.5 text-xs font-bold rounded-xl shadow-lg transition-all cursor-pointer flex items-center gap-2 border ${
                 chestAvailable
-                  ? 'bg-amber-500 hover:bg-amber-600 text-white animate-pulse-scale'
-                  : 'bg-white/10 text-white/60 cursor-not-allowed border border-white/10'
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-amber-300/40 shadow-amber-500/25 animate-pulse-scale'
+                  : 'bg-white/10 text-white/60 cursor-not-allowed border-white/10'
               }`}
             >
               <span>{chestAvailable ? '🎁 Open Daily Chest!' : '📦 Chest Claimed'}</span>
-              {chestAvailable && <span className="text-[9px] bg-white text-amber-600 px-1.5 py-0.2 rounded-full font-black animate-pulse">NEW</span>}
-            </button>
+              {chestAvailable && (
+                <span className="text-[9px] bg-white text-amber-600 px-1.5 py-0.5 rounded-full font-black animate-pulse">
+                  NEW
+                </span>
+              )}
+            </motion.button>
+
+            <Link href="/notebook">
+              <motion.button
+                whileHover={{ scale: 1.04, y: -1 }}
+                whileTap={{ scale: 0.96 }}
+                className="hidden sm:flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold bg-white/10 hover:bg-white/20 text-white rounded-xl backdrop-blur-sm border border-white/15 transition-all cursor-pointer"
+              >
+                <span>🐍</span>
+                <span>Data Forge</span>
+              </motion.button>
+            </Link>
+
+            <Link href="/ml">
+              <motion.button
+                whileHover={{ scale: 1.04, y: -1 }}
+                whileTap={{ scale: 0.96 }}
+                className="hidden md:flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold bg-white/10 hover:bg-white/20 text-white rounded-xl backdrop-blur-sm border border-white/15 transition-all cursor-pointer"
+              >
+                <span>📖</span>
+                <span>ML Academy</span>
+              </motion.button>
+            </Link>
           </div>
         </div>
 
-        {/* Large Prominent Wizard Mascot */}
-        <div className="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 animate-float w-24 h-24 sm:w-32 sm:h-32 md:w-36 md:h-36 flex items-center justify-center pointer-events-none">
-          <div className="absolute inset-0 bg-white/10 rounded-full blur-xl scale-75" />
+        {/* Large Prominent Floating Owl Mascot with Radial Aura */}
+        <div className="absolute right-3 sm:right-8 top-1/2 -translate-y-1/2 animate-float w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 flex items-center justify-center pointer-events-none">
+          <div className="absolute inset-0 bg-white/15 rounded-full blur-2xl scale-90" />
           <img
             src="/pixel_study_owl.png"
             alt="Wise Study Mascot"
-            className="w-full h-full object-contain relative z-10 filter drop-shadow-[0_8px_20px_rgba(0,0,0,0.4)]"
+            className="w-full h-full object-contain relative z-10 filter drop-shadow-[0_12px_24px_rgba(0,0,0,0.5)]"
             style={{ imageRendering: 'pixelated' }}
           />
         </div>
       </div>
     ),
     'quests': (
-      <div className="modern-card p-6 bg-white dark:bg-[#111328] border border-slate-200 dark:border-slate-800 rounded-3xl text-left">
-        <div className="flex items-center gap-2 mb-4 justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center">
-              <HiSparkles className="text-primary" size={18} />
+      <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 bg-[var(--card-bg)]/85 backdrop-blur-xl border border-[var(--card-border)] hover:border-white/20 shadow-lg transition-all text-left">
+        {/* Subtle ambient cyan glow */}
+        <div className="absolute -right-10 -top-10 w-36 h-36 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" />
+
+        <div className="flex items-center gap-2 mb-4 justify-between relative z-10">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+              <HiSparkles size={18} />
             </div>
-            <h3 className="text-base font-heading font-bold text-slate-800 dark:text-white">Daily Quests</h3>
+            <div>
+              <h3 className="text-base font-heading font-bold text-[var(--foreground)] tracking-tight">
+                Daily Quests
+              </h3>
+              <p className="text-[11px] text-[var(--muted-foreground)]">Complete rituals for +25 XP each</p>
+            </div>
           </div>
           {todayTotal > 0 && (
-            <Badge variant={todayCompleted >= todayTotal ? 'teal' : 'amber'} size="sm">
-              {todayCompleted}/{todayTotal}
+            <Badge variant={todayCompleted >= todayTotal ? 'teal' : 'amber'} size="sm" className="font-mono tabular-nums">
+              {todayCompleted} / {todayTotal} Complete
             </Badge>
           )}
         </div>
-        <div className="flex gap-2 mb-4">
+
+        {/* Add Quest input */}
+        <div className="flex gap-2 mb-4 relative z-10">
           <input
             type="text"
-            placeholder="Add a quest for today..."
+            placeholder="Add a new quest for today..."
             value={newQuest}
             onChange={(e) => setNewQuest(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAddQuest()}
-            className="flex-1 min-w-0 px-4 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-transparent focus:border-blue-500 focus:outline-none transition-colors text-slate-700 dark:text-slate-300 font-medium"
+            className="flex-1 min-w-0 px-4 py-2.5 text-xs rounded-xl border border-[var(--card-border)] bg-slate-900/40 dark:bg-black/20 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 focus:outline-none transition-all text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]"
           />
-          <Button variant="primary" size="sm" icon={<HiPlus />} onClick={handleAddQuest}>
+          <Button variant="primary" size="sm" icon={<HiPlus />} onClick={handleAddQuest} className="min-h-[40px] px-4">
             Add
           </Button>
         </div>
+
         {quests.length === 0 ? (
-          <p className="text-xs text-slate-400 text-center py-6">No quests yet. Add one above to get started! ⚡</p>
+          <p className="text-xs text-[var(--muted-foreground)] text-center py-6">
+            No daily quests active. Add one above to kickstart your streak! ⚡
+          </p>
         ) : (
-          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-52 overflow-y-auto pr-1 relative z-10">
             {quests.map((quest) => (
               <motion.div
                 key={quest.id}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800/20 bg-slate-50/50 dark:bg-slate-800/10 hover:border-blue-500/20 transition-all"
+                className="group flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-[var(--card-border)]/70 bg-slate-800/25 dark:bg-white/[0.02] hover:border-indigo-500/30 hover:bg-slate-800/40 transition-all"
                 layout
               >
                 <motion.button
                   onClick={() => handleToggleQuest(quest.id, quest.completed)}
-                  className={`w-5.5 h-5.5 rounded-lg flex items-center justify-center border transition-all ${
-                    quest.completed ? 'bg-teal/15 border-teal/40' : 'border-slate-300 dark:border-slate-700'
+                  className={`w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-all cursor-pointer ${
+                    quest.completed
+                      ? 'bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-400 text-white shadow-sm shadow-emerald-500/20'
+                      : 'border-[var(--card-border)] hover:border-indigo-400 bg-transparent'
                   }`}
-                  whileTap={{ scale: 0.8 }}
+                  whileHover={{ scale: 1.15 }}
+                  whileTap={{ scale: 0.85 }}
+                  aria-label={quest.completed ? 'Mark incomplete' : 'Mark complete'}
                 >
-                  {quest.completed && <HiCheck className="text-teal" size={12} />}
+                  {quest.completed && <HiCheck className="w-3.5 h-3.5 stroke-2" />}
                 </motion.button>
-                <span className={`flex-1 text-xs font-semibold text-slate-750 dark:text-slate-300 ${quest.completed ? 'line-through opacity-50' : ''}`}>
+                <span
+                  className={`flex-1 text-xs font-semibold text-[var(--foreground)] transition-all ${
+                    quest.completed ? 'line-through opacity-50 text-[var(--muted-foreground)]' : ''
+                  }`}
+                >
                   {quest.title}
                 </span>
                 <button
                   onClick={() => handleDeleteQuest(quest.id)}
-                  className="p-1 rounded-lg hover:bg-red-500/10 text-slate-400 hover:text-red-500 transition-colors"
+                  className="p-1 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-rose-500/10 text-[var(--muted-foreground)] hover:text-rose-400 transition-all cursor-pointer"
+                  title="Delete quest"
                 >
                   <HiTrash size={14} />
                 </button>
@@ -815,16 +901,20 @@ export default function DashboardContent() {
             ))}
           </div>
         )}
+
         {todayTotal > 0 && (
-          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex justify-between text-[10px] font-bold text-slate-400 mb-1.5">
-              <span>Daily Quest Completion Journey</span>
-              <span>{Math.round((todayCompleted / todayTotal) * 100)}%</span>
+          <div className="mt-4 pt-3.5 border-t border-[var(--card-border)]/60 relative z-10">
+            <div className="flex justify-between text-[10px] font-bold text-[var(--muted-foreground)] mb-1.5">
+              <span>Quest Journey</span>
+              <span className="font-mono tabular-nums text-indigo-400">
+                {Math.round((todayCompleted / todayTotal) * 100)}%
+              </span>
             </div>
-            <div className="modern-progress-bar h-2">
-              <div
-                className="modern-progress-fill bg-teal"
-                style={{ width: `${(todayCompleted / todayTotal) * 100}%` }}
+            <div className="h-2 rounded-full bg-slate-800/60 dark:bg-black/40 overflow-hidden border border-white/5">
+              <motion.div
+                className="h-full rounded-full bg-gradient-to-r from-teal-500 via-indigo-500 to-violet-500 shadow-sm shadow-indigo-500/30"
+                animate={{ width: `${(todayCompleted / todayTotal) * 100}%` }}
+                transition={{ type: 'spring', stiffness: 200, damping: 25 }}
               />
             </div>
           </div>
@@ -834,59 +924,64 @@ export default function DashboardContent() {
     'scrolls': (
       <div className="text-left">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-heading font-bold text-base text-slate-800 dark:text-white">Your Scrolls & Notes</h3>
-          <Link href="/notes" className="text-xs text-blue-600 dark:text-blue-400 font-bold hover:underline">
-            All Notes
+          <div>
+            <h3 className="font-heading font-bold text-base text-[var(--foreground)] tracking-tight">
+              Your Scrolls & Notes
+            </h3>
+            <p className="text-[11px] text-[var(--muted-foreground)]">Curated study scrolls and research guides</p>
+          </div>
+          <Link href="/notes" className="text-xs text-indigo-400 font-bold hover:underline">
+            All Notes →
           </Link>
         </div>
         {notes.length === 0 ? (
-          <div className="modern-card p-8 text-center bg-white dark:bg-[#111328] border border-slate-200 dark:border-slate-800">
+          <div className="rounded-3xl p-8 text-center bg-[var(--card-bg)]/80 border border-[var(--card-border)]">
             <span className="text-3xl block mb-2">📝</span>
-            <p className="text-sm font-bold text-slate-600 dark:text-slate-400">No scrolls yet. Start writing!</p>
+            <p className="text-sm font-bold text-[var(--foreground)]">No scrolls yet. Start writing!</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {notes.slice(0, 3).map((note, idx) => {
-              const mockCompletion = [45, 75, 25][idx % 3];
-              const mockDays = ['4/12', '11/24', '4/18'][idx % 3];
+              const mockCompletion = [65, 85, 40][idx % 3];
               const coverGradient = [
-                'from-blue-400/80 to-indigo-500/80',
-                'from-purple-400/80 to-pink-500/80',
-                'from-teal-400/80 to-emerald-500/80'
+                'from-blue-600 to-indigo-600',
+                'from-violet-600 to-purple-600',
+                'from-teal-500 to-emerald-600'
               ][idx % 3];
               return (
                 <Link href="/notes" key={note.id}>
-                  <div className="modern-card overflow-hidden flex flex-col h-full cursor-pointer bg-white dark:bg-[#111328] border border-slate-200 dark:border-slate-800">
-                    <div className={`h-28 bg-gradient-to-br ${coverGradient} relative p-3 flex flex-col justify-end`}>
-                      <span className="absolute top-3 left-3 px-2 py-0.5 text-[9px] font-bold text-slate-700 bg-white/90 rounded-full uppercase tracking-wider">
+                  <motion.div
+                    whileHover={{ y: -3, scale: 1.01 }}
+                    transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+                    className="overflow-hidden rounded-2xl flex flex-col h-full cursor-pointer bg-[var(--card-bg)]/85 backdrop-blur-xl border border-[var(--card-border)] hover:border-white/25 shadow-md hover:shadow-xl transition-all"
+                  >
+                    <div className={`h-24 bg-gradient-to-br ${coverGradient} relative p-3 flex flex-col justify-between shadow-inner`}>
+                      <span className="self-start px-2 py-0.5 text-[9px] font-bold text-white bg-black/35 rounded-full uppercase tracking-wider backdrop-blur-sm border border-white/10">
                         {note.folder || 'General'}
                       </span>
+                      <span className="text-white/80 text-[10px] font-medium font-mono">
+                        {new Date(note.updatedAt).toLocaleDateString()}
+                      </span>
                     </div>
-                    <div className="p-4 flex flex-col flex-1 gap-3">
-                      <h4 className="font-heading font-bold text-sm text-slate-800 dark:text-white line-clamp-1 leading-snug">
+                    <div className="p-4 flex flex-col flex-1 gap-2.5">
+                      <h4 className="font-heading font-bold text-sm text-[var(--foreground)] line-clamp-1 leading-snug">
                         {note.title || 'Untitled Scroll'}
                       </h4>
-                      <div className="flex items-center gap-2">
-                        <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px]">👤</div>
-                        <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 truncate">
-                          {profile?.displayName || 'Adventurer'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 text-[9px] text-slate-500 dark:text-slate-400 font-semibold border-t border-slate-100 dark:border-slate-800 pt-2.5">
+                      <div className="flex items-center gap-2 text-[10px] text-[var(--muted-foreground)]">
                         <span>📁 {note.tags.length || 0} tags</span>
-                        <span>📅 {new Date(note.updatedAt).toLocaleDateString()}</span>
+                        <span>•</span>
+                        <span>{mockCompletion}% mastered</span>
                       </div>
-                      <div className="mt-2">
-                        <div className="flex justify-between text-[9px] font-bold text-slate-500 dark:text-slate-400 mb-1">
-                          <span>Completed: {mockCompletion}%</span>
-                          <span>Days: {mockDays}</span>
-                        </div>
-                        <div className="modern-progress-bar">
-                          <div className="modern-progress-fill" style={{ width: `${mockCompletion}%` }} />
+                      <div className="mt-auto pt-2">
+                        <div className="h-1.5 rounded-full bg-slate-800/40 dark:bg-black/30 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-indigo-400"
+                            style={{ width: `${mockCompletion}%` }}
+                          />
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 </Link>
               );
             })}
@@ -895,60 +990,72 @@ export default function DashboardContent() {
       </div>
     ),
     'heatmap': (
-      <div className="modern-card p-4 md:p-6 bg-white dark:bg-[#111328] border border-slate-200 dark:border-slate-800 rounded-3xl text-left">
+      <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 bg-[var(--card-bg)]/85 backdrop-blur-xl border border-[var(--card-border)] hover:border-white/20 shadow-lg transition-all text-left">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-heading font-bold text-sm flex items-center gap-2 text-slate-800 dark:text-white">
-            <HiCalendar className="text-primary" /> Study Activity
-          </h3>
-          <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
-            Heatmap
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/20 flex items-center justify-center text-violet-400">
+              <HiCalendar size={18} />
+            </div>
+            <div>
+              <h3 className="font-heading font-bold text-sm text-[var(--foreground)]">Study Activity</h3>
+              <p className="text-[10px] text-[var(--muted-foreground)]">Consistent daily practice builds mastery</p>
+            </div>
+          </div>
+          <span className="text-[10px] font-bold font-mono text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-0.5 rounded-full">
+            180 Days
           </span>
         </div>
         <StudyHeatmap xpByDate={xpHistory} />
       </div>
     ),
     'exams': (
-      <div className="modern-card p-4 md:p-6 bg-white dark:bg-[#111328] border border-slate-200 dark:border-slate-800 rounded-3xl text-left">
+      <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 bg-[var(--card-bg)]/85 backdrop-blur-xl border border-[var(--card-border)] hover:border-white/20 shadow-lg transition-all text-left">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-heading font-bold text-sm flex items-center gap-2 text-slate-800 dark:text-white">
-            <HiCalendar className="text-coral" /> Exam Countdown
-          </h3>
-          <Link href="/exams" className="text-[9px] text-blue-600 dark:text-blue-400 font-bold hover:underline uppercase tracking-wider">View All →</Link>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/20 flex items-center justify-center text-rose-400">
+              <HiCalendar size={18} />
+            </div>
+            <h3 className="font-heading font-bold text-sm text-[var(--foreground)]">
+              Exam Countdown
+            </h3>
+          </div>
+          <Link href="/exams" className="text-[10px] text-indigo-400 font-bold hover:underline uppercase tracking-wider">
+            View All →
+          </Link>
         </div>
         {(!upcomingExams || upcomingExams.length === 0) ? (
           <div className="text-center py-6">
             <span className="text-3xl mb-2 block">📅</span>
-            <p className="text-xs text-slate-400 mb-3">No upcoming exams scheduled.</p>
+            <p className="text-xs text-[var(--muted-foreground)] mb-3">No upcoming exams scheduled.</p>
             <Link href="/exams">
-              <button className="px-4 py-2 text-xs font-bold bg-coral/15 text-coral rounded-xl hover:bg-coral/25 transition-colors">+ Add Exam</button>
+              <button className="px-4 py-2 text-xs font-bold bg-rose-500/15 text-rose-400 border border-rose-500/20 rounded-xl hover:bg-rose-500/25 transition-all">
+                + Add Exam
+              </button>
             </Link>
           </div>
         ) : (
           <div className="space-y-2.5">
             {upcomingExams.slice(0, 3).map((exam, i) => {
               const daysLeft = Math.max(0, Math.ceil((new Date(exam.date).getTime() - Date.now()) / 86400000));
-              const urgencyColor = daysLeft <= 3 ? 'bg-red-500' : daysLeft <= 7 ? 'bg-amber-500' : 'bg-teal';
-              const urgencyBg = daysLeft <= 3 ? 'bg-red-50 dark:bg-red-900/15' : daysLeft <= 7 ? 'bg-amber-50 dark:bg-amber-900/15' : 'bg-teal/5 dark:bg-teal/10';
+              const urgencyColor = daysLeft <= 3 ? 'text-rose-400 bg-rose-500/15 border-rose-500/30' : daysLeft <= 7 ? 'text-amber-400 bg-amber-500/15 border-amber-500/30' : 'text-teal-400 bg-teal-500/15 border-teal-500/30';
               return (
                 <motion.div
                   key={exam.id || i}
-                  className={`flex items-center gap-3 p-3 rounded-xl border border-slate-100 dark:border-slate-800 ${urgencyBg} hover:border-blue-500/20 transition-all`}
+                  className="flex items-center gap-3 p-3 rounded-2xl border border-[var(--card-border)] bg-slate-800/20 dark:bg-white/[0.02] hover:border-indigo-500/30 transition-all"
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.06 }}
                 >
-                  <div className={`w-10 h-10 rounded-xl ${urgencyColor}/15 flex items-center justify-center flex-shrink-0`}>
-                    <span className={`text-lg font-heading font-black ${daysLeft <= 3 ? 'text-red-500' : daysLeft <= 7 ? 'text-amber-500' : 'text-teal'}`}>
-                      {daysLeft}
-                    </span>
+                  <div className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 font-mono font-black text-base ${urgencyColor}`}>
+                    {daysLeft}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-slate-800 dark:text-white truncate">{exam.subject || 'Exam'}</p>
-                    <p className="text-[9px] text-slate-400 font-medium">
+                    <p className="text-xs font-bold text-[var(--foreground)] truncate">{exam.subject || 'Exam'}</p>
+                    <p className="text-[10px] text-[var(--muted-foreground)] font-medium">
                       {new Date(exam.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                     </p>
                   </div>
-                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${daysLeft <= 3 ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' : daysLeft <= 7 ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-teal/15 text-teal'}`}>
+                  <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${urgencyColor}`}>
                     {daysLeft === 0 ? 'Today!' : `${daysLeft}d left`}
                   </span>
                 </motion.div>
@@ -959,137 +1066,147 @@ export default function DashboardContent() {
       </div>
     ),
     'profile': (
-      <div className="modern-card overflow-hidden bg-white dark:bg-[#111328] border border-slate-200 dark:border-slate-800 text-center">
-        <div className="h-16 bg-gradient-to-r from-blue-500 to-indigo-500" />
-        <div className="px-4 pb-4 -mt-8 flex flex-col items-center gap-1">
-          <div className="w-16 h-16 rounded-full border-4 border-white dark:border-slate-900 bg-slate-200 overflow-hidden relative shadow-sm mx-auto">
+      <div className="overflow-hidden rounded-3xl bg-[var(--card-bg)]/85 backdrop-blur-xl border border-[var(--card-border)] shadow-lg text-center">
+        <div className="h-16 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600" />
+        <div className="px-5 pb-5 -mt-8 flex flex-col items-center gap-1">
+          <div className="w-16 h-16 rounded-full border-4 border-[var(--card-bg)] bg-slate-800 overflow-hidden relative shadow-lg mx-auto ring-2 ring-indigo-500/40">
             {profile && <img src={getAvatarUrl(profile.avatarSeed, profile.avatarStyle)} alt="" className="w-full h-full object-cover" />}
           </div>
-          <h3 className="font-heading font-black text-sm text-slate-800 dark:text-white flex items-center gap-1 mt-1 justify-center">
+          <h3 className="font-heading font-black text-sm text-[var(--foreground)] flex items-center gap-1 mt-1 justify-center">
             {profile?.displayName || 'Adventurer'}
-            <span className="text-blue-500 text-xs" title="Verified Expert">✔</span>
+            <span className="text-indigo-400 text-xs" title="Verified Scholar">✔</span>
           </h3>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-            Level {gamification?.level || 1} Mage
+          <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">
+            Level {gamification?.level || 1} Scholar
           </p>
           {gamification && gamification.streak > 0 && (
-            <div className="flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-orange-50 dark:bg-orange-900/15 border border-orange-200 dark:border-orange-800/30">
-              <HiFire className="text-orange-500" size={14} />
-              <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400">{gamification.streak} Day Streak</span>
+            <div className="flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/25">
+              <HiFire className="text-orange-500 animate-bounce" size={14} />
+              <span className="text-[10px] font-bold text-orange-400 font-mono tabular-nums">
+                {gamification.streak} Day Streak
+              </span>
             </div>
           )}
           <div className="w-full mt-3 px-1 text-left">
-            <div className="flex justify-between text-[9px] font-bold text-slate-400 mb-1">
+            <div className="flex justify-between text-[10px] font-bold text-[var(--muted-foreground)] mb-1 font-mono tabular-nums">
               <span>XP: {gamification?.xp ? (gamification.xp % 100) : 0}/100</span>
-              <span>Total: {gamification?.xp?.toLocaleString() || 0} XP</span>
+              <span>Total: {gamification?.xp?.toLocaleString() || 0}</span>
             </div>
             {gamification && <XPBar xp={gamification.xp} size="sm" />}
           </div>
-          <p className="text-[9px] text-slate-400 font-semibold mt-2 text-center leading-relaxed">
+          <p className="text-[10px] text-[var(--muted-foreground)] font-medium mt-2.5 text-center leading-relaxed">
             {streakMessage}
           </p>
         </div>
       </div>
     ),
     'stats': (
-      <div className="grid grid-cols-6 gap-1 bg-slate-100/50 dark:bg-[#111328]/30 rounded-2xl p-1.5 border border-slate-200/50 dark:border-[#1e293b] text-left">
-        <div className="flex flex-col items-center p-1.5 rounded-xl bg-white dark:bg-[#111328] border border-slate-100 dark:border-slate-800 shadow-sm" title="Total XP">
-          <span className="text-xs">🏆</span>
-          <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-0.5">
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 bg-slate-900/40 dark:bg-black/30 rounded-2xl p-2 border border-white/5 text-left">
+        <div className="flex flex-col items-center p-2 rounded-xl bg-[var(--card-bg)]/80 border border-[var(--card-border)] shadow-sm" title="Total XP">
+          <span className="text-sm">🏆</span>
+          <span className="text-[11px] font-bold font-mono text-[var(--foreground)] mt-0.5 tabular-nums">
             {gamification ? Math.floor(gamification.xp / 100) : 0}
           </span>
+          <span className="text-[8px] uppercase tracking-wider text-[var(--muted-foreground)]">Rank</span>
         </div>
-        <div className="flex flex-col items-center p-1.5 rounded-xl bg-white dark:bg-[#111328] border border-slate-100 dark:border-slate-800 shadow-sm" title="Active Streak">
-          <span className="text-xs">🔥</span>
-          <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-0.5">
-            {gamification?.streak || 0}
+        <div className="flex flex-col items-center p-2 rounded-xl bg-[var(--card-bg)]/80 border border-[var(--card-border)] shadow-sm" title="Active Streak">
+          <span className="text-sm">🔥</span>
+          <span className="text-[11px] font-bold font-mono text-orange-400 mt-0.5 tabular-nums">
+            {gamification?.streak || 0}d
           </span>
+          <span className="text-[8px] uppercase tracking-wider text-[var(--muted-foreground)]">Streak</span>
         </div>
-        <div className="flex flex-col items-center p-1.5 rounded-xl bg-white dark:bg-[#111328] border border-slate-100 dark:border-slate-800 shadow-sm" title="Coins">
-          <span className="text-xs">🪙</span>
-          <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-0.5">
+        <div className="flex flex-col items-center p-2 rounded-xl bg-[var(--card-bg)]/80 border border-[var(--card-border)] shadow-sm" title="Coins">
+          <span className="text-sm">🪙</span>
+          <span className="text-[11px] font-bold font-mono text-amber-400 mt-0.5 tabular-nums">
             {coins}
           </span>
+          <span className="text-[8px] uppercase tracking-wider text-[var(--muted-foreground)]">Coins</span>
         </div>
-        <div className="flex flex-col items-center p-1.5 rounded-xl bg-white dark:bg-[#111328] border border-slate-100 dark:border-slate-800 shadow-sm" title="Achievements">
-          <span className="text-xs">⭐</span>
-          <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-0.5">
+        <div className="flex flex-col items-center p-2 rounded-xl bg-[var(--card-bg)]/80 border border-[var(--card-border)] shadow-sm" title="Achievements">
+          <span className="text-sm">⭐</span>
+          <span className="text-[11px] font-bold font-mono text-[var(--foreground)] mt-0.5 tabular-nums">
             {gamification?.achievements?.length || 0}
           </span>
+          <span className="text-[8px] uppercase tracking-wider text-[var(--muted-foreground)]">Badges</span>
         </div>
-        <div className="flex flex-col items-center p-1.5 rounded-xl bg-white dark:bg-[#111328] border border-slate-100 dark:border-slate-800 shadow-sm" title="Active Quests">
-          <span className="text-xs">📋</span>
-          <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-0.5">
+        <div className="flex flex-col items-center p-2 rounded-xl bg-[var(--card-bg)]/80 border border-[var(--card-border)] shadow-sm" title="Active Tasks">
+          <span className="text-sm">📋</span>
+          <span className="text-[11px] font-bold font-mono text-[var(--foreground)] mt-0.5 tabular-nums">
             {todayTasks.length}
           </span>
+          <span className="text-[8px] uppercase tracking-wider text-[var(--muted-foreground)]">Tasks</span>
         </div>
-        <div className="flex flex-col items-center p-1.5 rounded-xl bg-white dark:bg-[#111328] border border-slate-100 dark:border-slate-800 shadow-sm" title="Done Today">
-          <span className="text-xs">✅</span>
-          <span className="text-[10px] font-bold text-teal mt-0.5">
+        <div className="flex flex-col items-center p-2 rounded-xl bg-[var(--card-bg)]/80 border border-[var(--card-border)] shadow-sm" title="Done Today">
+          <span className="text-sm">✅</span>
+          <span className="text-[11px] font-bold font-mono text-emerald-400 mt-0.5 tabular-nums">
             {completedToday.length}
           </span>
+          <span className="text-[8px] uppercase tracking-wider text-[var(--muted-foreground)]">Done</span>
         </div>
       </div>
     ),
     'friends': (
-      <div className="modern-card p-4 bg-white dark:bg-[#111328] border border-slate-200 dark:border-[#1e293b] rounded-3xl text-left">
+      <div className="rounded-3xl p-5 bg-[var(--card-bg)]/85 backdrop-blur-xl border border-[var(--card-border)] shadow-lg text-left">
         <div className="flex justify-between items-center mb-3">
-          <span className="text-xs font-bold text-slate-800 dark:text-white">👥 Adventurer Team</span>
-          <Link href="/groups" className="text-[9px] text-blue-600 dark:text-blue-400 font-bold hover:underline">
-            Manage
+          <span className="text-xs font-bold text-[var(--foreground)] flex items-center gap-1.5">
+            <span>👥</span> Adventurer Squad
+          </span>
+          <Link href="/groups" className="text-[10px] text-indigo-400 font-bold hover:underline">
+            Manage →
           </Link>
         </div>
-        <div className="mb-3 p-2 bg-slate-50 dark:bg-slate-800/10 border border-slate-100 dark:border-slate-800 rounded-xl flex items-center justify-between">
+        <div className="mb-3 p-2.5 bg-slate-900/40 dark:bg-black/20 border border-white/5 rounded-2xl flex items-center justify-between">
           <div>
-            <p className="text-[8px] uppercase tracking-wider font-bold text-slate-400">Friend Code</p>
-            <p className="text-xs font-heading font-black tracking-widest text-primary">{profile?.friendCode || '------'}</p>
+            <p className="text-[8px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Friend Code</p>
+            <p className="text-xs font-heading font-black tracking-widest text-indigo-400">{profile?.friendCode || '------'}</p>
           </div>
-          <button onClick={copyFriendCode} className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors" title="Copy code">
-            <HiClipboardCopy size={14} className="text-primary" />
+          <button onClick={copyFriendCode} className="p-1.5 rounded-lg hover:bg-indigo-500/15 text-indigo-400 transition-colors cursor-pointer" title="Copy code">
+            <HiClipboardCopy size={15} />
           </button>
         </div>
         {friends.length === 0 ? (
-          <p className="text-[10px] text-slate-400 text-center py-2">No friends yet. Add some to join quests!</p>
+          <p className="text-[10px] text-[var(--muted-foreground)] text-center py-2">No squad members yet. Share code to team up!</p>
         ) : (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <div className="flex items-center -space-x-2">
               {friends.slice(0, 4).map((f) => (
-                <img key={f.uid} src={getAvatarUrl(f.avatarSeed, f.avatarStyle)} alt={f.displayName} className="w-7 h-7 rounded-full ring-2 ring-white dark:ring-slate-900 bg-surface-200" title={f.displayName} />
+                <img key={f.uid} src={getAvatarUrl(f.avatarSeed, f.avatarStyle)} alt={f.displayName} className="w-8 h-8 rounded-full ring-2 ring-[var(--card-bg)] bg-slate-800" title={f.displayName} />
               ))}
               {friends.length > 4 && (
-                <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-[9px] font-black text-blue-600">
+                <div className="w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-[10px] font-black text-indigo-400">
                   +{friends.length - 4}
                 </div>
               )}
             </div>
-            <span className="text-[9px] font-bold text-slate-400 ml-1">
-              {friends.length} friend{friends.length !== 1 ? 's' : ''}
+            <span className="text-[10px] font-bold text-[var(--muted-foreground)] ml-1">
+              {friends.length} active scholar{friends.length !== 1 ? 's' : ''}
             </span>
           </div>
         )}
       </div>
     ),
     'shortcuts': (
-      <div className="modern-card p-4 bg-white dark:bg-[#111328] border border-slate-200 dark:border-[#1e293b] rounded-3xl text-left">
-        <span className="text-xs font-bold text-slate-800 dark:text-white block mb-3">Quick Shortcuts</span>
+      <div className="rounded-3xl p-5 bg-[var(--card-bg)]/85 backdrop-blur-xl border border-[var(--card-border)] shadow-lg text-left">
+        <span className="text-xs font-bold text-[var(--foreground)] block mb-3">Quick Launch Shortcuts</span>
         <div className="grid grid-cols-2 gap-2">
           <Link href="/tasks" className="w-full">
-            <Button variant="primary" size="sm" icon={<HiPlus />} className="w-full justify-start text-[11px] h-9">
+            <Button variant="primary" size="sm" icon={<HiPlus />} className="w-full justify-start text-[11px] h-10 rounded-xl">
               New Task
             </Button>
           </Link>
           <Link href="/timer" className="w-full">
-            <Button variant="coral" size="sm" icon={<HiPlay />} className="w-full justify-start text-[11px] h-9">
+            <Button variant="coral" size="sm" icon={<HiPlay />} className="w-full justify-start text-[11px] h-10 rounded-xl">
               Start Focus
             </Button>
           </Link>
           <Link href="/notes" className="w-full">
-            <Button variant="teal" size="sm" icon={<HiPlus />} className="w-full justify-start text-[11px] h-9">
+            <Button variant="teal" size="sm" icon={<HiPlus />} className="w-full justify-start text-[11px] h-10 rounded-xl">
               New Note
             </Button>
           </Link>
           <Link href="/habits" className="w-full">
-            <Button variant="amber" size="sm" icon={<HiLightningBolt />} className="w-full justify-start text-[11px] h-9">
+            <Button variant="amber" size="sm" icon={<HiLightningBolt />} className="w-full justify-start text-[11px] h-10 rounded-xl">
               Daily Quests
             </Button>
           </Link>
@@ -1356,176 +1473,274 @@ export default function DashboardContent() {
           </div>
         ) : dashboardMode === 'modern' ? (
           <div className="space-y-4 relative min-h-[85vh] select-none">
-            {/* Top Toolbar: Greeting + Search + Customize Button */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[var(--card-bg)] border border-[var(--card-border)] p-3 sm:p-4 rounded-2xl sm:rounded-3xl shadow-sm">
-              <div>
-                <h1 className="text-base sm:text-xl md:text-2xl font-heading font-black text-slate-800 dark:text-white leading-tight">
-                  Hello, {profile?.displayName?.split(' ')[0] || 'Adventurer'}! 👋
-                </h1>
-                <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
-                  Let's learn something new today!
-                </p>
-              </div>
+            {/* Atmospheric Hero Command Center Header */}
+            <div className="relative overflow-hidden rounded-3xl border border-slate-200/80 dark:border-white/10 bg-gradient-to-br from-white/90 via-slate-50/70 to-indigo-50/30 dark:from-slate-900/90 dark:via-slate-900/60 dark:to-indigo-950/40 p-4 sm:p-5 md:p-6 shadow-xl shadow-slate-200/50 dark:shadow-black/40 backdrop-blur-2xl transition-all">
+              {/* Dynamic Time-of-Day Ambient Glow Orb */}
+              <div className={`absolute -top-24 -left-20 w-80 h-80 rounded-full bg-gradient-to-br ${timeOfDay.gradient} blur-3xl pointer-events-none opacity-75 dark:opacity-35 animate-pulse`} />
+              <div className="absolute -bottom-20 -right-20 w-72 h-72 rounded-full bg-primary/15 dark:bg-primary/10 blur-3xl pointer-events-none" />
 
-              <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-between sm:justify-end">
-                {/* Search Bar */}
-                <div className="relative flex-1 sm:flex-initial" ref={searchRef}>
-                  <HiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-                  <input
-                    type="text"
-                    placeholder="Search anything..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8 pr-7 py-1.5 text-xs rounded-full bg-white dark:bg-[#111328] border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-blue-500 w-full sm:w-[150px] md:w-[170px] shadow-sm transition-colors text-slate-700 dark:text-slate-300 font-medium"
-                  />
-                  {searchQuery && (
-                    <button 
-                      onClick={() => setSearchQuery('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 text-sm font-bold"
-                    >
-                      ×
-                    </button>
-                  )}
-                  <AnimatePresence>
-                    {searchQuery.trim().length > 0 && (
-                      <motion.div 
-                        className="absolute left-0 top-11 w-72 bg-white dark:bg-[#111328] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 overflow-hidden"
-                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+              <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                {/* Left: Pilot Status & Time-of-Day Greeting */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-slate-900/5 dark:bg-white/10 border border-slate-900/10 dark:border-white/15 text-slate-700 dark:text-slate-200 shadow-sm backdrop-blur-md">
+                      <span>{timeOfDay.emoji}</span>
+                      <span>{timeOfDay.greeting}</span>
+                    </span>
+
+                    <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold bg-primary/10 dark:bg-primary/20 border border-primary/25 text-primary-600 dark:text-primary-300 shadow-sm">
+                      <HiSparkles className="text-primary-500 animate-spin-slow" size={12} />
+                      <span>Level {gamification?.level || 1}</span>
+                      <span className="opacity-40">•</span>
+                      <span>{equippedTitleDef ? `${equippedTitleDef.emoji} ${equippedTitleDef.name}` : 'Study Adventurer'}</span>
+                    </span>
+                  </div>
+
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <h1 className="text-xl sm:text-2xl md:text-3xl font-heading font-black text-slate-900 dark:text-white tracking-tight">
+                      Command Deck, <span className="bg-gradient-to-r from-primary-600 via-indigo-600 to-purple-600 dark:from-white dark:via-indigo-200 dark:to-purple-200 bg-clip-text text-transparent">{profile?.displayName?.split(' ')[0] || 'Adventurer'}</span>! 👋
+                    </h1>
+                  </div>
+
+                  {/* HUD Telemetry Strip */}
+                  <div className="flex items-center gap-3 pt-0.5 text-xs text-slate-500 dark:text-slate-400 font-medium flex-wrap">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20 text-amber-700 dark:text-amber-300 font-bold tabular-nums">
+                      <HiFire className="text-amber-500 animate-bounce" size={14} />
+                      <span>{gamification?.streak || 0}d Streak</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-yellow-500/10 dark:bg-yellow-500/15 border border-yellow-500/20 text-yellow-700 dark:text-yellow-300 font-bold tabular-nums">
+                      <span>🪙</span>
+                      <span>{coins || 0} Coins</span>
+                    </div>
+
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border font-bold tabular-nums ${
+                      todayTotal > 0 && todayCompleted >= todayTotal
+                        ? 'bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500/25 text-emerald-700 dark:text-emerald-300'
+                        : 'bg-indigo-500/10 dark:bg-indigo-500/15 border-indigo-500/25 text-indigo-700 dark:text-indigo-300'
+                    }`}>
+                      <HiClipboardCheck size={14} className={todayTotal > 0 && todayCompleted >= todayTotal ? 'text-emerald-500' : 'text-indigo-500'} />
+                      <span>{todayCompleted}/{todayTotal} Quests</span>
+                    </div>
+
+                    <span className="hidden sm:inline-block text-slate-400 dark:text-slate-500 text-[11px]">
+                      {timeOfDay.tip}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Right: Controls, Search, Notifs & Mode Switcher */}
+                <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-between xl:justify-end">
+                  {/* Spotlight Search Bar with Ctrl+K shortcut */}
+                  <div className="relative flex-1 sm:flex-initial" ref={searchRef}>
+                    <HiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      placeholder="Search tasks, notes..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') setSearchQuery('');
+                      }}
+                      className="pl-9 pr-14 py-2 text-xs rounded-2xl bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary w-full sm:w-[190px] md:w-[220px] shadow-sm transition-all text-slate-800 dark:text-slate-200 font-medium placeholder:text-slate-400 backdrop-blur-md"
+                    />
+                    {searchQuery ? (
+                      <button 
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold"
                       >
-                        <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/10">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Search Results</span>
-                          <button onClick={() => setSearchQuery('')} className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold">Clear</button>
-                        </div>
-                        <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/50">
-                          {filteredSearchTasks.length === 0 && filteredSearchNotes.length === 0 ? (
-                            <div className="p-4 text-center">
-                              <p className="text-xs text-slate-400">No matches found for "{searchQuery}"</p>
+                        ×
+                      </button>
+                    ) : (
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono font-bold text-slate-400 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 rounded-md pointer-events-none">
+                        ⌘K
+                      </span>
+                    )}
+                    <AnimatePresence>
+                      {searchQuery.trim().length > 0 && (
+                        <motion.div 
+                          className="absolute left-0 sm:right-0 sm:left-auto top-12 w-80 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl"
+                          initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                        >
+                          <div className="px-4 py-2.5 border-b border-slate-100 dark:border-white/10 flex justify-between items-center bg-slate-50/70 dark:bg-slate-800/40">
+                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Spotlight Search</span>
+                            <button onClick={() => setSearchQuery('')} className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold">Esc</button>
+                          </div>
+                          <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 dark:divide-white/5">
+                            {filteredSearchTasks.length === 0 && filteredSearchNotes.length === 0 ? (
+                              <div className="p-4 text-center">
+                                <p className="text-xs text-slate-400">No matches found for "{searchQuery}"</p>
+                              </div>
+                            ) : (
+                              <>
+                                {filteredSearchTasks.length > 0 && (
+                                  <div className="p-2">
+                                    <div className="px-2 py-1 text-[9px] font-bold text-indigo-500 uppercase tracking-wider">Tasks</div>
+                                    {filteredSearchTasks.slice(0, 4).map((task) => (
+                                      <Link href="/tasks" key={task.id} onClick={() => setSearchQuery('')}>
+                                        <div className="flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-slate-100/80 dark:hover:bg-white/5 cursor-pointer transition-colors">
+                                          <span className="text-xs flex-shrink-0">📋</span>
+                                          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate flex-1">{task.title}</span>
+                                        </div>
+                                      </Link>
+                                    ))}
+                                  </div>
+                                )}
+                                {filteredSearchNotes.length > 0 && (
+                                  <div className="p-2">
+                                    <div className="px-2 py-1 text-[9px] font-bold text-teal-500 uppercase tracking-wider">Notes</div>
+                                    {filteredSearchNotes.slice(0, 4).map((note) => (
+                                      <Link href="/notes" key={note.id} onClick={() => setSearchQuery('')}>
+                                        <div className="flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-slate-100/80 dark:hover:bg-white/5 cursor-pointer transition-colors">
+                                          <span className="text-xs flex-shrink-0">📝</span>
+                                          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate flex-1">{note.title || 'Untitled Scroll'}</span>
+                                        </div>
+                                      </Link>
+                                    ))}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Notification Bell with High-Fidelity Popover */}
+                  <div className="relative flex-shrink-0" ref={modernNotifRef}>
+                    <motion.button 
+                      onClick={() => setShowNotifs(!showNotifs)} 
+                      className={`p-2.5 rounded-2xl border transition-all relative cursor-pointer ${
+                        showNotifs 
+                          ? 'border-primary bg-primary/15 text-primary shadow-sm' 
+                          : 'border-slate-200 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 hover:border-primary/40 text-slate-600 dark:text-slate-300'
+                      }`} 
+                      whileTap={{ scale: 0.9 }}
+                      aria-label="Notifications"
+                    >
+                      <HiBell size={18} />
+                      {incomingRequests.length > 0 && (
+                        <span className="absolute -top-1 -right-1 w-4.5 h-4.5 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center shadow-lg shadow-rose-500/30 animate-pulse">
+                          {incomingRequests.length}
+                        </span>
+                      )}
+                    </motion.button>
+                    <AnimatePresence>
+                      {showNotifs && (
+                        <motion.div 
+                          className="absolute right-0 top-12 w-80 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl" 
+                          initial={{ opacity: 0, y: -10, scale: 0.95 }} 
+                          animate={{ opacity: 1, y: 0, scale: 1 }} 
+                          exit={{ opacity: 0, y: -10, scale: 0.95 }} 
+                        >
+                          <div className="px-4 py-3 border-b border-slate-100 dark:border-white/10 flex items-center justify-between bg-slate-50/70 dark:bg-slate-800/40">
+                            <p className="text-xs font-heading font-black text-slate-800 dark:text-white">Notifications</p>
+                            <span className="text-[10px] font-bold text-slate-400">{incomingRequests.length} pending</span>
+                          </div>
+                          {incomingRequests.length === 0 ? (
+                            <div className="p-5 text-center">
+                              <p className="text-xs text-slate-400">All clear! No new incoming requests 🎉</p>
                             </div>
                           ) : (
-                            <>
-                              {filteredSearchTasks.length > 0 && (
-                                <div className="p-2">
-                                  <div className="px-2 py-1 text-[9px] font-bold text-slate-400 uppercase">Tasks</div>
-                                  {filteredSearchTasks.slice(0, 4).map((task) => (
-                                    <Link href="/tasks" key={task.id} onClick={() => setSearchQuery('')}>
-                                      <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer transition-colors">
-                                        <span className="text-xs flex-shrink-0">📋</span>
-                                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-355 truncate flex-1">{task.title}</span>
-                                      </div>
-                                    </Link>
-                                  ))}
+                            <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 dark:divide-white/5">
+                              {incomingRequests.map((req) => (
+                                <div key={req.id} className="px-4 py-3">
+                                  <div className="flex items-center gap-2.5 mb-2">
+                                    <img src={getAvatarUrl(req.fromAvatar, req.fromAvatarStyle)} alt="" className="w-8 h-8 rounded-full border border-white/10" />
+                                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex-1">
+                                      <span className="font-bold text-primary">{req.fromName}</span> wants to connect!
+                                    </p>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button 
+                                      onClick={() => { acceptRequest(req); toast.success(`You and ${req.fromName} are now friends!`); }} 
+                                      className="flex-1 px-2.5 py-1.5 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold rounded-xl hover:bg-emerald-500/25 transition-colors cursor-pointer"
+                                    >
+                                      Accept
+                                    </button>
+                                    <button 
+                                      onClick={() => { rejectRequest(req.id); toast('Request declined'); }} 
+                                      className="flex-1 px-2.5 py-1.5 bg-rose-500/15 text-rose-600 dark:text-rose-400 text-[10px] font-bold rounded-xl hover:bg-rose-500/25 transition-colors cursor-pointer"
+                                    >
+                                      Decline
+                                    </button>
+                                  </div>
                                 </div>
-                              )}
-                              {filteredSearchNotes.length > 0 && (
-                                <div className="p-2">
-                                  <div className="px-2 py-1 text-[9px] font-bold text-slate-400 uppercase">Notes</div>
-                                  {filteredSearchNotes.slice(0, 4).map((note) => (
-                                    <Link href="/notes" key={note.id} onClick={() => setSearchQuery('')}>
-                                      <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer transition-colors">
-                                        <span className="text-xs flex-shrink-0">📝</span>
-                                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-355 truncate flex-1">{note.title || 'Untitled Scroll'}</span>
-                                      </div>
-                                    </Link>
-                                  ))}
-                                </div>
-                              )}
-                            </>
+                              ))}
+                            </div>
                           )}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                {/* Notification Bell */}
-                <div className="relative flex-shrink-0" ref={modernNotifRef}>
-                  <motion.button onClick={() => setShowNotifs(!showNotifs)} className={`p-2 rounded-xl border transition-colors relative ${showNotifs ? 'border-primary bg-primary/10' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111328] hover:border-primary/30'}`} whileTap={{ scale: 0.9 }}>
-                    <HiBell size={18} className="text-slate-600 dark:text-slate-300" />
-                    {incomingRequests.length > 0 && (<span className="absolute -top-1 -right-1 w-4.5 h-4.5 rounded-full bg-coral text-white text-[8px] font-bold flex items-center justify-center">{incomingRequests.length}</span>)}
-                  </motion.button>
-                  <AnimatePresence>
-                    {showNotifs && (
-                      <motion.div className="absolute left-0 top-11 w-72 bg-white dark:bg-[#111328] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 overflow-hidden" initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }}>
-                        <div className="px-4 py-2.5 border-b border-slate-200 dark:border-slate-800"><p className="text-xs font-heading font-bold text-slate-800 dark:text-white">Notifications</p></div>
-                        {incomingRequests.length === 0 ? (
-                          <div className="p-4 text-center"><p className="text-xs text-slate-400">All clear! No new notifications 🎉</p></div>
-                        ) : (
-                          <div className="max-h-60 overflow-y-auto">
-                            {incomingRequests.map((req) => (
-                              <div key={req.id} className="px-4 py-3 border-b border-slate-200 dark:border-slate-800/50 last:border-0">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <img src={getAvatarUrl(req.fromAvatar, req.fromAvatarStyle)} alt="" className="w-7 h-7 rounded-full" />
-                                  <p className="text-[10px] font-semibold text-slate-700 dark:text-slate-300 flex-1">{req.fromName} wants to be friends!</p>
-                                </div>
-                                <div className="flex gap-1.5">
-                                  <button onClick={() => { acceptRequest(req); toast.success(`You and ${req.fromName} are now friends!`); }} className="flex-1 px-2 py-1 bg-teal/15 text-teal text-[9px] font-bold rounded-lg hover:bg-teal/25 transition-colors">Accept</button>
-                                  <button onClick={() => { rejectRequest(req.id); toast('Request declined'); }} className="flex-1 px-2 py-1 bg-coral/15 text-coral text-[9px] font-bold rounded-lg hover:bg-coral/25 transition-colors">Decline</button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-                
-                {/* Mode Selector Segment */}
-                <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-full p-0.5 border border-slate-200 dark:border-slate-800 text-xs">
-                  <button
-                    onClick={() => changeDashboardMode('classic')}
-                    className={`px-3 py-1 text-[10px] font-bold rounded-full transition-all ${
-                      (dashboardMode as string) === 'classic' ? 'bg-primary text-white shadow-sm' : 'text-slate-500 dark:text-slate-400'
-                    }`}
-                  >
-                    Classic
-                  </button>
-                  <button
-                    onClick={() => changeDashboardMode('modern')}
-                    className={`px-3 py-1 text-[10px] font-bold rounded-full transition-all ${
-                      (dashboardMode as string) === 'modern' ? 'bg-primary text-white shadow-sm' : 'text-slate-500 dark:text-slate-400'
-                    }`}
-                  >
-                    Modern
-                  </button>
-                  <button
-                    onClick={() => changeDashboardMode('lofi')}
-                    className={`px-3 py-1 text-[10px] font-bold rounded-full transition-all ${
-                      (dashboardMode as string) === 'lofi' ? 'bg-primary text-white shadow-sm' : 'text-slate-500 dark:text-slate-400'
-                    }`}
-                  >
-                    Lofi
-                  </button>
-                </div>
-
-                {/* Customize Dashboard layout & Reset */}
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => setIsModernEditMode(!isModernEditMode)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border-2 transition-all cursor-pointer ${
-                      isModernEditMode
-                        ? 'border-primary bg-primary/10 text-primary shadow-sm'
-                        : 'border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-primary/30'
-                    }`}
-                  >
-                    <HiTemplate size={14} />
-                    {isModernEditMode ? 'Done' : 'Customize'}
-                  </button>
-                  {isModernEditMode && (
-                    <motion.button
-                      onClick={resetModernLayout}
-                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border-2 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-coral/40 hover:text-coral hover:bg-coral/5 transition-all cursor-pointer"
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      whileTap={{ scale: 0.95 }}
-                      title="Reset modern layout to default"
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  
+                  {/* High-Tactile Dashboard Mode Selector Segment */}
+                  <div className="flex items-center bg-slate-200/70 dark:bg-black/40 rounded-2xl p-1 border border-slate-300/50 dark:border-white/10 backdrop-blur-md text-xs">
+                    <button
+                      onClick={() => changeDashboardMode('classic')}
+                      className={`px-3 py-1.5 text-[11px] font-bold rounded-xl transition-all cursor-pointer ${
+                        (dashboardMode as string) === 'classic' 
+                          ? 'bg-white dark:bg-indigo-600 text-slate-900 dark:text-white shadow-md shadow-indigo-500/20' 
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
                     >
-                      <HiRefresh size={13} />
-                      Reset
+                      Classic
+                    </button>
+                    <button
+                      onClick={() => changeDashboardMode('modern')}
+                      className={`px-3 py-1.5 text-[11px] font-bold rounded-xl transition-all cursor-pointer ${
+                        (dashboardMode as string) === 'modern' 
+                          ? 'bg-gradient-to-r from-primary-600 to-indigo-600 text-white shadow-md shadow-primary/30' 
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      Modern
+                    </button>
+                    <button
+                      onClick={() => changeDashboardMode('lofi')}
+                      className={`px-3 py-1.5 text-[11px] font-bold rounded-xl transition-all cursor-pointer ${
+                        (dashboardMode as string) === 'lofi' 
+                          ? 'bg-white dark:bg-purple-600 text-slate-900 dark:text-white shadow-md shadow-purple-500/20' 
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      Lofi
+                    </button>
+                  </div>
+
+                  {/* Customize Dashboard Layout & Reset */}
+                  <div className="flex items-center gap-1.5">
+                    <motion.button
+                      onClick={() => setIsModernEditMode(!isModernEditMode)}
+                      className={`flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-[11px] font-bold uppercase tracking-wider border transition-all cursor-pointer ${
+                        isModernEditMode
+                          ? 'border-primary bg-primary/20 text-primary shadow-md shadow-primary/20 ring-2 ring-primary/30'
+                          : 'border-slate-200 dark:border-white/10 bg-white/70 dark:bg-slate-900/70 text-slate-600 dark:text-slate-300 hover:border-primary/40'
+                      }`}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                    >
+                      <HiTemplate size={14} className={isModernEditMode ? 'animate-spin-slow' : ''} />
+                      {isModernEditMode ? 'Save Deck' : 'Customize'}
                     </motion.button>
-                  )}
+                    {isModernEditMode && (
+                      <motion.button
+                        onClick={resetModernLayout}
+                        className="flex items-center gap-1 px-3 py-2 rounded-2xl text-[11px] font-bold uppercase tracking-wider border border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 transition-all cursor-pointer"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        whileTap={{ scale: 0.95 }}
+                        title="Reset modern layout to default"
+                      >
+                        <HiRefresh size={13} />
+                        Reset
+                      </motion.button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
