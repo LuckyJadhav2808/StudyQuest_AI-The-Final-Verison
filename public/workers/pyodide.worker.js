@@ -62,6 +62,9 @@ class _JupyterStream(io.TextIOBase):
         self.stream_name = stream_name
     def write(self, s):
         if s:
+            # Filter out spurious Matplotlib Agg backend warning
+            if 'non-GUI backend' in s or 'currently using agg' in s:
+                return len(s)
             from js import postStreamChunk
             postStreamChunk(self.stream_name, s)
         return len(s)
@@ -73,18 +76,51 @@ _stderr_stream = _JupyterStream('stderr')
 sys.stdout = _stdout_stream
 sys.stderr = _stderr_stream
 
-def _extract_figures():
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, message=".*Matplotlib is currently using agg.*")
+warnings.filterwarnings("ignore", message=".*non-GUI backend.*")
+try:
+    _orig_showwarning = warnings.showwarning
+    def _clean_showwarning(message, category, filename, lineno, file=None, line=None):
+        msg = str(message)
+        if 'non-GUI backend' in msg or 'currently using agg' in msg:
+            return
+        return _orig_showwarning(message, category, filename, lineno, file=file, line=line)
+    warnings.showwarning = _clean_showwarning
+except Exception:
+    pass
+
+_captured_figures = []
+
+def _custom_plt_show(*args, **kwargs):
     try:
         import matplotlib.pyplot as plt
+        global _captured_figures
         figs = [plt.figure(n) for n in plt.get_fignums()]
-        images = []
         for fig in figs:
             buf = io.BytesIO()
             fig.savefig(buf, format='png', bbox_inches='tight', dpi=140)
             buf.seek(0)
-            images.append(base64.b64encode(buf.read()).decode('utf-8'))
+            _captured_figures.append(base64.b64encode(buf.read()).decode('utf-8'))
             plt.close(fig)
-        return images
+    except Exception:
+        pass
+
+def _extract_figures():
+    try:
+        import matplotlib.pyplot as plt
+        global _captured_figures
+        # Capture any remaining open figures not closed by plt.show()
+        figs = [plt.figure(n) for n in plt.get_fignums()]
+        for fig in figs:
+            buf = io.BytesIO()
+            fig.savefig(buf, format='png', bbox_inches='tight', dpi=140)
+            buf.seek(0)
+            _captured_figures.append(base64.b64encode(buf.read()).decode('utf-8'))
+            plt.close(fig)
+        result = list(_captured_figures)
+        _captured_figures = []
+        return result
     except Exception:
         return []
 
@@ -150,10 +186,15 @@ def _get_active_variables(g):
         sendMsg('STATUS', { status: 'loading', message: 'Loading core DS & ML stack (NumPy, Pandas, Scikit-Learn, SciPy, Matplotlib)...' });
         await pyodide.loadPackage(['micropip', 'numpy', 'pandas', 'matplotlib', 'scipy', 'scikit-learn', 'joblib']);
 
-        // Set Agg backend for Matplotlib
+        // Set Agg backend for Matplotlib and attach inline show hook
         await pyodide.runPythonAsync(`
 import matplotlib
 matplotlib.use('Agg')
+try:
+    import matplotlib.pyplot as plt
+    plt.show = _custom_plt_show
+except Exception:
+    pass
 `, { globals: pyGlobals });
 
         // Preload Seaborn from PyPI
@@ -267,6 +308,19 @@ async function runCode(requestId, cellId, code, isRetry = false) {
     } catch (loadErr) {
       // Ignored: If package is not on Pyodide CDN, let Python runtime or micropip report standard import error
     }
+
+    // 2.5 Ensure Matplotlib inline show hook is active for any newly imported modules
+    try {
+      await pyodide.runPythonAsync(`
+try:
+    import sys
+    if 'matplotlib.pyplot' in sys.modules:
+        import matplotlib.pyplot as _plt_hook
+        _plt_hook.show = _custom_plt_show
+except Exception:
+    pass
+`, { globals: pyGlobals });
+    } catch {}
 
     // 3. Execute Python code in persistent globals
     const resultProxy = await pyodide.runPythonAsync(execCode, { globals: pyGlobals });

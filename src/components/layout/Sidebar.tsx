@@ -77,6 +77,7 @@ const NAV_SECTIONS = [
   {
     title: 'Forge',
     items: [
+      { label: 'ML Academy', href: '/ml', icon: 'HiAcademicCap' },
       { label: 'Data Forge (Colab)', href: '/notebook', icon: 'HiTerminal' },
       { label: 'SQL Lab', href: '/sql', icon: 'HiDatabase' },
       { label: 'Code Runner', href: '/code', icon: 'HiCode' },

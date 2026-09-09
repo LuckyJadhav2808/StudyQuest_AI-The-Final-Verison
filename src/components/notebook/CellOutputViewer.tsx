@@ -27,6 +27,14 @@ export default function CellOutputViewer({ outputs, onExplainError, onAutoFixErr
       {outputs.map((out, idx) => {
         if (out.type === 'stream') {
           const isErr = out.name === 'stderr';
+          const text = isErr
+            ? out.text
+                .split('\n')
+                .filter((line) => !line.includes('non-GUI backend') && !line.includes('currently using agg'))
+                .join('\n')
+                .trim()
+            : out.text;
+          if (!text) return null;
           return (
             <div
               key={idx}
@@ -36,7 +44,7 @@ export default function CellOutputViewer({ outputs, onExplainError, onAutoFixErr
                   : 'bg-slate-900/60 dark:bg-black/40 text-slate-200 border border-slate-800/80'
               }`}
             >
-              {out.text}
+              {text}
             </div>
           );
         }

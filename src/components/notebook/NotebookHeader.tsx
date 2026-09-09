@@ -22,6 +22,7 @@ import {
   HiTerminal,
   HiBookOpen,
   HiPrinter,
+  HiSave,
 } from 'react-icons/hi';
 import { KernelStatus } from '@/types/notebook';
 import Button from '@/components/ui/Button';
@@ -31,6 +32,9 @@ interface NotebookHeaderProps {
   onUpdateTitle: (title: string) => void;
   kernelStatus: KernelStatus;
   kernelMessage?: string;
+  isSaving?: boolean;
+  lastSavedAt?: number | null;
+  onSaveNotebook?: () => void;
   onAddCell: (type: 'code' | 'markdown') => void;
   onRunAll: () => void;
   onRestartAndRunAll?: () => void;
@@ -49,6 +53,9 @@ export default function NotebookHeader({
   onUpdateTitle,
   kernelStatus,
   kernelMessage,
+  isSaving = false,
+  lastSavedAt,
+  onSaveNotebook,
   onAddCell,
   onRunAll,
   onRestartAndRunAll,
@@ -154,13 +161,43 @@ export default function NotebookHeader({
             <div className="flex items-center gap-2 text-[11px] text-[var(--muted-foreground)]">
               <span>Data Forge Notebook</span>
               <span>•</span>
-              <span className="text-emerald-500 font-medium">Auto-saved to Cloud</span>
+              {isSaving ? (
+                <span className="flex items-center gap-1.5 text-amber-400 font-semibold animate-pulse">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                  Saving changes...
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-emerald-400 font-semibold">
+                  <HiCheck size={12} className="text-emerald-400" />
+                  {lastSavedAt
+                    ? `Saved ${new Date(lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+                    : 'Auto-saved'}
+                </span>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Runtime Status Pill */}
-        <div className="flex items-center gap-3">
+        {/* Runtime Status Pill & Save Button */}
+        <div className="flex items-center gap-2.5">
+          {onSaveNotebook && (
+            <button
+              onClick={onSaveNotebook}
+              disabled={isSaving}
+              title="Save Notebook to Cloud & Offline Cache (Ctrl+S)"
+              className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm ${
+                isSaving
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 cursor-wait'
+                  : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white'
+              }`}
+            >
+              <HiSave size={14} />
+              <span>{isSaving ? 'Saving...' : 'Save'}</span>
+              <kbd className="hidden sm:inline-block px-1 py-0.5 text-[9px] font-mono rounded bg-slate-900/60 border border-slate-700/60 text-slate-400">
+                Ctrl+S
+              </kbd>
+            </button>
+          )}
           {getStatusBadge()}
         </div>
       </div>
@@ -185,6 +222,23 @@ export default function NotebookHeader({
                 className="absolute top-full left-0 mt-1 w-52 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)] shadow-xl p-1 z-40 space-y-1"
                 onClick={() => setActiveDropdown(null)}
               >
+                {onSaveNotebook && (
+                  <>
+                    <button
+                      onClick={onSaveNotebook}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-primary/10 hover:text-primary flex items-center justify-between font-bold text-emerald-400"
+                    >
+                      <div className="flex items-center gap-2">
+                        <HiSave size={14} />
+                        <span>Save Notebook</span>
+                      </div>
+                      <kbd className="text-[10px] font-mono text-[var(--muted-foreground)] bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                        Ctrl+S
+                      </kbd>
+                    </button>
+                    <div className="h-[1px] bg-[var(--card-border)] my-1" />
+                  </>
+                )}
                 <button
                   onClick={onImportIpynb}
                   className="w-full text-left px-3 py-2 rounded-lg hover:bg-primary/10 hover:text-primary flex items-center gap-2"

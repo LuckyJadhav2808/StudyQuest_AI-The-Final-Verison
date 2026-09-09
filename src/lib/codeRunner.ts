@@ -161,7 +161,9 @@ async function tryPyodide(code: string, stdin: string): Promise<ExecutionResult 
     // Redirect stdout/stderr AND mock input() with stdin data
     const escapedStdin = stdin.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
     py.runPython(`
-import sys, io
+import sys, io, warnings
+warnings.filterwarnings("ignore", category=UserWarning, message=".*Matplotlib is currently using agg.*")
+warnings.filterwarnings("ignore", message=".*non-GUI backend.*")
 _so, _se = io.StringIO(), io.StringIO()
 sys.stdout, sys.stderr = _so, _se
 _stdin_lines = '${escapedStdin}'.split('\\n')
@@ -189,7 +191,12 @@ __builtins__.input = _mock_input
       }
 
       const stdout: string = py.runPython('_so.getvalue()') || '';
-      const stderr: string = py.runPython('_se.getvalue()') || '';
+      const rawStderr: string = py.runPython('_se.getvalue()') || '';
+      const stderr = rawStderr
+        .split('\n')
+        .filter((line) => !line.includes('non-GUI backend') && !line.includes('currently using agg'))
+        .join('\n')
+        .trim();
       py.runPython('sys.stdout, sys.stderr = sys.__stdout__, sys.__stderr__; __builtins__.input = _orig_input');
 
       resolve({ stdout, stderr: stderr || pyErr });

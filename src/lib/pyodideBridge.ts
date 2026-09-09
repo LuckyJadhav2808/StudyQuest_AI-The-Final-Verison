@@ -123,7 +123,17 @@ class PyodideBridgeManager {
         break;
 
       case 'STREAM':
-        this.streamListeners.forEach((fn) => fn(data.name, data.text));
+        if (data.name === 'stderr') {
+          const filtered = (data.text || '')
+            .split('\n')
+            .filter((line: string) => !line.includes('non-GUI backend') && !line.includes('currently using agg'))
+            .join('\n');
+          if (filtered.trim().length > 0) {
+            this.streamListeners.forEach((fn) => fn(data.name, filtered));
+          }
+        } else {
+          this.streamListeners.forEach((fn) => fn(data.name, data.text));
+        }
         break;
 
       case 'RUN_SUCCESS':

@@ -32,6 +32,9 @@ export default function NotebookContainer() {
     activeNotebook,
     activeNotebookId,
     setActiveNotebookId,
+    isSaving,
+    lastSavedAt,
+    saveActiveNotebookNow,
     createNotebook,
     updateNotebook,
     deleteNotebook,
@@ -97,9 +100,23 @@ export default function NotebookContainer() {
     };
   }, []);
 
-  // Global keyboard shortcuts (Ctrl+Z / Cmd+Z to restore deleted cells)
+  // Global keyboard shortcuts (Ctrl+S / Cmd+S to save, Ctrl+Z / Cmd+Z to restore deleted cells)
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // 1. Ctrl+S or Cmd+S to explicitly save notebook
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        saveActiveNotebookNow().then((ok) => {
+          if (ok) {
+            toast.success('Notebook saved! 💾', { id: 'manual-save-toast' });
+          } else {
+            toast.error('Failed to save notebook to cloud');
+          }
+        });
+        return;
+      }
+
+      // 2. Ctrl+Z to restore deleted cells
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
         const target = e.target as HTMLElement;
         const isInput =
@@ -114,16 +131,24 @@ export default function NotebookContainer() {
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [activeNotebook.id, restoreLastDeletedCell]);
+  }, [activeNotebook.id, restoreLastDeletedCell, saveActiveNotebookNow]);
 
   // Helper to append stdout/stderr stream chunks
   const appendStreamChunk = (outputs: any[], name: 'stdout' | 'stderr', text: string) => {
+    let cleanedText = text;
+    if (name === 'stderr') {
+      cleanedText = cleanedText
+        .split('\n')
+        .filter((line) => !line.includes('non-GUI backend') && !line.includes('currently using agg'))
+        .join('\n');
+      if (!cleanedText.trim()) return outputs;
+    }
     const next = [...outputs];
     const last = next[next.length - 1];
     if (last && last.type === 'stream' && last.name === name) {
-      next[next.length - 1] = { ...last, text: last.text + text };
+      next[next.length - 1] = { ...last, text: last.text + cleanedText };
     } else {
-      next.push({ type: 'stream', name, text } as StreamOutput);
+      next.push({ type: 'stream', name, text: cleanedText } as StreamOutput);
     }
     return next;
   };
@@ -490,6 +515,16 @@ export default function NotebookContainer() {
         onUpdateTitle={(title) => updateNotebook(activeNotebook.id, { title })}
         kernelStatus={kernelStatus}
         kernelMessage={kernelMessage}
+        isSaving={isSaving}
+        lastSavedAt={lastSavedAt}
+        onSaveNotebook={async () => {
+          const ok = await saveActiveNotebookNow();
+          if (ok) {
+            toast.success('Notebook saved! 💾', { id: 'manual-save-toast' });
+          } else {
+            toast.error('Failed to save notebook');
+          }
+        }}
         onAddCell={(type) => addCell(activeNotebook.id, type, selectedCellId)}
         onRunAll={handleRunAll}
         onRestartAndRunAll={handleRestartAndRunAll}
