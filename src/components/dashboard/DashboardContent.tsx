@@ -38,6 +38,7 @@ import { useNotes } from '@/hooks/useNotes';
 import { useExams } from '@/hooks/useExams';
 import { useShop } from '@/hooks/useShop';
 import { playClick, playSuccess, playXP } from '@/lib/sounds';
+import ExpressiveTreasureVault from '@/components/dashboard/ExpressiveTreasureVault';
 
 // Time-of-day greeting system
 function getTimeOfDay() {
@@ -807,14 +808,15 @@ export default function DashboardContent() {
           </div>
         </div>
 
-        {/* Large Prominent Floating Owl Mascot with Radial Aura */}
-        <div className="absolute right-3 sm:right-8 top-1/2 -translate-y-1/2 animate-float w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 flex items-center justify-center pointer-events-none">
-          <div className="absolute inset-0 bg-white/15 rounded-full blur-2xl scale-90" />
-          <img
-            src="/pixel_study_owl.png"
-            alt="Wise Study Mascot"
-            className="w-full h-full object-contain relative z-10 filter drop-shadow-[0_12px_24px_rgba(0,0,0,0.5)]"
-            style={{ imageRendering: 'pixelated' }}
+        {/* Expressive Living Treasure Vault Companion */}
+        <div className="absolute right-2 sm:right-6 md:right-10 top-1/2 -translate-y-1/2 flex items-center justify-center z-20">
+          <ExpressiveTreasureVault
+            chestAvailable={chestAvailable}
+            onOpenChest={() => {
+              playClick();
+              setShowTreasureChest(true);
+            }}
+            size={160}
           />
         </div>
       </div>

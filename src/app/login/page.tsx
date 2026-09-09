@@ -24,6 +24,8 @@ import { FcGoogle } from 'react-icons/fc';
 import { useAuthContext } from '@/context/AuthContext';
 import toast from 'react-hot-toast';
 import { playClick, playSuccess, playError } from '@/lib/sounds';
+import ExpressiveOwlMascot from '@/components/gamification/ExpressiveOwlMascot';
+import { MascotMood } from '@/components/gamification/QuestieMascot';
 
 type AuthMode = 'login' | 'register';
 
@@ -91,6 +93,15 @@ export default function LoginPage() {
     if (mode === 'register') return 'Welcome, new recruit! Ready to embark on your quest? 🌟';
     return MASCOT_QUOTES[customQuoteIdx % MASCOT_QUOTES.length];
   }, [focusedField, loading, error, mode, customQuoteIdx]);
+
+  // Dynamic mascot mood tied to user interaction & time
+  const mascotMood = useMemo<MascotMood>(() => {
+    if (loading) return 'celebration';
+    if (focusedField === 'password' || focusedField === 'email' || focusedField === 'name') return 'focus';
+    const hour = new Date().getHours();
+    if (hour >= 21 || hour < 5) return 'night-owl';
+    return 'active';
+  }, [loading, focusedField]);
 
   const handleMascotClick = () => {
     playClick();
@@ -220,8 +231,8 @@ export default function LoginPage() {
         {/* Top Branding Pill */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.5)] border border-white/20">
-              <span className="text-xl">🦉</span>
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.5)] border border-white/20 overflow-hidden p-0.5">
+              <ExpressiveOwlMascot mood={mascotMood} size={32} />
             </div>
             <div>
               <span className="font-heading font-black text-xl tracking-tight text-white flex items-center gap-1.5">
@@ -262,26 +273,26 @@ export default function LoginPage() {
               </motion.div>
             </AnimatePresence>
 
-            {/* Clickable Floating Questie Mascot */}
+            {/* Clickable Floating Expressive Questie Mascot */}
             <motion.div
               onClick={handleMascotClick}
-              whileHover={{ scale: 1.05 }}
-              animate={mascotSquish ? { scale: [1, 0.88, 1.12, 1] } : { y: [0, -10, 0] }}
+              whileHover={{ scale: 1.06, y: -4 }}
+              whileTap={{ scale: 0.94 }}
+              animate={mascotSquish ? { scale: [1, 0.86, 1.15, 1] } : { y: [0, -8, 0] }}
               transition={
                 mascotSquish
                   ? { duration: 0.3 }
-                  : { duration: 3.5, repeat: Infinity, ease: 'easeInOut' }
+                  : { duration: 3.2, repeat: Infinity, ease: 'easeInOut' }
               }
               className="relative cursor-pointer group flex items-center justify-center"
-              title="Click Questie for wisdom!"
+              title="Click Questie for study wisdom!"
             >
-              {/* Radial Aura Disk */}
-              <div className="absolute inset-0 bg-indigo-500/20 rounded-full blur-3xl scale-125 group-hover:bg-purple-500/30 transition-colors" />
-              <img
-                src="/pixel_study_owl.png"
-                alt="Questie the Scholar Owl"
-                className="w-36 h-36 object-contain relative z-10 filter drop-shadow-[0_16px_28px_rgba(0,0,0,0.6)]"
-                style={{ imageRendering: 'pixelated' }}
+              {/* Soft Ambient Luminescence Halo */}
+              <div className="absolute inset-0 bg-indigo-500/25 rounded-full blur-3xl scale-125 group-hover:bg-purple-500/35 transition-colors" />
+              <ExpressiveOwlMascot
+                mood={mascotMood}
+                isSquishing={mascotSquish}
+                size={148}
               />
             </motion.div>
             <p className="text-[10px] text-slate-400 font-mono mt-2 tracking-wide uppercase">
@@ -365,9 +376,10 @@ export default function LoginPage() {
             <div className="flex items-center gap-2.5">
               <div
                 onClick={handleMascotClick}
-                className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 flex items-center justify-center text-xl shadow-lg border border-white/20 active:scale-95 transition-transform cursor-pointer"
+                className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 flex items-center justify-center shadow-lg border border-white/20 active:scale-95 transition-transform cursor-pointer overflow-hidden p-0.5"
+                title="Questie Companion"
               >
-                🦉
+                <ExpressiveOwlMascot mood={mascotMood} isSquishing={mascotSquish} size={36} />
               </div>
               <div>
                 <h1 className="text-lg font-heading font-black tracking-tight text-white flex items-center gap-1">
