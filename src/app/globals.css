@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ============================================================
    StudyQuest AI — Design System (Tailwind v4 @theme)
    "Tactile / High-Contrast" — Candy-colored, gamified, dopamine-driven
@@ -39,12 +41,12 @@
   --color-lime: #B5E48C;
   --color-lime-dark: #95C96E;
 
-  /* ---- Surfaces (Light Mode — Warm off-white from Stitch) ---- */
-  --color-surface-50: #FEF7FF;
-  --color-surface-100: #F9F1FF;
-  --color-surface-200: #F3EBFA;
-  --color-surface-300: #EDE5F4;
-  --color-surface-400: #E8DFEE;
+  /* ---- Surfaces (Light Mode — Chromatic Velvet Pearl & Lilac) ---- */
+  --color-surface-50: #FFFFFF;
+  --color-surface-100: #F7F5FC;
+  --color-surface-200: #F0EDF8;
+  --color-surface-300: #E4DFEE;
+  --color-surface-400: #D5CEE3;
 
   /* ---- Surfaces (Dark Mode) ---- */
   --color-surface-900: #0B0D17;
@@ -84,15 +86,15 @@
    ============================================================ */
 
 :root {
-  --background: #F8F6FC;
-  --foreground: #1A1721;
+  --background: #F0EDF8;
+  --foreground: #181524;
   --card-bg: #ffffff;
-  --card-border: rgba(124, 58, 237, 0.08);
-  --muted: #EDE9F4;
-  --muted-foreground: #5C556A;
-  --outline: #948AAB;
-  --shadow-card: 0 10px 30px -10px rgba(124, 58, 237, 0.05), 0 1px 3px rgba(124, 58, 237, 0.02);
-  --shadow-card-hover: 0 20px 40px -15px rgba(124, 58, 237, 0.12), 0 1px 3px rgba(124, 58, 237, 0.04);
+  --card-border: rgba(124, 58, 237, 0.11);
+  --muted: #E6E1F0;
+  --muted-foreground: #5C5570;
+  --outline: #897C9F;
+  --shadow-card: 0 1px 3px rgba(24, 21, 36, 0.04), 0 8px 24px -4px rgba(124, 58, 237, 0.08);
+  --shadow-card-hover: 0 4px 12px rgba(24, 21, 36, 0.06), 0 16px 36px -6px rgba(124, 58, 237, 0.14);
 }
 
 .dark {
@@ -201,13 +203,49 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
   overflow-x: hidden;
+  position: relative;
 }
 
-:root:not(.dark):not(.ocean):not(.cyberpunk) body {
-  background-image: radial-gradient(at 0% 0%, rgba(124, 58, 237, 0.03) 0px, transparent 50%),
-                    radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.03) 0px, transparent 50%);
+/* Hardware-Accelerated Ambient Light Mesh via Composited Pseudo-Element (Zero CPU Repaints) */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(at 0% 0%, rgba(124, 58, 237, 0.09) 0px, transparent 55%),
+    radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.07) 0px, transparent 50%),
+    radial-gradient(at 50% 40%, rgba(99, 102, 241, 0.05) 0px, transparent 60%),
+    radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(245, 158, 11, 0.05) 0px, transparent 50%);
+  opacity: 1;
+  transition: opacity 0.25s ease;
+  will-change: opacity;
+}
+
+.dark body::before,
+.ocean body::before,
+.cyberpunk body::before,
+.forest body::before {
+  opacity: 0;
+}
+
+/* Native View Transitions — 60-120fps hardware-composited theme crossfade */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.2s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Fallback: Instant tear-free class swap without competing CSS transitions */
+.disable-theme-transitions,
+.disable-theme-transitions *,
+.disable-theme-transitions *::before,
+.disable-theme-transitions *::after {
+  transition: none !important;
 }
 
 /* Typography — Lexend ExtraBold headlines per Stitch spec */
@@ -227,9 +265,15 @@ h4 { font-size: 1.125rem; }
 .card-glass {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.9), var(--shadow-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.dark .card-glass {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06), 0 4px 20px -2px rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 
 /* Universal Top-Edge Inset Light Sheen across Modals, Dialogs, and Popovers */
@@ -1780,34 +1824,34 @@ li .studyquest-math-embed {
    Modern Dashboard Redesign Styles (Reference Image Spec)
    ============================================================ */
 .modern-dashboard-bg {
-  background-color: #F8FAFC;
+  background-color: transparent;
   min-height: 100vh;
-  color: #1E293B;
+  color: var(--foreground);
   transition: background-color 0.3s ease;
 }
 
 .dark .modern-dashboard-bg {
-  background-color: #0B0D17;
+  background-color: transparent;
   color: #F1F5F9;
 }
 
 .modern-card {
   background: #FFFFFF;
-  border: 1px solid #E2E8F0;
+  border: 1px solid rgba(124, 58, 237, 0.1);
   border-radius: 24px;
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 2px 4px rgba(24, 21, 36, 0.03), 0 10px 28px -4px rgba(124, 58, 237, 0.08);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .dark .modern-card {
   background: #111328;
-  border-color: #1F2937;
+  border-color: rgba(255, 255, 255, 0.08);
   box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.2);
 }
 
 .modern-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 4px 10px rgba(24, 21, 36, 0.05), 0 16px 36px -6px rgba(124, 58, 237, 0.14);
 }
 
 .dark .modern-card:hover {

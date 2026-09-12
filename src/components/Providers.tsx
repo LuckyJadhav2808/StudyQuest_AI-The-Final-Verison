@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Toaster, ToastBar, useToasterStore, toast } from 'react-hot-toast';
 import { MotionConfig } from 'framer-motion';
 import { AuthProvider, useAuthContext } from '@/context/AuthContext';
-import { ThemeProvider, useTheme } from '@/context/ThemeContext';
+import { ThemeProvider, useMotion } from '@/context/ThemeContext';
 import { SidebarProvider, useSidebar } from '@/context/SidebarContext';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
@@ -36,7 +36,7 @@ import OnboardingTour from '@/components/ui/OnboardingTour';
  * Animated SVG background grid — creates a subtle, immersive "command center" aesthetic.
  * Very faint lines that slowly shift, giving the app depth.
  */
-function AnimatedGrid() {
+const AnimatedGrid = React.memo(function AnimatedGrid() {
   return (
     <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
       <svg
@@ -64,11 +64,11 @@ function AnimatedGrid() {
       />
     </div>
   );
-}
+});
 
 function MainContent({ children }: { children: React.ReactNode }) {
   const { collapsed, focusMode } = useSidebar();
-  const { reduceMotion } = useTheme();
+  const { reduceMotion } = useMotion();
   const pathname = usePathname();
   const [isMobile, setIsMobile] = React.useState(false);
 
@@ -108,7 +108,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLoginPage = pathname === '/login';
   const { focusMode } = useSidebar();
-  const { reduceMotion } = useTheme();
+  const { reduceMotion } = useMotion();
   const { coins, addCoins } = useShop();
 
   // Start broadcasting online presence (heartbeat)

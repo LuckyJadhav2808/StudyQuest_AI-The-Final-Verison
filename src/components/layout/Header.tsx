@@ -23,7 +23,7 @@ export default function Header() {
   };
 
   return (
-    <header className="h-14 sm:h-16 pt-[env(safe-area-inset-top,0px)] bg-[var(--card-bg)]/85 backdrop-blur-lg border-b border-[var(--card-border)] flex items-center justify-between px-3.5 sm:px-6 sticky top-0 z-30">
+    <header className="h-14 sm:h-16 pt-[env(safe-area-inset-top,0px)] bg-white/90 dark:bg-[var(--card-bg)]/85 backdrop-blur-xl border-b border-indigo-100/80 dark:border-[var(--card-border)] shadow-[0_2px_12px_-2px_rgba(124,58,237,0.04)] dark:shadow-none flex items-center justify-between px-3.5 sm:px-6 sticky top-0 z-30">
       {/* Left — Brand Logo (Guaranteed Full Width, Zero Truncation) */}
       <div className="flex items-center gap-2.5 sm:gap-3 flex-shrink-0">
         <motion.h1
@@ -38,7 +38,7 @@ export default function Header() {
         {/* Ctrl+K Search Hint (Desktop only) */}
         <button
           onClick={openCommandPalette}
-          className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[var(--card-border)] hover:border-primary/40 hover:bg-primary/5 transition-all group cursor-pointer"
+          className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-indigo-100/80 dark:border-[var(--card-border)] bg-indigo-50/40 dark:bg-transparent hover:border-primary/40 hover:bg-primary/5 transition-all group cursor-pointer"
         >
           <HiSearch size={13} className="text-[var(--muted-foreground)] group-hover:text-primary transition-colors" />
           <span className="text-[11px] text-[var(--muted-foreground)] group-hover:text-[var(--foreground)] transition-colors">
@@ -60,11 +60,11 @@ export default function Header() {
         {/* Quest Coins */}
         <motion.button
           onClick={() => router.push('/shop')}
-          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-400/10 border border-amber-400/20 hover:border-amber-400/40 transition-all"
+          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 dark:bg-amber-400/10 border border-amber-500/25 dark:border-amber-400/20 hover:border-amber-500/40 transition-all"
           whileHover={{ scale: 1.05 }}
         >
           <span className="text-xs">🪙</span>
-          <span className="text-[11px] font-bold text-amber-400">
+          <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 font-mono tabular-nums">
             {typeof coins === 'number' ? coins : typeof coins === 'object' && coins && 'bc' in (coins as any) ? Number((coins as any).bc) || 0 : 0}
           </span>
         </motion.button>
@@ -72,10 +72,10 @@ export default function Header() {
         {/* XP Badge */}
         {gamification && (
           <motion.div
-            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20"
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/25"
             whileHover={{ scale: 1.05 }}
           >
-            <span className="text-[11px] font-bold text-primary-light">
+            <span className="text-[11px] font-bold text-primary-700 dark:text-primary-light font-mono tabular-nums">
               {typeof gamification.xp === 'number' ? gamification.xp.toLocaleString() : '0'} XP
             </span>
           </motion.div>
@@ -85,9 +85,9 @@ export default function Header() {
         {/* Theme Toggle (Desktop / Tablet) */}
         <motion.button
           onClick={toggleTheme}
-          className="hidden sm:flex p-2 rounded-xl hover:bg-[var(--muted)]/30 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9, rotate: 180 }}
+          className="hidden sm:flex p-2 rounded-xl hover:bg-[var(--muted)]/30 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors cursor-pointer"
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.92 }}
           aria-label="Toggle theme"
         >
           {theme === 'dark' ? <HiSun size={20} /> : <HiMoon size={20} />}

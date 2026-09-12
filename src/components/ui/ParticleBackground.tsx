@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { usePathname } from 'next/navigation';
-import { useTheme } from '@/context/ThemeContext';
+import { useMotion } from '@/context/ThemeContext';
 import { useSidebar } from '@/context/SidebarContext';
 
 /**
@@ -59,7 +59,7 @@ function generateParticles(): Particle[] {
 }
 
 export default React.memo(function ParticleBackground() {
-  const { reduceMotion } = useTheme();
+  const { reduceMotion } = useMotion();
   const { focusMode } = useSidebar();
   const pathname = usePathname();
   const isNotes = pathname === '/notes';

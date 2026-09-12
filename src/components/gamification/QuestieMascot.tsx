@@ -7,7 +7,7 @@ import { useAuthContext } from '@/context/AuthContext';
 import { useGamification } from '@/hooks/useGamification';
 import { useTasks } from '@/hooks/useTasks';
 import { getLevelProgress } from '@/lib/constants';
-import { useTheme } from '@/context/ThemeContext';
+import { useMotion } from '@/context/ThemeContext';
 import { playClick } from '@/lib/sounds';
 import { HiSparkles } from 'react-icons/hi2';
 import { HiChevronDown, HiChevronUp } from 'react-icons/hi';
@@ -129,7 +129,7 @@ interface QuestieMascotProps {
 
 export default function QuestieMascot({ collapsed = false }: QuestieMascotProps) {
   const pathname = usePathname();
-  const { reduceMotion } = useTheme();
+  const { reduceMotion } = useMotion();
   const [dialogue, setDialogue] = useState('Ready for a quest? 🦉');
   const [mood, setMood] = useState<MascotMood>('active');
   const [showDialogue, setShowDialogue] = useState(true);
@@ -402,7 +402,7 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="relative overflow-hidden rounded-xl p-2 px-2.5 bg-gradient-to-r from-indigo-950/40 via-slate-900/60 to-purple-950/40 border border-white/10 hover:border-indigo-500/40 transition-all flex items-center justify-between gap-2 shadow-sm group"
+          className="relative overflow-hidden rounded-xl p-2 px-2.5 bg-gradient-to-r from-indigo-50/90 via-white to-purple-50/80 dark:from-indigo-950/40 dark:via-slate-900/60 dark:to-purple-950/40 border border-indigo-200/70 dark:border-white/10 hover:border-indigo-400/60 transition-all flex items-center justify-between gap-2 shadow-sm group"
         >
           <div
             onClick={handleMascotClick}
@@ -418,7 +418,7 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
               <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400 ring-1 ring-slate-900" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-medium text-slate-200 truncate group-hover:text-white transition-colors">
+              <p className="text-[11px] font-medium text-slate-800 dark:text-slate-200 truncate group-hover:text-primary transition-colors">
                 {dialogue}
               </p>
             </div>
@@ -445,7 +445,7 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
   return (
     <div className="relative py-1 select-none">
       {/* Container Card */}
-      <div className="relative overflow-hidden rounded-2xl p-3 bg-gradient-to-br from-indigo-950/30 via-slate-900/60 to-purple-950/30 dark:from-indigo-950/40 dark:via-slate-950/70 dark:to-purple-950/40 border border-white/10 hover:border-indigo-500/30 transition-all shadow-md group">
+      <div className="relative overflow-hidden rounded-2xl p-3 bg-gradient-to-br from-indigo-50/95 via-purple-50/90 to-pink-50/70 dark:from-indigo-950/40 dark:via-slate-950/70 dark:to-purple-950/40 border border-indigo-200/70 dark:border-white/10 hover:border-indigo-400/60 transition-all shadow-sm group">
         {/* Ambient Mood Glow */}
         <div className={`absolute -top-6 -right-6 w-24 h-24 rounded-full ${auraGlow} pointer-events-none opacity-60`} />
 
@@ -509,10 +509,10 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
           {/* Speech Text & Interactive Tip */}
           <div className="flex-1 min-w-0" onClick={handleMascotClick}>
             <div className="flex items-center justify-between gap-1 mb-1">
-              <span className="text-[10px] font-heading font-black uppercase tracking-wider text-indigo-400 dark:text-indigo-300 flex items-center gap-1">
+              <span className="text-[10px] font-heading font-black uppercase tracking-wider text-primary-700 dark:text-indigo-300 flex items-center gap-1">
                 <HiSparkles size={11} /> Questie
               </span>
-              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-indigo-500/20 text-indigo-300 font-mono border border-indigo-500/25">
+              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-primary/10 text-primary-700 dark:bg-indigo-500/20 dark:text-indigo-300 font-mono border border-primary/20 dark:border-indigo-500/25">
                 {currentMood === 'focus'
                   ? 'Focus'
                   : currentMood === 'night-owl'
@@ -530,7 +530,7 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -3 }}
                 transition={{ duration: 0.2 }}
-                className="text-xs font-medium text-slate-200 dark:text-slate-300 leading-snug line-clamp-2 cursor-pointer hover:text-white transition-colors"
+                className="text-xs font-medium text-slate-800 dark:text-slate-300 leading-snug line-clamp-2 cursor-pointer hover:text-primary dark:hover:text-white transition-colors"
                 title="Click for next wisdom quote"
               >
                 {dialogue}
@@ -540,7 +540,7 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
         </div>
 
         {/* Tactile hint and style switcher in footer */}
-        <div className="mt-2 pt-1.5 border-t border-white/5 flex items-center justify-between text-[9px] text-slate-400 font-mono">
+        <div className="mt-2 pt-1.5 border-t border-indigo-100/80 dark:border-white/5 flex items-center justify-between text-[9px] text-slate-500 dark:text-slate-400 font-mono">
           <span className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
             <span>💡</span> Tap for tip
           </span>
@@ -548,7 +548,7 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
             <button
               type="button"
               onClick={toggleMascotStyle}
-              className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-indigo-300 hover:text-indigo-200 border border-white/10 transition-colors flex items-center gap-1 cursor-pointer"
+              className="px-1.5 py-0.5 rounded bg-white/80 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 text-indigo-700 dark:text-indigo-300 hover:text-indigo-900 dark:hover:text-indigo-200 border border-indigo-200/60 dark:border-white/10 transition-colors flex items-center gap-1 cursor-pointer"
               title="Toggle between Expressive (._.) and Pixel Art"
             >
               <span>{mascotStyle === 'expressive' ? '🦉 (._.)' : '🎨 Pixel'}</span>
@@ -559,7 +559,7 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
                 setIsCompact(true);
                 try { localStorage.setItem('sq_questie_compact', 'true'); } catch {}
               }}
-              className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-400 hover:text-indigo-200 border border-white/10 transition-colors flex items-center gap-1 cursor-pointer"
+              className="px-1.5 py-0.5 rounded bg-white/80 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 text-slate-600 dark:text-slate-400 hover:text-indigo-700 dark:hover:text-indigo-200 border border-indigo-200/60 dark:border-white/10 transition-colors flex items-center gap-1 cursor-pointer"
               title="Compact Mode (saves space for more sections below)"
             >
               <span>Compact ▴</span>

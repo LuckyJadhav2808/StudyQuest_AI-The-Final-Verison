@@ -115,7 +115,7 @@ export default function MobileNav() {
             />
             {/* Menu panel */}
             <motion.div
-              className="absolute bottom-0 left-0 right-0 bg-[var(--card-bg)] rounded-t-3xl border-t-2 border-[var(--card-border)] max-h-[82vh] overflow-y-auto"
+              className="absolute bottom-0 left-0 right-0 bg-white dark:bg-[var(--card-bg)] rounded-t-3xl border-t-2 border-indigo-100/80 dark:border-[var(--card-border)] max-h-[82vh] overflow-y-auto shadow-2xl"
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
@@ -123,18 +123,18 @@ export default function MobileNav() {
             >
               {/* Handle bar */}
               <div className="flex justify-center pt-3 pb-1">
-                <div className="w-12 h-1 rounded-full bg-[var(--muted)]/50" />
+                <div className="w-12 h-1 rounded-full bg-indigo-200 dark:bg-[var(--muted)]/50" />
               </div>
 
               {/* Header */}
-              <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--card-border)] sticky top-0 bg-[var(--card-bg)]/95 backdrop-blur-sm z-10">
+              <div className="flex items-center justify-between px-5 py-3 border-b border-indigo-100/80 dark:border-[var(--card-border)] sticky top-0 bg-white/95 dark:bg-[var(--card-bg)]/95 backdrop-blur-sm z-10">
                 <div>
-                  <h3 className="font-heading font-bold text-base">StudyQuest Hubs</h3>
-                  <p className="text-[10px] text-[var(--muted-foreground)]">All tools & academies</p>
+                  <h3 className="font-heading font-bold text-base text-slate-900 dark:text-white">StudyQuest Hubs</h3>
+                  <p className="text-[10px] text-indigo-700 dark:text-[var(--muted-foreground)]">All tools & academies</p>
                 </div>
                 <button
                   onClick={() => setMenuOpen(false)}
-                  className="p-2 rounded-xl hover:bg-[var(--muted)]/20 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                  className="p-2 rounded-xl hover:bg-indigo-50 dark:hover:bg-[var(--muted)]/20 text-slate-500 hover:text-slate-900 dark:text-[var(--muted-foreground)] dark:hover:text-[var(--foreground)] transition-colors cursor-pointer"
                 >
                   <HiX size={20} />
                 </button>
@@ -159,17 +159,17 @@ export default function MobileNav() {
                             onClick={() => setMenuOpen(false)}
                             className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-2xl text-center transition-all ${
                               isActive
-                                ? 'bg-gradient-to-br from-primary to-secondary text-white shadow-lg'
-                                : 'bg-[var(--card-border)]/20 hover:bg-[var(--card-border)]/50 border border-[var(--card-border)]/40'
+                                ? 'bg-gradient-to-br from-primary to-secondary text-white shadow-lg shadow-primary/20'
+                                : 'bg-indigo-50/70 hover:bg-indigo-100/80 dark:bg-[var(--card-border)]/20 dark:hover:bg-[var(--card-border)]/50 border border-indigo-100 dark:border-[var(--card-border)]/40'
                             }`}
                           >
                             <Icon
                               size={20}
-                              className={isActive ? 'text-white' : 'text-primary-light'}
+                              className={isActive ? 'text-white' : 'text-primary dark:text-primary-light'}
                             />
                             <span
                               className={`text-[10px] font-semibold leading-tight line-clamp-1 ${
-                                isActive ? 'text-white' : 'text-[var(--foreground)]'
+                                isActive ? 'text-white' : 'text-slate-800 dark:text-[var(--foreground)]'
                               }`}
                             >
                               {item.label}
@@ -187,7 +187,7 @@ export default function MobileNav() {
       </AnimatePresence>
 
       {/* Bottom bar with iOS safe-area support */}
-      <nav className="fixed bottom-0 left-0 right-0 md:hidden z-40 bg-[var(--card-bg)]/90 backdrop-blur-lg border-t border-[var(--card-border)] pb-[env(safe-area-inset-bottom,0px)]">
+      <nav className="fixed bottom-0 left-0 right-0 md:hidden z-40 bg-white/95 dark:bg-[var(--card-bg)]/90 backdrop-blur-xl border-t border-indigo-100/90 dark:border-[var(--card-border)] shadow-[0_-4px_20px_-4px_rgba(124,58,237,0.08)] pb-[env(safe-area-inset-bottom,0px)]">
         <div className="flex items-center justify-around py-1.5 px-2">
           {MOBILE_QUICK.map((item) => {
             const isActive = pathname === item.href;

@@ -66,7 +66,7 @@ export default function TaskCard({
         ${theme.borderAccent}
         ${isDragging
           ? 'shadow-2xl shadow-primary/30 border-primary ring-2 ring-primary/40 rotate-1 scale-[1.03] bg-white dark:bg-slate-900 z-50'
-          : 'bg-white/80 dark:bg-slate-900/80 border-slate-200/80 dark:border-white/10 hover:border-primary/40 dark:hover:border-primary/40 hover:shadow-lg shadow-sm backdrop-blur-md'
+          : 'bg-white dark:bg-slate-900/80 border-indigo-100/90 dark:border-white/10 hover:border-indigo-300 dark:hover:border-primary/40 hover:shadow-[0_8px_24px_-4px_rgba(124,58,237,0.08)] shadow-[0_2px_10px_-2px_rgba(124,58,237,0.04)] backdrop-blur-md'
         }
       `}
       layout
@@ -140,7 +140,7 @@ export default function TaskCard({
           )}
 
           {/* Metadata Footer: Priority Badge + Due Date + Tags */}
-          <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5">
+          <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-2.5 border-t border-indigo-100/60 dark:border-white/5">
             {/* Priority Chip */}
             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border ${theme.badge}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${theme.dot}`} />
@@ -154,7 +154,7 @@ export default function TaskCard({
                   ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/25'
                   : isDueToday
                   ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10'
+                  : 'bg-indigo-50/80 dark:bg-slate-800 text-indigo-700 dark:text-slate-400 border-indigo-100 dark:border-white/10'
               }`}>
                 <HiCalendar size={11} className={isOverdue ? 'animate-bounce' : ''} />
                 <span>{isOverdue ? 'Overdue!' : isDueToday ? 'Due Today' : format(new Date(task.dueDate), 'MMM d')}</span>

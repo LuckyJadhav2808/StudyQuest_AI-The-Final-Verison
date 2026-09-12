@@ -22,7 +22,7 @@ import LevelBadge from '@/components/gamification/LevelBadge';
 import StreakCounter from '@/components/gamification/StreakCounter';
 import QuestieMascot from '@/components/gamification/QuestieMascot';
 import AvatarBorder from '@/components/gamification/AvatarBorder';
-import { useTheme } from '@/context/ThemeContext';
+import { useMotion } from '@/context/ThemeContext';
 import { isFeatureEnabled, FeatureFlags } from '@/config/featureFlags';
 
 
@@ -105,7 +105,7 @@ const NAV_SECTIONS = [
 
 export default function Sidebar() {
   const { collapsed, setCollapsed } = useSidebar();
-  const { reduceMotion } = useTheme();
+  const { reduceMotion } = useMotion();
   const pathname = usePathname();
   const { profile, signOut } = useAuthContext();
   const { gamification } = useGamification();
@@ -252,7 +252,7 @@ export default function Sidebar() {
 
   return (
     <motion.aside
-      className="hidden md:flex flex-col h-screen bg-[var(--card-bg)] border-r-2 border-[var(--card-border)] fixed left-0 top-0 z-40 overflow-hidden"
+      className="hidden md:flex flex-col h-screen bg-white/95 dark:bg-[var(--card-bg)] backdrop-blur-2xl border-r border-indigo-100/80 dark:border-[var(--card-border)] fixed left-0 top-0 z-40 overflow-hidden shadow-[4px_0_24px_-4px_rgba(124,58,237,0.06)] dark:shadow-none"
       animate={{ width: collapsed ? 72 : 292 }}
       transition={reduceMotion ? { duration: 0 } : { duration: 0.25, ease: 'easeInOut' }}
     >
@@ -468,7 +468,7 @@ export default function Sidebar() {
                       <span className="flex items-center gap-1.5">
                         <span className="text-xs">{SECTION_META[section.title]?.emoji || '📁'}</span>
                         <span className="group-hover:text-primary transition-colors">{section.title}</span>
-                        <span className="text-[8px] font-mono px-1 py-0.2 rounded bg-slate-800 text-slate-400">
+                        <span className="text-[8px] font-mono px-1.5 py-0.5 rounded-full bg-indigo-100/80 text-indigo-700 dark:bg-slate-800 dark:text-slate-400 font-bold">
                           {section.items.length}
                         </span>
                       </span>
@@ -582,7 +582,7 @@ export default function Sidebar() {
       </div>
 
       {/* Consolidated Compact Bottom Command Dock */}
-      <div className="p-2 border-t border-[var(--card-border)] bg-[var(--card-bg)]/90 backdrop-blur-sm shrink-0">
+      <div className="p-2 border-t border-indigo-100/80 dark:border-[var(--card-border)] bg-white/95 dark:bg-[var(--card-bg)]/90 backdrop-blur-sm shrink-0">
         {!collapsed ? (
           <div className="space-y-1.5">
             {/* Search & Ask Questie Row */}
@@ -590,7 +590,7 @@ export default function Sidebar() {
               onClick={() => {
                 window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
               }}
-              className="w-full px-2.5 py-1.5 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] hover:border-primary/40 hover:bg-primary/5 transition-all flex items-center gap-2 group cursor-pointer"
+              className="w-full px-2.5 py-1.5 rounded-xl border border-indigo-100/80 dark:border-[var(--card-border)] bg-indigo-50/40 dark:bg-[var(--card-bg)] hover:border-primary/40 hover:bg-primary/5 transition-all flex items-center gap-2 group cursor-pointer"
             >
               <HiSparkles size={13} className="text-primary/70 group-hover:text-primary transition-colors" />
               <span className="text-[11px] text-[var(--muted-foreground)] group-hover:text-[var(--foreground)] transition-colors flex-1 text-left truncate">

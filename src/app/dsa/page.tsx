@@ -226,8 +226,8 @@ function DsaPageContent() {
             <div className="bg-[var(--card-bg)] border border-[var(--card-border)] p-4 rounded-2xl space-y-4 shadow-sm">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--card-border)]">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-black text-slate-100">🗺️ Full Library Roadmap</span>
-                  <span className="text-xs font-bold text-slate-400">({allProblems.length} questions)</span>
+                  <span className="text-sm font-black text-slate-800 dark:text-slate-100">🗺️ Full Library Roadmap</span>
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">({allProblems.length} questions)</span>
                 </div>
                 <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden py-0.5 max-w-full">
                   <button
@@ -372,10 +372,10 @@ function DsaPageContent() {
                   ✨
                 </div>
                 <div className="space-y-1">
-                  <h4 className="text-base font-bold text-slate-100">
+                  <h4 className="text-base font-bold text-slate-900 dark:text-slate-100">
                     Problem &ldquo;{searchQuery}&rdquo; is not in the local index yet
                   </h4>
-                  <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                  <p className="text-xs text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
                     StudyQuest can fetch and ingest any LeetCode question (including 2025/2026 contest problems like <strong>#3471</strong>) live from LeetCode servers in ~200ms.
                   </p>
                 </div>

@@ -231,7 +231,7 @@ export default function TasksContent() {
     <PageTransition>
       <div className="space-y-5">
         {/* Top Command Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-3xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-white/10 shadow-sm backdrop-blur-xl">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-3xl bg-white/90 dark:bg-slate-900/80 border border-indigo-100/90 dark:border-white/10 shadow-[0_8px_30px_-6px_rgba(124,58,237,0.06)] backdrop-blur-xl">
           <div className="space-y-1">
             <div className="flex items-center gap-2.5">
               <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center text-white shadow-md shadow-primary/20">
@@ -249,7 +249,7 @@ export default function TasksContent() {
 
             {/* Live Telemetry Badges */}
             <div className="flex items-center gap-2 pt-1 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/10">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50/80 dark:bg-slate-800 text-indigo-700 dark:text-slate-300 border border-indigo-100 dark:border-white/10">
                 <span>{tasks.length} Total</span>
               </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
@@ -267,7 +267,7 @@ export default function TasksContent() {
 
           <div className="flex items-center gap-3 flex-wrap justify-between lg:justify-end">
             {/* View Mode Switcher Track */}
-            <div className="flex items-center bg-slate-200/60 dark:bg-slate-800/80 rounded-2xl p-1 border border-slate-300/50 dark:border-white/10 text-xs backdrop-blur-md">
+            <div className="flex items-center bg-indigo-50/60 dark:bg-slate-800/80 rounded-2xl p-1 border border-indigo-100/80 dark:border-white/10 text-xs backdrop-blur-md">
               <button
                 type="button"
                 onClick={() => { playClick(); setViewMode('board'); }}
@@ -309,7 +309,7 @@ export default function TasksContent() {
         </div>
 
         {/* Facet Filter & Search Toolbar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-white/60 dark:bg-slate-900/60 border border-slate-200/80 dark:border-white/10 backdrop-blur-md">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-white/80 dark:bg-slate-900/60 border border-indigo-100/80 dark:border-white/10 shadow-sm backdrop-blur-md">
           {/* Search Input */}
           <div className="relative flex-1 min-w-[200px]">
             <HiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
@@ -318,7 +318,7 @@ export default function TasksContent() {
               placeholder="Search quests by title, description, or tag..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-8 py-1.5 text-xs rounded-xl bg-white/80 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-primary/40 text-slate-800 dark:text-slate-200 font-medium placeholder:text-slate-400 transition-all"
+              className="w-full pl-9 pr-8 py-1.5 text-xs rounded-xl bg-white dark:bg-slate-800/80 border border-indigo-100/80 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-primary/40 text-slate-800 dark:text-slate-200 font-medium placeholder:text-slate-400 transition-all"
             />
             {searchQuery && (
               <button
@@ -355,7 +355,7 @@ export default function TasksContent() {
               <select
                 value={selectedTag}
                 onChange={(e) => setSelectedTag(e.target.value)}
-                className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
+                className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-white dark:bg-slate-800 border border-indigo-100/80 dark:border-white/10 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
               >
                 <option value="all">🏷️ All Tags</option>
                 {allTags.map((tag) => (
@@ -392,7 +392,7 @@ export default function TasksContent() {
                 return (
                   <div
                     key={column.id}
-                    className="min-w-[300px] md:min-w-0 flex-1 flex flex-col rounded-3xl bg-slate-100/70 dark:bg-slate-900/50 border border-slate-200/80 dark:border-white/10 p-4 backdrop-blur-xl shadow-sm snap-start"
+                    className="min-w-[300px] md:min-w-0 flex-1 flex flex-col rounded-3xl bg-white/70 dark:bg-slate-900/50 border border-indigo-100/80 dark:border-white/10 p-4 backdrop-blur-xl shadow-[0_4px_20px_-4px_rgba(124,58,237,0.05)] snap-start"
                   >
                     {/* Linear-Style Column Header */}
                     <div className="flex items-center justify-between gap-2 px-1 mb-3">
@@ -401,7 +401,7 @@ export default function TasksContent() {
                         <h3 className="text-xs uppercase tracking-wider font-heading font-black text-slate-800 dark:text-slate-200">
                           {column.label}
                         </h3>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 tabular-nums shadow-sm">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white dark:bg-slate-800 border border-indigo-100/80 dark:border-white/10 text-slate-600 dark:text-slate-400 tabular-nums shadow-sm">
                           {columnTasks.length}
                         </span>
                       </div>
@@ -410,7 +410,7 @@ export default function TasksContent() {
                       <motion.button
                         type="button"
                         onClick={() => openCreateModalForStatus(column.id)}
-                        className="w-7 h-7 rounded-xl bg-white dark:bg-slate-800/80 hover:bg-primary/15 text-slate-500 hover:text-primary dark:text-slate-400 dark:hover:text-primary border border-slate-200 dark:border-white/10 flex items-center justify-center transition-colors cursor-pointer"
+                        className="w-7 h-7 rounded-xl bg-white dark:bg-slate-800/80 hover:bg-primary/15 text-slate-500 hover:text-primary dark:text-slate-400 dark:hover:text-primary border border-indigo-100/80 dark:border-white/10 flex items-center justify-center transition-colors cursor-pointer"
                         title={`Add task to ${column.label}`}
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
@@ -429,7 +429,7 @@ export default function TasksContent() {
                             min-h-[350px] p-2 rounded-2xl transition-all duration-200 space-y-3
                             ${snapshot.isDraggingOver
                               ? 'border-2 border-dashed border-primary/50 bg-primary/5 ring-4 ring-primary/10'
-                              : 'border-2 border-dashed border-slate-200/60 dark:border-white/5 bg-transparent'
+                              : 'border-2 border-dashed border-indigo-200/50 dark:border-white/5 bg-transparent'
                             }
                           `}
                         >

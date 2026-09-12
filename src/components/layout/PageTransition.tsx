@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { useTheme } from '@/context/ThemeContext';
+import { useMotion } from '@/context/ThemeContext';
 
 interface PageTransitionProps {
   children: React.ReactNode;
@@ -38,7 +38,7 @@ const childVariants = {
 };
 
 export default function PageTransition({ children, className }: PageTransitionProps) {
-  const { reduceMotion } = useTheme();
+  const { reduceMotion } = useMotion();
 
   if (reduceMotion) {
     return <div className={className}>{children}</div>;

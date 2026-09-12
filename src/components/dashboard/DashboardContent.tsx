@@ -824,13 +824,13 @@ export default function DashboardContent() {
       </div>
     ),
     'quests': (
-      <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 bg-[var(--card-bg)]/85 backdrop-blur-xl border border-[var(--card-border)] hover:border-white/20 shadow-lg transition-all text-left">
+      <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 bg-white/90 dark:bg-[var(--card-bg)]/85 backdrop-blur-xl border border-indigo-100/80 dark:border-[var(--card-border)] hover:border-indigo-300/60 dark:hover:border-white/20 shadow-md transition-all text-left">
         {/* Subtle ambient cyan glow */}
         <div className="absolute -right-10 -top-10 w-36 h-36 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" />
 
         <div className="flex items-center gap-2 mb-4 justify-between relative z-10">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
               <HiSparkles size={18} />
             </div>
             <div>
@@ -855,7 +855,7 @@ export default function DashboardContent() {
             value={newQuest}
             onChange={(e) => setNewQuest(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAddQuest()}
-            className="flex-1 min-w-0 px-4 py-2.5 text-xs rounded-xl border border-[var(--card-border)] bg-slate-900/40 dark:bg-black/20 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 focus:outline-none transition-all text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]"
+            className="flex-1 min-w-0 px-4 py-2.5 text-xs rounded-xl border border-indigo-100 dark:border-[var(--card-border)] bg-slate-50/80 dark:bg-black/20 focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 focus:outline-none transition-all text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]"
           />
           <Button variant="primary" size="sm" icon={<HiPlus />} onClick={handleAddQuest} className="min-h-[40px] px-4">
             Add
@@ -871,7 +871,7 @@ export default function DashboardContent() {
             {quests.map((quest) => (
               <motion.div
                 key={quest.id}
-                className="group flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-[var(--card-border)]/70 bg-slate-800/25 dark:bg-white/[0.02] hover:border-indigo-500/30 hover:bg-slate-800/40 transition-all"
+                className="group flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-indigo-100/70 dark:border-[var(--card-border)]/70 bg-slate-50/70 dark:bg-white/[0.02] hover:border-indigo-300/60 hover:bg-indigo-50/50 transition-all"
                 layout
               >
                 <motion.button
@@ -879,7 +879,7 @@ export default function DashboardContent() {
                   className={`w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-all cursor-pointer ${
                     quest.completed
                       ? 'bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-400 text-white shadow-sm shadow-emerald-500/20'
-                      : 'border-[var(--card-border)] hover:border-indigo-400 bg-transparent'
+                      : 'border-slate-300 dark:border-[var(--card-border)] hover:border-indigo-400 bg-white dark:bg-transparent'
                   }`}
                   whileHover={{ scale: 1.15 }}
                   whileTap={{ scale: 0.85 }}
@@ -896,7 +896,7 @@ export default function DashboardContent() {
                 </span>
                 <button
                   onClick={() => handleDeleteQuest(quest.id)}
-                  className="p-1 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-rose-500/10 text-[var(--muted-foreground)] hover:text-rose-400 transition-all cursor-pointer"
+                  className="p-1 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-rose-500/10 text-[var(--muted-foreground)] hover:text-rose-500 transition-all cursor-pointer"
                   title="Delete quest"
                 >
                   <HiTrash size={14} />
@@ -907,14 +907,14 @@ export default function DashboardContent() {
         )}
 
         {todayTotal > 0 && (
-          <div className="mt-4 pt-3.5 border-t border-[var(--card-border)]/60 relative z-10">
+          <div className="mt-4 pt-3.5 border-t border-indigo-100/80 dark:border-[var(--card-border)]/60 relative z-10">
             <div className="flex justify-between text-[10px] font-bold text-[var(--muted-foreground)] mb-1.5">
               <span>Quest Journey</span>
-              <span className="font-mono tabular-nums text-indigo-400">
+              <span className="font-mono tabular-nums text-indigo-600 dark:text-indigo-400">
                 {Math.round((todayCompleted / todayTotal) * 100)}%
               </span>
             </div>
-            <div className="h-2 rounded-full bg-slate-800/60 dark:bg-black/40 overflow-hidden border border-white/5">
+            <div className="h-2 rounded-full bg-indigo-100/80 dark:bg-black/40 overflow-hidden border border-indigo-200/50 dark:border-white/5">
               <motion.div
                 className="h-full rounded-full bg-gradient-to-r from-teal-500 via-indigo-500 to-violet-500 shadow-sm shadow-indigo-500/30"
                 animate={{ width: `${(todayCompleted / todayTotal) * 100}%` }}
@@ -934,12 +934,12 @@ export default function DashboardContent() {
             </h3>
             <p className="text-[11px] text-[var(--muted-foreground)]">Curated study scrolls and research guides</p>
           </div>
-          <Link href="/notes" className="text-xs text-indigo-400 font-bold hover:underline">
+          <Link href="/notes" className="text-xs text-indigo-600 dark:text-indigo-400 font-bold hover:underline">
             All Notes →
           </Link>
         </div>
         {notes.length === 0 ? (
-          <div className="rounded-3xl p-8 text-center bg-[var(--card-bg)]/80 border border-[var(--card-border)]">
+          <div className="rounded-3xl p-8 text-center bg-white/90 dark:bg-[var(--card-bg)]/80 border border-indigo-100/80 dark:border-[var(--card-border)] shadow-sm">
             <span className="text-3xl block mb-2">📝</span>
             <p className="text-sm font-bold text-[var(--foreground)]">No scrolls yet. Start writing!</p>
           </div>
@@ -957,7 +957,7 @@ export default function DashboardContent() {
                   <motion.div
                     whileHover={{ y: -3, scale: 1.01 }}
                     transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-                    className="overflow-hidden rounded-2xl flex flex-col h-full cursor-pointer bg-[var(--card-bg)]/85 backdrop-blur-xl border border-[var(--card-border)] hover:border-white/25 shadow-md hover:shadow-xl transition-all"
+                    className="overflow-hidden rounded-2xl flex flex-col h-full cursor-pointer bg-white/90 dark:bg-[var(--card-bg)]/85 backdrop-blur-xl border border-indigo-100/80 dark:border-[var(--card-border)] hover:border-indigo-300/60 dark:hover:border-white/25 shadow-md hover:shadow-xl transition-all"
                   >
                     <div className={`h-24 bg-gradient-to-br ${coverGradient} relative p-3 flex flex-col justify-between shadow-inner`}>
                       <span className="self-start px-2 py-0.5 text-[9px] font-bold text-white bg-black/35 rounded-full uppercase tracking-wider backdrop-blur-sm border border-white/10">
@@ -977,9 +977,9 @@ export default function DashboardContent() {
                         <span>{mockCompletion}% mastered</span>
                       </div>
                       <div className="mt-auto pt-2">
-                        <div className="h-1.5 rounded-full bg-slate-800/40 dark:bg-black/30 overflow-hidden">
+                        <div className="h-1.5 rounded-full bg-indigo-100/80 dark:bg-black/30 overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-indigo-400"
+                            className="h-full rounded-full bg-indigo-500"
                             style={{ width: `${mockCompletion}%` }}
                           />
                         </div>
@@ -994,10 +994,10 @@ export default function DashboardContent() {
       </div>
     ),
     'heatmap': (
-      <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 bg-[var(--card-bg)]/85 backdrop-blur-xl border border-[var(--card-border)] hover:border-white/20 shadow-lg transition-all text-left">
+      <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 bg-white/90 dark:bg-[var(--card-bg)]/85 backdrop-blur-xl border border-indigo-100/80 dark:border-[var(--card-border)] hover:border-indigo-300/60 dark:hover:border-white/20 shadow-md transition-all text-left">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/20 flex items-center justify-center text-violet-400">
+            <div className="w-8 h-8 rounded-xl bg-violet-500/10 dark:bg-violet-500/15 border border-violet-500/20 flex items-center justify-center text-violet-600 dark:text-violet-400">
               <HiCalendar size={18} />
             </div>
             <div>
@@ -1005,7 +1005,7 @@ export default function DashboardContent() {
               <p className="text-[10px] text-[var(--muted-foreground)]">Consistent daily practice builds mastery</p>
             </div>
           </div>
-          <span className="text-[10px] font-bold font-mono text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-0.5 rounded-full">
+          <span className="text-[10px] font-bold font-mono text-indigo-700 dark:text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-0.5 rounded-full">
             180 Days
           </span>
         </div>
@@ -1013,17 +1013,17 @@ export default function DashboardContent() {
       </div>
     ),
     'exams': (
-      <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 bg-[var(--card-bg)]/85 backdrop-blur-xl border border-[var(--card-border)] hover:border-white/20 shadow-lg transition-all text-left">
+      <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 bg-white/90 dark:bg-[var(--card-bg)]/85 backdrop-blur-xl border border-indigo-100/80 dark:border-[var(--card-border)] hover:border-indigo-300/60 dark:hover:border-white/20 shadow-md transition-all text-left">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/20 flex items-center justify-center text-rose-400">
+            <div className="w-8 h-8 rounded-xl bg-rose-500/10 dark:bg-rose-500/15 border border-rose-500/20 flex items-center justify-center text-rose-600 dark:text-rose-400">
               <HiCalendar size={18} />
             </div>
             <h3 className="font-heading font-bold text-sm text-[var(--foreground)]">
               Exam Countdown
             </h3>
           </div>
-          <Link href="/exams" className="text-[10px] text-indigo-400 font-bold hover:underline uppercase tracking-wider">
+          <Link href="/exams" className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline uppercase tracking-wider">
             View All →
           </Link>
         </div>
@@ -1032,7 +1032,7 @@ export default function DashboardContent() {
             <span className="text-3xl mb-2 block">📅</span>
             <p className="text-xs text-[var(--muted-foreground)] mb-3">No upcoming exams scheduled.</p>
             <Link href="/exams">
-              <button className="px-4 py-2 text-xs font-bold bg-rose-500/15 text-rose-400 border border-rose-500/20 rounded-xl hover:bg-rose-500/25 transition-all">
+              <button className="px-4 py-2 text-xs font-bold bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20 rounded-xl hover:bg-rose-500/25 transition-all">
                 + Add Exam
               </button>
             </Link>
@@ -1041,11 +1041,11 @@ export default function DashboardContent() {
           <div className="space-y-2.5">
             {upcomingExams.slice(0, 3).map((exam, i) => {
               const daysLeft = Math.max(0, Math.ceil((new Date(exam.date).getTime() - Date.now()) / 86400000));
-              const urgencyColor = daysLeft <= 3 ? 'text-rose-400 bg-rose-500/15 border-rose-500/30' : daysLeft <= 7 ? 'text-amber-400 bg-amber-500/15 border-amber-500/30' : 'text-teal-400 bg-teal-500/15 border-teal-500/30';
+              const urgencyColor = daysLeft <= 3 ? 'text-rose-600 dark:text-rose-400 bg-rose-500/10 dark:bg-rose-500/15 border-rose-500/25' : daysLeft <= 7 ? 'text-amber-700 dark:text-amber-400 bg-amber-500/10 dark:bg-amber-500/15 border-amber-500/25' : 'text-teal-700 dark:text-teal-400 bg-teal-500/10 dark:bg-teal-500/15 border-teal-500/25';
               return (
                 <motion.div
                   key={exam.id || i}
-                  className="flex items-center gap-3 p-3 rounded-2xl border border-[var(--card-border)] bg-slate-800/20 dark:bg-white/[0.02] hover:border-indigo-500/30 transition-all"
+                  className="flex items-center gap-3 p-3 rounded-2xl border border-indigo-100/80 dark:border-[var(--card-border)] bg-slate-50/70 dark:bg-white/[0.02] hover:border-indigo-300/60 transition-all"
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.06 }}
@@ -1070,23 +1070,23 @@ export default function DashboardContent() {
       </div>
     ),
     'profile': (
-      <div className="overflow-hidden rounded-3xl bg-[var(--card-bg)]/85 backdrop-blur-xl border border-[var(--card-border)] shadow-lg text-center">
+      <div className="overflow-hidden rounded-3xl bg-white/90 dark:bg-[var(--card-bg)]/85 backdrop-blur-xl border border-indigo-100/80 dark:border-[var(--card-border)] shadow-md text-center">
         <div className="h-16 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600" />
         <div className="px-5 pb-5 -mt-8 flex flex-col items-center gap-1">
-          <div className="w-16 h-16 rounded-full border-4 border-[var(--card-bg)] bg-slate-800 overflow-hidden relative shadow-lg mx-auto ring-2 ring-indigo-500/40">
+          <div className="w-16 h-16 rounded-full border-4 border-white dark:border-[var(--card-bg)] bg-slate-800 overflow-hidden relative shadow-lg mx-auto ring-2 ring-indigo-500/40">
             {profile && <img src={getAvatarUrl(profile.avatarSeed, profile.avatarStyle)} alt="" className="w-full h-full object-cover" />}
           </div>
           <h3 className="font-heading font-black text-sm text-[var(--foreground)] flex items-center gap-1 mt-1 justify-center">
             {profile?.displayName || 'Adventurer'}
-            <span className="text-indigo-400 text-xs" title="Verified Scholar">✔</span>
+            <span className="text-indigo-600 dark:text-indigo-400 text-xs" title="Verified Scholar">✔</span>
           </h3>
-          <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">
+          <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider">
             Level {gamification?.level || 1} Scholar
           </p>
           {gamification && gamification.streak > 0 && (
             <div className="flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/25">
               <HiFire className="text-orange-500 animate-bounce" size={14} />
-              <span className="text-[10px] font-bold text-orange-400 font-mono tabular-nums">
+              <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 font-mono tabular-nums">
                 {gamification.streak} Day Streak
               </span>
             </div>
@@ -1105,67 +1105,67 @@ export default function DashboardContent() {
       </div>
     ),
     'stats': (
-      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 bg-slate-900/40 dark:bg-black/30 rounded-2xl p-2 border border-white/5 text-left">
-        <div className="flex flex-col items-center p-2 rounded-xl bg-[var(--card-bg)]/80 border border-[var(--card-border)] shadow-sm" title="Total XP">
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 bg-indigo-50/60 dark:bg-black/30 rounded-2xl p-2 border border-indigo-100/80 dark:border-white/5 text-left">
+        <div className="flex flex-col items-center p-2 rounded-xl bg-white dark:bg-[var(--card-bg)]/80 border border-indigo-100/80 dark:border-[var(--card-border)] shadow-sm" title="Total XP">
           <span className="text-sm">🏆</span>
           <span className="text-[11px] font-bold font-mono text-[var(--foreground)] mt-0.5 tabular-nums">
             {gamification ? Math.floor(gamification.xp / 100) : 0}
           </span>
-          <span className="text-[8px] uppercase tracking-wider text-[var(--muted-foreground)]">Rank</span>
+          <span className="text-[8px] uppercase tracking-wider text-[var(--muted-foreground)] font-semibold">Rank</span>
         </div>
-        <div className="flex flex-col items-center p-2 rounded-xl bg-[var(--card-bg)]/80 border border-[var(--card-border)] shadow-sm" title="Active Streak">
+        <div className="flex flex-col items-center p-2 rounded-xl bg-white dark:bg-[var(--card-bg)]/80 border border-indigo-100/80 dark:border-[var(--card-border)] shadow-sm" title="Active Streak">
           <span className="text-sm">🔥</span>
-          <span className="text-[11px] font-bold font-mono text-orange-400 mt-0.5 tabular-nums">
+          <span className="text-[11px] font-bold font-mono text-orange-600 dark:text-orange-400 mt-0.5 tabular-nums">
             {gamification?.streak || 0}d
           </span>
-          <span className="text-[8px] uppercase tracking-wider text-[var(--muted-foreground)]">Streak</span>
+          <span className="text-[8px] uppercase tracking-wider text-[var(--muted-foreground)] font-semibold">Streak</span>
         </div>
-        <div className="flex flex-col items-center p-2 rounded-xl bg-[var(--card-bg)]/80 border border-[var(--card-border)] shadow-sm" title="Coins">
+        <div className="flex flex-col items-center p-2 rounded-xl bg-white dark:bg-[var(--card-bg)]/80 border border-indigo-100/80 dark:border-[var(--card-border)] shadow-sm" title="Coins">
           <span className="text-sm">🪙</span>
-          <span className="text-[11px] font-bold font-mono text-amber-400 mt-0.5 tabular-nums">
+          <span className="text-[11px] font-bold font-mono text-amber-600 dark:text-amber-400 mt-0.5 tabular-nums">
             {coins}
           </span>
-          <span className="text-[8px] uppercase tracking-wider text-[var(--muted-foreground)]">Coins</span>
+          <span className="text-[8px] uppercase tracking-wider text-[var(--muted-foreground)] font-semibold">Coins</span>
         </div>
-        <div className="flex flex-col items-center p-2 rounded-xl bg-[var(--card-bg)]/80 border border-[var(--card-border)] shadow-sm" title="Achievements">
+        <div className="flex flex-col items-center p-2 rounded-xl bg-white dark:bg-[var(--card-bg)]/80 border border-indigo-100/80 dark:border-[var(--card-border)] shadow-sm" title="Achievements">
           <span className="text-sm">⭐</span>
           <span className="text-[11px] font-bold font-mono text-[var(--foreground)] mt-0.5 tabular-nums">
             {gamification?.achievements?.length || 0}
           </span>
-          <span className="text-[8px] uppercase tracking-wider text-[var(--muted-foreground)]">Badges</span>
+          <span className="text-[8px] uppercase tracking-wider text-[var(--muted-foreground)] font-semibold">Badges</span>
         </div>
-        <div className="flex flex-col items-center p-2 rounded-xl bg-[var(--card-bg)]/80 border border-[var(--card-border)] shadow-sm" title="Active Tasks">
+        <div className="flex flex-col items-center p-2 rounded-xl bg-white dark:bg-[var(--card-bg)]/80 border border-indigo-100/80 dark:border-[var(--card-border)] shadow-sm" title="Active Tasks">
           <span className="text-sm">📋</span>
           <span className="text-[11px] font-bold font-mono text-[var(--foreground)] mt-0.5 tabular-nums">
             {todayTasks.length}
           </span>
-          <span className="text-[8px] uppercase tracking-wider text-[var(--muted-foreground)]">Tasks</span>
+          <span className="text-[8px] uppercase tracking-wider text-[var(--muted-foreground)] font-semibold">Tasks</span>
         </div>
-        <div className="flex flex-col items-center p-2 rounded-xl bg-[var(--card-bg)]/80 border border-[var(--card-border)] shadow-sm" title="Done Today">
+        <div className="flex flex-col items-center p-2 rounded-xl bg-white dark:bg-[var(--card-bg)]/80 border border-indigo-100/80 dark:border-[var(--card-border)] shadow-sm" title="Done Today">
           <span className="text-sm">✅</span>
-          <span className="text-[11px] font-bold font-mono text-emerald-400 mt-0.5 tabular-nums">
+          <span className="text-[11px] font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-0.5 tabular-nums">
             {completedToday.length}
           </span>
-          <span className="text-[8px] uppercase tracking-wider text-[var(--muted-foreground)]">Done</span>
+          <span className="text-[8px] uppercase tracking-wider text-[var(--muted-foreground)] font-semibold">Done</span>
         </div>
       </div>
     ),
     'friends': (
-      <div className="rounded-3xl p-5 bg-[var(--card-bg)]/85 backdrop-blur-xl border border-[var(--card-border)] shadow-lg text-left">
+      <div className="rounded-3xl p-5 bg-white/90 dark:bg-[var(--card-bg)]/85 backdrop-blur-xl border border-indigo-100/80 dark:border-[var(--card-border)] shadow-md text-left">
         <div className="flex justify-between items-center mb-3">
           <span className="text-xs font-bold text-[var(--foreground)] flex items-center gap-1.5">
             <span>👥</span> Adventurer Squad
           </span>
-          <Link href="/groups" className="text-[10px] text-indigo-400 font-bold hover:underline">
+          <Link href="/groups" className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline">
             Manage →
           </Link>
         </div>
-        <div className="mb-3 p-2.5 bg-slate-900/40 dark:bg-black/20 border border-white/5 rounded-2xl flex items-center justify-between">
+        <div className="mb-3 p-2.5 bg-indigo-50/60 dark:bg-black/20 border border-indigo-100/80 dark:border-white/5 rounded-2xl flex items-center justify-between">
           <div>
             <p className="text-[8px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Friend Code</p>
-            <p className="text-xs font-heading font-black tracking-widest text-indigo-400">{profile?.friendCode || '------'}</p>
+            <p className="text-xs font-heading font-black tracking-widest text-indigo-600 dark:text-indigo-400">{profile?.friendCode || '------'}</p>
           </div>
-          <button onClick={copyFriendCode} className="p-1.5 rounded-lg hover:bg-indigo-500/15 text-indigo-400 transition-colors cursor-pointer" title="Copy code">
+          <button onClick={copyFriendCode} className="p-1.5 rounded-lg hover:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 transition-colors cursor-pointer" title="Copy code">
             <HiClipboardCopy size={15} />
           </button>
         </div>
@@ -1175,10 +1175,10 @@ export default function DashboardContent() {
           <div className="flex items-center gap-2">
             <div className="flex items-center -space-x-2">
               {friends.slice(0, 4).map((f) => (
-                <img key={f.uid} src={getAvatarUrl(f.avatarSeed, f.avatarStyle)} alt={f.displayName} className="w-8 h-8 rounded-full ring-2 ring-[var(--card-bg)] bg-slate-800" title={f.displayName} />
+                <img key={f.uid} src={getAvatarUrl(f.avatarSeed, f.avatarStyle)} alt={f.displayName} className="w-8 h-8 rounded-full ring-2 ring-white dark:ring-[var(--card-bg)] bg-slate-800" title={f.displayName} />
               ))}
               {friends.length > 4 && (
-                <div className="w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-[10px] font-black text-indigo-400">
+                <div className="w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-[10px] font-black text-indigo-600 dark:text-indigo-400">
                   +{friends.length - 4}
                 </div>
               )}
@@ -1191,7 +1191,7 @@ export default function DashboardContent() {
       </div>
     ),
     'shortcuts': (
-      <div className="rounded-3xl p-5 bg-[var(--card-bg)]/85 backdrop-blur-xl border border-[var(--card-border)] shadow-lg text-left">
+      <div className="rounded-3xl p-5 bg-white/90 dark:bg-[var(--card-bg)]/85 backdrop-blur-xl border border-indigo-100/80 dark:border-[var(--card-border)] shadow-md text-left">
         <span className="text-xs font-bold text-[var(--foreground)] block mb-3">Quick Launch Shortcuts</span>
         <div className="grid grid-cols-2 gap-2">
           <Link href="/tasks" className="w-full">
@@ -1218,10 +1218,10 @@ export default function DashboardContent() {
       </div>
     ),
     'halloffame': (
-      <div className="modern-card p-4 bg-white dark:bg-[#111328] border border-slate-200 dark:border-[#1e293b] rounded-3xl text-left">
+      <div className="modern-card p-4 bg-white dark:bg-[#111328] border border-indigo-100/80 dark:border-[#1e293b] rounded-3xl text-left">
         <div className="flex justify-between items-center mb-3">
           <span className="text-xs font-bold text-slate-800 dark:text-white">🏆 Hall of Fame</span>
-          <Link href="/analytics" className="text-[9px] text-blue-600 dark:text-blue-400 font-bold hover:underline">
+          <Link href="/analytics" className="text-[9px] text-indigo-600 dark:text-blue-400 font-bold hover:underline">
             View all
           </Link>
         </div>
@@ -1233,7 +1233,7 @@ export default function DashboardContent() {
               const a = ACHIEVEMENTS.find((x) => x.id === id);
               if (!a) return null;
               return (
-                <div key={id} className="flex flex-col items-center p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/20 border border-slate-100 dark:border-slate-800" title={`${a.title}: ${a.description}`}>
+                <div key={id} className="flex flex-col items-center p-1.5 rounded-lg bg-indigo-50/60 dark:bg-slate-800/20 border border-indigo-100/60 dark:border-slate-800" title={`${a.title}: ${a.description}`}>
                   <span className="text-lg">{a.icon}</span>
                 </div>
               );
@@ -1243,7 +1243,7 @@ export default function DashboardContent() {
       </div>
     ),
     'calendar': (
-      <div className="modern-card p-4 bg-white dark:bg-[#111328] border border-slate-200 dark:border-slate-800 rounded-3xl text-left">
+      <div className="modern-card p-4 bg-white dark:bg-[#111328] border border-indigo-100/80 dark:border-slate-800 rounded-3xl text-left">
         <div className="flex justify-between items-center mb-3">
           <span className="text-xs font-bold text-slate-800 dark:text-white">Calendar Week</span>
         </div>
@@ -1254,7 +1254,7 @@ export default function DashboardContent() {
               <div
                 key={d.getTime()}
                 className={`flex flex-col items-center p-1.5 rounded-xl ${
-                  isToday ? 'calendar-capsule-today' : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+                  isToday ? 'calendar-capsule-today' : 'hover:bg-indigo-50 dark:hover:bg-slate-800'
                 }`}
               >
                 <span className="text-[9px] font-bold opacity-60">
@@ -1270,10 +1270,10 @@ export default function DashboardContent() {
       </div>
     ),
     'activity': (
-      <div className="modern-card p-4 bg-white dark:bg-[#111328] border border-slate-200 dark:border-slate-800 rounded-3xl text-left">
+      <div className="modern-card p-4 bg-white dark:bg-[#111328] border border-indigo-100/80 dark:border-slate-800 rounded-3xl text-left">
         <div className="flex justify-between items-center mb-3">
           <span className="text-xs font-bold text-slate-800 dark:text-white">Your Activity</span>
-          <span className="text-[9px] font-bold text-slate-400 uppercase bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
+          <span className="text-[9px] font-bold text-indigo-700 dark:text-slate-400 uppercase bg-indigo-50 dark:bg-slate-800 border border-indigo-100 dark:border-transparent px-2 py-0.5 rounded">
             Last week
           </span>
         </div>
@@ -1321,10 +1321,10 @@ export default function DashboardContent() {
       </div>
     ),
     'tasks': (
-      <div className="modern-card p-4 bg-white dark:bg-[#111328] border border-slate-200 dark:border-slate-800 rounded-3xl text-left">
+      <div className="modern-card p-4 bg-white dark:bg-[#111328] border border-indigo-100/80 dark:border-slate-800 rounded-3xl text-left">
         <div className="flex justify-between items-center mb-3">
           <span className="text-xs font-bold text-slate-800 dark:text-white">Upcoming Tasks</span>
-          <Link href="/tasks" className="text-[9px] text-blue-600 dark:text-blue-400 font-bold hover:underline">
+          <Link href="/tasks" className="text-[9px] text-indigo-600 dark:text-blue-400 font-bold hover:underline">
             See all
           </Link>
         </div>
@@ -1334,15 +1334,15 @@ export default function DashboardContent() {
           <div className="space-y-2">
             {todayTasks.slice(0, 2).map((task) => (
               <Link href="/tasks" key={task.id}>
-                <div className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/10 hover:border-blue-500/20 transition-all cursor-pointer">
-                  <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0 text-sm">
+                <div className="flex items-center gap-3 p-2.5 rounded-xl border border-indigo-100/60 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/10 hover:border-indigo-300/50 hover:bg-indigo-50/50 transition-all cursor-pointer">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0 text-sm">
                     📝
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-slate-800 dark:text-white truncate">
                       {task.title}
                     </p>
-                    <p className="text-[9px] text-slate-400 font-medium">
+                    <p className="text-[9px] text-slate-500 dark:text-slate-400 font-medium">
                       Priority: {task.priority}
                     </p>
                   </div>
@@ -1356,7 +1356,7 @@ export default function DashboardContent() {
     ),
     'jukebox': (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full items-stretch">
-        <div className="modern-card p-4 bg-white dark:bg-[#111328] border border-slate-200 dark:border-slate-800 rounded-3xl text-left flex flex-col justify-between h-full">
+        <div className="modern-card p-4 bg-white dark:bg-[#111328] border border-indigo-100/80 dark:border-slate-800 rounded-3xl text-left flex flex-col justify-between h-full">
           <div className="flex justify-between items-center mb-2">
             <span className="text-xs font-bold text-slate-800 dark:text-white">Lofi Music Player</span>
           </div>
@@ -1478,21 +1478,21 @@ export default function DashboardContent() {
         ) : dashboardMode === 'modern' ? (
           <div className="space-y-4 relative min-h-[85vh] select-none">
             {/* Atmospheric Hero Command Center Header */}
-            <div className="relative overflow-hidden rounded-3xl border border-slate-200/80 dark:border-white/10 bg-gradient-to-br from-white/90 via-slate-50/70 to-indigo-50/30 dark:from-slate-900/90 dark:via-slate-900/60 dark:to-indigo-950/40 p-4 sm:p-5 md:p-6 shadow-xl shadow-slate-200/50 dark:shadow-black/40 backdrop-blur-2xl transition-all">
+            <div className="relative overflow-hidden rounded-3xl border border-indigo-100/90 dark:border-white/10 bg-gradient-to-br from-white via-indigo-50/40 to-purple-50/30 dark:from-slate-900/90 dark:via-slate-900/60 dark:to-indigo-950/40 p-4 sm:p-5 md:p-6 shadow-xl shadow-indigo-950/5 dark:shadow-black/40 backdrop-blur-2xl transition-all">
               {/* Dynamic Time-of-Day Ambient Glow Orb */}
-              <div className={`absolute -top-24 -left-20 w-80 h-80 rounded-full bg-gradient-to-br ${timeOfDay.gradient} blur-3xl pointer-events-none opacity-75 dark:opacity-35 animate-pulse`} />
+              <div className={`absolute -top-24 -left-20 w-80 h-80 rounded-full bg-gradient-to-br ${timeOfDay.gradient} blur-3xl pointer-events-none opacity-80 dark:opacity-35 animate-pulse`} />
               <div className="absolute -bottom-20 -right-20 w-72 h-72 rounded-full bg-primary/15 dark:bg-primary/10 blur-3xl pointer-events-none" />
 
               <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
                 {/* Left: Pilot Status & Time-of-Day Greeting */}
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-slate-900/5 dark:bg-white/10 border border-slate-900/10 dark:border-white/15 text-slate-700 dark:text-slate-200 shadow-sm backdrop-blur-md">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-indigo-500/10 dark:bg-white/10 border border-indigo-500/20 dark:border-white/15 text-indigo-900 dark:text-slate-200 shadow-sm backdrop-blur-md">
                       <span>{timeOfDay.emoji}</span>
                       <span>{timeOfDay.greeting}</span>
                     </span>
 
-                    <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold bg-primary/10 dark:bg-primary/20 border border-primary/25 text-primary-600 dark:text-primary-300 shadow-sm">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold bg-primary/10 dark:bg-primary/20 border border-primary/25 text-primary-700 dark:text-primary-300 shadow-sm">
                       <HiSparkles className="text-primary-500 animate-spin-slow" size={12} />
                       <span>Level {gamification?.level || 1}</span>
                       <span className="opacity-40">•</span>
@@ -1508,26 +1508,26 @@ export default function DashboardContent() {
 
                   {/* HUD Telemetry Strip */}
                   <div className="flex items-center gap-3 pt-0.5 text-xs text-slate-500 dark:text-slate-400 font-medium flex-wrap">
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20 text-amber-700 dark:text-amber-300 font-bold tabular-nums">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/25 text-amber-800 dark:text-amber-300 font-bold tabular-nums">
                       <HiFire className="text-amber-500 animate-bounce" size={14} />
                       <span>{gamification?.streak || 0}d Streak</span>
                     </div>
 
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-yellow-500/10 dark:bg-yellow-500/15 border border-yellow-500/20 text-yellow-700 dark:text-yellow-300 font-bold tabular-nums">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-yellow-500/10 dark:bg-yellow-500/15 border border-yellow-500/25 text-yellow-800 dark:text-yellow-300 font-bold tabular-nums">
                       <span>🪙</span>
                       <span>{coins || 0} Coins</span>
                     </div>
 
                     <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border font-bold tabular-nums ${
                       todayTotal > 0 && todayCompleted >= todayTotal
-                        ? 'bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500/25 text-emerald-700 dark:text-emerald-300'
-                        : 'bg-indigo-500/10 dark:bg-indigo-500/15 border-indigo-500/25 text-indigo-700 dark:text-indigo-300'
+                        ? 'bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500/25 text-emerald-800 dark:text-emerald-300'
+                        : 'bg-indigo-500/10 dark:bg-indigo-500/15 border-indigo-500/25 text-indigo-800 dark:text-indigo-300'
                     }`}>
-                      <HiClipboardCheck size={14} className={todayTotal > 0 && todayCompleted >= todayTotal ? 'text-emerald-500' : 'text-indigo-500'} />
+                      <HiClipboardCheck size={14} className={todayTotal > 0 && todayCompleted >= todayTotal ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400'} />
                       <span>{todayCompleted}/{todayTotal} Quests</span>
                     </div>
 
-                    <span className="hidden sm:inline-block text-slate-400 dark:text-slate-500 text-[11px]">
+                    <span className="hidden sm:inline-block text-slate-500 dark:text-slate-400 text-[11px] font-medium">
                       {timeOfDay.tip}
                     </span>
                   </div>
@@ -1542,12 +1542,7 @@ export default function DashboardContent() {
                       ref={searchInputRef}
                       type="text"
                       placeholder="Search tasks, notes..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Escape') setSearchQuery('');
-                      }}
-                      className="pl-9 pr-14 py-2 text-xs rounded-2xl bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary w-full sm:w-[190px] md:w-[220px] shadow-sm transition-all text-slate-800 dark:text-slate-200 font-medium placeholder:text-slate-400 backdrop-blur-md"
+                                   className="pl-9 pr-14 py-2 text-xs rounded-2xl bg-white/95 dark:bg-slate-900/80 border border-indigo-100 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary w-full sm:w-[190px] md:w-[220px] shadow-sm transition-all text-slate-800 dark:text-slate-200 font-medium placeholder:text-slate-400 backdrop-blur-md"
                     />
                     {searchQuery ? (
                       <button 
@@ -1557,19 +1552,19 @@ export default function DashboardContent() {
                         ×
                       </button>
                     ) : (
-                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono font-bold text-slate-400 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 rounded-md pointer-events-none">
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono font-bold text-slate-400 bg-indigo-50/80 dark:bg-slate-800/80 border border-indigo-100 dark:border-white/10 rounded-md pointer-events-none">
                         ⌘K
                       </span>
                     )}
                     <AnimatePresence>
                       {searchQuery.trim().length > 0 && (
                         <motion.div 
-                          className="absolute left-0 sm:right-0 sm:left-auto top-12 w-80 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl"
-                          initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                          className="absolute left-0 sm:right-0 sm:left-auto top-12 w-80 bg-white/95 dark:bg-slate-900/95 border border-indigo-100 dark:border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl" 
+                          initial={{ opacity: 0, y: -10, scale: 0.95 }} 
+                          animate={{ opacity: 1, y: 0, scale: 1 }} 
+                          exit={{ opacity: 0, y: -10, scale: 0.95 }} 
                         >
-                          <div className="px-4 py-2.5 border-b border-slate-100 dark:border-white/10 flex justify-between items-center bg-slate-50/70 dark:bg-slate-800/40">
+                          <div className="px-4 py-2.5 border-b border-indigo-50 dark:border-white/10 flex justify-between items-center bg-indigo-50/40 dark:bg-slate-800/40">
                             <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Spotlight Search</span>
                             <button onClick={() => setSearchQuery('')} className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold">Esc</button>
                           </div>
@@ -1621,7 +1616,7 @@ export default function DashboardContent() {
                       className={`p-2.5 rounded-2xl border transition-all relative cursor-pointer ${
                         showNotifs 
                           ? 'border-primary bg-primary/15 text-primary shadow-sm' 
-                          : 'border-slate-200 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 hover:border-primary/40 text-slate-600 dark:text-slate-300'
+                          : 'border-indigo-100 dark:border-white/10 bg-white/90 dark:bg-slate-900/80 hover:border-primary/40 text-slate-700 dark:text-slate-300'
                       }`} 
                       whileTap={{ scale: 0.9 }}
                       aria-label="Notifications"
@@ -1636,12 +1631,12 @@ export default function DashboardContent() {
                     <AnimatePresence>
                       {showNotifs && (
                         <motion.div 
-                          className="absolute right-0 top-12 w-80 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl" 
+                          className="absolute right-0 top-12 w-80 bg-white/95 dark:bg-slate-900/95 border border-indigo-100 dark:border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl" 
                           initial={{ opacity: 0, y: -10, scale: 0.95 }} 
                           animate={{ opacity: 1, y: 0, scale: 1 }} 
                           exit={{ opacity: 0, y: -10, scale: 0.95 }} 
                         >
-                          <div className="px-4 py-3 border-b border-slate-100 dark:border-white/10 flex items-center justify-between bg-slate-50/70 dark:bg-slate-800/40">
+                          <div className="px-4 py-3 border-b border-indigo-50 dark:border-white/10 flex items-center justify-between bg-indigo-50/40 dark:bg-slate-800/40">
                             <p className="text-xs font-heading font-black text-slate-800 dark:text-white">Notifications</p>
                             <span className="text-[10px] font-bold text-slate-400">{incomingRequests.length} pending</span>
                           </div>
@@ -1683,12 +1678,12 @@ export default function DashboardContent() {
                   </div>
                   
                   {/* High-Tactile Dashboard Mode Selector Segment */}
-                  <div className="flex items-center bg-slate-200/70 dark:bg-black/40 rounded-2xl p-1 border border-slate-300/50 dark:border-white/10 backdrop-blur-md text-xs">
+                  <div className="flex items-center bg-indigo-100/70 dark:bg-black/40 rounded-2xl p-1 border border-indigo-200/60 dark:border-white/10 backdrop-blur-md text-xs">
                     <button
                       onClick={() => changeDashboardMode('classic')}
                       className={`px-3 py-1.5 text-[11px] font-bold rounded-xl transition-all cursor-pointer ${
                         (dashboardMode as string) === 'classic' 
-                          ? 'bg-white dark:bg-indigo-600 text-slate-900 dark:text-white shadow-md shadow-indigo-500/20' 
+                          ? 'bg-white dark:bg-indigo-600 text-indigo-950 dark:text-white shadow-sm' 
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                       }`}
                     >
@@ -1708,7 +1703,7 @@ export default function DashboardContent() {
                       onClick={() => changeDashboardMode('lofi')}
                       className={`px-3 py-1.5 text-[11px] font-bold rounded-xl transition-all cursor-pointer ${
                         (dashboardMode as string) === 'lofi' 
-                          ? 'bg-white dark:bg-purple-600 text-slate-900 dark:text-white shadow-md shadow-purple-500/20' 
+                          ? 'bg-white dark:bg-purple-600 text-indigo-950 dark:text-white shadow-sm' 
                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                       }`}
                     >
@@ -1723,7 +1718,7 @@ export default function DashboardContent() {
                       className={`flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-[11px] font-bold uppercase tracking-wider border transition-all cursor-pointer ${
                         isModernEditMode
                           ? 'border-primary bg-primary/20 text-primary shadow-md shadow-primary/20 ring-2 ring-primary/30'
-                          : 'border-slate-200 dark:border-white/10 bg-white/70 dark:bg-slate-900/70 text-slate-600 dark:text-slate-300 hover:border-primary/40'
+                          : 'border-indigo-100 dark:border-white/10 bg-white/90 dark:bg-slate-900/70 text-slate-700 dark:text-slate-300 hover:border-primary/40'
                       }`}
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
@@ -1912,7 +1907,7 @@ function QuickScratchpad() {
   };
 
   return (
-    <div className="p-4 bg-white dark:bg-[#111328] border border-slate-200 dark:border-slate-800 rounded-3xl text-left flex flex-col justify-between h-full animate-modernFadeIn">
+    <div className="p-4 bg-white dark:bg-[#111328] border border-indigo-100/90 dark:border-slate-800 shadow-[0_4px_20px_-4px_rgba(124,58,237,0.06)] rounded-3xl text-left flex flex-col justify-between h-full animate-modernFadeIn">
       <div>
         <div className="flex justify-between items-center mb-2">
           <span className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-2">
@@ -1922,7 +1917,7 @@ function QuickScratchpad() {
             <button 
               onClick={handleCopy}
               disabled={!text.trim()}
-              className="text-[9px] font-bold text-blue-650 dark:text-blue-400 hover:underline uppercase disabled:opacity-40 disabled:hover:no-underline cursor-pointer"
+              className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline uppercase disabled:opacity-40 disabled:hover:no-underline cursor-pointer"
             >
               Copy
             </button>
@@ -1930,7 +1925,7 @@ function QuickScratchpad() {
             <button 
               onClick={handleClear}
               disabled={!text.trim()}
-              className="text-[9px] font-bold text-red-500 hover:underline uppercase disabled:opacity-40 disabled:hover:no-underline cursor-pointer"
+              className="text-[9px] font-bold text-rose-500 hover:underline uppercase disabled:opacity-40 disabled:hover:no-underline cursor-pointer"
             >
               Clear
             </button>
@@ -1940,7 +1935,7 @@ function QuickScratchpad() {
           value={text}
           onChange={(e) => handleChange(e.target.value)}
           placeholder="Type temporary thoughts, links, formulas, or code snippets here..."
-          className="w-full h-36 p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/50 text-[11px] font-medium text-slate-750 dark:text-slate-350 focus:outline-none focus:border-blue-500/30 resize-none font-mono placeholder:font-sans placeholder:italic transition-colors"
+          className="w-full h-36 p-3 rounded-2xl bg-indigo-50/35 dark:bg-slate-900/40 border border-indigo-100/70 dark:border-slate-800/50 text-[11px] font-medium text-slate-800 dark:text-slate-350 focus:outline-none focus:border-indigo-500/40 resize-none font-mono placeholder:font-sans placeholder:italic transition-colors"
         />
       </div>
       <div className="flex justify-between items-center mt-2 text-[8px] font-bold text-slate-400">
