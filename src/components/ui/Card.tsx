@@ -51,7 +51,7 @@ export default function Card({
     <motion.div
       ref={cardRef}
       className={clsx(
-        'rounded-xl overflow-hidden relative',
+        'rounded-xl relative',
         glass && 'card-glass',
         !glass && 'bg-[var(--card-bg)] border border-[var(--card-border)]',
         hover && 'hover:shadow-lg',
@@ -62,6 +62,7 @@ export default function Card({
         className,
       )}
       style={{
+        overflow: 'clip',
         ...(gradient ? { background: gradient } : {}),
         ...style,
       }}
@@ -89,10 +90,8 @@ export default function Card({
         />
       )}
 
-      {/* Content — on top of glow */}
-      <div className="relative z-10">
-        {children}
-      </div>
+      {/* Content renders on top of glow orb (z-0) naturally */}
+      {children}
     </motion.div>
   );
 }

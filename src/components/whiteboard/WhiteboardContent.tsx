@@ -524,184 +524,385 @@ export default function WhiteboardContent() {
     <PageTransition>
       <div className="max-w-full mx-auto space-y-3 h-full flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center justify-between flex-shrink-0 flex-wrap gap-2">
           <div>
-            <h1 className="text-2xl font-heading font-black">Whiteboard</h1>
-            <p className="text-sm text-[var(--muted-foreground)]">Sketch, diagram, brainstorm. Freehand drawing for visual thinkers.</p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-heading font-black">Whiteboard Studio</h1>
+              <Badge variant="primary" size="sm">{boards.length} {boards.length === 1 ? 'Board' : 'Boards'}</Badge>
+            </div>
+            <p className="text-xs text-[var(--muted-foreground)]">Freehand visual canvas. Sketch, brainstorm, and insert diagrams directly into your study scrolls.</p>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Button variant="ghost" size="sm" icon={<HiPencilAlt size={14} />} onClick={() => setShowNoteModal(true)}>Insert to Note</Button>
+          <div className="flex items-center gap-2">
+            <Button variant="teal" size="sm" icon={<HiPencilAlt size={14} />} onClick={() => setShowNoteModal(true)}>Insert to Note</Button>
             <Button variant="ghost" size="sm" icon={<HiDownload size={14} />} onClick={exportAsImage}>Export PNG</Button>
           </div>
         </div>
 
         {/* Board Tabs */}
-        <div className="flex items-center gap-1.5 flex-shrink-0 overflow-x-auto pb-1">
+        <div className="flex items-center gap-1.5 flex-shrink-0 overflow-x-auto pb-1 no-scrollbar">
           {boards.map((board, idx) => (
             <motion.div key={board.id} className="flex items-center gap-0 flex-shrink-0" layout>
               <button
                 onClick={() => { setActiveBoardIdx(idx); setUndoStack([]); setRedoStack([]); }}
                 onDoubleClick={() => { const n = prompt('Rename board:', board.name); if (n?.trim()) renameBoard(idx, n.trim()); }}
-                className={`px-3 py-1.5 rounded-l-xl text-xs font-bold transition-all border-2 border-r-0 ${idx === activeBoardIdx ? 'bg-primary text-white border-primary' : 'border-[var(--card-border)] hover:border-primary/30 text-[var(--muted-foreground)]'}`}
-                title="Double-click to rename"
-              >{board.name}</button>
-              <button onClick={() => deleteBoard(idx)} className={`px-1.5 py-1.5 rounded-r-xl text-[10px] transition-all border-2 border-l ${idx === activeBoardIdx ? 'bg-primary/80 text-white/70 border-primary hover:bg-coral hover:border-coral hover:text-white' : 'border-[var(--card-border)] text-[var(--muted-foreground)] hover:border-coral/30 hover:text-coral'}`}>
+                className={`px-3 py-1.5 rounded-l-xl text-xs font-bold transition-all border-2 border-r-0 cursor-pointer ${
+                  idx === activeBoardIdx
+                    ? 'bg-primary text-white border-primary shadow-sm'
+                    : 'border-[var(--card-border)] hover:border-primary/30 text-[var(--muted-foreground)] bg-[var(--card-bg)]'
+                }`}
+                title="Click to select · Double-click to rename"
+              >
+                {board.name}
+              </button>
+              <button
+                onClick={() => deleteBoard(idx)}
+                className={`px-1.5 py-1.5 rounded-r-xl text-[10px] transition-all border-2 border-l cursor-pointer ${
+                  idx === activeBoardIdx
+                    ? 'bg-primary/80 text-white/80 border-primary hover:bg-coral hover:border-coral hover:text-white'
+                    : 'border-[var(--card-border)] text-[var(--muted-foreground)] hover:border-coral/30 hover:text-coral bg-[var(--card-bg)]'
+                }`}
+                title="Delete board"
+              >
                 <HiX size={10} />
               </button>
             </motion.div>
           ))}
-          <button onClick={addBoard} className="px-2.5 py-1.5 rounded-xl border-2 border-dashed border-[var(--card-border)] hover:border-primary/40 hover:bg-primary/5 text-[var(--muted-foreground)] text-xs font-bold transition-all flex-shrink-0"><HiPlus size={14} /></button>
+          <button
+            onClick={addBoard}
+            className="px-2.5 py-1.5 rounded-xl border-2 border-dashed border-[var(--card-border)] hover:border-primary/40 hover:bg-primary/5 text-[var(--muted-foreground)] hover:text-primary text-xs font-bold transition-all flex-shrink-0 cursor-pointer"
+            title="Add new board"
+          >
+            <HiPlus size={14} />
+          </button>
         </div>
 
-        {/* Toolbar + Canvas */}
-        <div className="flex gap-3 flex-1 min-h-0">
-          {/* Left Toolbar */}
-          <div className="flex flex-col gap-2 flex-shrink-0 w-12">
-            {(['pen', 'highlighter', 'eraser'] as Tool[]).map((t) => (
-              <motion.button key={t} onClick={() => setTool(t)} className={`w-12 h-12 rounded-2xl flex items-center justify-center text-lg border-2 transition-all ${tool === t ? 'bg-primary text-white border-primary shadow-[0_3px_0_rgba(88,28,135,0.3)]' : 'border-[var(--card-border)] hover:border-primary/30 bg-[var(--card-bg)]'}`} whileTap={{ scale: 0.9 }} title={`${TOOL_CONFIG[t].label} (${t[0].toUpperCase()})`}>{TOOL_CONFIG[t].emoji}</motion.button>
-            ))}
-            <div className="h-px bg-[var(--card-border)] my-1" />
-            {/* Shapes */}
-            {SHAPE_TOOLS.map((t) => (
-              <motion.button key={t} onClick={() => setTool(t)} className={`w-12 h-10 rounded-xl flex items-center justify-center text-sm border-2 transition-all ${tool === t ? 'bg-primary text-white border-primary shadow-[0_3px_0_rgba(88,28,135,0.3)]' : 'border-[var(--card-border)] hover:border-primary/30 bg-[var(--card-bg)]'}`} whileTap={{ scale: 0.9 }} title={TOOL_CONFIG[t].label}>{TOOL_CONFIG[t].emoji}</motion.button>
-            ))}
-            <div className="h-px bg-[var(--card-border)] my-1" />
-            {/* Text & Select */}
-            {(['text', 'select'] as Tool[]).map((t) => (
-              <motion.button key={t} onClick={() => { setTool(t); setActiveTextId(null); }} className={`w-12 h-10 rounded-xl flex items-center justify-center text-sm border-2 transition-all ${tool === t ? 'bg-teal text-white border-teal shadow-[0_3px_0_rgba(16,185,129,0.3)]' : 'border-[var(--card-border)] hover:border-teal/30 bg-[var(--card-bg)]'}`} whileTap={{ scale: 0.9 }} title={`${TOOL_CONFIG[t].label} (${t === 'text' ? 'T' : 'V'})`}>{TOOL_CONFIG[t].emoji}</motion.button>
-            ))}
-            <div className="h-px bg-[var(--card-border)] my-1" />
-            {/* Color */}
-            <div className="relative">
-              <button onClick={() => { setShowColorPicker(!showColorPicker); setShowWidthPicker(false); }} className="w-12 h-12 rounded-2xl border-2 border-[var(--card-border)] hover:border-primary/30 flex items-center justify-center bg-[var(--card-bg)] transition-all" title="Color">
-                <div className="w-6 h-6 rounded-full border-2 border-[var(--card-border)]" style={{ backgroundColor: color }} />
-              </button>
-              <AnimatePresence>
-                {showColorPicker && (
-                  <motion.div className="absolute left-full ml-2 top-0 z-50 p-2 rounded-2xl bg-[var(--card-bg)] border-2 border-[var(--card-border)] shadow-xl" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
-                    <div className="grid grid-cols-4 gap-1.5 w-fit">
-                      {PALETTE.map((c) => (<button key={c} onClick={() => { setColor(c); setShowColorPicker(false); }} className={`w-7 h-7 rounded-full transition-transform hover:scale-110 ${color === c ? 'ring-2 ring-primary ring-offset-2 ring-offset-[var(--card-bg)] scale-110' : ''}`} style={{ backgroundColor: c, border: c === '#ffffff' ? '2px solid var(--card-border)' : 'none' }} />))}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-            {/* Width */}
-            <div className="relative">
-              <button onClick={() => { setShowWidthPicker(!showWidthPicker); setShowColorPicker(false); }} className="w-12 h-12 rounded-2xl border-2 border-[var(--card-border)] hover:border-primary/30 flex items-center justify-center bg-[var(--card-bg)] transition-all" title="Stroke width">
-                <div className="rounded-full bg-[var(--foreground)]" style={{ width: Math.min(strokeWidth + 4, 20), height: Math.min(strokeWidth + 4, 20) }} />
-              </button>
-              <AnimatePresence>
-                {showWidthPicker && (
-                  <motion.div className="absolute left-full ml-2 top-0 z-50 p-2 rounded-2xl bg-[var(--card-bg)] border-2 border-[var(--card-border)] shadow-xl" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
-                    <div className="flex flex-col gap-1.5">
-                      {WIDTHS.map((w) => (<button key={w} onClick={() => { setStrokeWidth(w); setShowWidthPicker(false); }} className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all ${strokeWidth === w ? 'bg-primary/10 text-primary' : 'hover:bg-[var(--card-border)]/40'}`}><div className="rounded-full bg-current" style={{ width: Math.min(w + 2, 16), height: Math.min(w + 2, 16) }} /><span className="text-[10px] font-bold">{w}px</span></button>))}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-            {/* Canvas Background Color */}
-            <div className="relative">
-              <button onClick={() => { setShowBgPicker(!showBgPicker); setShowColorPicker(false); setShowWidthPicker(false); }} className="w-12 h-12 rounded-2xl border-2 border-[var(--card-border)] hover:border-primary/30 flex items-center justify-center bg-[var(--card-bg)] transition-all" title="Canvas background">
-                <div className="w-6 h-6 rounded-lg border-2 border-[var(--card-border)]" style={{ backgroundColor: canvasBg }} />
-              </button>
-              <AnimatePresence>
-                {showBgPicker && (
-                  <motion.div className="absolute left-full ml-2 top-0 z-50 p-2 rounded-2xl bg-[var(--card-bg)] border-2 border-[var(--card-border)] shadow-xl" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-1.5 px-1">Canvas BG</p>
-                    <div className="grid grid-cols-4 gap-1.5 w-fit">
-                      {BG_COLORS.map((bg) => (<button key={bg.color} onClick={() => { setCanvasBg(bg.color); setShowBgPicker(false); }} className={`w-7 h-7 rounded-lg transition-transform hover:scale-110 ${canvasBg === bg.color ? 'ring-2 ring-primary ring-offset-2 ring-offset-[var(--card-bg)] scale-110' : ''}`} style={{ backgroundColor: bg.color, border: '1px solid var(--card-border)' }} title={bg.label} />))}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-            <div className="h-px bg-[var(--card-border)] my-1" />
-            <button onClick={undo} disabled={undoStack.length === 0} className="w-12 h-10 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 flex items-center justify-center transition-all disabled:opacity-30 bg-[var(--card-bg)]" title="Undo (Ctrl+Z)"><HiArrowLeft size={16} /></button>
-            <button onClick={redo} disabled={redoStack.length === 0} className="w-12 h-10 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 flex items-center justify-center transition-all disabled:opacity-30 bg-[var(--card-bg)]" title="Redo (Ctrl+Shift+Z)"><HiArrowRight size={16} /></button>
-            <div className="h-px bg-[var(--card-border)] my-1" />
-            <button onClick={clearCanvas} className="w-12 h-10 rounded-xl border-2 border-[var(--card-border)] hover:border-coral/40 hover:bg-coral/10 hover:text-coral flex items-center justify-center transition-all bg-[var(--card-bg)]" title="Clear canvas"><HiTrash size={16} /></button>
-          </div>
+        {/* Workspace Canvas Container with Floating Dock */}
+        <div
+          ref={containerRef}
+          className="flex-1 min-h-[520px] md:min-h-[620px] rounded-2xl border-2 border-[var(--card-border)] overflow-hidden relative transition-colors shadow-2xl flex flex-col"
+          style={{ backgroundColor: canvasBg }}
+        >
+          <canvas
+            ref={canvasRef}
+            className="absolute inset-0 touch-none w-full h-full"
+            style={{ cursor: TOOL_CONFIG[tool].cursor }}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+            onPointerLeave={handlePointerUp}
+          />
 
-          {/* Canvas Area */}
-          <div ref={containerRef} className="flex-1 rounded-2xl border-2 border-[var(--card-border)] overflow-hidden relative transition-colors" style={{ minHeight: 400, backgroundColor: canvasBg }}>
-            <canvas ref={canvasRef} className="absolute inset-0 touch-none" style={{ cursor: TOOL_CONFIG[tool].cursor }} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onPointerLeave={handlePointerUp} />
-            {/* Text overlay — click to place, drag to move */}
-            {(tool === 'text' || tool === 'select') && (
-              <div
-                className="absolute inset-0"
-                style={{ cursor: tool === 'text' ? 'text' : 'default', zIndex: 5 }}
-                onClick={handleCanvasClick}
-                onMouseMove={(e) => {
-                  if (!draggingTextId) return;
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  updateTextBox(draggingTextId, { x: e.clientX - rect.left - dragOffset.current.x, y: e.clientY - rect.top - dragOffset.current.y });
-                }}
-                onMouseUp={() => setDraggingTextId(null)}
-                onMouseLeave={() => setDraggingTextId(null)}
-              />
-            )}
-            {/* Render text boxes */}
-            {textBoxes.map((tb) => (
-              <div
-                key={tb.id}
-                className={`absolute group ${tool === 'select' ? 'cursor-move' : ''}`}
-                style={{ left: tb.x, top: tb.y, zIndex: activeTextId === tb.id ? 15 : 10 }}
-                onMouseDown={(e) => {
-                  if (tool !== 'select') return;
-                  e.stopPropagation();
-                  setDraggingTextId(tb.id);
-                  setActiveTextId(tb.id);
-                  dragOffset.current = { x: e.clientX - e.currentTarget.getBoundingClientRect().left, y: e.clientY - e.currentTarget.getBoundingClientRect().top };
-                }}
-              >
+          {/* Text overlay — click to place, drag to move */}
+          {(tool === 'text' || tool === 'select') && (
+            <div
+              className="absolute inset-0"
+              style={{ cursor: tool === 'text' ? 'text' : 'default', zIndex: 5 }}
+              onClick={handleCanvasClick}
+              onMouseMove={(e) => {
+                if (!draggingTextId) return;
+                const rect = e.currentTarget.getBoundingClientRect();
+                updateTextBox(draggingTextId, { x: e.clientX - rect.left - dragOffset.current.x, y: e.clientY - rect.top - dragOffset.current.y });
+              }}
+              onMouseUp={() => setDraggingTextId(null)}
+              onMouseLeave={() => setDraggingTextId(null)}
+            />
+          )}
+
+          {/* Render text boxes */}
+          {textBoxes.map((tb) => (
+            <div
+              key={tb.id}
+              className={`absolute group ${tool === 'select' ? 'cursor-move' : ''}`}
+              style={{ left: tb.x, top: tb.y, zIndex: activeTextId === tb.id ? 15 : 10 }}
+              onMouseDown={(e) => {
+                if (tool !== 'select') return;
+                e.stopPropagation();
+                setDraggingTextId(tb.id);
+                setActiveTextId(tb.id);
+                dragOffset.current = { x: e.clientX - e.currentTarget.getBoundingClientRect().left, y: e.clientY - e.currentTarget.getBoundingClientRect().top };
+              }}
+            >
+              <div className="relative">
+                <div
+                  contentEditable={tool === 'text' || activeTextId === tb.id}
+                  suppressContentEditableWarning
+                  className={`min-w-[60px] min-h-[24px] outline-none px-1 rounded ${activeTextId === tb.id ? 'ring-2 ring-teal/50 bg-white/10' : 'hover:ring-1 hover:ring-[var(--card-border)]'}`}
+                  style={{ fontSize: tb.fontSize, color: tb.color, fontFamily: 'system-ui, sans-serif', whiteSpace: 'pre-wrap', lineHeight: 1.3 }}
+                  onFocus={() => setActiveTextId(tb.id)}
+                  onBlur={(e) => updateTextBox(tb.id, { text: (e.target as HTMLElement).innerText })}
+                  onClick={(e) => e.stopPropagation()}
+                  ref={(el) => {
+                    // Set initial text only once when element mounts
+                    if (el && !el.dataset.initialized && tb.text) {
+                      el.innerText = tb.text;
+                      el.dataset.initialized = 'true';
+                    }
+                  }}
+                />
+                {!tb.text && activeTextId !== tb.id && (
+                  <span className="absolute left-1 top-0 pointer-events-none opacity-40" style={{ fontSize: tb.fontSize, lineHeight: 1.3 }}>Type here...</span>
+                )}
+              </div>
+              {(activeTextId === tb.id || tool === 'select') && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); deleteTextBox(tb.id); }}
+                  className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-coral text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity shadow cursor-pointer"
+                >×</button>
+              )}
+            </div>
+          ))}
+
+          {/* Empty State Prompt */}
+          {activeBoard.strokes.length === 0 && textBoxes.length === 0 && !isDrawingRef.current && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="text-center opacity-30 select-none">
+                <p className="text-5xl mb-3">🎨</p>
+                <p className="text-base font-heading font-black">Whiteboard Studio</p>
+                <p className="text-xs text-[var(--muted-foreground)] mt-1">Select a tool from the floating dock below or press P (Pen), H (Highlighter), E (Eraser), T (Text)</p>
+              </div>
+            </div>
+          )}
+
+          {/* Floating Island Control Dock (Bottom-Centered) */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100vw-24px)] overflow-x-auto no-scrollbar">
+            <div className="p-1.5 md:p-2 rounded-2xl bg-slate-900/90 dark:bg-[#0c1021]/95 backdrop-blur-2xl border border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.5)] flex items-center gap-1 sm:gap-1.5 select-none">
+              
+              {/* 1. Primary Drawing Tools */}
+              <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
+                {(['pen', 'highlighter', 'eraser'] as Tool[]).map((t) => (
+                  <motion.button
+                    key={t}
+                    type="button"
+                    onClick={() => { setTool(t); setShowColorPicker(false); setShowWidthPicker(false); setShowBgPicker(false); }}
+                    className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center text-base transition-all cursor-pointer ${
+                      tool === t
+                        ? 'bg-primary text-white shadow-[0_0_12px_rgba(124,58,237,0.5)] ring-1 ring-white/30 scale-105 font-bold'
+                        : 'text-white/70 hover:text-white hover:bg-white/10'
+                    }`}
+                    whileTap={{ scale: 0.92 }}
+                    title={`${TOOL_CONFIG[t].label} (${t[0].toUpperCase()})`}
+                  >
+                    {TOOL_CONFIG[t].emoji}
+                  </motion.button>
+                ))}
+              </div>
+
+              {/* 2. Shape Tools */}
+              <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
+                {SHAPE_TOOLS.map((t) => (
+                  <motion.button
+                    key={t}
+                    type="button"
+                    onClick={() => { setTool(t); setShowColorPicker(false); setShowWidthPicker(false); setShowBgPicker(false); }}
+                    className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center text-sm transition-all cursor-pointer ${
+                      tool === t
+                        ? 'bg-primary text-white shadow-[0_0_12px_rgba(124,58,237,0.5)] ring-1 ring-white/30 scale-105 font-bold'
+                        : 'text-white/70 hover:text-white hover:bg-white/10'
+                    }`}
+                    whileTap={{ scale: 0.92 }}
+                    title={TOOL_CONFIG[t].label}
+                  >
+                    {TOOL_CONFIG[t].emoji}
+                  </motion.button>
+                ))}
+              </div>
+
+              {/* 3. Text & Select */}
+              <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
+                {(['text', 'select'] as Tool[]).map((t) => (
+                  <motion.button
+                    key={t}
+                    type="button"
+                    onClick={() => { setTool(t); setActiveTextId(null); setShowColorPicker(false); setShowWidthPicker(false); setShowBgPicker(false); }}
+                    className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center text-sm transition-all cursor-pointer ${
+                      tool === t
+                        ? 'bg-teal-500 text-white shadow-[0_0_12px_rgba(20,184,166,0.5)] ring-1 ring-white/30 scale-105 font-bold'
+                        : 'text-white/70 hover:text-white hover:bg-white/10'
+                    }`}
+                    whileTap={{ scale: 0.92 }}
+                    title={`${TOOL_CONFIG[t].label} (${t === 'text' ? 'T' : 'V'})`}
+                  >
+                    {TOOL_CONFIG[t].emoji}
+                  </motion.button>
+                ))}
+              </div>
+
+              <div className="w-px h-6 bg-white/15 mx-0.5" />
+
+              {/* 4. Color, Width & BG Pickers (Upwards Popovers) */}
+              <div className="flex items-center gap-1">
+                {/* Color Button */}
                 <div className="relative">
-                  <div
-                    contentEditable={tool === 'text' || activeTextId === tb.id}
-                    suppressContentEditableWarning
-                    className={`min-w-[60px] min-h-[24px] outline-none px-1 rounded ${activeTextId === tb.id ? 'ring-2 ring-teal/50 bg-white/10' : 'hover:ring-1 hover:ring-[var(--card-border)]'}`}
-                    style={{ fontSize: tb.fontSize, color: tb.color, fontFamily: 'system-ui, sans-serif', whiteSpace: 'pre-wrap', lineHeight: 1.3 }}
-                    onFocus={() => setActiveTextId(tb.id)}
-                    onBlur={(e) => updateTextBox(tb.id, { text: (e.target as HTMLElement).innerText })}
-                    onClick={(e) => e.stopPropagation()}
-                    ref={(el) => {
-                      // Set initial text only once when element mounts
-                      if (el && !el.dataset.initialized && tb.text) {
-                        el.innerText = tb.text;
-                        el.dataset.initialized = 'true';
-                      }
-                    }}
-                  />
-                  {!tb.text && activeTextId !== tb.id && (
-                    <span className="absolute left-1 top-0 pointer-events-none opacity-40" style={{ fontSize: tb.fontSize, lineHeight: 1.3 }}>Type here...</span>
-                  )}
-                </div>
-                {(activeTextId === tb.id || tool === 'select') && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); deleteTextBox(tb.id); }}
-                    className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-coral text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity shadow"
-                  >×</button>
-                )}
-              </div>
-            ))}
-            {activeBoard.strokes.length === 0 && textBoxes.length === 0 && !isDrawingRef.current && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="text-center opacity-30">
-                  <p className="text-5xl mb-3">🖊️</p>
-                  <p className="text-sm font-heading font-bold">Start drawing!</p>
-                  <p className="text-xs text-[var(--muted-foreground)] mt-1">P/H/E keys · T for text · V to select</p>
+                    type="button"
+                    onClick={() => { setShowColorPicker(!showColorPicker); setShowWidthPicker(false); setShowBgPicker(false); }}
+                    className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all border cursor-pointer ${
+                      showColorPicker ? 'border-primary ring-2 ring-primary/40 bg-white/15' : 'border-white/10 hover:bg-white/10'
+                    }`}
+                    title="Stroke Color"
+                  >
+                    <div className="w-5 h-5 rounded-full border border-white/30 shadow-sm" style={{ backgroundColor: color }} />
+                  </button>
+
+                  <AnimatePresence>
+                    {showColorPicker && (
+                      <motion.div
+                        className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-50 p-2.5 rounded-2xl bg-slate-900/95 dark:bg-[#0c1021]/95 backdrop-blur-2xl border border-white/15 shadow-2xl"
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      >
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1">Stroke Color</p>
+                        <div className="grid grid-cols-7 gap-1.5 w-max">
+                          {PALETTE.map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => { setColor(c); setShowColorPicker(false); }}
+                              className={`w-6 h-6 rounded-full transition-transform hover:scale-115 cursor-pointer ${
+                                color === c ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900 scale-110' : ''
+                              }`}
+                              style={{ backgroundColor: c, border: c === '#ffffff' ? '1px solid rgba(255,255,255,0.4)' : 'none' }}
+                            />
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Stroke Width Button */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => { setShowWidthPicker(!showWidthPicker); setShowColorPicker(false); setShowBgPicker(false); }}
+                    className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all border cursor-pointer ${
+                      showWidthPicker ? 'border-primary ring-2 ring-primary/40 bg-white/15' : 'border-white/10 hover:bg-white/10'
+                    }`}
+                    title="Stroke Width"
+                  >
+                    <div className="rounded-full bg-white" style={{ width: Math.min(strokeWidth + 3, 16), height: Math.min(strokeWidth + 3, 16) }} />
+                  </button>
+
+                  <AnimatePresence>
+                    {showWidthPicker && (
+                      <motion.div
+                        className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-50 p-2.5 rounded-2xl bg-slate-900/95 dark:bg-[#0c1021]/95 backdrop-blur-2xl border border-white/15 shadow-2xl min-w-[120px]"
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      >
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1">Stroke Width</p>
+                        <div className="flex flex-col gap-1">
+                          {WIDTHS.map((w) => (
+                            <button
+                              key={w}
+                              type="button"
+                              onClick={() => { setStrokeWidth(w); setShowWidthPicker(false); }}
+                              className={`flex items-center justify-between gap-3 px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                                strokeWidth === w ? 'bg-primary text-white font-bold' : 'text-slate-300 hover:bg-white/10'
+                              }`}
+                            >
+                              <div className="rounded-full bg-current" style={{ width: Math.min(w + 2, 14), height: Math.min(w + 2, 14) }} />
+                              <span className="text-[11px] font-mono">{w}px</span>
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Canvas Background Button */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => { setShowBgPicker(!showBgPicker); setShowColorPicker(false); setShowWidthPicker(false); }}
+                    className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all border cursor-pointer ${
+                      showBgPicker ? 'border-primary ring-2 ring-primary/40 bg-white/15' : 'border-white/10 hover:bg-white/10'
+                    }`}
+                    title="Canvas Background"
+                  >
+                    <div className="w-5 h-5 rounded-md border border-white/30 shadow-sm" style={{ backgroundColor: canvasBg }} />
+                  </button>
+
+                  <AnimatePresence>
+                    {showBgPicker && (
+                      <motion.div
+                        className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-50 p-2.5 rounded-2xl bg-slate-900/95 dark:bg-[#0c1021]/95 backdrop-blur-2xl border border-white/15 shadow-2xl"
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      >
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1">Canvas BG</p>
+                        <div className="grid grid-cols-4 gap-1.5 w-max">
+                          {BG_COLORS.map((bg) => (
+                            <button
+                              key={bg.color}
+                              type="button"
+                              onClick={() => { setCanvasBg(bg.color); setShowBgPicker(false); }}
+                              className={`w-7 h-7 rounded-lg transition-transform hover:scale-115 cursor-pointer ${
+                                canvasBg === bg.color ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900 scale-110' : ''
+                              }`}
+                              style={{ backgroundColor: bg.color, border: '1px solid rgba(255,255,255,0.2)' }}
+                              title={bg.label}
+                            />
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
-            )}
-            <div className="absolute bottom-2 right-2 flex items-center gap-2 pointer-events-none">
-              <Badge variant="muted" size="sm">{TOOL_CONFIG[tool].emoji} {TOOL_CONFIG[tool].label}</Badge>
-              <Badge variant="muted" size="sm">{activeBoard.strokes.length} strokes · {textBoxes.length} texts</Badge>
+
+              <div className="w-px h-6 bg-white/15 mx-0.5" />
+
+              {/* 5. Undo, Redo, Clear */}
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={undo}
+                  disabled={undoStack.length === 0}
+                  className="w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-25 text-white hover:bg-white/10 border border-transparent hover:border-white/10 cursor-pointer"
+                  title="Undo (Ctrl+Z)"
+                >
+                  <HiArrowLeft size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={redo}
+                  disabled={redoStack.length === 0}
+                  className="w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all disabled:opacity-25 text-white hover:bg-white/10 border border-transparent hover:border-white/10 cursor-pointer"
+                  title="Redo (Ctrl+Y)"
+                >
+                  <HiArrowRight size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={clearCanvas}
+                  className="w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all text-rose-400 hover:text-white hover:bg-rose-500/30 border border-transparent hover:border-rose-500/40 cursor-pointer"
+                  title="Clear canvas"
+                >
+                  <HiTrash size={16} />
+                </button>
+              </div>
+
             </div>
+          </div>
+
+          {/* Floating Status Badges (Bottom-Right) */}
+          <div className="absolute bottom-4 right-4 z-20 pointer-events-none hidden lg:flex items-center gap-2">
+            <Badge variant="muted" size="sm" className="bg-slate-900/85 backdrop-blur-md border border-white/10 text-white font-medium shadow-md">
+              {TOOL_CONFIG[tool].emoji} {TOOL_CONFIG[tool].label}
+            </Badge>
+            <Badge variant="muted" size="sm" className="bg-slate-900/85 backdrop-blur-md border border-white/10 text-white font-medium shadow-md">
+              {activeBoard.strokes.length} strokes · {textBoxes.length} texts
+            </Badge>
           </div>
         </div>
 
-        {/* Shortcuts hint */}
+        {/* Ergonomic Keyboard Shortcuts footer */}
         <div className="flex items-center gap-4 text-[9px] text-[var(--muted-foreground)] font-bold uppercase tracking-wider flex-shrink-0 px-1 flex-wrap">
           <span>⌨️ Shortcuts:</span>
           <span><kbd className="px-1 py-0.5 rounded bg-[var(--card-border)] text-[8px]">P</kbd> Pen</span>

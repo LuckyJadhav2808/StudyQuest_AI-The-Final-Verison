@@ -694,30 +694,83 @@ h4 { font-size: 1.125rem; }
    Quill Editor — Stitch Design Overrides
    ============================================================ */
 
-.quill-wrapper .ql-toolbar.ql-snow {
-  border: none;
-  border-bottom: 2px solid var(--card-border);
-  background: var(--card-bg);
-  border-radius: 16px 16px 0 0;
-  padding: 10px 14px;
+.quill-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  position: relative;
 }
 
+.quill-wrapper .quill {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  position: relative;
+}
+
+/* Action Toolbar — sticky at top of workstation editor */
+.notes-action-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  background: var(--card-bg);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--card-border);
+  flex-shrink: 0;
+}
+
+.quill-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Quill Snow Formatting Toolbar — stays docked right beneath action toolbar */
+.quill-wrapper .ql-toolbar.ql-snow {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--card-bg);
+  backdrop-filter: blur(16px);
+  border: none !important;
+  border-bottom: 1px solid var(--card-border) !important;
+  padding: 8px 14px;
+  flex-shrink: 0;
+}
+
+/* Natural document container vs Workstation internal scroll container */
 .quill-wrapper .ql-container.ql-snow {
-  border: none;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  border: none !important;
   font-family: 'Inter', system-ui, sans-serif;
-  font-size: 14px;
-  min-height: 450px;
-  height: auto;
+  font-size: 15px;
+  background: var(--card-bg);
+  overflow-y: auto;
+}
+
+.quill-wrapper.natural-flow .ql-container.ql-snow {
   overflow: visible;
+  height: auto;
 }
 
 .quill-wrapper .ql-editor {
-  padding: 24px;
+  padding: 28px 32px;
+  padding-bottom: 120px;
   line-height: 1.8;
-  min-height: 450px;
+  min-height: 100%;
+  height: auto;
   color: var(--foreground);
 }
-
 
 /* Themed scrollbar for the notes editor */
 .quill-wrapper .ql-container.ql-snow::-webkit-scrollbar {
@@ -725,7 +778,7 @@ h4 { font-size: 1.125rem; }
 }
 
 .quill-wrapper .ql-container.ql-snow::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.05);
   border-radius: 4px;
 }
 
@@ -744,8 +797,8 @@ h4 { font-size: 1.125rem; }
 .quill-wrapper .ql-editor.ql-blank::before {
   color: var(--muted-foreground);
   font-style: normal;
-  left: 24px;
-  right: 24px;
+  left: 32px;
+  right: 32px;
 }
 
 .quill-wrapper .ql-snow .ql-stroke {
@@ -767,6 +820,7 @@ h4 { font-size: 1.125rem; }
   border-radius: 12px;
   padding: 6px;
   box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  z-index: 30;
 }
 
 .quill-wrapper .ql-toolbar .ql-formats button:hover,
@@ -782,36 +836,6 @@ h4 { font-size: 1.125rem; }
 .quill-wrapper .ql-toolbar .ql-formats button:hover .ql-fill,
 .quill-wrapper .ql-toolbar .ql-formats button.ql-active .ql-fill {
   fill: #7C3AED;
-}
-
-/* Notes editor toolbars (static at top of card) */
-.notes-action-toolbar {
-  position: relative;
-  z-index: 10;
-  background: var(--card-bg) !important;
-}
-
-.quill-wrapper .ql-toolbar.ql-snow {
-  position: relative;
-  z-index: 9;
-  background: var(--card-bg) !important;
-  border-top: none !important;
-  border-bottom: 1px solid var(--card-border) !important;
-}
-
-/* Scrollable Editor Text Area (Google Docs style) */
-.quill-wrapper {
-  display: flex;
-  flex-direction: column;
-}
-
-.quill-wrapper .ql-container.ql-snow {
-  flex: 1;
-  overflow: visible;
-  height: auto;
-  min-height: 480px;
-  border: none !important;
-  background: var(--card-bg);
 }
 
 
@@ -2036,7 +2060,32 @@ li .studyquest-math-embed {
   margin: 1rem 0;
 }
 
+/* ============================================================
+   Sidebar Custom Scrollbar — Visible Scroll Affordance
+   ============================================================ */
 
+.sq-sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(124, 58, 237, 0.5) rgba(255, 255, 255, 0.02);
+}
 
+.sq-sidebar-scroll::-webkit-scrollbar {
+  width: 5px;
+}
 
+.sq-sidebar-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 9999px;
+  margin: 4px 0;
+}
 
+.sq-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(124, 58, 237, 0.55), rgba(99, 102, 241, 0.55));
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+}
+
+.sq-sidebar-scroll:hover::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(124, 58, 237, 0.9), rgba(99, 102, 241, 0.9));
+  box-shadow: 0 0 10px rgba(124, 58, 237, 0.6);
+}

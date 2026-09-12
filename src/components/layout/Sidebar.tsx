@@ -35,6 +35,14 @@ const iconMap: Record<string, React.ComponentType<{ className?: string; size?: n
   HiBeaker, HiShieldCheck, HiBookOpen,
 };
 
+const SECTION_META: Record<string, { emoji: string; short: string }> = {
+  'Adventure': { emoji: '⚔️', short: 'Adventure' },
+  'Study Sanctuary': { emoji: '📚', short: 'Sanctuary' },
+  'Companions': { emoji: '🐾', short: 'Companions' },
+  'Forge': { emoji: '⚡', short: 'Forge' },
+  'Admin': { emoji: '🛡️', short: 'Admin' },
+};
+
 /* ============================================================
    Navigation matches Stitch StudyQuest screen structure:
    Dashboard → Quest Log → Study Sanctuary → Hall of Fame → Questie Chat
@@ -132,6 +140,7 @@ export default function Sidebar() {
 
   // Collapsible section states with localStorage persistence
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  const [pinnedCollapsed, setPinnedCollapsed] = useState(false);
   
   // Pinned favorites with localStorage persistence
   const [pinnedHrefs, setPinnedHrefs] = useState<string[]>(['/', '/dsa', '/timer', '/notes', '/pets']);
@@ -142,8 +151,25 @@ export default function Sidebar() {
       if (savedSections) setCollapsedSections(JSON.parse(savedSections));
       const savedPinned = localStorage.getItem('sq_sidebar_pinned_items');
       if (savedPinned) setPinnedHrefs(JSON.parse(savedPinned));
+      const savedPinnedCollapsed = localStorage.getItem('sq_sidebar_pinned_collapsed');
+      if (savedPinnedCollapsed !== null) setPinnedCollapsed(savedPinnedCollapsed === 'true');
     } catch { /* ignore */ }
   }, []);
+
+  const togglePinnedCollapsed = () => {
+    setPinnedCollapsed((prev) => {
+      const next = !prev;
+      try { localStorage.setItem('sq_sidebar_pinned_collapsed', String(next)); } catch {}
+      return next;
+    });
+  };
+
+
+  const scrollToNextSection = () => {
+    if (navRef.current) {
+      navRef.current.scrollBy({ top: 220, behavior: 'smooth' });
+    }
+  };
 
   const toggleSection = (title: string) => {
     setCollapsedSections((prev) => {
@@ -215,7 +241,7 @@ export default function Sidebar() {
     const el = navRef.current;
     if (!el) return;
     setCanScrollUp(el.scrollTop > 8);
-    setCanScrollDown(el.scrollTop + el.clientHeight < el.scrollHeight - 8);
+    setCanScrollDown(el.scrollTop + el.clientHeight < el.scrollHeight - 16);
   }, []);
 
   useEffect(() => {
@@ -227,7 +253,7 @@ export default function Sidebar() {
   return (
     <motion.aside
       className="hidden md:flex flex-col h-screen bg-[var(--card-bg)] border-r-2 border-[var(--card-border)] fixed left-0 top-0 z-40 overflow-hidden"
-      animate={{ width: collapsed ? 72 : 272 }}
+      animate={{ width: collapsed ? 72 : 292 }}
       transition={reduceMotion ? { duration: 0 } : { duration: 0.25, ease: 'easeInOut' }}
     >
       {/* Header - Avatar + Profile */}
@@ -309,7 +335,8 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation with scroll indicators */}
-      <div className="flex-1 relative min-h-0">
+      <div className="flex-1 relative min-h-0 flex flex-col">
+
         {/* Top scroll fade */}
         <div
           className="absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-[var(--card-bg)] to-transparent z-10 pointer-events-none transition-opacity duration-300"
@@ -319,30 +346,43 @@ export default function Sidebar() {
         <nav
           ref={navRef}
           onScroll={handleNavScroll}
-          className="h-full overflow-y-auto py-2 px-2 space-y-4 mt-1"
+          className="flex-1 overflow-y-auto py-2 px-2.5 space-y-3.5 mt-0.5 sq-sidebar-scroll scroll-smooth relative"
         >
           {/* Pinned Favorites Quick-Access Hub */}
           {pinnedItems.length > 0 && (
-            <div className="pb-2 border-b border-[var(--card-border)]/60">
+            <div id="sidebar-sec-pinned" className="pb-2 border-b border-[var(--card-border)]/60 scroll-mt-2">
               <AnimatePresence>
                 {!collapsed && (
                   <motion.div
-                    className="flex items-center justify-between px-3 mb-1.5"
+                    className="flex items-center justify-between px-2 mb-1.5 cursor-pointer select-none"
+                    onClick={togglePinnedCollapsed}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
+                    title="Click to collapse/expand Pinned Hub"
                   >
-                    <p className="text-[9px] uppercase tracking-[0.15em] font-bold text-amber-400 flex items-center gap-1">
+                    <p className="text-[9px] uppercase tracking-[0.15em] font-bold text-amber-400 flex items-center gap-1.5 hover:text-amber-300 transition-colors">
                       <span>📌</span> Pinned Hub
+                      <span className="text-[8px] font-mono px-1 py-0.2 rounded bg-amber-400/15 text-amber-300">
+                        {pinnedItems.length}
+                      </span>
                     </p>
-                    <span className="text-[8px] font-mono text-slate-500">
-                      Drag ⠿ to reorder
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[8px] font-mono text-slate-500">
+                        {pinnedCollapsed ? 'Tap to view' : 'Drag ⠿ to reorder'}
+                      </span>
+                      <HiChevronDown
+                        className={`text-xs text-slate-400 transition-transform duration-200 ${
+                          pinnedCollapsed ? '-rotate-90' : ''
+                        }`}
+                      />
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              <div className="space-y-0.5">
+              {(!pinnedCollapsed || collapsed) && (
+                <div className="space-y-0.5">
                 {pinnedItems.map((item, idx) => {
                   const Icon = iconMap[item.icon];
                   const isActive = pathname === item.href;
@@ -404,7 +444,9 @@ export default function Sidebar() {
                     </div>
                   );
                 })}
-              </div>
+                {/* Close pinned items container */}
+                </div>
+              )}
             </div>
           )}
 
@@ -413,18 +455,19 @@ export default function Sidebar() {
             const isSectionCollapsed = !!collapsedSections[section.title];
 
             return (
-              <div key={section.title} className="space-y-1">
+              <div key={section.title} id={`sidebar-sec-${section.title}`} className="space-y-1 scroll-mt-2">
                 <AnimatePresence>
                   {!collapsed && (
                     <motion.button
                       onClick={() => toggleSection(section.title)}
-                      className="w-full flex items-center justify-between px-3 py-1 text-[9px] uppercase tracking-[0.15em] font-bold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors cursor-pointer rounded-lg hover:bg-surface-hover/50"
+                      className="w-full flex items-center justify-between px-2.5 py-1 text-[9px] uppercase tracking-[0.15em] font-bold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors cursor-pointer rounded-lg hover:bg-surface-hover/50 group"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                     >
                       <span className="flex items-center gap-1.5">
-                        {section.title}
+                        <span className="text-xs">{SECTION_META[section.title]?.emoji || '📁'}</span>
+                        <span className="group-hover:text-primary transition-colors">{section.title}</span>
                         <span className="text-[8px] font-mono px-1 py-0.2 rounded bg-slate-800 text-slate-400">
                           {section.items.length}
                         </span>
@@ -512,81 +555,134 @@ export default function Sidebar() {
 
         {/* Bottom scroll fade */}
         <div
-          className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-[var(--card-bg)] to-transparent z-10 pointer-events-none transition-opacity duration-300"
+          className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[var(--card-bg)] via-[var(--card-bg)]/80 to-transparent z-10 pointer-events-none transition-opacity duration-300"
           style={{ opacity: canScrollDown ? 1 : 0 }}
         />
+
+        {/* Tactile Floating "Scroll Down" Pill Cue */}
+        <AnimatePresence>
+          {!collapsed && canScrollDown && (
+            <motion.button
+              type="button"
+              initial={{ opacity: 0, y: 10, x: '-50%' }}
+              animate={{ opacity: 1, y: 0, x: '-50%' }}
+              exit={{ opacity: 0, y: 10, x: '-50%' }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={scrollToNextSection}
+              className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-25 px-3 py-1 rounded-full bg-slate-900/95 dark:bg-slate-950/95 border border-primary/40 shadow-[0_4px_16px_rgba(124,58,237,0.35)] backdrop-blur-md text-[10px] font-bold text-slate-200 flex items-center gap-1.5 hover:border-primary hover:text-white transition-all cursor-pointer group"
+              title="Click to scroll down to more sections"
+            >
+              <span className="text-primary-light animate-bounce text-xs leading-none">↓</span>
+              <span>More tools below</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            </motion.button>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Bottom actions */}
-      <div className="p-2 border-t-2 border-[var(--card-border)] space-y-0.5">
-        <Link
-          href="/settings"
-          className={`
-            flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold
-            transition-all duration-200
-            ${pathname === '/settings'
-              ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-[0_4px_0_rgba(88,28,135,0.3)]'
-              : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--card-border)]/40'
-            }
-          `}
-        >
-          <HiCog size={20} />
-          <AnimatePresence>
-            {!collapsed && (
-              <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                Settings
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </Link>
+      {/* Consolidated Compact Bottom Command Dock */}
+      <div className="p-2 border-t border-[var(--card-border)] bg-[var(--card-bg)]/90 backdrop-blur-sm shrink-0">
+        {!collapsed ? (
+          <div className="space-y-1.5">
+            {/* Search & Ask Questie Row */}
+            <button
+              onClick={() => {
+                window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
+              }}
+              className="w-full px-2.5 py-1.5 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] hover:border-primary/40 hover:bg-primary/5 transition-all flex items-center gap-2 group cursor-pointer"
+            >
+              <HiSparkles size={13} className="text-primary/70 group-hover:text-primary transition-colors" />
+              <span className="text-[11px] text-[var(--muted-foreground)] group-hover:text-[var(--foreground)] transition-colors flex-1 text-left truncate">
+                Search & Ask Questie...
+              </span>
+              <kbd className="px-1.5 py-0.5 text-[8px] font-bold rounded bg-[var(--background)] border border-[var(--card-border)] text-[var(--muted-foreground)] font-mono">
+                Ctrl+K
+              </kbd>
+            </button>
 
-        <button
-          onClick={() => signOut()}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-[var(--muted-foreground)] hover:text-coral hover:bg-coral/10 transition-all duration-200"
-        >
-          <HiLogout size={20} />
-          <AnimatePresence>
-            {!collapsed && (
-              <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                Log Out
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </button>
-      </div>
+            {/* Actions Strip: Settings, Log Out & Hide Sidebar close together */}
+            <div className="flex items-center justify-between gap-1 pt-0.5">
+              <div className="flex items-center gap-1">
+                <Link
+                  href="/settings"
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    pathname === '/settings'
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--card-border)]/50'
+                  }`}
+                  title="Settings"
+                >
+                  <HiCog size={15} />
+                  <span className="text-[11px]">Settings</span>
+                </Link>
 
-      {/* Ctrl+K Shortcut Hint */}
-      <AnimatePresence>
-        {!collapsed && (
-          <motion.button
-            onClick={() => {
-              // Dispatch Ctrl+K programmatically
-              window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
-            }}
-            className="mx-2 mb-1 px-3 py-2 rounded-xl border border-dashed border-[var(--card-border)] hover:border-primary/40 hover:bg-primary/5 transition-all flex items-center gap-2 group"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <HiSparkles size={14} className="text-primary/60 group-hover:text-primary transition-colors" />
-            <span className="text-[11px] text-[var(--muted-foreground)] group-hover:text-[var(--foreground)] transition-colors flex-1 text-left">
-              Ask Questie...
-            </span>
-            <kbd className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-[var(--background)] border border-[var(--card-border)] text-[var(--muted-foreground)]">
-              Ctrl+K
-            </kbd>
-          </motion.button>
+                <button
+                  onClick={() => signOut()}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-[var(--muted-foreground)] hover:text-coral hover:bg-coral/10 transition-all cursor-pointer"
+                  title="Log Out"
+                >
+                  <HiLogout size={15} />
+                  <span className="text-[11px]">Log Out</span>
+                </button>
+              </div>
+
+              {/* Hide Sidebar toggle */}
+              <button
+                onClick={() => setCollapsed(true)}
+                className="p-1.5 rounded-lg text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--card-border)]/50 transition-all cursor-pointer flex items-center gap-1"
+                title="Hide Sidebar"
+                aria-label="Hide sidebar"
+              >
+                <HiChevronLeft size={16} />
+                <span className="text-[10px] hidden xl:inline text-slate-500 font-mono">Hide</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Collapsed Icons Column */
+          <div className="flex flex-col items-center gap-1.5 py-0.5">
+            <button
+              onClick={() => {
+                window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
+              }}
+              className="p-2 rounded-xl text-[var(--muted-foreground)] hover:text-primary hover:bg-primary/10 transition-colors"
+              title="Search / Ask Questie (Ctrl+K)"
+            >
+              <HiSparkles size={18} />
+            </button>
+
+            <Link
+              href="/settings"
+              className={`p-2 rounded-xl transition-colors ${
+                pathname === '/settings'
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--card-border)]/50'
+              }`}
+              title="Settings"
+            >
+              <HiCog size={18} />
+            </Link>
+
+            <button
+              onClick={() => signOut()}
+              className="p-2 rounded-xl text-[var(--muted-foreground)] hover:text-coral hover:bg-coral/10 transition-colors"
+              title="Log Out"
+            >
+              <HiLogout size={18} />
+            </button>
+
+            <button
+              onClick={() => setCollapsed(false)}
+              className="p-2 rounded-xl text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--card-border)]/50 transition-colors"
+              title="Expand Sidebar"
+              aria-label="Expand sidebar"
+            >
+              <HiChevronRight size={18} />
+            </button>
+          </div>
         )}
-      </AnimatePresence>
-
-      {/* Collapse Toggle */}
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="p-2 mx-2 mb-2 rounded-xl hover:bg-[var(--card-border)]/40 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors flex items-center justify-center"
-        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-      >
-        {collapsed ? <HiChevronRight size={18} /> : <HiChevronLeft size={18} />}
-      </button>
+      </div>
     </motion.aside>
   );
 }

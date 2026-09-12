@@ -6,6 +6,7 @@ import { useTheme } from '@/context/ThemeContext';
 
 interface PageTransitionProps {
   children: React.ReactNode;
+  className?: string;
 }
 
 const pageVariants = {
@@ -36,11 +37,11 @@ const childVariants = {
   },
 };
 
-export default function PageTransition({ children }: PageTransitionProps) {
+export default function PageTransition({ children, className }: PageTransitionProps) {
   const { reduceMotion } = useTheme();
 
   if (reduceMotion) {
-    return <>{children}</>;
+    return <div className={className}>{children}</div>;
   }
 
   // Wrap each direct child in a motion.div for staggered entry
@@ -48,13 +49,14 @@ export default function PageTransition({ children }: PageTransitionProps) {
 
   return (
     <motion.div
+      className={className}
       variants={pageVariants}
       initial="hidden"
       animate="show"
       exit="exit"
     >
       {childArray.map((child, i) => (
-        <motion.div key={i} variants={childVariants}>
+        <motion.div key={i} variants={childVariants} className={className?.includes('h-full') ? 'h-full flex flex-col min-h-0' : undefined}>
           {child}
         </motion.div>
       ))}

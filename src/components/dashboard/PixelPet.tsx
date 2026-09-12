@@ -415,8 +415,14 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
 
   // User Inactivity & Sleep Mode Detection Effect
   useEffect(() => {
+    let lastThrottled = 0;
     const updateActivity = () => {
-      lastActivityRef.current = Date.now();
+      const now = Date.now();
+      // 250ms throttle prevents 1,000Hz mouse flooding on the main UI thread
+      if (now - lastThrottled < 250) return;
+      lastThrottled = now;
+      lastActivityRef.current = now;
+
       if (isSleepingRef.current) {
         setIsSleeping(false);
         const wakeMsgs = [
@@ -430,11 +436,11 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
       }
     };
 
-    window.addEventListener('mousemove', updateActivity);
-    window.addEventListener('keydown', updateActivity);
-    window.addEventListener('click', updateActivity);
+    window.addEventListener('mousemove', updateActivity, { passive: true });
+    window.addEventListener('keydown', updateActivity, { passive: true });
+    window.addEventListener('click', updateActivity, { passive: true });
     window.addEventListener('scroll', updateActivity, { capture: true, passive: true });
-    window.addEventListener('touchstart', updateActivity);
+    window.addEventListener('touchstart', updateActivity, { passive: true });
 
     // Check idle status every 10 seconds: sleep after 2 minutes of inactivity or late night hours
     const checkIdleInterval = setInterval(() => {

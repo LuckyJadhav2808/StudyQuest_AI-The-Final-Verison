@@ -69,6 +69,7 @@ function AnimatedGrid() {
 function MainContent({ children }: { children: React.ReactNode }) {
   const { collapsed, focusMode } = useSidebar();
   const { reduceMotion } = useTheme();
+  const pathname = usePathname();
   const [isMobile, setIsMobile] = React.useState(false);
 
   React.useEffect(() => {
@@ -78,7 +79,8 @@ function MainContent({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  const sidebarMargin = focusMode || isMobile ? 0 : collapsed ? 72 : 272;
+  const sidebarMargin = focusMode || isMobile ? 0 : collapsed ? 72 : 292;
+  const isNotesPage = pathname === '/notes';
 
   return (
     <div
@@ -86,8 +88,16 @@ function MainContent({ children }: { children: React.ReactNode }) {
       style={{ marginLeft: sidebarMargin }}
     >
       {!focusMode && <Header />}
-      <main className={`flex-1 overflow-y-auto relative z-10 ${focusMode ? 'p-0' : 'p-4 md:p-6 pb-20 md:pb-6'}`}>
-        {!focusMode && <Breadcrumbs />}
+      <main
+        className={`flex-1 relative z-10 ${
+          focusMode
+            ? 'p-1.5 md:p-2.5 overflow-hidden h-screen flex flex-col'
+            : isNotesPage
+            ? 'h-[calc(100vh-64px)] overflow-hidden flex flex-col p-2 md:p-3 pb-2'
+            : 'overflow-y-auto p-4 md:p-6 pb-20 md:pb-6'
+        }`}
+      >
+        {!focusMode && !isNotesPage && <Breadcrumbs />}
         {children}
       </main>
     </div>

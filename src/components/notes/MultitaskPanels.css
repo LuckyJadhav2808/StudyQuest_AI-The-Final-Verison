@@ -11,6 +11,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  height: 100%;
 }
 
 .multitask-header {
@@ -45,102 +46,169 @@
   color: #EF4444;
 }
 
-/* ── Split Layout (Resizable) ── */
+/* ── Split Layout (Workstation Resizable) ── */
 .notes-split-layout {
   display: flex;
   align-items: stretch;
   gap: 0;
-  min-height: 500px;
+  position: relative;
+  width: 100%;
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 18px;
 }
 
 .notes-split-layout > .split-pane {
-  overflow: hidden;
-  min-width: 250px;
+  min-width: 280px;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .notes-split-layout > .split-pane-editor {
+  flex-shrink: 0;
+  flex-grow: 0;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 18px 0 0 18px;
+  border: 2px solid var(--card-border);
+  background: var(--card-bg);
+}
+
+.notes-split-layout > .split-pane-editor.zen-full {
+  width: 100% !important;
+  border-radius: 18px !important;
+  border: 2px solid var(--card-border) !important;
 }
 
 .notes-split-layout > .split-pane-panel {
+  flex-shrink: 0;
+  flex-grow: 0;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 0 18px 18px 0;
+  border: 2px solid var(--card-border);
+  border-left: none;
+  background: var(--card-bg);
+}
+
+/* Single Pane (when no split is open) */
+.notes-single-workstation {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 2px solid var(--card-border);
+  background: var(--card-bg);
 }
 
 /* ── Resize Handle ── */
 .split-resize-handle {
-  width: 12px;
+  width: 14px;
   flex-shrink: 0;
   cursor: col-resize;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
+  height: 100%;
   z-index: 10;
   user-select: none;
   touch-action: none;
+  background: var(--card-bg);
+  border-top: 2px solid var(--card-border);
+  border-bottom: 2px solid var(--card-border);
+  transition: background 0.15s ease;
 }
 
 .split-resize-handle::before {
   content: '';
   width: 4px;
-  height: 40px;
-  border-radius: 2px;
+  height: 48px;
+  border-radius: 999px;
   background: var(--card-border);
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .split-resize-handle:hover::before,
 .split-resize-handle.dragging::before {
   background: var(--color-primary);
-  height: 60px;
-  width: 5px;
-  box-shadow: 0 0 8px rgba(124, 58, 237, 0.3);
+  height: 80px;
+  width: 6px;
+  box-shadow: 0 0 12px rgba(124, 58, 237, 0.4);
 }
 
 .split-resize-handle.dragging {
   cursor: col-resize;
+  background: rgba(124, 58, 237, 0.08);
 }
 
 /* Grip dots */
 .split-resize-handle::after {
   content: '⋮';
   position: absolute;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted-foreground);
-  opacity: 0.4;
+  opacity: 0.45;
   pointer-events: none;
 }
 
 .split-resize-handle:hover::after {
-  opacity: 0.8;
+  opacity: 0.9;
   color: var(--color-primary);
 }
 
-@media (max-width: 900px) {
+/* Responsive handle behavior: only stack on tiny mobile screens (< 640px) */
+@media (max-width: 767px) {
   .notes-split-layout {
+    height: auto;
+    min-height: 500px;
+  }
+  .notes-split-layout:not(.force-horizontal) {
     flex-direction: column;
   }
-  .notes-split-layout > .split-pane {
+  .notes-split-layout:not(.force-horizontal) > .split-pane {
     min-width: unset !important;
     width: 100% !important;
+    height: 450px;
   }
-  .split-resize-handle {
+  .notes-split-layout:not(.force-horizontal) > .split-pane-editor {
+    border-radius: 18px 18px 0 0;
+  }
+  .notes-split-layout:not(.force-horizontal) > .split-pane-panel {
+    border-radius: 0 0 18px 18px;
+    border-left: 2px solid var(--card-border);
+    border-top: none;
+  }
+  .notes-split-layout:not(.force-horizontal) .split-resize-handle {
     width: 100%;
-    height: 12px;
+    height: 14px;
     cursor: row-resize;
+    border-left: 2px solid var(--card-border);
+    border-right: 2px solid var(--card-border);
   }
-  .split-resize-handle::before {
-    width: 40px;
+  .notes-split-layout:not(.force-horizontal) .split-resize-handle::before {
+    width: 48px;
     height: 4px;
   }
-  .split-resize-handle:hover::before,
-  .split-resize-handle.dragging::before {
-    width: 60px;
-    height: 5px;
+  .notes-split-layout:not(.force-horizontal) .split-resize-handle:hover::before,
+  .notes-split-layout:not(.force-horizontal) .split-resize-handle.dragging::before {
+    width: 80px;
+    height: 6px;
   }
-  .split-resize-handle::after {
+  .notes-split-layout:not(.force-horizontal) .split-resize-handle::after {
     content: '⋯';
   }
 }
@@ -152,6 +220,8 @@
   height: 0;
   overflow: hidden;
   border-radius: 0;
+  flex-shrink: 0;
+  background: #000000;
 }
 
 .youtube-embed iframe {
@@ -214,8 +284,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: 350px;
-  min-height: 200px;
+  min-height: 0;
 }
 
 .tutor-msg {
@@ -290,8 +359,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 300px;
-  max-height: 500px;
+  min-height: 0;
+  height: 100%;
   overflow: auto;
   background: var(--background);
   position: relative;
@@ -422,3 +491,46 @@
   background: rgba(124, 58, 237, 0.08);
   color: var(--color-primary);
 }
+
+/* ── In-Note Whiteboard Split Panel ── */
+.whiteboard-split-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--card-bg);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 2px solid var(--card-border);
+}
+
+.whiteboard-split-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--card-border);
+}
+
+.whiteboard-split-canvas-wrap {
+  flex: 1;
+  position: relative;
+  min-height: 380px;
+  background: #ffffff;
+  overflow: hidden;
+  cursor: crosshair;
+}
+
+.whiteboard-split-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--card-bg);
+  border-top: 1px solid var(--card-border);
+}
+

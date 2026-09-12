@@ -1,16 +1,29 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { usePathname } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
+import { useSidebar } from '@/context/SidebarContext';
 
 /**
  * ParticleBackground — Floating, softly glowing orbs that drift across the app.
- * Uses framer-motion for smooth infinite animations.
- * Pointer-events: none, aria-hidden for zero interaction.
+ * Optimized for 60fps GPU-composited CSS transforms (zero main-thread JS animation loops).
+ * Automatically unmounts in focusMode and /notes for zero input latency.
  */
 
 const PARTICLE_COUNT = 8;
+
+// Hardcoded hex colors so they work reliably in inline styles
+const COLORS = [
+  '#7C3AED', // primary purple
+  '#EC4899', // secondary pink
+  '#10B981', // tertiary green
+  '#06D6A0', // teal
+  '#4CC9F0', // sky
+  '#F59E0B', // amber
+  '#6366F1', // indigo
+  '#D946EF', // fuchsia
+];
 
 interface Particle {
   id: number;
@@ -26,79 +39,75 @@ interface Particle {
   driftY: number;
 }
 
-// Hardcoded hex colors so they work reliably in inline styles
-const COLORS = [
-  '#7C3AED', // primary purple
-  '#EC4899', // secondary pink
-  '#10B981', // tertiary green
-  '#06D6A0', // teal
-  '#4CC9F0', // sky
-  '#F59E0B', // amber
-  '#6366F1', // indigo
-  '#D946EF', // fuchsia
-];
-
 function generateParticles(): Particle[] {
   return Array.from({ length: PARTICLE_COUNT }, (_, i) => {
-    const size = 8 + Math.random() * 20; // bigger orbs (8-28px)
+    const size = 12 + (i * 4) % 20; // 12px - 32px
     return {
       id: i,
       size,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      opacity: 0.12 + Math.random() * 0.22, // more visible (0.12 - 0.34)
-      duration: 18 + Math.random() * 30,
-      delay: Math.random() * 8,
+      x: 8 + (i * 12) % 84,
+      y: 8 + (i * 14) % 84,
+      opacity: 0.15 + (i % 3) * 0.06,
+      duration: 22 + (i * 4) % 22,
+      delay: (i * 1.5) % 6,
       color: COLORS[i % COLORS.length],
-      blur: size > 16 ? 12 + Math.random() * 16 : 6 + Math.random() * 10,
-      driftX: -50 + Math.random() * 100,
-      driftY: -60 + Math.random() * 120,
+      blur: size > 20 ? 14 : 8,
+      driftX: -40 + (i * 18) % 80,
+      driftY: -50 + (i * 22) % 100,
     };
   });
 }
 
-export default function ParticleBackground() {
+export default React.memo(function ParticleBackground() {
   const { reduceMotion } = useTheme();
+  const { focusMode } = useSidebar();
+  const pathname = usePathname();
+  const isNotes = pathname === '/notes';
+
   const particles = useMemo(() => generateParticles(), []);
 
-  if (reduceMotion) {
+  // Zero GPU/CPU overhead during focused note writing or reduced motion
+  if (reduceMotion || focusMode || isNotes) {
     return null;
   }
 
   return (
     <div
       className="fixed inset-0 pointer-events-none overflow-hidden"
-      style={{ zIndex: 1 }}
+      style={{ zIndex: 1, contain: 'strict' }}
       aria-hidden="true"
     >
+      <style>{`
+        @keyframes sqParticleDrift {
+          0% { transform: translate3d(0, 0, 0) scale(1); }
+          33% { transform: translate3d(var(--drift-x), calc(var(--drift-y) * 0.5), 0) scale(1.15); }
+          66% { transform: translate3d(calc(var(--drift-x) * -0.5), var(--drift-y), 0) scale(0.85); }
+          100% { transform: translate3d(0, 0, 0) scale(1); }
+        }
+        .sq-gpu-particle {
+          will-change: transform;
+          animation: sqParticleDrift var(--duration) ease-in-out infinite var(--delay);
+        }
+      `}</style>
       {particles.map((p) => (
-        <motion.div
+        <div
           key={p.id}
-          className="absolute rounded-full"
+          className="absolute rounded-full sq-gpu-particle"
           style={{
             width: p.size,
             height: p.size,
             left: `${p.x}%`,
             top: `${p.y}%`,
-            background: `radial-gradient(circle, ${p.color}, ${p.color}88)`,
-            filter: `blur(${p.blur}px)`,
+            background: `radial-gradient(circle, ${p.color}, ${p.color}66)`,
+            boxShadow: `0 0 ${p.blur * 2}px ${p.blur}px ${p.color}44`,
             opacity: p.opacity,
-            willChange: 'transform, opacity',
-          }}
-          animate={{
-            x: [0, p.driftX, -p.driftX * 0.5, p.driftX * 0.3, 0],
-            y: [0, p.driftY, -p.driftY * 0.6, p.driftY * 0.4, 0],
-            scale: [1, 1.4, 0.7, 1.2, 1],
-            opacity: [p.opacity, p.opacity * 1.6, p.opacity * 0.5, p.opacity * 1.3, p.opacity],
-          }}
-          transition={{
-            duration: p.duration,
-            repeat: Infinity,
-            delay: p.delay,
-            ease: 'easeInOut',
+            ['--drift-x' as any]: `${p.driftX}px`,
+            ['--drift-y' as any]: `${p.driftY}px`,
+            ['--duration' as any]: `${p.duration}s`,
+            ['--delay' as any]: `${p.delay}s`,
           }}
         />
       ))}
     </div>
   );
-}
+});

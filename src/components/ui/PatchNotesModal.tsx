@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthContext } from '@/context/AuthContext';
 import { CURRENT_PATCH_VERSION, PATCH_NOTES } from '@/lib/constants';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { getProfileRef, setDocument } from '@/lib/firestore';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import toast from 'react-hot-toast';
@@ -19,6 +20,7 @@ const TYPE_CONFIG: Record<string, { emoji: string; color: string }> = {
 export default function PatchNotesModal() {
   const { user } = useAuthContext();
   const [show, setShow] = useState(false);
+  const checkedRef = useRef(false);
 
   // Dynamically sort patch notes to guarantee we identify the latest version
   const sortedNotes = React.useMemo(() => {
@@ -30,40 +32,124 @@ export default function PatchNotesModal() {
   const latestPatchNote = sortedNotes[0] || PATCH_NOTES[0];
   const [patchNote] = useState(latestPatchNote);
 
-  useEffect(() => {
-    if (!user?.uid) return;
-    const check = async () => {
+  const getStorageKeys = (uid?: string) => ({
+    userKey: uid ? `sq_last_seen_patch_${uid}` : null,
+    globalKey: 'sq_last_seen_patch',
+    sessionKey: `sq_patch_shown_session_${latestPatchNote.version}`,
+  });
+
+  const dismiss = async () => {
+    setShow(false);
+    
+    // 1. Instant Synchronous LocalStorage & SessionStorage Save (Zero Latency)
+    if (typeof window !== 'undefined') {
+      const keys = getStorageKeys(user?.uid);
+      if (keys.userKey) {
+        window.localStorage.setItem(keys.userKey, latestPatchNote.version);
+      }
+      window.localStorage.setItem(keys.globalKey, latestPatchNote.version);
+      window.sessionStorage.setItem(keys.sessionKey, 'true');
+    }
+
+    // 2. Dual-tier asynchronous persistence to Firestore (both preferences & profile)
+    if (user?.uid) {
       try {
         const prefsRef = doc(db, 'users', user.uid, 'data', 'preferences');
-        const snap = await getDoc(prefsRef);
-        const lastSeen = snap.data()?.lastSeenPatchVersion || '0.0.0';
-        
-        // Show update modal if the user hasn't seen the latest patch note
-        if (lastSeen !== latestPatchNote.version) {
-          setShow(true);
-          toast.success(
-            `🎉 New Update Live: v${latestPatchNote.version} - ${latestPatchNote.title}!`,
-            { duration: 5000 }
-          );
+        const profileRef = getProfileRef(user.uid);
+
+        await Promise.allSettled([
+          setDoc(prefsRef, { lastSeenPatchVersion: latestPatchNote.version, updatedAt: Date.now() }, { merge: true }),
+          setDocument(profileRef, { lastSeenPatchVersion: latestPatchNote.version }, true),
+        ]);
+      } catch {
+        /* best effort */
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!user?.uid || checkedRef.current) return;
+
+    // 1. Check LocalStorage & SessionStorage immediately
+    if (typeof window !== 'undefined') {
+      const keys = getStorageKeys(user.uid);
+
+      // If already shown/dismissed in this browser session, never re-prompt
+      if (window.sessionStorage.getItem(keys.sessionKey) === 'true') {
+        checkedRef.current = true;
+        return;
+      }
+
+      // If already marked as seen in user-scoped or global localStorage, suppress modal
+      const localUserSeen = keys.userKey ? window.localStorage.getItem(keys.userKey) : null;
+      const localGlobalSeen = window.localStorage.getItem(keys.globalKey);
+
+      if (localUserSeen === latestPatchNote.version || localGlobalSeen === latestPatchNote.version) {
+        checkedRef.current = true;
+        return;
+      }
+    }
+
+    // 2. Check Remote Firestore Database (with 1.5s debounce to avoid interfering with initial page render)
+    const check = async () => {
+      checkedRef.current = true;
+      try {
+        const prefsRef = doc(db, 'users', user.uid, 'data', 'preferences');
+        const profileRef = getProfileRef(user.uid);
+
+        const [prefsSnap, profileSnap] = await Promise.allSettled([
+          getDoc(prefsRef),
+          getDoc(profileRef),
+        ]);
+
+        let lastSeen: string | null = null;
+
+        if (prefsSnap.status === 'fulfilled' && prefsSnap.value.exists()) {
+          lastSeen = prefsSnap.value.data()?.lastSeenPatchVersion || null;
         }
+
+        if (!lastSeen && profileSnap.status === 'fulfilled' && profileSnap.value.exists()) {
+          lastSeen = (profileSnap.value.data() as any)?.lastSeenPatchVersion || null;
+        }
+
+        // If Firestore confirms user already saw it, sync down to localStorage and skip modal
+        if (lastSeen === latestPatchNote.version) {
+          if (typeof window !== 'undefined') {
+            const keys = getStorageKeys(user.uid);
+            if (keys.userKey) window.localStorage.setItem(keys.userKey, latestPatchNote.version);
+            window.localStorage.setItem(keys.globalKey, latestPatchNote.version);
+          }
+          return;
+        }
+
+        // Show update modal if user truly hasn't seen the latest patch note
+        setShow(true);
+        if (typeof window !== 'undefined') {
+          const keys = getStorageKeys(user.uid);
+          window.sessionStorage.setItem(keys.sessionKey, 'true');
+        }
+        toast.success(
+          `🎉 New Update Live: v${latestPatchNote.version} - ${latestPatchNote.title}!`,
+          { duration: 5000 }
+        );
       } catch {
         // Silent fail
       }
     };
-    // Delay to avoid showing instantly on page load
-    const t = setTimeout(check, 2000);
+
+    const t = setTimeout(check, 1500);
     return () => clearTimeout(t);
   }, [user?.uid, latestPatchNote.version, latestPatchNote.title]);
 
-  const dismiss = async () => {
-    setShow(false);
-    if (user?.uid) {
-      try {
-        const prefsRef = doc(db, 'users', user.uid, 'data', 'preferences');
-        await setDoc(prefsRef, { lastSeenPatchVersion: latestPatchNote.version }, { merge: true });
-      } catch { /* best effort */ }
-    }
-  };
+  // Handle Escape key to dismiss cleanly
+  useEffect(() => {
+    if (!show) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') dismiss();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [show]);
 
   return (
     <AnimatePresence>

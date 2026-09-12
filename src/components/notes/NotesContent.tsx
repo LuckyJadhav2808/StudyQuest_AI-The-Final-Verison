@@ -4,13 +4,14 @@ import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
+import Link from 'next/link';
 import {
   HiPlus, HiTrash, HiPencil, HiSearch,
   HiEye, HiCode, HiDocumentText, HiFolder,
   HiChevronLeft, HiChevronRight, HiClock, HiDownload, HiSparkles,
   HiLightningBolt, HiRefresh, HiInformationCircle, HiShare,
   HiClipboardCopy, HiX, HiReply, HiCheck, HiAcademicCap,
-  HiBeaker, HiMicrophone,
+  HiBeaker, HiMicrophone, HiArrowsExpand,
 } from 'react-icons/hi';
 import QuizModal from '@/components/notes/QuizModal';
 import { marked } from 'marked';
@@ -243,8 +244,12 @@ import Input from '@/components/ui/Input';
 import PageTransition from '@/components/layout/PageTransition';
 import DiagramModal from '@/components/notes/DiagramModal';
 import MathPalette from '@/components/notes/MathPalette';
-import { YouTubePanel, AITutorPanel, ReferenceViewerPanel, ResizableSplitLayout } from '@/components/notes/MultitaskPanels';
+import { YouTubePanel, AITutorPanel, ReferenceViewerPanel, WhiteboardSplitPanel, ResizableSplitLayout } from '@/components/notes/MultitaskPanels';
 import { useGroups, useGroupResources } from '@/hooks/useGroups';
+import { useSidebar } from '@/context/SidebarContext';
+import ExpressiveOwlMascot from '@/components/gamification/ExpressiveOwlMascot';
+import { MascotMood } from '@/components/gamification/QuestieMascot';
+import { playClick, playSuccess } from '@/lib/sounds';
 import { XP_AWARDS } from '@/lib/constants';
 import { Note } from '@/types';
 
@@ -287,6 +292,32 @@ export default function NotesContent() {
   const searchParams = useSearchParams();
   const [selectedFolder, setSelectedFolder] = useState<string>('all');
   const [catalogCollapsed, setCatalogCollapsed] = useState<boolean>(false);
+  const [isScrollsDrawerOpen, setIsScrollsDrawerOpen] = useState<boolean>(false);
+  const { focusMode, setFocusMode } = useSidebar();
+  const isZenMode = focusMode;
+
+  const toggleZenMode = useCallback(() => {
+    setFocusMode(!focusMode);
+    if (!focusMode) {
+      setIsScrollsDrawerOpen(false);
+    }
+  }, [focusMode, setFocusMode]);
+
+  // Clean up global focusMode when navigating away
+  useEffect(() => {
+    return () => {
+      setFocusMode(false);
+    };
+  }, [setFocusMode]);
+
+  // ── Questie Interactive Companion Mascot states (mascot-character-companion) ──
+  const [mascotMood, setMascotMood] = useState<MascotMood>('active');
+  const [mascotBubble, setMascotBubble] = useState<string | null>('Ready to write some great notes? 🦉');
+  const [showMascotBubble, setShowMascotBubble] = useState(false);
+  const [mascotSquish, setMascotSquish] = useState(false);
+  const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [showAiDropdown, setShowAiDropdown] = useState(false);
+  const [showMoreDropdown, setShowMoreDropdown] = useState(false);
 
   // ── Mana Writing Bar & Alchemy Cauldron states ──
   const [mana, setMana] = useState(0);
@@ -434,13 +465,25 @@ export default function NotesContent() {
   const isReplacingRef = useRef(false);
   const lastSelectionIndexRef = useRef<number | null>(null);
   const quillSuggestionsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const spellingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wordCountDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mascotMoodRef = useRef<MascotMood>('active');
 
   useEffect(() => { autocorrectEnabledRef.current = autocorrectEnabled; }, [autocorrectEnabled]);
   useEffect(() => { quillAutocompleteRef.current = quillAutocomplete; }, [quillAutocomplete]);
   useEffect(() => { quillSuggestionsRef.current = quillSuggestions; }, [quillSuggestions]);
   useEffect(() => { activeSuggestionIndexRef.current = activeSuggestionIndex; }, [activeSuggestionIndex]);
+  useEffect(() => { mascotMoodRef.current = mascotMood; }, [mascotMood]);
 
-  const checkQuillSpelling = useCallback(() => {
+  // Clean up debounce timers on unmount
+  useEffect(() => {
+    return () => {
+      if (spellingDebounceRef.current) clearTimeout(spellingDebounceRef.current);
+      if (wordCountDebounceRef.current) clearTimeout(wordCountDebounceRef.current);
+    };
+  }, []);
+
+  const performQuillSpellingCheck = useCallback(() => {
     if (isReplacingRef.current || !autocorrectEnabledRef.current) {
       if (!autocorrectEnabledRef.current) {
         setQuillActiveWord('');
@@ -455,7 +498,6 @@ export default function NotesContent() {
 
     const quill = quillRef.current?.getEditor();
     if (!quill) return;
-
 
     const range = quill.getSelection();
     if (!range) {
@@ -485,7 +527,7 @@ export default function NotesContent() {
     }
 
     const word = text.slice(start, end);
-    // Only check if we have a non-empty word of at least 2 characters (skip whitespace or erased state)
+    // Only check if we have a non-empty word of at least 2 characters
     if (!word || !word.trim() || word.trim().length < 2) {
       setQuillActiveWord('');
       setQuillSuggestions([]);
@@ -497,23 +539,38 @@ export default function NotesContent() {
     }
     const clean = cleanWord(word);
 
-    // Clear any pending suggestions calculation
-    if (quillSuggestionsTimeoutRef.current) {
-      clearTimeout(quillSuggestionsTimeoutRef.current);
-      quillSuggestionsTimeoutRef.current = null;
-    }
-
     if (clean.base && clean.base.length >= 2) {
+      // 1. Instant Autocomplete Suggestions from vocabulary dataset
+      const autoMatches = getAutocompleteSuggestions(clean.base, 4).filter(
+        (w) => w.toLowerCase() !== clean.base.toLowerCase()
+      );
+
+      // 2. Spellcheck suggestions if misspelled
+      const misspelled = isMisspelled(word);
+      const suggestions = misspelled ? getSpellingSuggestions(word) : [];
+
+      // Performance guard: if no suggestions match, reset state without triggering layout reflow
+      if (autoMatches.length === 0 && suggestions.length === 0) {
+        setQuillActiveWord('');
+        setQuillSuggestions([]);
+        setQuillAutocomplete([]);
+        setQuillActiveWordRange(null);
+        setCaretPosition(null);
+        setActiveSuggestionIndex(0);
+        return;
+      }
+
       setQuillActiveWord(word);
       setQuillActiveWordRange({ start, end });
       quillActiveWordRangeRef.current = { start, end };
       setActiveSuggestionIndex(0);
+      setQuillAutocomplete(autoMatches);
+      setQuillSuggestions(suggestions);
 
-      // Calculate pixel bounds for floating caret popover directly at the cursor
+      // Calculate pixel bounds for floating caret popover ONLY when suggestions exist
       try {
         const bounds = quill.getBounds(pos);
         if (bounds) {
-          // Adjust for toolbar / editor top offset
           const toolbarEl = quillWrapperRef.current?.querySelector('.ql-toolbar');
           const toolbarHeight = toolbarEl ? toolbarEl.getBoundingClientRect().height : 42;
           setCaretPosition({
@@ -522,22 +579,7 @@ export default function NotesContent() {
           });
         }
       } catch (e) {
-        // Ignore fallback
-      }
-
-      // 1. Instant Autocomplete Suggestions from 19k vocabulary dataset
-      const autoMatches = getAutocompleteSuggestions(clean.base, 4).filter(
-        (w) => w.toLowerCase() !== clean.base.toLowerCase()
-      );
-      setQuillAutocomplete(autoMatches);
-
-      // 2. Spellcheck suggestions if misspelled
-      if (isMisspelled(word)) {
-        quillSuggestionsTimeoutRef.current = setTimeout(() => {
-          setQuillSuggestions(getSpellingSuggestions(word));
-        }, 150);
-      } else {
-        setQuillSuggestions([]);
+        // Fallback gracefully without throwing
       }
     } else {
       setQuillActiveWord('');
@@ -548,6 +590,22 @@ export default function NotesContent() {
       setActiveSuggestionIndex(0);
     }
   }, []);
+
+  const checkQuillSpelling = useCallback((immediate = false) => {
+    if (spellingDebounceRef.current) {
+      clearTimeout(spellingDebounceRef.current);
+      spellingDebounceRef.current = null;
+    }
+
+    if (immediate) {
+      performQuillSpellingCheck();
+    } else {
+      // 160ms debounce: keystrokes fly at full native speed with 0ms lag
+      spellingDebounceRef.current = setTimeout(() => {
+        performQuillSpellingCheck();
+      }, 160);
+    }
+  }, [performQuillSpellingCheck]);
 
 
 
@@ -680,23 +738,33 @@ export default function NotesContent() {
     };
   }, []);
 
-  // Global Escape listener to immediately dismiss popover from anywhere
+  // Global Escape & shortcut listener (Escape to close drawer/popover/zen, Ctrl+[ to toggle drawer)
   useEffect(() => {
-    if (!isEditing) return;
-
-    const handleGlobalEscape = (e: KeyboardEvent) => {
+    const handleGlobalShortcuts = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setCaretPosition(null);
-        setQuillAutocomplete([]);
-        setQuillSuggestions([]);
-        setQuillActiveWord('');
-        setActiveSuggestionIndex(0);
+        if (focusMode) {
+          setFocusMode(false);
+        }
+        setIsScrollsDrawerOpen(false);
+        setShowAiDropdown(false);
+        setShowMoreDropdown(false);
+        if (isEditing) {
+          setCaretPosition(null);
+          setQuillAutocomplete([]);
+          setQuillSuggestions([]);
+          setQuillActiveWord('');
+          setActiveSuggestionIndex(0);
+        }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === '[') {
+        e.preventDefault();
+        setIsScrollsDrawerOpen((prev) => !prev);
       }
     };
 
-    window.addEventListener('keydown', handleGlobalEscape, true);
-    return () => window.removeEventListener('keydown', handleGlobalEscape, true);
-  }, [isEditing]);
+    window.addEventListener('keydown', handleGlobalShortcuts, true);
+    return () => window.removeEventListener('keydown', handleGlobalShortcuts, true);
+  }, [isEditing, focusMode, setFocusMode]);
 
 
   // Keydown listener for space and punctuation autocorrect in Quill + Tab autocomplete
@@ -964,7 +1032,7 @@ export default function NotesContent() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showShareGroup, setShowShareGroup] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
-  const [multitaskPanel, setMultitaskPanel] = useState<'youtube' | 'tutor' | 'reference' | null>(null);
+  const [multitaskPanel, setMultitaskPanel] = useState<'youtube' | 'tutor' | 'reference' | 'whiteboard' | null>(null);
 
   // ── AI Beautify states ──
   const [showBeautifyPreview, setShowBeautifyPreview] = useState(false);
@@ -1040,7 +1108,35 @@ export default function NotesContent() {
     setSaveStatus('saved');
     setIsEditing(false);
     toast.success('Note saved! 💾');
+    playSuccess();
+
+    // Questie celebration reaction
+    setMascotMood('celebration');
+    setMascotBubble('✨ Saved to your grimoire! Keep leveling up! 🦉');
+    setShowMascotBubble(true);
+    setTimeout(() => {
+      setMascotMood('active');
+      setShowMascotBubble(false);
+    }, 4000);
+
     setTimeout(() => setSaveStatus('idle'), 2000);
+  };
+
+  const handleMascotClick = () => {
+    setMascotSquish(true);
+    playClick();
+    setTimeout(() => setMascotSquish(false), 260);
+
+    const tips = [
+      "Need a summary? Try AI Summarize! 📝",
+      "Highlight formulas and click 'Text to LaTeX' to beautify! 📐",
+      "Open 🎨 Sketch to draw diagrams and insert them into your notes!",
+      "Multitask with YouTube lets you watch lectures side-by-side! 📺",
+      "Ask the 🤖 AI Tutor anything about this topic beside your text!",
+      "You're in the zone! Protect that flame streak! 🔥",
+    ];
+    setMascotBubble(tips[Math.floor(Math.random() * tips.length)]);
+    setShowMascotBubble((prev) => !prev);
   };
 
   const handleRenameNote = async () => {
@@ -1085,73 +1181,95 @@ export default function NotesContent() {
       triggerAutosave(content, editTitle);
     }, 5000);
 
-    // Sync spellcheck and autocomplete on every keystroke / erase
-    requestAnimationFrame(() => {
-      checkQuillSpelling();
-    });
+    // Mascot focus state & typing detection (avoid redundant state dispatches if already focusing)
+    if (mascotMoodRef.current !== 'focus') {
+      setMascotMood('focus');
+    }
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => {
+      setMascotMood('active');
+    }, 2500);
 
-    // Calculate new word count & incremental Mana Bar tracking
-    const textOnly = content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim();
-    const currentWordCount = textOnly.split(/\s+/).filter(Boolean).length;
+    // Debounce word count, reading time & mana calculation (400ms) to ensure 60fps typing speed
+    if (wordCountDebounceRef.current) clearTimeout(wordCountDebounceRef.current);
+    wordCountDebounceRef.current = setTimeout(() => {
+      const textOnly = content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim();
+      const currentWordCount = textOnly ? textOnly.split(/\s+/).filter(Boolean).length : 0;
+      const chars = textOnly.length;
+      const mins = Math.max(1, Math.ceil(currentWordCount / 200));
+      setWordCount({ words: currentWordCount, chars, readingTime: `${mins} min read` });
 
-    if (lastWordCount > 0) {
-      const diff = currentWordCount - lastWordCount;
-      if (diff > 0) {
-        const newSessionCount = wordsWrittenSession + diff;
-        setWordsWrittenSession(newSessionCount);
-        setLastWordCount(currentWordCount);
+      if (lastWordCount > 0) {
+        const diff = currentWordCount - lastWordCount;
+        if (diff > 0) {
+          const newSessionCount = wordsWrittenSession + diff;
+          setWordsWrittenSession(newSessionCount);
+          setLastWordCount(currentWordCount);
 
-        // Check if we hit a 100-word milestone!
-        if (newSessionCount >= 100) {
-          const awardMana = Math.floor(newSessionCount / 100) * 10;
-          setMana(prev => Math.min(100, prev + awardMana));
-          setWordsWrittenSession(newSessionCount % 100);
+          // Check if we hit a 100-word milestone!
+          if (newSessionCount >= 100) {
+            const awardMana = Math.floor(newSessionCount / 100) * 10;
+            setMana(prev => Math.min(100, prev + awardMana));
+            setWordsWrittenSession(newSessionCount % 100);
 
-          // Award XP, Gold, and a random Ingredient!
-          awardXP(10, 'Focused Note Writing');
-          
-          // Random alchemy ingredient
-          const ingredients = ['ether_shard', 'dragon_scale', 'phoenix_feather', 'mana_core', 'sun_stone', 'mercury_dew'];
-          const randomIng = ingredients[Math.floor(Math.random() * ingredients.length)];
-          
-          toast.success(`🔮 Mana Infused! +${awardMana} Mana, +10 XP, and found 1x ${randomIng.replace('_', ' ')}!`, {
-            icon: '✨',
-            duration: 4000
-          });
+            // Award XP, Gold, and a random Ingredient!
+            awardXP(10, 'Focused Note Writing');
+            
+            // Random alchemy ingredient
+            const ingredients = ['ether_shard', 'dragon_scale', 'phoenix_feather', 'mana_core', 'sun_stone', 'mercury_dew'];
+            const randomIng = ingredients[Math.floor(Math.random() * ingredients.length)];
+            
+            toast.success(`🔮 Mana Infused! +${awardMana} Mana, +10 XP, and found 1x ${randomIng.replace('_', ' ')}!`, {
+              icon: '✨',
+              duration: 4000
+            });
+
+            // Questie milestone speech bubble & celebration
+            setMascotMood('celebration');
+            setMascotBubble(`🔥 100 words written! Mana infused! Keep going! 🦉`);
+            setShowMascotBubble(true);
+            playSuccess();
+            setTimeout(() => {
+              setMascotMood('active');
+              setShowMascotBubble(false);
+            }, 4500);
+          }
+        } else {
+          setLastWordCount(currentWordCount);
         }
       } else {
         setLastWordCount(currentWordCount);
       }
-    } else {
-      setLastWordCount(currentWordCount);
-    }
+    }, 400);
 
-    // ── Detect compare/slash compare command ──
-    const quill = quillRef.current?.getEditor();
-    if (quill) {
-      const text = quill.getText();
-      const range = quill.getSelection();
-      if (range) {
-        const compareRegex = /(?:^|\n)(?:\/)?compare\s+(.+?)\s+(?:vs|and|versus|with)\s+([^\r\n]+)(?:\r?\n)/i;
-        const match = text.match(compareRegex);
-        if (match) {
-          const commandText = match[0].trim();
-          const topicA = match[1].trim();
-          const topicB = match[2].trim();
-          if (topicA && topicB) {
-            // Immediately replace the command text with a placeholder
-            const matchStart = text.lastIndexOf(commandText, range.index);
-            if (matchStart !== -1) {
-              const placeholderText = `⏳ Generating comparison: ${topicA} vs ${topicB}...`;
-              quill.deleteText(matchStart, commandText.length);
-              quill.insertText(matchStart, placeholderText);
-              handleCompareCommand(topicA, topicB, placeholderText);
+    // ── Fast check for compare/slash compare command only if 'compare' exists in text ──
+    if (content.includes('compare')) {
+      const quill = quillRef.current?.getEditor();
+      if (quill) {
+        const text = quill.getText();
+        const range = quill.getSelection();
+        if (range) {
+          const compareRegex = /(?:^|\n)(?:\/)?compare\s+(.+?)\s+(?:vs|and|versus|with)\s+([^\r\n]+)(?:\r?\n)/i;
+          const match = text.match(compareRegex);
+          if (match) {
+            const commandText = match[0].trim();
+            const topicA = match[1].trim();
+            const topicB = match[2].trim();
+            if (topicA && topicB) {
+              // Immediately replace the command text with a placeholder
+              const matchStart = text.lastIndexOf(commandText, range.index);
+              if (matchStart !== -1) {
+                const placeholderText = `⏳ Generating comparison: ${topicA} vs ${topicB}...`;
+                quill.deleteText(matchStart, commandText.length);
+                quill.insertText(matchStart, placeholderText);
+                handleCompareCommand(topicA, topicB, placeholderText);
+              }
             }
           }
         }
       }
     }
-  }, [editTitle, triggerAutosave, lastWordCount, wordsWrittenSession, awardXP, checkQuillSpelling]);
+  }, [editTitle, triggerAutosave, lastWordCount, wordsWrittenSession, awardXP]);
 
 
   // Cleanup autosave timer
@@ -1207,15 +1325,12 @@ export default function NotesContent() {
     if (editor) editor.history.redo();
   };
 
-  // Word count & reading time
-  const wordCount = useMemo(() => {
-    const text = editContent.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
-    if (!text) return { words: 0, chars: 0, readingTime: '0 min' };
-    const words = text.split(/\s+/).filter(Boolean).length;
-    const chars = text.length;
-    const mins = Math.max(1, Math.ceil(words / 200));
-    return { words, chars, readingTime: `${mins} min read` };
-  }, [editContent]);
+  // Word count & reading time (state-managed to eliminate synchronous regex on every keypress)
+  const [wordCount, setWordCount] = useState<{ words: number; chars: number; readingTime: string }>({
+    words: 0,
+    chars: 0,
+    readingTime: '0 min',
+  });
 
   const openNote = useCallback((note: Note) => {
     setSelectedNote(note);
@@ -1225,12 +1340,15 @@ export default function NotesContent() {
     setPreview(false);
     setViewMode(false);
     setSaveStatus('idle');
+    setIsScrollsDrawerOpen(false);
 
     // Sync baseline word count
     const text = note.content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim();
-    const count = text.split(/\s+/).filter(Boolean).length;
+    const count = text ? text.split(/\s+/).filter(Boolean).length : 0;
     setLastWordCount(count);
     setWordsWrittenSession(0);
+    const mins = Math.max(1, Math.ceil(count / 200));
+    setWordCount({ words: count, chars: text.length, readingTime: `${mins} min read` });
 
     // Sync URL without reload
     if (typeof window !== 'undefined') {
@@ -1249,6 +1367,7 @@ export default function NotesContent() {
     setPreview(false);
     setViewMode(false);
     setSaveStatus('idle');
+    setIsScrollsDrawerOpen(true);
 
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
@@ -2331,99 +2450,77 @@ Rules:
   }, [selectedNote?.content, isEditing, viewMode, renderMathInHtml, mathRenderKey]);
 
   return (
-    <PageTransition>
-      <div className="w-full max-w-[1700px] mx-auto space-y-4">
-        {/* Master-Detail Split Layout */}
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
-          {/* Master Catalog Pane (Left) */}
-          <div
-            className={`${selectedNote ? 'hidden lg:flex' : 'flex'} flex-col w-full ${
-              catalogCollapsed ? 'lg:w-[76px]' : 'lg:w-[350px] xl:w-[390px]'
-            } flex-shrink-0 transition-all duration-300 space-y-3.5`}
-          >
-            {catalogCollapsed ? (
-              /* Collapsed Slim Dock on Desktop */
-              <div className="w-full flex flex-col items-center gap-3 p-3 rounded-2xl border-2 border-[var(--card-border)] bg-[var(--card-bg)] shadow-sm">
-                <button
-                  onClick={() => setCatalogCollapsed(false)}
-                  className="p-2.5 rounded-xl border border-[var(--card-border)] hover:border-primary/40 text-[var(--muted-foreground)] hover:text-primary transition-colors"
-                  title="Expand Scrolls Catalog"
-                >
-                  <HiChevronRight size={18} />
-                </button>
-                <div className="w-8 h-[1px] bg-[var(--card-border)] my-1" />
-                <button
-                  onClick={() => setShowNewModal(true)}
-                  className="p-2.5 rounded-xl bg-primary text-white hover:bg-primary/90 transition-colors shadow-sm"
-                  title="New Note"
-                >
-                  <HiPlus size={18} />
-                </button>
-                <button
-                  onClick={() => window.location.href = '/whiteboard'}
-                  className="p-2.5 rounded-xl border border-[var(--card-border)] hover:border-primary/40 text-[var(--muted-foreground)] hover:text-primary transition-colors"
-                  title="Whiteboard"
-                >
-                  <HiPencil size={18} />
-                </button>
-                <span className="text-[10px] font-heading font-black text-[var(--muted-foreground)] mt-2">{notes.length}</span>
-              </div>
-            ) : (
-              /* Full Scroll Catalog */
-              <div className="w-full flex flex-col space-y-3.5">
+    <PageTransition className="h-full flex flex-col min-h-0">
+      <div className="w-full h-full flex flex-col min-h-0 space-y-2 relative">
+        {/* ═══ Off-Canvas Slide-Out Scrolls Drawer ═══ */}
+        <AnimatePresence>
+          {isScrollsDrawerOpen && (
+            <>
+              {/* Dimmed Backdrop with blur */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+                onClick={() => setIsScrollsDrawerOpen(false)}
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+              />
+
+              {/* Drawer Panel */}
+              <motion.aside
+                initial={{ x: -380, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: -380, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                className="fixed top-0 bottom-0 left-0 z-50 w-full max-w-[360px] sm:max-w-[390px] bg-[var(--card-bg)] border-r-2 border-[var(--card-border)] shadow-2xl flex flex-col p-4 space-y-3"
+              >
                 {/* Catalog Header */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-xl font-heading font-black text-[var(--foreground)] tracking-tight">
+                <div className="flex items-center justify-between gap-2 pb-2 border-b border-[var(--card-border)]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">📜</span>
+                    <div>
+                      <h2 className="text-base font-heading font-black text-[var(--foreground)] tracking-tight">
                         Scrolls & Notes
                       </h2>
-                      <Badge variant="primary" size="sm">{notes.length}</Badge>
+                      <p className="text-[11px] text-[var(--muted-foreground)] truncate">Grind & preserve knowledge</p>
                     </div>
-                    <p className="text-xs text-[var(--muted-foreground)] truncate">Grind & preserve knowledge</p>
+                    <Badge variant="primary" size="sm">{notes.length}</Badge>
                   </div>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <button
-                      onClick={() => window.location.href = '/whiteboard'}
-                      className="p-1.5 rounded-lg border border-[var(--card-border)] hover:border-primary/40 text-[var(--muted-foreground)] hover:text-primary transition-colors"
-                      title="Open Whiteboard"
-                    >
-                      <HiPencil size={15} />
-                    </button>
+                  <div className="flex items-center gap-1.5">
                     <Button
                       variant="primary"
                       size="sm"
-                      icon={<HiPlus size={15} />}
-                      onClick={() => setShowNewModal(true)}
+                      icon={<HiPlus size={14} />}
+                      onClick={() => { setShowNewModal(true); setIsScrollsDrawerOpen(false); }}
                     >
                       New
                     </Button>
                     <button
-                      onClick={() => setCatalogCollapsed(true)}
-                      className="hidden lg:flex p-1.5 rounded-lg border border-[var(--card-border)] hover:border-primary/40 text-[var(--muted-foreground)] hover:text-primary transition-colors"
-                      title="Collapse catalog"
+                      onClick={() => setIsScrollsDrawerOpen(false)}
+                      className="p-1.5 rounded-lg border border-[var(--card-border)] hover:border-primary/40 text-[var(--muted-foreground)] hover:text-primary transition-colors cursor-pointer"
+                      title="Close drawer (Esc)"
                     >
-                      <HiChevronLeft size={16} />
+                      <HiX size={16} />
                     </button>
                   </div>
                 </div>
 
                 {/* Search Bar */}
                 <div className="relative">
-                  <HiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" size={16} />
+                  <HiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" size={15} />
                   <input
                     type="text"
                     placeholder="Search notes, formulas, tags..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-9 pr-8 py-2.5 rounded-xl border-2 border-[var(--card-border)] bg-[var(--card-bg)] text-xs font-medium focus:border-primary focus:outline-none transition-colors"
+                    className="w-full pl-8 pr-7 py-2 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-xs font-medium focus:border-primary focus:outline-none transition-colors"
                   />
                   {search && (
                     <button
                       onClick={() => setSearch('')}
                       className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
                     >
-                      <HiX size={14} />
+                      <HiX size={13} />
                     </button>
                   )}
                 </div>
@@ -2432,10 +2529,10 @@ Rules:
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
                   <button
                     onClick={() => setSelectedFolder('all')}
-                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
+                    className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
                       selectedFolder === 'all'
                         ? 'bg-primary text-white shadow-sm'
-                        : 'bg-[var(--card-bg)] text-[var(--muted-foreground)] border border-[var(--card-border)] hover:border-primary/40'
+                        : 'bg-[var(--background)] text-[var(--muted-foreground)] border border-[var(--card-border)] hover:border-primary/40'
                     }`}
                   >
                     All ({notes.length})
@@ -2449,11 +2546,11 @@ Rules:
                         className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
                           selectedFolder === f
                             ? 'bg-primary text-white shadow-sm'
-                            : 'bg-[var(--card-bg)] text-[var(--muted-foreground)] border border-[var(--card-border)] hover:border-primary/40'
+                            : 'bg-[var(--background)] text-[var(--muted-foreground)] border border-[var(--card-border)] hover:border-primary/40'
                         }`}
                       >
                         <span>{f}</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${selectedFolder === f ? 'bg-white/25 text-white' : 'bg-[var(--muted)] text-[var(--muted-foreground)]'}`}>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${selectedFolder === f ? 'bg-white/25 text-white' : 'bg-[var(--muted)] text-[var(--muted-foreground)]'}`}>
                           {count}
                         </span>
                       </button>
@@ -2462,7 +2559,7 @@ Rules:
                 </div>
 
                 {/* Catalog Card List */}
-                <div className="space-y-2.5 max-h-[calc(100vh-17rem)] overflow-y-auto pr-1">
+                <div className="space-y-2 flex-1 overflow-y-auto pr-1">
                   {filteredNotes.length === 0 && !loading ? (
                     <div className="text-center py-8 px-4 rounded-xl border border-dashed border-[var(--card-border)] bg-[var(--card-bg)]/40">
                       <span className="text-3xl block mb-2">📜</span>
@@ -2473,7 +2570,7 @@ Rules:
                           Reset Filters
                         </Button>
                       ) : (
-                        <Button variant="primary" size="sm" icon={<HiPlus size={14} />} onClick={() => setShowNewModal(true)}>
+                        <Button variant="primary" size="sm" icon={<HiPlus size={14} />} onClick={() => { setShowNewModal(true); setIsScrollsDrawerOpen(false); }}>
                           Create First Scroll
                         </Button>
                       )}
@@ -2484,11 +2581,14 @@ Rules:
                       return (
                         <div
                           key={note.id}
-                          onClick={() => openNote(note)}
+                          onClick={() => {
+                            openNote(note);
+                            setIsScrollsDrawerOpen(false);
+                          }}
                           className={`p-3 rounded-xl border-2 transition-all cursor-pointer group relative ${
                             isSelected
                               ? 'border-primary bg-primary/10 shadow-[0_0_15px_rgba(124,58,237,0.18)] ring-1 ring-primary/40'
-                              : 'border-[var(--card-border)] bg-[var(--card-bg)] hover:border-primary/30 hover:bg-primary/5'
+                              : 'border-[var(--card-border)] bg-[var(--background)] hover:border-primary/30 hover:bg-primary/5'
                           }`}
                         >
                           <div className="flex items-start justify-between gap-2 mb-1">
@@ -2530,603 +2630,832 @@ Rules:
                     })
                   )}
                 </div>
-              </div>
-            )}
-          </div>
 
-          {/* Workspace Detail Pane (Right) */}
-          <div className={`${!selectedNote ? 'hidden lg:flex' : 'flex'} flex-1 min-w-0 w-full flex-col space-y-4`}>
-            {selectedNote ? (
-              <div className="space-y-4 w-full">
-                {/* Header */}
-                <div className="flex items-center gap-3">
-                  <button onClick={backToList} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors lg:hidden" title="Back to scrolls">
-                    <HiChevronLeft size={20} />
-                  </button>
-            <div className="flex-1 min-w-0">
-              {isEditing ? (
-                <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="text-2xl font-heading font-bold bg-transparent border-none outline-none w-full" placeholder="Note title..." />
-              ) : (
-                <h1 className="text-2xl font-heading font-bold truncate">{selectedNote.title}</h1>
-              )}
-              <div className="flex items-center gap-2 mt-0.5">
-                <Badge variant="primary" size="sm">{selectedNote.folder}</Badge>
-                <span className="text-[10px] text-[var(--muted-foreground)]"><HiClock className="inline mr-0.5" size={12} />{timeAgo(selectedNote.updatedAt)}</span>
-                {isEditing && saveStatus !== 'idle' && (
-                  <span className={`save-indicator ${saveStatus === 'saving' ? 'text-amber' : 'text-teal'}`}>
-                    {saveStatus === 'saving' ? (<><HiRefresh className="animate-spin" size={10} /> Saving...</>) : (<><HiCheck size={10} /> Saved</>)}
+                {/* Drawer Footer */}
+                <div className="pt-2 border-t border-[var(--card-border)] flex items-center justify-between gap-2 text-xs">
+                  <Link
+                    href="/whiteboard"
+                    onClick={() => setIsScrollsDrawerOpen(false)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 hover:text-white transition-all text-xs font-bold"
+                  >
+                    <span>🎨</span>
+                    <span>Whiteboard Studio</span>
+                  </Link>
+                  <span className="text-[10px] text-[var(--muted-foreground)] font-mono">
+                    Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-[9px] border border-white/10">Esc</kbd>
                   </span>
-                )}
-              </div>
-            </div>
-            <div className="flex gap-1.5 flex-wrap justify-end">
-              {isEditing ? (
-                <>
-                  <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancel</Button>
-                  <Button variant="primary" size="sm" onClick={handleSave}>Save</Button>
-                </>
-              ) : viewMode ? (
-                <>
-                  <Button variant="ghost" size="sm" icon={<HiX size={14} />} onClick={() => setViewMode(false)}>Exit View</Button>
-                </>
-              ) : (
-                <>
-                  <Button variant="teal" size="sm" icon={<HiEye size={14} />} onClick={() => setViewMode(true)}>View Mode</Button>
-                  <Button variant="ghost" size="sm" icon={<HiClipboardCopy size={14} />} onClick={() => { setIsEditingMarkdown(false); setMarkdownInput(''); setShowMarkdownImport(true); }}>Import MD</Button>
-                  {selectedNote?.markdownSource && <Button variant="ghost" size="sm" icon={<HiCode size={14} />} onClick={() => { setIsEditingMarkdown(true); setMarkdownInput(selectedNote.markdownSource || ''); setShowMarkdownImport(true); }}>Edit MD Source</Button>}
-                  <Button variant="primary" size="sm" icon={<HiPencil size={14} />} onClick={() => setIsEditing(true)}>Edit</Button>
-                  <button onClick={() => setConfirmDelete(selectedNote.id)} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-coral/30 hover:text-coral transition-colors"><HiTrash size={18} /></button>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Toolbar — hidden in View Mode */}
-          {!isEditing && !viewMode && selectedNote.content && selectedNote.content !== '<p><br></p>' && (
-            <Card padding="sm" hover={false}>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="teal" size="sm" icon={<HiDownload size={14} />} onClick={() => setShowPdfModal(true)}>Export PDF</Button>
-                <Button variant="primary" size="sm" icon={<HiSparkles size={14} />} onClick={aiSummarize} loading={aiLoading}>AI Summarize</Button>
-                <Button variant="amber" size="sm" icon={<HiLightningBolt size={14} />} onClick={aiFlashcards} loading={aiLoading}>AI Flashcards</Button>
-                <Button variant="ghost" size="sm" icon={<HiAcademicCap size={14} />} onClick={() => setShowQuiz(true)}>Quiz Me</Button>
-                <Button variant="coral" size="sm" icon={<HiCode size={14} />} onClick={() => setShowDiagram(true)}>Diagram</Button>
-                {groups.length > 0 && <Button variant="ghost" size="sm" icon={<HiShare size={14} />} onClick={() => setShowShareGroup(true)}>Share to Group</Button>}
-              </div>
-            </Card>
+                </div>
+              </motion.aside>
+            </>
           )}
-          {/* Editor / Preview / View Mode — wrapped in split layout when multitask panel is active */}
-          {(() => {
-            const editorCard = (
-              <Card padding="none" hover={false}>
-                <div ref={noteRef}>
-                  {isEditing && (
-                    <div 
-                      ref={actionToolbarRef}
-                      className="notes-action-toolbar flex items-center justify-between flex-wrap gap-2 p-3 bg-[var(--card-bg)] border-b border-[var(--card-border)] rounded-t-2xl sticky top-0 z-30"
-                    >
-                      <div className="flex gap-2 justify-between items-center w-full md:w-auto flex-wrap">
-                        <div className="flex gap-1.5 flex-shrink-0">
-                          <button onClick={handleUndo} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors" title="Undo (Ctrl+Z)"><HiReply size={16} /></button>
-                          <button onClick={handleRedo} className="p-2 rounded-xl border-2 border-[var(--card-border)] hover:border-primary/30 transition-colors" title="Redo (Ctrl+Y)"><HiReply size={16} className="scale-x-[-1]" /></button>
-                        </div>
-                        <div className="multitask-toggle-bar flex-shrink-0">
-                          <button className={`multitask-toggle ${multitaskPanel === 'youtube' ? 'active' : ''}`} onClick={() => setMultitaskPanel(multitaskPanel === 'youtube' ? null : 'youtube')} title="YouTube Lecture">
-                            📺 YouTube
-                          </button>
-                          <button className={`multitask-toggle ${multitaskPanel === 'tutor' ? 'active' : ''}`} onClick={() => setMultitaskPanel(multitaskPanel === 'tutor' ? null : 'tutor')} title="AI Tutor">
-                            🤖 AI Tutor
-                          </button>
-                          <button className={`multitask-toggle ${multitaskPanel === 'reference' ? 'active' : ''}`} onClick={() => setMultitaskPanel(multitaskPanel === 'reference' ? null : 'reference')} title="Reference Viewer">
-                            📄 Reference
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex gap-2 flex-wrap scrollable-actions-mobile w-full md:w-auto">
-                        <Button variant="amber" size="sm" icon={<HiSparkles size={14} />} onClick={aiBeautify} loading={beautifyLoading}>✨ Beautify</Button>
-                        <Button variant="primary" size="sm" onClick={() => setShowMathPalette(true)}>∑ Math</Button>
-                        <Button
-                          variant="coral"
-                          size="sm"
-                          icon={<HiSparkles size={14} />}
-                          onClick={handleConvertSelectionToLaTeX}
-                          loading={latexConverting}
-                          title="Highlight any plain formula (e.g. x^2+y^2=3) and click to convert to LaTeX"
-                        >
-                          Text to LaTeX
-                        </Button>
-                        <Button 
-                          variant={isListening ? "coral" : "ghost"} 
-                          size="sm" 
-                          icon={<HiMicrophone size={14} className={isListening ? "animate-pulse text-white" : "text-primary"} />} 
-                          onClick={toggleListening}
-                          title="Voice Dictation (dictate notes, bold formatting, compare)"
-                        >
-                          {isListening ? 'Listening...' : 'Dictate'}
-                        </Button>
+        </AnimatePresence>
 
-                        {/* Autocorrect & Autocomplete Tool ON/OFF Toggle */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const nextState = !autocorrectEnabled;
-                            setAutocorrectEnabled(nextState);
-                            if (typeof window !== 'undefined') {
-                              localStorage.setItem('studyquest_notes_autocorrect_enabled', String(nextState));
-                            }
-                            if (!nextState) {
-                              setCaretPosition(null);
-                              setQuillAutocomplete([]);
-                              setQuillSuggestions([]);
-                              setQuillActiveWord('');
-                              setActiveSuggestionIndex(0);
-                              toast('🪄 Autocorrect & Autocomplete: OFF', { icon: '🔕' });
-                            } else {
-                              toast.success('🪄 Autocorrect & Autocomplete: ON', { icon: '✨' });
-                            }
-                          }}
-                          className={`px-2.5 py-1.5 rounded-xl border-2 transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer select-none ${
-                            autocorrectEnabled
-                              ? 'border-teal-500/50 bg-teal-500/15 text-teal-400 shadow-[0_0_8px_rgba(20,184,166,0.25)] hover:bg-teal-500/25'
-                              : 'border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--muted-foreground)] opacity-70 hover:opacity-100 hover:border-teal-500/30'
-                          }`}
-                          title={autocorrectEnabled ? 'Click to disable Autocorrect & Autocomplete' : 'Click to enable Autocorrect & Autocomplete'}
-                        >
-                          <span>{autocorrectEnabled ? '🪄' : '🪄⃠'}</span>
-                          <span className="hidden sm:inline font-mono text-[11px]">{autocorrectEnabled ? 'Auto-Spell: ON' : 'Auto-Spell: OFF'}</span>
-                        </button>
+        {/* ═══ Workspace Detail Area (100% Full-Width) ═══ */}
+        <div className="flex-1 min-h-0 w-full flex flex-col space-y-2">
+          {selectedNote ? (
+            <div className="flex flex-col h-full min-h-0 space-y-2 w-full flex-1">
+              {/* ═══ Executive Consolidated Header ═══ */}
+              <div className="card-glass rounded-2xl border-2 border-[var(--card-border)] p-2 px-3 flex items-center justify-between gap-3 shadow-sm min-w-0 shrink-0">
+                {/* Left: Nav, Title & Save Status (Bounded & Truncated) */}
+                <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
+                  {/* Executive Scrolls Switcher / Drawer Trigger */}
+                  <button
+                    onClick={() => setIsScrollsDrawerOpen((prev) => !prev)}
+                    className="px-2.5 py-1.5 rounded-xl border-2 border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary transition-all text-xs font-bold flex items-center gap-1.5 shrink-0 shadow-sm active:scale-95 cursor-pointer"
+                    title="Open Scrolls Catalog (Ctrl + [)"
+                  >
+                    <span className="text-sm">📜</span>
+                    <span className="hidden sm:inline font-heading font-black">Scrolls</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-primary/25 text-primary">
+                      {notes.length}
+                    </span>
+                    <span className="text-[10px]">▾</span>
+                  </button>
 
-                        <button onClick={() => setShowShortcuts(!showShortcuts)} className={`p-2 rounded-xl border-2 transition-all text-xs ${showShortcuts ? 'border-primary bg-primary/10 text-primary' : 'border-[var(--card-border)] hover:border-primary/30 text-[var(--muted-foreground)]'}`} title="Keyboard Shortcuts"><HiInformationCircle size={18} /></button>
-                        <Button variant="teal" size="sm" icon={<HiBeaker size={14} />} onClick={() => setShowCauldron(true)}>Cauldron</Button>
-                        <Button variant="coral" size="sm" icon={<HiCode size={14} />} onClick={() => setShowDiagram(true)}>Insert Diagram</Button>
-                      </div>
+                  {/* Quick New Scroll button */}
+                  <button
+                    onClick={() => setShowNewModal(true)}
+                    className="p-1.5 rounded-xl border border-[var(--card-border)] hover:border-primary/40 text-[var(--muted-foreground)] hover:text-primary transition-colors shrink-0 cursor-pointer"
+                    title="Forge New Scroll"
+                  >
+                    <HiPlus size={15} />
+                  </button>
+
+                    <Badge variant="primary" size="sm" className="hidden sm:inline-flex shrink-0">
+                      {selectedNote.folder || 'General'}
+                    </Badge>
+
+                    {/* Inline Title Input */}
+                    <div className="min-w-0 flex-1 max-w-xs md:max-w-sm">
+                      {isEditing ? (
+                        <input
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          className="w-full text-base sm:text-lg font-heading font-bold bg-transparent border-b border-dashed border-[var(--card-border)] focus:border-primary outline-none px-1 py-0.5 text-[var(--foreground)] transition-colors truncate"
+                          placeholder="Note title..."
+                        />
+                      ) : (
+                        <h1 className="text-base sm:text-lg font-heading font-bold text-[var(--foreground)] truncate">
+                          {selectedNote.title}
+                        </h1>
+                      )}
                     </div>
-                  )}
 
-                  {isEditing ? (
-                    <div className="quill-wrapper relative" ref={quillWrapperRef}>
-                      {/* Floating Caret Popover for Autocomplete & Spellcheck (Grammarly / VS Code style) */}
-                      <AnimatePresence>
-                        {autocorrectEnabled && (quillAutocomplete.length > 0 || quillSuggestions.length > 0) && caretPosition && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -4, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -4, scale: 0.95 }}
-                            transition={{ duration: 0.12 }}
-                            style={{
-                              position: 'absolute',
-                              top: `${caretPosition.top}px`,
-                              left: `${caretPosition.left}px`,
-                              zIndex: 50,
-                            }}
-                            className="pointer-events-auto flex flex-col gap-1.5 p-2 rounded-2xl bg-slate-900/95 dark:bg-[#12132a]/95 backdrop-blur-xl border border-slate-700/60 dark:border-purple-500/40 shadow-[0_12px_36px_rgba(0,0,0,0.5)] max-w-[calc(100vw-32px)] select-none"
+                    {/* Save indicator */}
+                    {isEditing && saveStatus !== 'idle' && (
+                      <span className={`text-[10px] font-bold flex items-center gap-1 shrink-0 ${saveStatus === 'saving' ? 'text-amber-400' : 'text-teal-400'}`}>
+                        {saveStatus === 'saving' ? <HiRefresh className="animate-spin" size={11} /> : <HiCheck size={11} />}
+                        <span className="hidden md:inline">{saveStatus === 'saving' ? 'Saving...' : 'Saved'}</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Center: Multitask Segmented Glass Dock (Responsive & Bounded) */}
+                  <div className="flex items-center gap-1 p-1 bg-slate-900/70 dark:bg-slate-950/80 border border-[var(--card-border)] rounded-xl shadow-inner shrink-0 z-10">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = multitaskPanel === 'youtube' ? null : 'youtube';
+                        setMultitaskPanel(next);
+                        if (next) setCatalogCollapsed(true);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        multitaskPanel === 'youtube'
+                          ? 'bg-rose-500 text-white shadow-[0_0_12px_rgba(244,63,94,0.4)]'
+                          : 'text-[var(--muted-foreground)] hover:text-white hover:bg-white/5'
+                      }`}
+                      title="YouTube Lecture side-by-side"
+                    >
+                      <span>📺</span>
+                      <span className="hidden xl:inline">YouTube</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = multitaskPanel === 'tutor' ? null : 'tutor';
+                        setMultitaskPanel(next);
+                        if (next) setCatalogCollapsed(true);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        multitaskPanel === 'tutor'
+                          ? 'bg-indigo-500 text-white shadow-[0_0_12px_rgba(99,102,241,0.4)]'
+                          : 'text-[var(--muted-foreground)] hover:text-white hover:bg-white/5'
+                      }`}
+                      title="AI Tutor side-by-side"
+                    >
+                      <span>🤖</span>
+                      <span className="hidden xl:inline">AI Tutor</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = multitaskPanel === 'reference' ? null : 'reference';
+                        setMultitaskPanel(next);
+                        if (next) setCatalogCollapsed(true);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        multitaskPanel === 'reference'
+                          ? 'bg-teal-500 text-white shadow-[0_0_12px_rgba(20,184,166,0.4)]'
+                          : 'text-[var(--muted-foreground)] hover:text-white hover:bg-white/5'
+                      }`}
+                      title="Reference Document/PDF side-by-side"
+                    >
+                      <span>📄</span>
+                      <span className="hidden xl:inline">Reference</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = multitaskPanel === 'whiteboard' ? null : 'whiteboard';
+                        setMultitaskPanel(next);
+                        if (next) setCatalogCollapsed(true);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        multitaskPanel === 'whiteboard'
+                          ? 'bg-purple-500 text-white shadow-[0_0_12px_rgba(168,85,247,0.4)]'
+                          : 'text-[var(--muted-foreground)] hover:text-white hover:bg-white/5'
+                      }`}
+                      title="Whiteboard Sketch side-by-side"
+                    >
+                      <span>🎨</span>
+                      <span className="hidden xl:inline">Sketch</span>
+                    </button>
+                  </div>
+
+                  {/* Right: Actions, AI Suite, Zen & Questie Companion */}
+                  <div className="flex items-center gap-1.5 shrink-0 justify-end">
+                    {/* AI Suite Popover Menu */}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowAiDropdown((prev) => !prev)}
+                        className="px-2.5 py-1.5 rounded-xl border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold flex items-center gap-1 transition-all"
+                        title="AI Power Tools"
+                      >
+                        <HiSparkles size={14} />
+                        <span className="hidden sm:inline">AI Suite</span>
+                        <span className="text-[10px]">▾</span>
+                      </button>
+
+                      {showAiDropdown && (
+                        <div className="absolute right-0 top-10 z-40 w-48 py-1.5 rounded-xl border-2 border-[var(--card-border)] bg-[var(--card-bg)] shadow-xl backdrop-blur-xl">
+                          <button
+                            onClick={() => { setShowAiDropdown(false); aiSummarize(); }}
+                            className="w-full px-3 py-1.5 text-xs text-left hover:bg-primary/15 text-[var(--foreground)] flex items-center gap-2 transition-colors font-medium"
                           >
+                            <span>📝</span> AI Summarize
+                          </button>
+                          <button
+                            onClick={() => { setShowAiDropdown(false); aiFlashcards(); }}
+                            className="w-full px-3 py-1.5 text-xs text-left hover:bg-primary/15 text-[var(--foreground)] flex items-center gap-2 transition-colors font-medium"
+                          >
+                            <span>⚡</span> AI Flashcards
+                          </button>
+                          <button
+                            onClick={() => { setShowAiDropdown(false); setShowQuiz(true); }}
+                            className="w-full px-3 py-1.5 text-xs text-left hover:bg-primary/15 text-[var(--foreground)] flex items-center gap-2 transition-colors font-medium"
+                          >
+                            <span>🎓</span> Quiz Me
+                          </button>
+                          <button
+                            onClick={() => { setShowAiDropdown(false); aiBeautify(); }}
+                            className="w-full px-3 py-1.5 text-xs text-left hover:bg-primary/15 text-[var(--foreground)] flex items-center gap-2 transition-colors font-medium"
+                          >
+                            <span>✨</span> AI Beautify
+                          </button>
+                          <button
+                            onClick={() => { setShowAiDropdown(false); setShowMathPalette(true); }}
+                            className="w-full px-3 py-1.5 text-xs text-left hover:bg-primary/15 text-[var(--foreground)] flex items-center gap-2 transition-colors font-medium"
+                          >
+                            <span>∑</span> Math Palette
+                          </button>
+                          <button
+                            onClick={() => { setShowAiDropdown(false); setShowDiagram(true); }}
+                            className="w-full px-3 py-1.5 text-xs text-left hover:bg-primary/15 text-[var(--foreground)] flex items-center gap-2 transition-colors font-medium"
+                          >
+                            <span>📐</span> Insert Diagram
+                          </button>
+                        </div>
+                      )}
+                    </div>
 
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              {/* Autocomplete pills */}
-                              {quillAutocomplete.map((word, idx) => {
-                                const isFocused = activeSuggestionIndex === idx;
-                                return (
-                                  <button
-                                    key={`caret-auto-${word}-${idx}`}
-                                    type="button"
-                                    onMouseEnter={() => setActiveSuggestionIndex(idx)}
-                                    onMouseDown={(e) => {
-                                      e.preventDefault();
-                                      replaceQuillWord(word);
-                                    }}
-                                    className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer shadow-sm ${
-                                      isFocused
-                                        ? 'bg-teal-500/40 text-white ring-2 ring-teal-400 shadow-[0_0_14px_rgba(45,212,191,0.6)] scale-105 font-black'
-                                        : 'bg-teal-500/15 hover:bg-teal-500/30 text-teal-300 border border-teal-500/30 opacity-80 hover:opacity-100'
-                                    }`}
-                                    title={`Click or press Enter/Tab to autocomplete "${word}"`}
-                                  >
-                                    <span className="text-[10px] text-teal-400">✨</span> {word}
-                                    {isFocused && (
-                                      <kbd className="ml-1 px-1.5 py-0.2 text-[8px] bg-teal-400 text-slate-950 font-bold rounded font-mono shadow-sm">
-                                        ↵ Enter
-                                      </kbd>
-                                    )}
-                                  </button>
-                                );
-                              })}
+                    {/* Mode switcher: View vs Edit */}
+                    {isEditing ? (
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancel</Button>
+                        <Button variant="primary" size="sm" onClick={handleSave}>Save</Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant={viewMode ? "teal" : "ghost"}
+                          size="sm"
+                          icon={<HiEye size={13} />}
+                          onClick={() => setViewMode(!viewMode)}
+                        >
+                          {viewMode ? 'Reading' : 'View'}
+                        </Button>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          icon={<HiPencil size={13} />}
+                          onClick={() => { setIsEditing(true); setViewMode(false); }}
+                        >
+                          Edit
+                        </Button>
+                      </div>
+                    )}
 
-                              {/* Spelling suggestions */}
-                              {quillSuggestions.map((suggestion, idx) => {
-                                const overallIdx = quillAutocomplete.length + idx;
-                                const isFocused = activeSuggestionIndex === overallIdx;
-                                return (
-                                  <button
-                                    key={`caret-sug-${suggestion}-${idx}`}
-                                    type="button"
-                                    onMouseEnter={() => setActiveSuggestionIndex(overallIdx)}
-                                    onMouseDown={(e) => {
-                                      e.preventDefault();
-                                      replaceQuillWord(suggestion);
-                                    }}
-                                    className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm ${
-                                      isFocused
-                                        ? 'bg-purple-500/45 text-white ring-2 ring-purple-400 shadow-[0_0_14px_rgba(192,132,252,0.6)] scale-105 font-black'
-                                        : 'bg-purple-500/15 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 opacity-80 hover:opacity-100'
-                                    }`}
-                                    title={`Click or press Enter/Tab to correct to "${suggestion}"`}
-                                  >
-                                    <span className="text-[10px] text-purple-400">💡</span> {suggestion}
-                                    {isFocused && (
-                                      <kbd className="ml-1 px-1.5 py-0.2 text-[8px] bg-purple-400 text-slate-950 font-bold rounded font-mono shadow-sm">
-                                        ↵ Enter
-                                      </kbd>
-                                    )}
-                                  </button>
-                                );
-                              })}
+                    {/* Zen Full-Width Button */}
+                    <button
+                      type="button"
+                      onClick={toggleZenMode}
+                      className={`p-1.5 rounded-xl border transition-all text-xs font-bold cursor-pointer ${
+                        isZenMode
+                          ? 'border-purple-500 bg-purple-500/25 text-purple-300 ring-2 ring-purple-500/40 shadow-md shadow-purple-500/20'
+                          : 'border-[var(--card-border)] text-[var(--muted-foreground)] hover:text-white hover:border-primary/40'
+                      }`}
+                      title={isZenMode ? "Exit Zen Focus Mode (Esc)" : "Zen Focus Mode (Hide sidebar & headers)"}
+                    >
+                      <HiArrowsExpand size={15} className={isZenMode ? 'rotate-45 text-purple-400' : ''} />
+                    </button>
 
-                              {/* Add word option if misspelled */}
-                              {quillSuggestions.length > 0 && (
-                                <button
-                                  type="button"
-                                  onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    addQuillWordToDictionary(quillActiveWord);
-                                  }}
-                                  className="px-2 py-0.5 text-[10px] text-slate-400 hover:text-purple-300 font-semibold transition-colors cursor-pointer"
-                                >
-                                  + Add word
-                                </button>
-                              )}
+                    {/* Interactive Questie Mascot Companion */}
+                    <div className="relative flex items-center">
+                      <button
+                        type="button"
+                        onClick={handleMascotClick}
+                        className="relative p-1 rounded-full hover:bg-primary/10 transition-transform active:scale-95 cursor-pointer flex items-center justify-center"
+                        title="Click Questie for companion wisdom & cheer! 🦉"
+                      >
+                        <ExpressiveOwlMascot size={32} mood={mascotMood} isSquishing={mascotSquish} />
+                        {mascotMood === 'focus' && (
+                          <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full ring-2 ring-[var(--card-bg)] animate-pulse" />
+                        )}
+                        {mascotMood === 'celebration' && (
+                          <span className="absolute -top-1 -right-1 text-xs animate-bounce">✨</span>
+                        )}
+                      </button>
+
+                      <AnimatePresence>
+                        {showMascotBubble && mascotBubble && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.85, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.85, y: 10 }}
+                            transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+                            className="absolute right-0 top-11 z-50 p-3 rounded-2xl bg-[var(--card-bg)] border-2 border-primary/30 shadow-2xl backdrop-blur-xl w-64 text-left"
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Questie says:</span>
+                              <button onClick={() => setShowMascotBubble(false)} className="text-[var(--muted-foreground)] hover:text-white p-0.5"><HiX size={12} /></button>
                             </div>
-
-                            {/* Keyboard shortcut helper strip */}
-                            <div className="flex items-center justify-between pt-1 border-t border-slate-700/50 text-[9px] text-slate-400 font-medium px-1">
-                              <span className="flex items-center gap-1.5">
-                                <span>⌨️</span>
-                                <span><kbd className="px-1 py-0.2 bg-slate-800 text-teal-300 rounded font-mono border border-slate-700">Tab</kbd> cycle</span>
-                                <span>•</span>
-                                <span><kbd className="px-1 py-0.2 bg-slate-800 text-teal-300 rounded font-mono border border-slate-700">Enter ↵</kbd> accept</span>
-                                <span>•</span>
-                                <span><kbd className="px-1 py-0.2 bg-slate-800 text-slate-400 rounded font-mono border border-slate-700">Esc</kbd> dismiss</span>
-                              </span>
+                            <p className="text-xs font-semibold text-[var(--foreground)] leading-snug">{mascotBubble}</p>
+                            <div className="mt-2.5 pt-2 border-t border-[var(--card-border)]/60 flex items-center justify-between text-[10px]">
+                              <button onClick={() => { setShowMascotBubble(false); aiSummarize(); }} className="text-primary hover:underline font-bold">✨ Summarize</button>
+                              <button onClick={() => { setShowMascotBubble(false); aiFlashcards(); }} className="text-amber-400 hover:underline font-bold">⚡ Flashcards</button>
+                              <button onClick={() => { setShowMascotBubble(false); setMultitaskPanel('tutor'); }} className="text-indigo-400 hover:underline font-bold">🤖 AI Tutor</button>
                             </div>
                           </motion.div>
                         )}
                       </AnimatePresence>
-
-
-                       <ReactQuill
-                        key={selectedNote?.id || 'new'}
-                        ref={quillRef}
-                        theme="snow"
-                        defaultValue={sanitizeHtmlForQuill(selectedNote?.content || '')}
-                        onChange={handleContentChange}
-                        onChangeSelection={(range: any, source: any, editor: any) => {
-                          if (range) {
-                            if (range.length > 0) {
-                              setSelectedText(editor.getText(range.index, range.length));
-                            } else {
-                              setSelectedText('');
-                            }
-                          }
-                          checkQuillSpelling();
-                        }}
-
-                        modules={QUILL_MODULES}
-                        formats={QUILL_FORMATS}
-                        placeholder="Start typing your study notes here... 💡 Hint: Type '/compare Topic A vs Topic B' and press Enter to instantly generate a comparison card, or use the 🎙️ Dictate button for voice commands!"
-                        preserveWhitespace={true}
-                        useSemanticHTML={false}
-                      />
-                      {/* Sticky Glass Footer: Autocomplete, Spelling & Stats — ALWAYS accessible while typing! */}
-                      <div className="sticky bottom-0 z-30 bg-[var(--card-bg)]/95 backdrop-blur-xl border-t border-[var(--card-border)] shadow-[0_-4px_24px_rgba(0,0,0,0.18)] rounded-b-2xl transition-all">
-
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-2.5 text-[11px] text-[var(--muted-foreground)] font-semibold gap-2">
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <span className="font-mono">{wordCount.words} words</span>
-                            <span>•</span>
-                            <span className="font-mono">{wordCount.chars} chars</span>
-                            <span>•</span>
-                            <span>{wordCount.readingTime}</span>
-
-                            {/* Autocomplete suggestions from 19k dataset */}
-                            {autocorrectEnabled && quillAutocomplete.length > 0 && (
-                              <div className="flex flex-wrap items-center gap-1.5 ml-0 sm:ml-2 bg-teal-500/15 px-3 py-1 rounded-xl border border-teal-500/30 shadow-sm animate-fade-in">
-                                <span className="text-teal-400 font-bold flex items-center gap-1 text-xs">✨ Complete:</span>
-                                {quillAutocomplete.map((word, idx) => (
-                                  <button
-                                    key={`auto-${word}-${idx}`}
-                                    type="button"
-                                    onMouseDown={(e) => {
-                                      e.preventDefault();
-                                      replaceQuillWord(word);
-                                    }}
-                                    className="text-teal-200 hover:text-white transition-all px-2.5 py-0.5 bg-teal-500/25 hover:bg-teal-500/50 rounded-lg font-mono text-[11px] font-bold cursor-pointer shadow-sm hover:scale-105 active:scale-95"
-                                    title={`Click to autocomplete "${word}"`}
-                                  >
-                                    {word}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-
-                            {/* Spelling suggestions */}
-                            {autocorrectEnabled && quillSuggestions.length > 0 && (
-                              <div className="flex flex-wrap items-center gap-1.5 ml-0 sm:ml-2 bg-purple-500/15 px-3 py-1 rounded-xl border border-purple-500/30 shadow-sm animate-fade-in">
-                                <span className="text-purple-400 font-bold text-xs">💡 Did you mean:</span>
-                                {quillSuggestions.map((suggestion, idx) => (
-                                  <button
-                                    key={`${suggestion}-${idx}`}
-                                    type="button"
-                                    onMouseDown={(e) => {
-                                      e.preventDefault();
-                                      replaceQuillWord(suggestion);
-                                    }}
-                                    className="text-purple-200 hover:text-white transition-all px-2 py-0.5 bg-purple-500/30 hover:bg-purple-500/50 rounded-md cursor-pointer font-bold hover:scale-105 active:scale-95 text-[11px]"
-                                  >
-                                    {suggestion}
-                                  </button>
-                                ))}
-                                <span className="text-[var(--muted-foreground)]/30 mx-1">|</span>
-                                <button
-                                  type="button"
-                                  onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    addQuillWordToDictionary(quillActiveWord);
-                                  }}
-                                  className="text-purple-400 hover:text-purple-300 transition-colors font-bold underline cursor-pointer text-[11px]"
-                                >
-                                  ➕ Add "{quillActiveWord.replace(/^[^\w'-]+|[^\w'-]+$/g, '') || quillActiveWord}"
-                                </button>
-                              </div>
-                            )}
-
-                          </div>
-                          <div className="flex gap-3 shrink-0 self-end sm:self-auto">
-                            {saveStatus === 'saving' && <span className="text-amber-400 flex items-center gap-1"><HiRefresh className="animate-spin" size={12} /> Autosaving...</span>}
-                            {saveStatus === 'saved' && <span className="text-teal-400 flex items-center gap-1"><HiCheck size={12} /> Autosaved</span>}
-                          </div>
-                        </div>
-                      </div>
-
-
-                      {/* Mana Writing Bar */}
-                      <div className="px-4 py-3 border-t border-[var(--card-border)] bg-purple-500/5 dark:bg-purple-950/15 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg animate-pulse">🔮</span>
-                          <div className="text-left">
-                            <div className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wide">Grimoire Mana Bar</div>
-                            <div className="text-[9px] text-[var(--muted-foreground)]">+{100 - wordsWrittenSession} words to gain Alchemy Ingredients & Mana!</div>
-                          </div>
-                        </div>
-                        <div className="flex-1 max-w-[200px] h-2.5 bg-slate-200 dark:bg-slate-850 rounded-full overflow-hidden relative shadow-inner border border-purple-500/20">
-                          <motion.div
-                            className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 shadow-[0_0_8px_rgba(168,85,247,0.5)]"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${wordsWrittenSession}%` }}
-                            transition={{ type: 'spring', stiffness: 80 }}
-                          />
-                        </div>
-                        <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400">Mana: {mana}/100</span>
-                      </div>
                     </div>
-                  ) : viewMode ? (
-                    /* ===== Distraction-Free View Mode ===== */
-                    <div className="p-8 md:p-12 min-h-[500px] bg-[var(--card-bg)]">
-                      <div className="max-w-2xl mx-auto">
-                        <h1 className="text-3xl font-heading font-bold mb-2">{selectedNote.title}</h1>
-                        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[var(--card-border)]">
-                          <Badge variant="primary" size="sm">{selectedNote.folder}</Badge>
-                          <span className="text-xs text-[var(--muted-foreground)]"><HiClock className="inline mr-1" size={12} />{timeAgo(selectedNote.updatedAt)}</span>
-                        </div>
-                        {selectedNote.content && selectedNote.content !== '<p><br></p>' ? (
-                          <div className="prose prose-lg max-w-none dark:prose-invert leading-relaxed studyquest-markdown" dangerouslySetInnerHTML={{ __html: renderedViewContent || selectedNote.content }} />
-                        ) : (
-                          <p className="text-sm text-[var(--muted-foreground)] italic">This note is empty.</p>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-6 min-h-[300px]">
-                      {selectedNote.content && selectedNote.content !== '<p><br></p>' ? (
-                        <div className="prose prose-sm max-w-none dark:prose-invert text-sm leading-relaxed studyquest-markdown" dangerouslySetInnerHTML={{ __html: renderedViewContent || selectedNote.content }} />
-                      ) : (
-                        <div className="text-center py-12">
-                          <span className="text-4xl mb-3 block">📝</span>
-                          <p className="text-sm text-[var(--muted-foreground)]">This note is empty.</p>
-                          <Button variant="primary" size="sm" className="mt-3" onClick={() => setIsEditing(true)}>Start Writing</Button>
+
+                    {/* More Options Dropdown */}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowMoreDropdown((prev) => !prev)}
+                        className="p-1.5 rounded-xl border border-[var(--card-border)] hover:border-primary/40 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                        title="More options"
+                      >
+                        <span className="text-xs font-bold">⋯</span>
+                      </button>
+
+                      {showMoreDropdown && (
+                        <div className="absolute right-0 top-9 z-40 w-44 py-1.5 rounded-xl border-2 border-[var(--card-border)] bg-[var(--card-bg)] shadow-xl backdrop-blur-xl">
+                          <button
+                            onClick={() => { setShowMoreDropdown(false); setShowPdfModal(true); }}
+                            className="w-full px-3 py-1.5 text-xs text-left hover:bg-primary/15 text-[var(--foreground)] flex items-center gap-2 transition-colors"
+                          >
+                            <HiDownload size={14} /> Export PDF
+                          </button>
+                          <button
+                            onClick={() => { setShowMoreDropdown(false); setIsEditingMarkdown(false); setMarkdownInput(''); setShowMarkdownImport(true); }}
+                            className="w-full px-3 py-1.5 text-xs text-left hover:bg-primary/15 text-[var(--foreground)] flex items-center gap-2 transition-colors"
+                          >
+                            <HiClipboardCopy size={14} /> Import Markdown
+                          </button>
+                          {selectedNote?.markdownSource && (
+                            <button
+                              onClick={() => { setShowMoreDropdown(false); setIsEditingMarkdown(true); setMarkdownInput(selectedNote.markdownSource || ''); setShowMarkdownImport(true); }}
+                              className="w-full px-3 py-1.5 text-xs text-left hover:bg-primary/15 text-[var(--foreground)] flex items-center gap-2 transition-colors"
+                            >
+                              <HiCode size={14} /> Edit MD Source
+                            </button>
+                          )}
+                          <div className="h-[1px] bg-[var(--card-border)] my-1" />
+                          <button
+                            onClick={() => { setShowMoreDropdown(false); setConfirmDelete(selectedNote.id); }}
+                            className="w-full px-3 py-1.5 text-xs text-left hover:bg-red-500/15 text-red-400 flex items-center gap-2 transition-colors"
+                          >
+                            <HiTrash size={14} /> Delete Note
+                          </button>
                         </div>
                       )}
                     </div>
-                  )}
+                  </div>
                 </div>
-              </Card>
-            );
 
-            // If a multitask panel is active, wrap in resizable split layout
-            if (multitaskPanel && isEditing) {
-              const panelComponent = multitaskPanel === 'youtube' ? (
-                <YouTubePanel
-                  onClose={() => setMultitaskPanel(null)}
-                  onInsertTimestamp={(ts) => {
-                    const timestampHtml = `<p><strong style="color: #EF4444;">[⏱️ ${ts}]</strong> </p>`;
-                    const quill = quillRef.current?.getEditor();
-                    if (quill) {
-                      const range = quill.getSelection();
-                      const index = range ? range.index : quill.getLength() - 1;
-                      quill.clipboard.dangerouslyPasteHTML(index, timestampHtml);
-                      setEditContent(quill.root.innerHTML);
-                    } else {
-                      setEditContent(prev => prev + timestampHtml);
-                    }
-                  }}
-                />
-              ) : multitaskPanel === 'tutor' ? (
-                <AITutorPanel
-                  onClose={() => setMultitaskPanel(null)}
-                  onInsertText={(text) => {
-                    const insertHtml = `<blockquote><p>${text.replace(/\n/g, '</p><p>')}</p></blockquote>`;
-                    const quill = quillRef.current?.getEditor();
-                    if (quill) {
-                      const range = quill.getSelection();
-                      const index = range ? range.index : quill.getLength() - 1;
-                      quill.clipboard.dangerouslyPasteHTML(index, insertHtml);
-                      setEditContent(quill.root.innerHTML);
-                    } else {
-                      setEditContent(prev => prev + insertHtml);
-                    }
-                  }}
-                  noteContent={editContent}
-                  selectedText={selectedText}
-                  apiKey={profile?.openRouterKey}
-                />
-              ) : (
-                <ReferenceViewerPanel
-                  onClose={() => setMultitaskPanel(null)}
-                  onInsertText={(text) => {
-                    const quill = quillRef.current?.getEditor();
-                    if (quill) {
-                      const range = quill.getSelection();
-                      const index = range ? range.index : quill.getLength() - 1;
-                      quill.insertText(index, text);
-                      setEditContent(quill.root.innerHTML);
-                    } else {
-                      setEditContent(prev => prev + '\n' + text);
-                    }
-                  }}
-                  apiKey={profile?.openRouterKey}
-                />
-              );
+                {/* ═══ Workstation Main Body (Editor & Split Panels) ═══ */}
+                {(() => {
+                  const editorCard = (
+                    <div ref={noteRef} className="flex flex-col h-full min-h-0 relative overflow-hidden">
+                      {isEditing ? (
+                        <>
+                          {/* Pinned Action Bar at top of editor */}
+                          <div
+                            ref={actionToolbarRef}
+                            className="notes-action-toolbar flex items-center justify-between flex-wrap gap-2 p-2 px-3 bg-[var(--card-bg)] border-b border-[var(--card-border)] z-25 flex-shrink-0"
+                          >
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <div className="flex items-center gap-1">
+                                <button onClick={handleUndo} className="p-1.5 rounded-lg border border-[var(--card-border)] hover:border-primary/40 text-[var(--foreground)] transition-colors" title="Undo (Ctrl+Z)">
+                                  <HiReply size={14} />
+                                </button>
+                                <button onClick={handleRedo} className="p-1.5 rounded-lg border border-[var(--card-border)] hover:border-primary/40 text-[var(--foreground)] transition-colors" title="Redo (Ctrl+Y)">
+                                  <HiReply size={14} className="scale-x-[-1]" />
+                                </button>
+                              </div>
 
-              return (
-                <ResizableSplitLayout
-                  editor={editorCard}
-                  panel={panelComponent}
-                />
-              );
-            }
+                              <div className="h-4 w-[1px] bg-[var(--card-border)] mx-1" />
 
-            return editorCard;
-          })()}
+                              <Button
+                                variant={isListening ? "coral" : "ghost"}
+                                size="sm"
+                                icon={<HiMicrophone size={13} className={isListening ? "animate-pulse text-white" : "text-primary"} />}
+                                onClick={toggleListening}
+                                title="Voice Dictation"
+                              >
+                                {isListening ? 'Listening...' : 'Dictate'}
+                              </Button>
 
-          {/* Keyboard Shortcuts Panel */}
-          <AnimatePresence>
-            {isEditing && showShortcuts && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}>
-                <Card padding="md" hover={false}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-sm">⌨️</span>
-                    <h4 className="text-xs font-heading font-bold uppercase tracking-wider text-[var(--muted-foreground)]">Keyboard Shortcuts</h4>
+                              <Button variant="ghost" size="sm" onClick={() => setShowMathPalette(true)}>∑ Math</Button>
+
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                icon={<HiSparkles size={12} />}
+                                onClick={handleConvertSelectionToLaTeX}
+                                loading={latexConverting}
+                                title="Convert selected text formula into LaTeX"
+                              >
+                                Text to LaTeX
+                              </Button>
+
+                              {/* Autocorrect & Autocomplete Tool Toggle */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const nextState = !autocorrectEnabled;
+                                  setAutocorrectEnabled(nextState);
+                                  if (typeof window !== 'undefined') {
+                                    localStorage.setItem('studyquest_notes_autocorrect_enabled', String(nextState));
+                                  }
+                                  if (!nextState) {
+                                    setCaretPosition(null);
+                                    setQuillAutocomplete([]);
+                                    setQuillSuggestions([]);
+                                    setQuillActiveWord('');
+                                    setActiveSuggestionIndex(0);
+                                    toast('🪄 Autocorrect & Autocomplete: OFF', { icon: '🔕' });
+                                  } else {
+                                    toast.success('🪄 Autocorrect & Autocomplete: ON', { icon: '✨' });
+                                  }
+                                }}
+                                className={`px-2 py-1 rounded-lg border transition-all text-xs font-bold flex items-center gap-1 cursor-pointer select-none ${
+                                  autocorrectEnabled
+                                    ? 'border-teal-500/50 bg-teal-500/15 text-teal-400'
+                                    : 'border-[var(--card-border)] text-[var(--muted-foreground)] opacity-70 hover:opacity-100'
+                                }`}
+                                title="Toggle Autocorrect & Autocomplete"
+                              >
+                                <span>{autocorrectEnabled ? '🪄' : '🪄⃠'}</span>
+                                <span className="hidden sm:inline text-[10px]">{autocorrectEnabled ? 'Spell: ON' : 'Spell: OFF'}</span>
+                              </button>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setShowShortcuts(!showShortcuts)}
+                                className="p-1.5 rounded-lg border border-[var(--card-border)] hover:border-primary/40 text-[var(--muted-foreground)] hover:text-white transition-colors text-xs flex items-center gap-1"
+                                title="Keyboard Shortcuts"
+                              >
+                                <span>⌨️</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Quill Editor Component */}
+                          <div className="quill-wrapper relative flex-1 min-h-0 flex flex-col" ref={quillWrapperRef}>
+                            {/* Floating Caret Popover for Autocomplete & Spellcheck */}
+                            <AnimatePresence>
+                              {autocorrectEnabled && (quillAutocomplete.length > 0 || quillSuggestions.length > 0) && caretPosition && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                                  exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                                  transition={{ duration: 0.12 }}
+                                  style={{
+                                    position: 'absolute',
+                                    top: `${Math.max(10, caretPosition.top - 8)}px`,
+                                    left: `${Math.max(16, caretPosition.left)}px`,
+                                    zIndex: 40,
+                                  }}
+                                  className="floating-caret-popover flex flex-col gap-1.5 p-2 rounded-xl bg-slate-900/95 dark:bg-slate-950/95 border border-purple-500/40 shadow-2xl backdrop-blur-xl text-slate-100 font-sans text-xs max-w-sm pointer-events-auto"
+                                >
+                                  {quillSuggestions.length > 0 && (
+                                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-rose-400 px-1 border-b border-rose-500/20 pb-1">
+                                      <span>⚠️ Possible misspelling:</span>
+                                      <span className="font-mono underline text-slate-200">{quillActiveWord}</span>
+                                    </div>
+                                  )}
+
+                                  <div className="flex flex-wrap items-center gap-1 max-h-32 overflow-y-auto">
+                                    {(quillSuggestions.length > 0 ? quillSuggestions : quillAutocomplete).slice(0, 5).map((suggestion, idx) => {
+                                      const isFocused = idx === activeSuggestionIndex;
+                                      return (
+                                        <button
+                                          key={`sugg-${suggestion}-${idx}`}
+                                          type="button"
+                                          onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            replaceQuillWord(suggestion);
+                                          }}
+                                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all flex items-center gap-1 ${
+                                            isFocused
+                                              ? 'bg-purple-600 text-white shadow-md scale-105 ring-1 ring-purple-400'
+                                              : 'bg-slate-800/80 hover:bg-purple-700/60 text-slate-200'
+                                          }`}
+                                        >
+                                          <span>{suggestion}</span>
+                                          {isFocused && (
+                                            <kbd className="ml-1 px-1 py-0.2 text-[8px] bg-purple-400 text-slate-950 font-bold rounded font-mono">
+                                              ↵
+                                            </kbd>
+                                          )}
+                                        </button>
+                                      );
+                                    })}
+
+                                    {quillSuggestions.length > 0 && (
+                                      <button
+                                        type="button"
+                                        onMouseDown={(e) => {
+                                          e.preventDefault();
+                                          addQuillWordToDictionary(quillActiveWord);
+                                        }}
+                                        className="px-2 py-0.5 text-[10px] text-slate-400 hover:text-purple-300 font-semibold transition-colors cursor-pointer"
+                                      >
+                                        + Add word
+                                      </button>
+                                    )}
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+
+                            <ReactQuill
+                              key={selectedNote?.id || 'new'}
+                              ref={quillRef}
+                              theme="snow"
+                              defaultValue={sanitizeHtmlForQuill(selectedNote?.content || '')}
+                              onChange={handleContentChange}
+                              onChangeSelection={(range: any, source: any, editor: any) => {
+                                if (range) {
+                                  if (range.length > 0) {
+                                    setSelectedText(editor.getText(range.index, range.length));
+                                  } else {
+                                    setSelectedText('');
+                                  }
+                                }
+                              }}
+                              modules={QUILL_MODULES}
+                              formats={QUILL_FORMATS}
+                              placeholder="Start typing your study notes here... 💡 Hint: Type '/compare Topic A vs Topic B' and press Enter to compare concepts!"
+                              preserveWhitespace={true}
+                              useSemanticHTML={false}
+                            />
+                          </div>
+
+                          {/* Editor Stats Footer */}
+                          <div className="bg-[var(--card-bg)] border-t border-[var(--card-border)] px-4 py-2 text-[11px] text-[var(--muted-foreground)] flex items-center justify-between gap-3 flex-wrap flex-shrink-0">
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <span className="font-mono font-bold text-[var(--foreground)]">{wordCount.words} words</span>
+                              <span>•</span>
+                              <span className="font-mono">{wordCount.chars} chars</span>
+                              <span>•</span>
+                              <span>{wordCount.readingTime}</span>
+
+                              {/* Autocomplete chips */}
+                              {autocorrectEnabled && quillAutocomplete.length > 0 && (
+                                <div className="flex items-center gap-1 ml-2 bg-teal-500/10 px-2.5 py-0.5 rounded-lg border border-teal-500/30">
+                                  <span className="text-teal-400 text-[10px] font-bold">✨ Autocomplete:</span>
+                                  {quillAutocomplete.slice(0, 3).map((word, idx) => (
+                                    <button
+                                      key={`chip-${word}-${idx}`}
+                                      type="button"
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        replaceQuillWord(word);
+                                      }}
+                                      className="text-teal-200 hover:text-white px-1.5 py-0.5 rounded text-[10px] font-mono font-bold hover:bg-teal-500/30 transition-colors cursor-pointer"
+                                    >
+                                      {word}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Mana progress strip */}
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs">🔮</span>
+                              <div className="w-24 h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <motion.div
+                                  className="h-full bg-gradient-to-r from-purple-500 to-indigo-500"
+                                  animate={{ width: `${wordsWrittenSession}%` }}
+                                  transition={{ type: 'spring', stiffness: 80 }}
+                                />
+                              </div>
+                              <span className="text-[10px] font-bold text-purple-400">{wordsWrittenSession}% Mana</span>
+                            </div>
+                          </div>
+                        </>
+                      ) : viewMode ? (
+                        /* ===== Reading View Mode ===== */
+                        <div className="p-8 md:p-12 overflow-y-auto h-full max-w-3xl mx-auto w-full">
+                          <h1 className="text-3xl font-heading font-black mb-2 text-[var(--foreground)]">{selectedNote.title}</h1>
+                          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[var(--card-border)]">
+                            <Badge variant="primary" size="sm">{selectedNote.folder || 'General'}</Badge>
+                            <span className="text-xs text-[var(--muted-foreground)] font-mono">
+                              <HiClock className="inline mr-1" size={12} />{timeAgo(selectedNote.updatedAt)}
+                            </span>
+                          </div>
+                          {selectedNote.content && selectedNote.content !== '<p><br></p>' ? (
+                            <div
+                              className="prose prose-lg max-w-none dark:prose-invert leading-relaxed studyquest-markdown"
+                              dangerouslySetInnerHTML={{ __html: renderedViewContent || selectedNote.content }}
+                            />
+                          ) : (
+                            <p className="text-sm text-[var(--muted-foreground)] italic">This note is currently empty.</p>
+                          )}
+                        </div>
+                      ) : (
+                        /* ===== Default Preview Mode ===== */
+                        <div className="p-6 md:p-8 overflow-y-auto h-full flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-[var(--card-border)]">
+                              <div>
+                                <h2 className="text-xl font-heading font-bold text-[var(--foreground)]">{selectedNote.title}</h2>
+                                <span className="text-[11px] text-[var(--muted-foreground)]">{timeAgo(selectedNote.updatedAt)} • {selectedNote.folder || 'General'}</span>
+                              </div>
+                              <Button variant="primary" size="sm" icon={<HiPencil size={13} />} onClick={() => setIsEditing(true)}>
+                                Edit Note
+                              </Button>
+                            </div>
+
+                            {selectedNote.content && selectedNote.content !== '<p><br></p>' ? (
+                              <div
+                                className="prose prose-sm max-w-none dark:prose-invert leading-relaxed studyquest-markdown"
+                                dangerouslySetInnerHTML={{ __html: renderedViewContent || selectedNote.content }}
+                              />
+                            ) : (
+                              <div className="text-center py-16">
+                                <span className="text-4xl mb-2 block">📝</span>
+                                <p className="text-sm text-[var(--muted-foreground)]">This note is empty.</p>
+                                <Button variant="primary" size="sm" className="mt-3" onClick={() => setIsEditing(true)}>
+                                  Start Writing
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+
+                  // If a multitask panel is active, wrap in resizable split layout
+                  if (multitaskPanel) {
+                    const panelComponent = multitaskPanel === 'youtube' ? (
+                      <YouTubePanel
+                        onClose={() => setMultitaskPanel(null)}
+                        onInsertTimestamp={(ts) => {
+                          const timestampHtml = `<p><strong style="color: #EF4444;">[⏱️ ${ts}]</strong> </p>`;
+                          const quill = quillRef.current?.getEditor();
+                          if (quill) {
+                            const range = quill.getSelection();
+                            const index = range ? range.index : quill.getLength() - 1;
+                            quill.clipboard.dangerouslyPasteHTML(index, timestampHtml);
+                            setEditContent(quill.root.innerHTML);
+                          } else {
+                            setEditContent(prev => prev + timestampHtml);
+                          }
+                        }}
+                      />
+                    ) : multitaskPanel === 'tutor' ? (
+                      <AITutorPanel
+                        onClose={() => setMultitaskPanel(null)}
+                        onInsertText={(text) => {
+                          const insertHtml = `<blockquote><p>${text.replace(/\n/g, '</p><p>')}</p></blockquote>`;
+                          const quill = quillRef.current?.getEditor();
+                          if (quill) {
+                            const range = quill.getSelection();
+                            const index = range ? range.index : quill.getLength() - 1;
+                            quill.clipboard.dangerouslyPasteHTML(index, insertHtml);
+                            setEditContent(quill.root.innerHTML);
+                          } else {
+                            setEditContent(prev => prev + insertHtml);
+                          }
+                        }}
+                        noteContent={editContent}
+                        selectedText={selectedText}
+                        apiKey={profile?.openRouterKey}
+                      />
+                    ) : multitaskPanel === 'reference' ? (
+                      <ReferenceViewerPanel
+                        onClose={() => setMultitaskPanel(null)}
+                        onInsertText={(text) => {
+                          const quill = quillRef.current?.getEditor();
+                          if (quill) {
+                            const range = quill.getSelection();
+                            const index = range ? range.index : quill.getLength() - 1;
+                            quill.insertText(index, text);
+                            setEditContent(quill.root.innerHTML);
+                          } else {
+                            setEditContent(prev => prev + '\n' + text);
+                          }
+                        }}
+                        apiKey={profile?.openRouterKey}
+                      />
+                    ) : (
+                      <WhiteboardSplitPanel
+                        onClose={() => setMultitaskPanel(null)}
+                        onInsertDrawing={(dataUrl) => {
+                          const imgHtml = `<p><img src="${dataUrl}" alt="Whiteboard Sketch" style="max-width:100%;border-radius:12px;margin:12px 0;border:1px solid rgba(255,255,255,0.12);" /></p>`;
+                          const quill = quillRef.current?.getEditor();
+                          if (quill) {
+                            const range = quill.getSelection();
+                            const index = range ? range.index : quill.getLength() - 1;
+                            quill.clipboard.dangerouslyPasteHTML(index, imgHtml);
+                            setEditContent(quill.root.innerHTML);
+                          } else {
+                            setEditContent(prev => prev + imgHtml);
+                          }
+                          toast.success('Sketch inserted into notes! 🎨');
+                        }}
+                      />
+                    );
+
+                    return (
+                      <ResizableSplitLayout
+                        editor={editorCard}
+                        panel={panelComponent}
+                        onToggleZen={toggleZenMode}
+                        isZenMode={isZenMode}
+                      />
+                    );
+                  }
+
+                  // Single Workstation View
+                  return (
+                    <div className="notes-single-workstation">
+                      {editorCard}
+                    </div>
+                  );
+                })()}
+
+                {/* Keyboard Shortcuts Panel */}
+                <AnimatePresence>
+                  {isEditing && showShortcuts && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}>
+                      <Card padding="md" hover={false}>
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-sm">⌨️</span>
+                          <h4 className="text-xs font-heading font-bold uppercase tracking-wider text-[var(--muted-foreground)]">Keyboard Shortcuts</h4>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1.5">
+                          {[
+                            ['Ctrl + 1', 'Heading 1'],
+                            ['Ctrl + 2', 'Heading 2'],
+                            ['Ctrl + 3', 'Heading 3'],
+                            ['Ctrl + 0', 'Normal Text'],
+                            ['Ctrl + B', 'Bold'],
+                            ['Ctrl + I', 'Italic'],
+                            ['Ctrl + U', 'Underline'],
+                            ['Ctrl + Shift + S', 'Strikethrough'],
+                            ['Ctrl + Shift + 7', 'Ordered List'],
+                            ['Ctrl + Shift + 8', 'Bullet List'],
+                            ['Ctrl + K', 'Insert Link'],
+                            ['Ctrl + Z', 'Undo'],
+                            ['Ctrl + Y', 'Redo'],
+                            ['Tab', 'Indent'],
+                            ['Shift + Tab', 'Outdent'],
+                          ].map(([key, action]) => (
+                            <div key={key} className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] text-[var(--muted-foreground)]">{action}</span>
+                              <kbd className="text-[9px] font-mono bg-[var(--card-border)]/50 px-1.5 py-0.5 rounded-md border border-[var(--card-border)] font-semibold whitespace-nowrap">{key}</kbd>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="mt-4 pt-3 border-t border-[var(--card-border)]">
+                          <h5 className="text-[10px] font-heading font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-2">💡 StudyQuest Commands</h5>
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] text-[var(--muted-foreground)]">AI Topic Comparison</span>
+                              <kbd className="text-[9px] font-mono bg-[var(--card-border)]/50 px-1.5 py-0.5 rounded-md border border-[var(--card-border)] font-semibold whitespace-nowrap">/compare Topic A vs Topic B</kbd>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] text-[var(--muted-foreground)]">Voice Command Trigger</span>
+                              <span className="text-[9px] font-medium text-purple-400">🎙️ Say "compare Topic A versus Topic B"</span>
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ) : (
+              /* Empty Workspace State with Questie Mascot */
+              <div className="w-full flex-1 flex flex-col items-center justify-center min-h-[560px] p-8 text-center rounded-2xl border-2 border-dashed border-[var(--card-border)] bg-gradient-to-b from-primary/[0.04] via-transparent to-transparent">
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className="max-w-lg space-y-5 flex flex-col items-center"
+                >
+                  <div className="p-3 rounded-full bg-primary/10 border border-primary/20 shadow-lg shadow-primary/10 animate-bounce">
+                    <ExpressiveOwlMascot size={64} mood="active" />
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1.5">
-                    {[
-                      ['Ctrl + 1', 'Heading 1'],
-                      ['Ctrl + 2', 'Heading 2'],
-                      ['Ctrl + 3', 'Heading 3'],
-                      ['Ctrl + 0', 'Normal Text'],
-                      ['Ctrl + B', 'Bold'],
-                      ['Ctrl + I', 'Italic'],
-                      ['Ctrl + U', 'Underline'],
-                      ['Ctrl + Shift + S', 'Strikethrough'],
-                      ['Ctrl + Shift + 7', 'Ordered List'],
-                      ['Ctrl + Shift + 8', 'Bullet List'],
-                      ['Ctrl + K', 'Insert Link'],
-                      ['Ctrl + Z', 'Undo'],
-                      ['Ctrl + Y', 'Redo'],
-                      ['Tab', 'Indent'],
-                      ['Shift + Tab', 'Outdent'],
-                    ].map(([key, action]) => (
-                      <div key={key} className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] text-[var(--muted-foreground)]">{action}</span>
-                        <kbd className="text-[9px] font-mono bg-[var(--card-border)]/50 px-1.5 py-0.5 rounded-md border border-[var(--card-border)] font-semibold whitespace-nowrap">{key}</kbd>
-                      </div>
-                    ))}
+                  <div>
+                    <h3 className="text-xl font-heading font-black text-[var(--foreground)] tracking-tight">
+                      Select a Scroll or Forge a New Grimoire
+                    </h3>
+                    <p className="text-xs sm:text-sm text-[var(--muted-foreground)] leading-relaxed mt-1.5">
+                      Choose any study note from the catalog on the left to read, annotate, or transmute with AI. Or forge a brand-new parchment to begin capturing knowledge.
+                    </p>
+                  </div>
+                  <div className="pt-1 flex justify-center gap-3">
+                    <Button variant="primary" icon={<HiPlus size={16} />} onClick={() => setShowNewModal(true)}>
+                      Create New Scroll
+                    </Button>
+                    <Button variant="ghost" icon={<HiPencil size={14} />} onClick={() => window.location.href = '/whiteboard'}>
+                      Open Whiteboard Studio
+                    </Button>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-[var(--card-border)]">
-                    <h5 className="text-[10px] font-heading font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-2">💡 StudyQuest Commands</h5>
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] text-[var(--muted-foreground)]">AI Topic Comparison</span>
-                        <kbd className="text-[9px] font-mono bg-[var(--card-border)]/50 px-1.5 py-0.5 rounded-md border border-[var(--card-border)] font-semibold whitespace-nowrap">/compare Topic A vs Topic B</kbd>
+                  {/* Feature Highlights Grid */}
+                  <div className="grid grid-cols-2 gap-3 pt-6 text-left border-t border-[var(--card-border)]/70 w-full">
+                    <div className="p-3 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)]">
+                      <div className="text-xs font-heading font-bold text-[var(--foreground)] flex items-center gap-1.5">
+                        <span className="text-base">∑</span> KaTeX & Math
                       </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] text-[var(--muted-foreground)]">Voice Command Trigger</span>
-                        <span className="text-[9px] font-medium text-purple-400">🎙️ Say "compare Topic A versus Topic B"</span>
+                      <p className="text-[10px] text-[var(--muted-foreground)] mt-1 leading-normal">
+                        Inline equations & blocks with live KaTeX rendering.
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)]">
+                      <div className="text-xs font-heading font-bold text-[var(--foreground)] flex items-center gap-1.5">
+                        <span className="text-base">✨</span> AI Beautifier
                       </div>
+                      <p className="text-[10px] text-[var(--muted-foreground)] mt-1 leading-normal">
+                        Transforms raw notes into structured study guides.
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)]">
+                      <div className="text-xs font-heading font-bold text-[var(--foreground)] flex items-center gap-1.5">
+                        <span className="text-base">📺</span> Multitask Dock
+                      </div>
+                      <p className="text-[10px] text-[var(--muted-foreground)] mt-1 leading-normal">
+                        Split-screen with YouTube, PDF references, or AI Tutor.
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)]">
+                      <div className="text-xs font-heading font-bold text-[var(--foreground)] flex items-center gap-1.5">
+                        <span className="text-base">🧪</span> Alchemy Cauldron
+                      </div>
+                      <p className="text-[10px] text-[var(--muted-foreground)] mt-1 leading-normal">
+                        Channel writing Mana into flashcards & cheat scrolls.
+                      </p>
                     </div>
                   </div>
-                </Card>
-              </motion.div>
+                </motion.div>
+              </div>
             )}
-          </AnimatePresence>
-        </div>
-      ) : (
-      /* Empty Workspace State */
-      <div className="w-full flex-1 flex flex-col items-center justify-center min-h-[560px] p-8 text-center rounded-2xl border-2 border-dashed border-[var(--card-border)] bg-gradient-to-b from-primary/[0.04] via-transparent to-transparent">
-        <motion.div
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.3 }}
-          className="max-w-lg space-y-5"
-        >
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-primary/20 to-purple-500/20 border border-primary/30 flex items-center justify-center text-3xl shadow-lg shadow-primary/10">
-            📜
           </div>
-          <div>
-            <h3 className="text-xl font-heading font-black text-[var(--foreground)] tracking-tight">
-              Select a Scroll or Forge a New Grimoire
-            </h3>
-            <p className="text-xs sm:text-sm text-[var(--muted-foreground)] leading-relaxed mt-1.5">
-              Choose any study note from the catalog on the left to read, annotate, or transmute with AI. Or forge a brand-new parchment to begin capturing knowledge.
-            </p>
-          </div>
-          <div className="pt-1 flex justify-center gap-3">
-            <Button variant="primary" icon={<HiPlus size={16} />} onClick={() => setShowNewModal(true)}>
-              Create New Scroll
-            </Button>
-            <Button variant="ghost" icon={<HiPencil size={14} />} onClick={() => window.location.href = '/whiteboard'}>
-              Open Whiteboard
-            </Button>
-          </div>
-
-          {/* Feature Highlights Grid */}
-          <div className="grid grid-cols-2 gap-3 pt-6 text-left border-t border-[var(--card-border)]/70">
-            <div className="p-3.5 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)]">
-              <div className="text-xs font-heading font-bold text-[var(--foreground)] flex items-center gap-1.5">
-                <span className="text-base">∑</span> KaTeX & Math
-              </div>
-              <p className="text-[10px] text-[var(--muted-foreground)] mt-1 leading-normal">
-                Inline equations & blocks with live KaTeX rendering.
-              </p>
-            </div>
-            <div className="p-3.5 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)]">
-              <div className="text-xs font-heading font-bold text-[var(--foreground)] flex items-center gap-1.5">
-                <span className="text-base">✨</span> AI Beautifier
-              </div>
-              <p className="text-[10px] text-[var(--muted-foreground)] mt-1 leading-normal">
-                Transforms raw bullet points into polished study guides.
-              </p>
-            </div>
-            <div className="p-3.5 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)]">
-              <div className="text-xs font-heading font-bold text-[var(--foreground)] flex items-center gap-1.5">
-                <span className="text-base">📺</span> Multitask Panels
-              </div>
-              <p className="text-[10px] text-[var(--muted-foreground)] mt-1 leading-normal">
-                Split-screen with YouTube, PDF references, or AI Tutor.
-              </p>
-            </div>
-            <div className="p-3.5 rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)]">
-              <div className="text-xs font-heading font-bold text-[var(--foreground)] flex items-center gap-1.5">
-                <span className="text-base">🧪</span> Alchemy Cauldron
-              </div>
-              <p className="text-[10px] text-[var(--muted-foreground)] mt-1 leading-normal">
-                Channel writing Mana into flashcards & cheat scrolls.
-              </p>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    )}
-  </div>
-</div>
 
 {/* Delete confirm */}
         <ConfirmDialog

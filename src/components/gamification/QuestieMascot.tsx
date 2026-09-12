@@ -10,6 +10,7 @@ import { getLevelProgress } from '@/lib/constants';
 import { useTheme } from '@/context/ThemeContext';
 import { playClick } from '@/lib/sounds';
 import { HiSparkles } from 'react-icons/hi2';
+import { HiChevronDown, HiChevronUp } from 'react-icons/hi';
 import ExpressiveOwlMascot from './ExpressiveOwlMascot';
 
 /* ============================================================
@@ -135,6 +136,7 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
   const [squishing, setSquishing] = useState(false);
   const [collapsedPopoverOpen, setCollapsedPopoverOpen] = useState(false);
   const [mascotStyle, setMascotStyle] = useState<MascotVisualMode>('expressive');
+  const [isCompact, setIsCompact] = useState(false);
 
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivityRef = useRef(Date.now());
@@ -143,12 +145,16 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
   const { gamification } = useGamification();
   const { tasks } = useTasks();
 
-  // Load user's preferred mascot style (defaults to expressive ._.)
+  // Load user's preferred mascot style & compact preference
   useEffect(() => {
     try {
       const saved = localStorage.getItem('sq_questie_style');
       if (saved === 'pixel' || saved === 'expressive') {
         setMascotStyle(saved);
+      }
+      const savedCompact = localStorage.getItem('sq_questie_compact');
+      if (savedCompact !== null) {
+        setIsCompact(savedCompact === 'true');
       }
     } catch {}
   }, []);
@@ -390,6 +396,52 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
   // ============================================================
   // EXPANDED SIDEBAR VIEW
   // ============================================================
+  if (isCompact) {
+    return (
+      <div className="relative py-1 select-none">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="relative overflow-hidden rounded-xl p-2 px-2.5 bg-gradient-to-r from-indigo-950/40 via-slate-900/60 to-purple-950/40 border border-white/10 hover:border-indigo-500/40 transition-all flex items-center justify-between gap-2 shadow-sm group"
+        >
+          <div
+            onClick={handleMascotClick}
+            className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer"
+            title="Click Questie for wisdom!"
+          >
+            <div className="relative shrink-0">
+              {mascotStyle === 'expressive' ? (
+                <ExpressiveOwlMascot mood={currentMood} isSquishing={squishing} size={24} />
+              ) : (
+                <img src="/questie_remake.png" alt="Questie" className="w-6 h-6 object-contain" style={{ imageRendering: 'pixelated' }} />
+              )}
+              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400 ring-1 ring-slate-900" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-medium text-slate-200 truncate group-hover:text-white transition-colors">
+                {dialogue}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setIsCompact(false);
+                try { localStorage.setItem('sq_questie_compact', 'false'); } catch {}
+              }}
+              className="p-1 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              title="Expand Questie Card"
+            >
+              <HiChevronDown size={14} />
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative py-1 select-none">
       {/* Container Card */}
@@ -500,6 +552,17 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
               title="Toggle between Expressive (._.) and Pixel Art"
             >
               <span>{mascotStyle === 'expressive' ? '🦉 (._.)' : '🎨 Pixel'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsCompact(true);
+                try { localStorage.setItem('sq_questie_compact', 'true'); } catch {}
+              }}
+              className="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-400 hover:text-indigo-200 border border-white/10 transition-colors flex items-center gap-1 cursor-pointer"
+              title="Compact Mode (saves space for more sections below)"
+            >
+              <span>Compact ▴</span>
             </button>
             <span className="text-indigo-400 font-bold">v2.0</span>
           </div>

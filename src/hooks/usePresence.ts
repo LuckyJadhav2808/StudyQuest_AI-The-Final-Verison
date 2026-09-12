@@ -38,7 +38,9 @@ export function usePresence() {
 
     const presenceRef = doc(db, 'users', user.uid, 'data', 'presence');
 
+    let lastHeartbeat = Date.now();
     const updatePresence = (activity = 'online') => {
+      lastHeartbeat = Date.now();
       setDoc(presenceRef, {
         online: true,
         lastSeen: Date.now(),
@@ -54,19 +56,27 @@ export function usePresence() {
 
     // Set offline on tab close
     const handleBeforeUnload = () => {
-      // Use sendBeacon for reliability
       const data = JSON.stringify({ online: false, lastSeen: Date.now(), activity: 'offline' });
       navigator.sendBeacon?.(`/api/presence?uid=${user.uid}`, data);
-      // Also try direct write
       setDoc(presenceRef, { online: false, lastSeen: Date.now(), activity: 'offline' }, { merge: true }).catch(() => {});
     };
 
-    // Set offline on visibility hidden (tab switch)
+    // Debounce away status so brief tab switches (e.g. copying text) do not spam Firestore
+    let hiddenTimeout: ReturnType<typeof setTimeout> | null = null;
     const handleVisibility = () => {
       if (document.visibilityState === 'hidden') {
-        setDoc(presenceRef, { online: false, lastSeen: Date.now(), activity: 'away' }, { merge: true }).catch(() => {});
+        hiddenTimeout = setTimeout(() => {
+          setDoc(presenceRef, { online: false, lastSeen: Date.now(), activity: 'away' }, { merge: true }).catch(() => {});
+        }, 45000);
       } else {
-        updatePresence();
+        if (hiddenTimeout) {
+          clearTimeout(hiddenTimeout);
+          hiddenTimeout = null;
+        }
+        // Only write if at least 30 seconds have passed since last write
+        if (Date.now() - lastHeartbeat > 30000) {
+          updatePresence();
+        }
       }
     };
 
@@ -75,9 +85,9 @@ export function usePresence() {
 
     return () => {
       clearInterval(interval);
+      if (hiddenTimeout) clearTimeout(hiddenTimeout);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibility);
-      // Mark offline on unmount
       setDoc(presenceRef, { online: false, lastSeen: Date.now(), activity: 'offline' }, { merge: true }).catch(() => {});
     };
   }, [user]);

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useDeferredValue } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   HiPlus, HiLightningBolt, HiClipboardCheck,
@@ -249,17 +249,19 @@ export default function DashboardContent() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showNotifs, searchQuery, dashboardMode]);
 
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+
   const filteredSearchTasks = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase();
+    if (!deferredSearchQuery.trim()) return [];
+    const q = deferredSearchQuery.toLowerCase();
     return tasks.filter(t => t.title.toLowerCase().includes(q));
-  }, [searchQuery, tasks]);
+  }, [deferredSearchQuery, tasks]);
 
   const filteredSearchNotes = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase();
+    if (!deferredSearchQuery.trim()) return [];
+    const q = deferredSearchQuery.toLowerCase();
     return notes.filter(n => n.title?.toLowerCase().includes(q) || n.folder?.toLowerCase().includes(q));
-  }, [searchQuery, notes]);
+  }, [deferredSearchQuery, notes]);
 
   const copyFriendCode = () => {
     if (profile?.friendCode) {
@@ -1364,7 +1366,7 @@ export default function DashboardContent() {
       </div>
     ),
     'scratchpad': null
-  }), [gamification, tasks, friends, incomingRequests, quests, newQuest, showNotifs, xpHistory, profile, todayTasks, completedToday, todayCompleted, todayTotal, streakMessage, isNightOwlTime, notes, timeOfDay, upcomingExams, chestAvailable, coins, searchQuery]);
+  }), [gamification, tasks, friends, incomingRequests, quests, newQuest, xpHistory, profile, todayTasks, completedToday, todayCompleted, todayTotal, streakMessage, isNightOwlTime, notes, timeOfDay, upcomingExams, chestAvailable, coins]);
 
   if (!mounted) {
     return (
