@@ -207,9 +207,10 @@ export function useShop() {
 
   // ── Daily Treasure Chest ──
   const canClaimTreasureChest = useCallback((): boolean => {
+    if (loading || !user?.uid) return false;
     const today = getLocalDateString();
     return inventoryRef.current.lastTreasureChestClaim !== today;
-  }, []);
+  }, [loading, user?.uid]);
 
   const claimTreasureChest = useCallback(async (): Promise<TreasureReward | null> => {
     const ref = getRef();
@@ -217,11 +218,15 @@ export function useShop() {
     const today = getLocalDateString();
 
     try {
+      let alreadyClaimed = false;
       const result = await runTransaction(db, async (transaction) => {
         const docSnap = await transaction.get(ref);
         const current = docSnap.exists() ? docSnap.data() as UserInventory : DEFAULT_INVENTORY;
         
-        if (current.lastTreasureChestClaim === today) return null;
+        if (current.lastTreasureChestClaim === today) {
+          alreadyClaimed = true;
+          return null;
+        }
 
         // Roll weighted random reward
         const totalWeight = TREASURE_CHEST_REWARDS.reduce((sum, r) => sum + r.weight, 0);
@@ -250,6 +255,22 @@ export function useShop() {
         }, { merge: true });
         return reward;
       });
+
+      if (result) {
+        // Optimistically update local inventoryRef & state to prevent race conditions or stale reads
+        const updated: UserInventory = {
+          ...inventoryRef.current,
+          coins: (inventoryRef.current.coins || 0) + result.coins,
+          lastTreasureChestClaim: today,
+        };
+        inventoryRef.current = updated;
+        setInventory(updated);
+      } else if (alreadyClaimed) {
+        // Sync local claim state so UI immediately updates
+        inventoryRef.current = { ...inventoryRef.current, lastTreasureChestClaim: today };
+        setInventory((prev) => ({ ...prev, lastTreasureChestClaim: today }));
+      }
+
       return result;
     } catch (e) {
       console.error('claimTreasureChest transaction failed', e);

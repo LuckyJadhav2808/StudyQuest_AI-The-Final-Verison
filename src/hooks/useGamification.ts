@@ -5,7 +5,7 @@
 // ============================================================
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { doc, collection, onSnapshot, increment, runTransaction } from 'firebase/firestore';
+import { doc, collection, onSnapshot, increment, runTransaction, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   getGamificationRef,
@@ -70,7 +70,8 @@ export function useGamification(): UseGamificationReturn {
     }
 
     const xpLogRef = collection(db, 'users', user.uid, 'xpLog');
-    const unsub = onSnapshot(xpLogRef, (snap) => {
+    const q = query(xpLogRef, orderBy('__name__', 'desc'), limit(90));
+    const unsub = onSnapshot(q, (snap) => {
       const history: Record<string, number> = {};
       snap.docs.forEach((d) => {
         history[d.id] = (d.data().totalXp as number) || 0;

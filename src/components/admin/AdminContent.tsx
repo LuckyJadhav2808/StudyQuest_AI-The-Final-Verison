@@ -387,13 +387,21 @@ function OverviewTab({ stats, loading }: { stats: Stats; loading: boolean }) {
 }
 
 function DsaDatasetAdminCard() {
+  const { user } = useAuthContext();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   const handleSyncLatestQuestions = async () => {
     setIsSyncing(true);
     try {
-      const res = await fetch('/api/admin/dsa-sync', { method: 'POST' });
+      const token = user ? await user.getIdToken() : '';
+      const res = await fetch('/api/admin/dsa-sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       const data = await res.json();
       if (data.success) {
         toast.success('🎉 DSA Questions Synced! User progress is 100% safe.');

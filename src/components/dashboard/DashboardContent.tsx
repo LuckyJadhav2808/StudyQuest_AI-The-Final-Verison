@@ -260,7 +260,11 @@ export default function DashboardContent() {
   const filteredSearchNotes = useMemo(() => {
     if (!deferredSearchQuery.trim()) return [];
     const q = deferredSearchQuery.toLowerCase();
-    return notes.filter(n => n.title?.toLowerCase().includes(q) || n.folder?.toLowerCase().includes(q));
+    return notes.filter(n =>
+      (n.title && n.title.toLowerCase().includes(q)) ||
+      (n.folder && n.folder.toLowerCase().includes(q)) ||
+      (n.content && n.content.toLowerCase().includes(q))
+    );
   }, [deferredSearchQuery, notes]);
 
   const copyFriendCode = () => {
@@ -588,7 +592,7 @@ export default function DashboardContent() {
           ) : (
             <div className="space-y-2">
               {notes.slice(0, 4).map((note, i) => (
-                <Link key={note.id} href="/notes">
+                <Link key={note.id} href={`/notes?id=${note.id}`}>
                   <motion.div className="flex items-center gap-3 p-3 rounded-xl border-2 border-[var(--card-border)] hover:border-teal/30 transition-all cursor-pointer" whileHover={{ x: 4 }} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}>
                     <div className="w-8 h-8 rounded-lg bg-teal/10 flex items-center justify-center flex-shrink-0"><HiPencilAlt className="text-teal" size={16} /></div>
                     <div className="flex-1 min-w-0">
@@ -953,7 +957,7 @@ export default function DashboardContent() {
                 'from-teal-500 to-emerald-600'
               ][idx % 3];
               return (
-                <Link href="/notes" key={note.id}>
+                <Link href={`/notes?id=${note.id}`} key={note.id}>
                   <motion.div
                     whileHover={{ y: -3, scale: 1.01 }}
                     transition={{ type: 'spring', stiffness: 350, damping: 25 }}
@@ -1542,7 +1546,9 @@ export default function DashboardContent() {
                       ref={searchInputRef}
                       type="text"
                       placeholder="Search tasks, notes..."
-                                   className="pl-9 pr-14 py-2 text-xs rounded-2xl bg-white/95 dark:bg-slate-900/80 border border-indigo-100 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary w-full sm:w-[190px] md:w-[220px] shadow-sm transition-all text-slate-800 dark:text-slate-200 font-medium placeholder:text-slate-400 backdrop-blur-md"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9 pr-14 py-2 text-xs rounded-2xl bg-white/95 dark:bg-slate-900/80 border border-indigo-100 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary w-full sm:w-[190px] md:w-[220px] shadow-sm transition-all text-slate-800 dark:text-slate-200 font-medium placeholder:text-slate-400 backdrop-blur-md"
                     />
                     {searchQuery ? (
                       <button 
@@ -1592,7 +1598,7 @@ export default function DashboardContent() {
                                   <div className="p-2">
                                     <div className="px-2 py-1 text-[9px] font-bold text-teal-500 uppercase tracking-wider">Notes</div>
                                     {filteredSearchNotes.slice(0, 4).map((note) => (
-                                      <Link href="/notes" key={note.id} onClick={() => setSearchQuery('')}>
+                                      <Link href={`/notes?id=${note.id}`} key={note.id} onClick={() => setSearchQuery('')}>
                                         <div className="flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-slate-100/80 dark:hover:bg-white/5 cursor-pointer transition-colors">
                                           <span className="text-xs flex-shrink-0">📝</span>
                                           <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate flex-1">{note.title || 'Untitled Scroll'}</span>

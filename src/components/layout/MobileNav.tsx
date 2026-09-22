@@ -67,7 +67,7 @@ const MOBILE_SECTIONS = [
       { label: 'Notes & Scrolls', href: '/notes', icon: HiPencilAlt },
       { label: 'Focus Timer', href: '/timer', icon: HiClock },
       { label: 'Timetable', href: '/timetable', icon: HiCalendar },
-      { label: 'Doc Reader', href: '/reader', icon: HiBookOpen },
+      { label: 'Doc Studio & Reader', href: '/reader', icon: HiBookOpen },
       { label: 'Whiteboard', href: '/whiteboard', icon: HiPencil },
       { label: 'Questie AI Chat', href: '/chat', icon: HiChatAlt2 },
       { label: 'Analytics Hub', href: '/analytics', icon: HiChartBar },

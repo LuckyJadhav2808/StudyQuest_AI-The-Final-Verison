@@ -32,13 +32,13 @@ interface CommandItem {
   action: () => void;
 }
 
-const CATEGORY_ORDER: CommandItem['category'][] = ['recent', 'dsa', 'create', 'search', 'action', 'navigation', 'theme'];
+const CATEGORY_ORDER: CommandItem['category'][] = ['recent', 'search', 'create', 'dsa', 'action', 'navigation', 'theme'];
 
 const CATEGORY_LABELS: Record<string, string> = {
   recent: '🕐 Recent',
+  search: '🔍 Notes & Quests',
   dsa: '⚔️ LeetCode & DSA Challenges',
   create: '✨ Quick Create',
-  search: '🔍 Search Results',
   navigation: '📍 Navigate',
   action: '⚡ Quick Actions',
   theme: '🎨 Appearance',
@@ -146,9 +146,75 @@ export default function CommandPalette() {
   const dynamicResults: CommandItem[] = useMemo(() => {
     if (!query.trim() || query.trim().length < 1) return [];
     const q = query.toLowerCase().trim();
-    const results: CommandItem[] = [];
 
-    // Search DSA Problems (2,360+ library)
+    // 1. Search notes (Top priority)
+    const noteMatches: (CommandItem & { _score: number })[] = [];
+    notes.forEach((note) => {
+      const title = note.title || 'Untitled Scroll';
+      const folder = note.folder || 'General';
+      const plainText = note.content ? note.content.replace(/<[^>]*>/g, ' ').slice(0, 1000) : '';
+
+      const titleLower = title.toLowerCase();
+      const folderLower = folder.toLowerCase();
+      const contentLower = plainText.toLowerCase();
+
+      let score = -1;
+      if (titleLower.includes(q)) {
+        score = 200 + (q.length / titleLower.length) * 50;
+      } else if (folderLower.includes(q)) {
+        score = 150;
+      } else if (contentLower.includes(q)) {
+        score = 100;
+      } else {
+        score = Math.max(fuzzyScore(q, title), fuzzyScore(q, folder));
+      }
+
+      if (score > 0) {
+        noteMatches.push({
+          id: `note-${note.id}`,
+          label: title,
+          description: `📁 ${folder} · Note`,
+          icon: <HiDocumentText size={18} className="text-teal" />,
+          category: 'search',
+          keywords: [title, folder],
+          action: () => router.push(`/notes?id=${note.id}`),
+          _score: score,
+        });
+      }
+    });
+    noteMatches.sort((a, b) => b._score - a._score);
+
+    // 2. Search tasks
+    const taskMatches: (CommandItem & { _score: number })[] = [];
+    tasks.forEach((task) => {
+      const titleLower = (task.title || '').toLowerCase();
+      const descLower = (task.description || '').toLowerCase();
+      let score = -1;
+      if (titleLower.includes(q)) {
+        score = 180;
+      } else if (descLower.includes(q)) {
+        score = 120;
+      } else {
+        score = Math.max(fuzzyScore(q, task.title || ''), fuzzyScore(q, task.description || ''));
+      }
+
+      if (score > 0) {
+        taskMatches.push({
+          id: `task-${task.id}`,
+          label: task.title,
+          description: `${task.status === 'done' ? '✅' : '⬜'} ${task.priority} priority · Task`,
+          icon: <HiClipboardCheck size={18} className="text-indigo-400" />,
+          category: 'search',
+          keywords: [task.title],
+          action: () => router.push('/tasks'),
+          _score: score,
+        });
+      }
+    });
+    taskMatches.sort((a, b) => b._score - a._score);
+
+    // 3. Search DSA Problems (capped at 5 to prevent drowning out personal notes/tasks)
+    const dsaMatches: (CommandItem & { _score: number })[] = [];
     dsaProblems.forEach((problem) => {
       const idStr = problem.leetcodeId ? String(problem.leetcodeId) : '';
       const score = Math.max(
@@ -158,7 +224,7 @@ export default function CommandPalette() {
         fuzzyScore(q, problem.category)
       );
       if (score > 0) {
-        results.push({
+        dsaMatches.push({
           id: `dsa-${problem.id}`,
           label: `${problem.leetcodeId ? `#${problem.leetcodeId} ` : ''}${problem.title}`,
           description: `⚔️ ${problem.difficulty.toUpperCase()} • ${problem.category} (${problem.pattern})`,
@@ -166,49 +232,13 @@ export default function CommandPalette() {
           category: 'dsa',
           keywords: [problem.title, idStr, problem.category, problem.pattern],
           action: () => router.push(`/dsa?problem=${problem.id}`),
+          _score: score,
         });
       }
     });
+    dsaMatches.sort((a, b) => b._score - a._score);
 
-    // Search notes
-    notes.forEach((note) => {
-      const score = Math.max(
-        fuzzyScore(q, note.title),
-        fuzzyScore(q, note.folder),
-      );
-      if (score > 0) {
-        results.push({
-          id: `note-${note.id}`,
-          label: note.title || 'Untitled Note',
-          description: `📁 ${note.folder} · Note`,
-          icon: <HiDocumentText size={18} />,
-          category: 'search',
-          keywords: [],
-          action: () => router.push('/notes'),
-        });
-      }
-    });
-
-    // Search tasks
-    tasks.forEach((task) => {
-      const score = Math.max(
-        fuzzyScore(q, task.title),
-        fuzzyScore(q, task.description || ''),
-      );
-      if (score > 0) {
-        results.push({
-          id: `task-${task.id}`,
-          label: task.title,
-          description: `${task.status === 'done' ? '✅' : '⬜'} ${task.priority} priority · Task`,
-          icon: <HiClipboardCheck size={18} />,
-          category: 'search',
-          keywords: [],
-          action: () => router.push('/tasks'),
-        });
-      }
-    });
-
-    return results.slice(0, 10); // Limit to top 10 results
+    return [...noteMatches.slice(0, 8), ...taskMatches.slice(0, 5), ...dsaMatches.slice(0, 5)];
   }, [query, dsaProblems, notes, tasks, router]);
 
   // ── Recent commands ────────────────────────────────────

@@ -20,6 +20,7 @@ import {
   HiRefresh,
   HiTemplate,
   HiChevronLeft,
+  HiLightningBolt,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import Button from '@/components/ui/Button';
@@ -28,6 +29,7 @@ import { marked } from 'marked';
 import katex from 'katex';
 import { ResizableSplitLayout } from '@/components/notes/MultitaskPanels';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import DocStudioHub from '@/components/docstudio/DocStudioHub';
 
 type ReaderFileType = 'pdf' | 'image' | 'text' | 'markdown' | 'unknown';
 
@@ -430,6 +432,7 @@ function DocViewerInstance({
 }
 
 export default function DocReader() {
+  const [studioMode, setStudioMode] = useState<'studio' | 'reader'>('studio');
   const [showHistory, setShowHistory] = useState(true);
   const [isSplit, setIsSplit] = useState(false);
   const [activePane, setActivePane] = useState<'left' | 'right'>('left');
@@ -441,6 +444,49 @@ export default function DocReader() {
   const [history, setHistory] = useState<RecentFile[]>([]);
   const [historySearch, setHistorySearch] = useState('');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+  const handleOpenInReader = async (file: { name: string; src: string; type: 'pdf' | 'image' | 'text' }) => {
+    cleanUpFile(leftFile);
+    let resolvedSrc = file.src;
+    if (file.type === 'text' && file.src.startsWith('blob:')) {
+      try {
+        const res = await fetch(file.src);
+        resolvedSrc = await res.text();
+      } catch (err) {
+        console.warn('Could not read text blob URL:', err);
+      }
+    }
+    setLeftFile({
+      name: file.name,
+      size: 0,
+      type: file.type,
+      src: resolvedSrc,
+    });
+    addToHistory(file.name, 0, file.type, file.type === 'text' ? resolvedSrc : undefined);
+    setStudioMode('reader');
+    toast.success(`Loaded "${file.name}" into Split Reader!`);
+  };
+
+  const handleSendToNotes = (contentOrBlob: string | Blob, title: string) => {
+    try {
+      const existing = localStorage.getItem('studyquest_scratchpad_notes') || '';
+      if (typeof contentOrBlob === 'string') {
+        localStorage.setItem(
+          'studyquest_scratchpad_notes',
+          `${existing}\n\n### ${title}\n\`\`\`csv\n${contentOrBlob}\n\`\`\``
+        );
+      } else {
+        localStorage.setItem(
+          'studyquest_scratchpad_notes',
+          `${existing}\n\n### Document: ${title}\n[Document saved in DocStudio]`
+        );
+      }
+      toast.success('Appended to StudyQuest Notes!');
+    } catch (err) {
+      console.error(err);
+      toast.success('Saved to Notes buffer!');
+    }
+  };
 
   // Load history from LocalStorage
   useEffect(() => {
@@ -574,185 +620,203 @@ export default function DocReader() {
   );
 
   return (
-    <div className="w-full flex h-[calc(100vh-100px)] relative overflow-hidden">
-      
-      {/* SIDEBAR: History list */}
-      <AnimatePresence initial={false}>
-        {showHistory && (
-          <motion.div
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 260, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            className="flex-shrink-0 h-full border-r-2 border-[var(--card-border)] bg-[var(--card-bg)] flex flex-col z-20 overflow-hidden"
-          >
-            <div className="p-4 border-b border-[var(--card-border)] flex items-center justify-between">
-              <span className="font-heading font-bold text-sm flex items-center gap-1.5">
-                <HiClock size={16} className="text-primary" /> Recents List
-              </span>
-              <div className="flex items-center gap-1.5">
-                {history.length > 0 && (
-                  <button
-                    onClick={clearAllHistory}
-                    className="p-1 rounded-lg text-coral hover:bg-coral/10 text-xs transition-colors flex items-center gap-0.5 font-bold"
-                    title="Clear history"
-                  >
-                    <HiTrash size={12} /> Clear
-                  </button>
-                )}
-                <button
-                  onClick={() => setShowHistory(false)}
-                  className="p-1 rounded-lg text-[var(--muted-foreground)] hover:bg-[var(--card-border)]/40 transition-colors"
-                  title="Hide sidebar"
-                >
-                  <HiChevronLeft size={16} />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-3 border-b border-[var(--card-border)]/50 relative">
-              <HiSearch size={14} className="absolute left-6 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" />
-              <input
-                type="text"
-                placeholder="Search recent files..."
-                value={historySearch}
-                onChange={(e) => setHistorySearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-[var(--background)] border border-[var(--card-border)] outline-none focus:border-primary transition-colors font-medium"
-              />
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
-              {filteredHistory.length === 0 ? (
-                <div className="text-center py-12 text-xs text-[var(--muted-foreground)] px-4">
-                  {historySearch ? 'No matching files found' : 'Your recently opened files will appear here'}
-                </div>
-              ) : (
-                filteredHistory.map((item) => {
-                  const isCached = !!item.cachedContent;
-                  const isOpenedLeft = leftFile?.name === item.name;
-                  const isOpenedRight = rightFile?.name === item.name;
-                  const isOpened = isOpenedLeft || isOpenedRight;
-                  
-                  return (
-                    <div
-                      key={item.name}
-                      onClick={() => handleOpenRecent(item)}
-                      className={`flex flex-col gap-1 p-2 rounded-xl border-2 cursor-pointer transition-all hover:bg-primary/5 ${
-                        isOpened
-                          ? 'border-primary bg-primary/5'
-                          : 'border-[var(--card-border)]/30 hover:border-primary/20 bg-[var(--card-bg)]'
-                      }`}
-                    >
-                      <div className="flex items-start gap-2">
-                        <span className="mt-0.5 flex-shrink-0 text-[var(--muted-foreground)]">
-                          {item.type === 'pdf' && <HiDocumentText size={14} className="text-coral" />}
-                          {item.type === 'image' && <HiPhotograph size={14} className="text-sky" />}
-                          {item.type === 'markdown' && <HiBookOpen size={14} className="text-primary" />}
-                          {item.type === 'text' && <HiDocumentText size={14} className="text-teal" />}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-semibold truncate leading-tight hover:text-primary transition-colors">
-                            {item.name}
-                          </p>
-                          <div className="flex items-center justify-between mt-1 text-[8px] text-[var(--muted-foreground)] font-medium">
-                            <span>{formatBytes(item.size)}</span>
-                            {isCached ? (
-                              <span className="px-1 py-0.5 rounded bg-teal/10 text-teal text-[7px] font-bold">⚡ Cached</span>
-                            ) : (
-                              <span className="px-1 py-0.5 rounded bg-amber/10 text-amber-600 text-[7px] font-bold">📂 Re-open</span>
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          onClick={(e) => removeHistoryItem(e, item.name)}
-                          className="p-0.5 rounded hover:bg-coral/10 text-[var(--muted-foreground)] hover:text-coral transition-colors"
-                          title="Remove"
-                        >
-                          <HiX size={9} />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-            
-            {/* Sidebar bottom indicator for active pane target */}
-            <div className="p-3 bg-[var(--background)] border-t border-[var(--card-border)]/50 text-[10px] font-bold text-[var(--muted-foreground)] flex items-center justify-between">
-              <span>Recents target:</span>
-              <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full uppercase tracking-wider text-[8px]">
-                {activePane} Pane
-              </span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* MAIN LAYOUT CONTAINER */}
-      <div className="flex-1 flex flex-col h-full min-w-0 bg-[var(--background)]">
-        
-        {/* Top Control Bar */}
-        <div className="flex items-center justify-between border-b border-[var(--card-border)]/80 p-3 bg-[var(--card-bg)] flex-wrap gap-2 z-10 shadow-sm">
-          <div className="flex items-center gap-2">
+    <div className="w-full flex flex-col h-[calc(100vh-100px)] relative overflow-hidden bg-[var(--background)]">
+      {/* Universal Mode Switcher Bar */}
+      <div className="flex items-center justify-between border-b border-[var(--card-border)]/80 px-4 py-2.5 bg-[var(--card-bg)] shadow-xs shrink-0 z-30">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center p-1 rounded-xl bg-muted/60 border border-[var(--card-border)]/60">
             <button
-              onClick={() => setShowHistory(!showHistory)}
-              className={`p-2 rounded-xl border-2 transition-colors ${
-                showHistory ? 'border-primary bg-primary/5 text-primary' : 'border-[var(--card-border)] text-[var(--muted-foreground)] hover:border-primary/30'
+              onClick={() => setStudioMode('studio')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                studioMode === 'studio'
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'text-[var(--muted-foreground)] hover:text-foreground'
               }`}
-              title={showHistory ? 'Hide recents' : 'Show recents'}
             >
-              {showHistory ? <HiChevronLeft size={16} /> : <HiClock size={16} />}
+              <HiLightningBolt className="w-3.5 h-3.5 text-amber-300" />
+              <span>Studio Toolkit</span>
             </button>
-            <div>
-              <h1 className="text-xs md:text-sm font-heading font-black flex items-center gap-1.5">
-                <span>📖</span> Document Reader
-              </h1>
-              <p className="text-[9px] text-[var(--muted-foreground)] max-w-[120px] sm:max-w-xs truncate">
-                Access your PDFs, images, or study guides side-by-side.
-              </p>
-            </div>
+            <button
+              onClick={() => setStudioMode('reader')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                studioMode === 'reader'
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'text-[var(--muted-foreground)] hover:text-foreground'
+              }`}
+            >
+              <HiBookOpen className="w-3.5 h-3.5" />
+              <span>Split Reader</span>
+            </button>
           </div>
 
-          {/* Global Mode selectors */}
-          <div className="flex items-center gap-2 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl p-1 shadow-sm">
-            {/* Split Screen button */}
+          <span className="hidden md:inline-block text-[11px] text-[var(--muted-foreground)] font-medium">
+            {studioMode === 'studio'
+              ? 'CamScanner homework enhancer, PDF tools, image compressor & lab data table editor'
+              : 'Multi-pane PDF, markdown, and study document reader'}
+          </span>
+        </div>
+
+        {studioMode === 'reader' && (
+          <div className="flex items-center gap-2">
             <button
               onClick={() => {
                 const nextSplit = !isSplit;
                 setIsSplit(nextSplit);
-                setActivePane('left'); // reset active pane focus
+                setActivePane('left');
                 if (nextSplit) {
-                  setShowHistory(false); // auto-collapse sidebar for screen efficiency!
+                  setShowHistory(false);
                   toast.success('Split view enabled! Sidebar collapsed for extra space.');
                 }
               }}
               className={`flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
-                isSplit 
-                  ? 'bg-primary text-white shadow-sm' 
+                isSplit
+                  ? 'bg-primary text-white shadow-xs'
                   : 'border border-[var(--card-border)] text-[var(--muted-foreground)] hover:border-primary/30 hover:bg-primary/5'
               }`}
             >
               <HiTemplate size={14} /> {isSplit ? 'Single Screen' : 'Split Screen'}
             </button>
           </div>
-        </div>
-
-        {/* Viewports Container */}
-        <div className="flex-1 p-3 md:p-4 min-h-0 overflow-hidden relative">
-          {!isSplit ? (
-            /* Single viewer pane */
-            <div className="w-full h-full">
-              {renderLeftPane()}
-            </div>
-          ) : (
-            /* Side-by-Side draggable resizable panes */
-            <ResizableSplitLayout
-              editor={renderLeftPane()}
-              panel={renderRightPane()}
-              defaultSplit={50}
-            />
-          )}
-        </div>
+        )}
       </div>
+
+      {/* Main View Area */}
+      {studioMode === 'studio' ? (
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 min-h-0 bg-[var(--background)]">
+          <DocStudioHub onOpenInReader={handleOpenInReader} onSendToNotes={handleSendToNotes} />
+        </div>
+      ) : (
+        <div className="flex-1 flex min-h-0 relative overflow-hidden">
+          {/* SIDEBAR: History list */}
+          <AnimatePresence initial={false}>
+            {showHistory && (
+              <motion.div
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: 260, opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                className="flex-shrink-0 h-full border-r-2 border-[var(--card-border)] bg-[var(--card-bg)] flex flex-col z-20 overflow-hidden"
+              >
+                <div className="p-4 border-b border-[var(--card-border)] flex items-center justify-between">
+                  <span className="font-heading font-bold text-sm flex items-center gap-1.5">
+                    <HiClock size={16} className="text-primary" /> Recents List
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {history.length > 0 && (
+                      <button
+                        onClick={clearAllHistory}
+                        className="p-1 rounded-lg text-coral hover:bg-coral/10 text-xs transition-colors flex items-center gap-0.5 font-bold"
+                        title="Clear history"
+                      >
+                        <HiTrash size={12} /> Clear
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setShowHistory(false)}
+                      className="p-1 rounded-lg text-[var(--muted-foreground)] hover:bg-[var(--card-border)]/40 transition-colors"
+                      title="Hide sidebar"
+                    >
+                      <HiChevronLeft size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-3 border-b border-[var(--card-border)]/50 relative">
+                  <HiSearch size={14} className="absolute left-6 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" />
+                  <input
+                    type="text"
+                    placeholder="Search recent files..."
+                    value={historySearch}
+                    onChange={(e) => setHistorySearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-[var(--background)] border border-[var(--card-border)] outline-none focus:border-primary transition-colors font-medium"
+                  />
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+                  {filteredHistory.length === 0 ? (
+                    <div className="text-center py-12 text-xs text-[var(--muted-foreground)] px-4">
+                      {historySearch ? 'No matching files found' : 'Your recently opened files will appear here'}
+                    </div>
+                  ) : (
+                    filteredHistory.map((item) => {
+                      const isCached = !!item.cachedContent;
+                      const isOpenedLeft = leftFile?.name === item.name;
+                      const isOpenedRight = rightFile?.name === item.name;
+                      const isOpened = isOpenedLeft || isOpenedRight;
+
+                      return (
+                        <div
+                          key={item.name}
+                          onClick={() => handleOpenRecent(item)}
+                          className={`flex flex-col gap-1 p-2 rounded-xl border-2 cursor-pointer transition-all hover:bg-primary/5 ${
+                            isOpened
+                              ? 'border-primary bg-primary/5'
+                              : 'border-[var(--card-border)]/30 hover:border-primary/20 bg-[var(--card-bg)]'
+                          }`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <span className="mt-0.5 flex-shrink-0 text-[var(--muted-foreground)]">
+                              {item.type === 'pdf' && <HiDocumentText size={14} className="text-coral" />}
+                              {item.type === 'image' && <HiPhotograph size={14} className="text-sky" />}
+                              {item.type === 'markdown' && <HiBookOpen size={14} className="text-primary" />}
+                              {item.type === 'text' && <HiDocumentText size={14} className="text-teal" />}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[11px] font-semibold truncate leading-tight hover:text-primary transition-colors">
+                                {item.name}
+                              </p>
+                              <div className="flex items-center justify-between mt-1 text-[8px] text-[var(--muted-foreground)] font-medium">
+                                <span>{formatBytes(item.size)}</span>
+                                {isCached ? (
+                                  <span className="px-1 py-0.5 rounded bg-teal/10 text-teal text-[7px] font-bold">
+                                    ⚡ Cached
+                                  </span>
+                                ) : (
+                                  <span className="px-1 py-0.5 rounded bg-amber/10 text-amber-600 text-[7px] font-bold">
+                                    📂 Re-open
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <button
+                              onClick={(e) => removeHistoryItem(e, item.name)}
+                              className="p-0.5 rounded hover:bg-coral/10 text-[var(--muted-foreground)] hover:text-coral transition-colors"
+                              title="Remove"
+                            >
+                              <HiX size={9} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Sidebar bottom indicator for active pane target */}
+                <div className="p-3 bg-[var(--background)] border-t border-[var(--card-border)]/50 text-[10px] font-bold text-[var(--muted-foreground)] flex items-center justify-between">
+                  <span>Recents target:</span>
+                  <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full uppercase tracking-wider text-[8px]">
+                    {activePane} Pane
+                  </span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Main Layout Container */}
+          <div className="flex-1 flex flex-col h-full min-w-0 bg-[var(--background)]">
+            {/* Split Reader Viewports Container */}
+            <div className="flex-1 p-3 md:p-4 min-h-0 overflow-hidden relative">
+              {!isSplit ? (
+                /* Single viewer pane */
+                <div className="w-full h-full">{renderLeftPane()}</div>
+              ) : (
+                /* Side-by-Side draggable resizable panes */
+                <ResizableSplitLayout editor={renderLeftPane()} panel={renderRightPane()} defaultSplit={50} />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog
         isOpen={showClearConfirm}

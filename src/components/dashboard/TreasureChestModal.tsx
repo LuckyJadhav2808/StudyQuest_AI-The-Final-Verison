@@ -36,13 +36,13 @@ interface TreasureChestModalProps {
 }
 
 export default function TreasureChestModal({ isOpen, onClose }: TreasureChestModalProps) {
-  const { canClaimTreasureChest, claimTreasureChest } = useShop();
+  const { canClaimTreasureChest, claimTreasureChest, loading } = useShop();
   const { awardXP } = useGamification();
   const [phase, setPhase] = useState<'ready' | 'opening' | 'reveal' | 'claimed'>('ready');
   const [reward, setReward] = useState<TreasureReward | null>(null);
 
   const handleOpen = useCallback(async () => {
-    if (!canClaimTreasureChest() || phase !== 'ready') return;
+    if (loading || !canClaimTreasureChest() || phase !== 'ready') return;
 
     // Phase 1: Opening animation
     setPhase('opening');
@@ -55,7 +55,8 @@ export default function TreasureChestModal({ isOpen, onClose }: TreasureChestMod
       // Phase 2: Claim reward
       const result = await claimTreasureChest();
       if (!result) {
-        setPhase('ready');
+        toast('Already claimed for today! Come back tomorrow.', { icon: '🎁' });
+        setPhase('claimed');
         return;
       }
 
@@ -78,7 +79,7 @@ export default function TreasureChestModal({ isOpen, onClose }: TreasureChestMod
       toast.error('Something went wrong opening the chest. Try again!');
       setPhase('ready');
     }
-  }, [canClaimTreasureChest, claimTreasureChest, awardXP, phase]);
+  }, [loading, canClaimTreasureChest, claimTreasureChest, awardXP, phase]);
 
   const handleClose = useCallback(() => {
     setPhase('ready');
@@ -188,7 +189,7 @@ export default function TreasureChestModal({ isOpen, onClose }: TreasureChestMod
                   justifyContent: 'center',
                   width: '100%',
                   height: '100%',
-                  filter: !canClaim && phase === 'ready' ? 'grayscale(0.7) opacity(0.5)' : 'none',
+                  filter: (!canClaim && phase === 'ready') || phase === 'claimed' ? 'grayscale(0.7) opacity(0.5)' : 'none',
                   willChange: 'transform',
                 }}
               >
@@ -321,29 +322,31 @@ export default function TreasureChestModal({ isOpen, onClose }: TreasureChestMod
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={phase === 'reveal' ? handleClose : handleOpen}
-              disabled={phase === 'opening' || (!canClaim && phase === 'ready')}
+              onClick={phase === 'reveal' || phase === 'claimed' ? handleClose : handleOpen}
+              disabled={loading || phase === 'opening' || ((!canClaim || phase === 'claimed') && phase !== 'reveal')}
               style={{
                 padding: '12px 36px',
                 borderRadius: '14px',
                 fontSize: '14px',
                 fontWeight: 700,
-                cursor: (!canClaim && phase === 'ready') || phase === 'opening' ? 'not-allowed' : 'pointer',
+                cursor: loading || ((!canClaim || phase === 'claimed') && phase !== 'reveal') || phase === 'opening' ? 'not-allowed' : 'pointer',
                 border: 'none',
-                background: (!canClaim && phase === 'ready')
+                background: loading || (!canClaim && phase === 'ready') || phase === 'claimed'
                   ? 'rgba(100, 100, 120, 0.3)'
                   : phase === 'reveal'
                   ? `linear-gradient(135deg, ${colors.glow}, ${colors.glow}cc)`
                   : 'linear-gradient(135deg, #7c3aed, #a78bfa)',
-                color: (!canClaim && phase === 'ready') ? 'rgba(255,255,255,0.3)' : '#fff',
-                boxShadow: (!canClaim && phase === 'ready')
+                color: loading || (!canClaim && phase === 'ready') || phase === 'claimed' ? 'rgba(255,255,255,0.4)' : '#fff',
+                boxShadow: loading || (!canClaim && phase === 'ready') || phase === 'claimed'
                   ? 'none'
                   : '0 4px 20px rgba(124, 58, 237, 0.4)',
                 letterSpacing: '0.5px',
                 transition: 'all 0.3s ease',
               }}
             >
-              {phase === 'opening' ? (
+              {loading ? (
+                'Checking...'
+              ) : phase === 'opening' ? (
                 <motion.span
                   animate={{ opacity: [1, 0.5, 1] }}
                   transition={{ duration: 0.8, repeat: Infinity }}
@@ -352,10 +355,10 @@ export default function TreasureChestModal({ isOpen, onClose }: TreasureChestMod
                 </motion.span>
               ) : phase === 'reveal' ? (
                 'Claim & Close'
-              ) : canClaim ? (
-                '✨ Open Chest'
-              ) : (
+              ) : phase === 'claimed' || !canClaim ? (
                 '🔒 Come back tomorrow!'
+              ) : (
+                '✨ Open Chest'
               )}
             </motion.button>
 

@@ -293,8 +293,31 @@ export default function NotesContent() {
   const [selectedFolder, setSelectedFolder] = useState<string>('all');
   const [catalogCollapsed, setCatalogCollapsed] = useState<boolean>(false);
   const [isScrollsDrawerOpen, setIsScrollsDrawerOpen] = useState<boolean>(false);
-  const { focusMode, setFocusMode } = useSidebar();
+  const { collapsed, focusMode, setFocusMode } = useSidebar();
   const isZenMode = focusMode;
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  const drawerLeft = focusMode || isMobile ? 0 : collapsed ? 72 : 292;
+  const drawerTop = focusMode ? 0 : isMobile ? 56 : 64;
+
+  // Close drawer on Escape key
+  useEffect(() => {
+    if (!isScrollsDrawerOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsScrollsDrawerOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isScrollsDrawerOpen]);
 
   const toggleZenMode = useCallback(() => {
     setFocusMode(!focusMode);
@@ -1378,16 +1401,20 @@ export default function NotesContent() {
     }
   }, []);
 
-  // Hydrate selectedNote from ?id=... URL query parameter
+  // Hydrate selectedNote from ?id=... URL query parameter or auto-select latest note
   const noteIdParam = searchParams.get('id');
+  const hasAutoSelected = useRef(false);
   useEffect(() => {
     if (noteIdParam && notes.length > 0) {
       const target = notes.find((n) => n.id === noteIdParam);
       if (target && selectedNote?.id !== target.id) {
         openNote(target);
       }
+    } else if (!noteIdParam && !loading && notes.length > 0 && !selectedNote && !hasAutoSelected.current) {
+      hasAutoSelected.current = true;
+      openNote(notes[0]);
     }
-  }, [noteIdParam, notes, selectedNote?.id, openNote]);
+  }, [noteIdParam, loading, notes, selectedNote?.id, openNote]);
 
   // Convert markdown to HTML (with Mermaid diagram rendering) and save into the note
   const handleMarkdownImport = async () => {
@@ -2463,7 +2490,8 @@ Rules:
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.18 }}
                 onClick={() => setIsScrollsDrawerOpen(false)}
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+                className="fixed bottom-0 right-0 bg-black/60 backdrop-blur-sm z-40"
+                style={{ left: drawerLeft, top: drawerTop }}
               />
 
               {/* Drawer Panel */}
@@ -2472,7 +2500,8 @@ Rules:
                 animate={{ x: 0, opacity: 1 }}
                 exit={{ x: -380, opacity: 0 }}
                 transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-                className="fixed top-0 bottom-0 left-0 z-50 w-full max-w-[360px] sm:max-w-[390px] bg-[var(--card-bg)] border-r-2 border-[var(--card-border)] shadow-2xl flex flex-col p-4 space-y-3"
+                className="fixed bottom-0 z-50 w-full max-w-[360px] sm:max-w-[390px] bg-[var(--card-bg)] border-r-2 border-[var(--card-border)] shadow-2xl flex flex-col p-4 space-y-3"
+                style={{ left: drawerLeft, top: drawerTop }}
               >
                 {/* Catalog Header */}
                 <div className="flex items-center justify-between gap-2 pb-2 border-b border-[var(--card-border)]">
@@ -3408,7 +3437,12 @@ Rules:
                       Choose any study note from the catalog on the left to read, annotate, or transmute with AI. Or forge a brand-new parchment to begin capturing knowledge.
                     </p>
                   </div>
-                  <div className="pt-1 flex justify-center gap-3">
+                  <div className="pt-1 flex justify-center gap-3 flex-wrap">
+                    {notes.length > 0 && (
+                      <Button variant="outline" icon={<HiDocumentText size={16} />} onClick={() => setIsScrollsDrawerOpen(true)}>
+                        Browse Scrolls ({notes.length})
+                      </Button>
+                    )}
                     <Button variant="primary" icon={<HiPlus size={16} />} onClick={() => setShowNewModal(true)}>
                       Create New Scroll
                     </Button>

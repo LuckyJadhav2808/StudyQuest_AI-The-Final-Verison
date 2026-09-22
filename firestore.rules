@@ -2,36 +2,46 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // ── Helper Functions ──
     function isAuthenticated() {
       return request.auth != null;
     }
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
     // 1. User Profiles and Private Subcollections
-    // Users can read/write their own subcollections (tasks, notes, habits, dsaProgress, etc.)
-    // Authenticated users can read basic user profile info for friends & search
+    // Public profile reading allowed for social/leaderboard/friends.
+    // Writes strictly isolated to the authenticated document owner.
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow write: if isOwner(userId);
 
+      // Private Subcollections (tasks, notes, habits, dsaProgress, inventory, etc.)
       match /{subcollection=**} {
         allow read, write: if isOwner(userId);
       }
     }
 
     // 2. Global Shared DSA Problems Collection
-    // Any authenticated user can read problems or contribute ingested solutions
+    // Read-only for standard users to prevent malicious data tampering or question deletion.
     match /globalDsaProblems/{problemId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if false;
     }
 
     // 3. Groups & Study Rooms
+    // Authenticated users can read groups. Creating requires authentication.
+    // Modifying or deleting is guarded by ownership.
     match /groups/{groupId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && (
+        resource.data.ownerId == request.auth.uid ||
+        resource.data.createdBy == request.auth.uid ||
+        (resource.data.admins != null && request.auth.uid in resource.data.admins)
+      );
 
       match /{subcollection=**} {
         allow read, write: if isAuthenticated();
@@ -39,8 +49,14 @@ service cloud.firestore {
     }
 
     // 4. Friend Requests
+    // Only participants (sender or recipient) can read, accept, reject, or delete their requests.
     match /friendRequests/{requestId} {
-      allow read, write: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.fromUid == request.auth.uid;
+      allow read, update, delete: if isAuthenticated() && (
+        resource.data.fromUid == request.auth.uid ||
+        resource.data.toUid == request.auth.uid ||
+        request.resource.data.fromUid == request.auth.uid
+      );
     }
 
     // 5. User Online Presence Status
@@ -50,9 +66,10 @@ service cloud.firestore {
     }
 
     // 6. Global Leaderboard
+    // Users can only write/update their OWN document (matching their authenticated UID).
     match /leaderboard/{docId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == docId;
     }
 
     // 7. Bug Reports & Feedback
@@ -62,10 +79,10 @@ service cloud.firestore {
     }
 
     // 8. System AI Usage & Analytics
+    // Protected: telemetry is written server-side; read-only for authenticated clients.
     match /systemAiUsage/{date} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if false;
     }
   }
 }
-

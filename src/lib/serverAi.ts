@@ -141,7 +141,7 @@ export async function executeServerAiCompletion(payload: ServerAiPayload): Promi
   // 3. System Multi-Provider Waterfall Execution
   const geminiKey = process.env.GEMINI_API_KEY?.trim();
   const groqKey = process.env.GROQ_API_KEY?.trim();
-  const openRouterKey = process.env.OPENROUTER_API_KEY?.trim() || process.env.NEXT_PUBLIC_OPENROUTER_API_KEY?.trim();
+  const openRouterKey = process.env.OPENROUTER_API_KEY?.trim();
 
   const isMultimodal = hasMultimodalContent(messages);
   let finalContent = '';

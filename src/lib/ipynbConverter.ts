@@ -102,7 +102,12 @@ export function exportToIpynb(notebook: Notebook): string {
 }
 
 export function importFromIpynb(jsonString: string, defaultTitle?: string): Notebook {
-  const parsed = JSON.parse(jsonString);
+  let parsed: any;
+  try {
+    parsed = JSON.parse(jsonString);
+  } catch (err: any) {
+    throw new Error(`Malformed Jupyter Notebook file: ${err?.message || 'Invalid JSON format'}`);
+  }
 
   const title =
     parsed.metadata?.studyquest?.title ||

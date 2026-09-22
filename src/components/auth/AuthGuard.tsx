@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuthContext } from '@/context/AuthContext';
 import { auth } from '@/lib/firebase';
 
@@ -12,9 +12,15 @@ interface AuthGuardProps {
 export default function AuthGuard({ children }: AuthGuardProps) {
   const { user, loading } = useAuthContext();
   const router = useRouter();
+  const pathname = usePathname();
   const [graceChecking, setGraceChecking] = useState(true);
 
   useEffect(() => {
+    if (pathname === '/reader') {
+      setGraceChecking(false);
+      return;
+    }
+
     if (loading) return;
 
     if (user) {
@@ -50,6 +56,9 @@ export default function AuthGuard({ children }: AuthGuardProps) {
       </div>
     );
   }
+
+  // Allow public access to DocStudio & Reader
+  if (pathname === '/reader') return <>{children}</>;
 
   // Don't render children if not authenticated
   if (!user) return null;
