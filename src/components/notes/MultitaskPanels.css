@@ -147,12 +147,12 @@
   background: var(--color-primary);
   height: 80px;
   width: 6px;
-  box-shadow: 0 0 12px rgba(124, 58, 237, 0.4);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-primary) 40%, transparent);
 }
 
 .split-resize-handle.dragging {
   cursor: col-resize;
-  background: rgba(124, 58, 237, 0.08);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
 }
 
 /* Grip dots */

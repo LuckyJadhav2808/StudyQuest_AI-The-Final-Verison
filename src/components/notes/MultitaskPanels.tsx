@@ -6,6 +6,8 @@ import { HiX, HiPlus, HiPhotograph, HiDocumentText, HiSearch, HiZoomIn, HiZoomOu
 import toast from 'react-hot-toast';
 import Button from '@/components/ui/Button';
 import { callAiCompletion, resolveOpenRouterKey } from '@/lib/ai';
+import { useAuthContext } from '@/context/AuthContext';
+import { uploadNoteImage } from '@/lib/storage';
 import './MultitaskPanels.css';
 
 // ════════════════════════════════════════════
@@ -560,7 +562,8 @@ export function ReferenceViewerPanel({ onClose, onInsertText, apiKey }: Referenc
 // ════════════════════════════════════════════
 interface WhiteboardSplitPanelProps {
   onClose: () => void;
-  onInsertDrawing: (dataUrl: string) => void;
+  onInsertDrawing: (imageUrl: string) => void;
+  noteId?: string;
 }
 
 type WbTool = 'pen' | 'highlighter' | 'eraser' | 'rect' | 'circle' | 'line' | 'arrow';
@@ -588,7 +591,8 @@ const WB_COLORS = [
   '#64748B', // Slate 500
 ];
 
-export function WhiteboardSplitPanel({ onClose, onInsertDrawing }: WhiteboardSplitPanelProps) {
+export function WhiteboardSplitPanel({ onClose, onInsertDrawing, noteId }: WhiteboardSplitPanelProps) {
+  const { user } = useAuthContext();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [tool, setTool] = useState<WbTool>('pen');
@@ -754,7 +758,7 @@ export function WhiteboardSplitPanel({ onClose, onInsertDrawing }: WhiteboardSpl
     setStrokes([]);
   };
 
-  const handleExportAndInsert = () => {
+  const handleExportAndInsert = async () => {
     const canvas = canvasRef.current;
     if (!canvas || strokes.length === 0) {
       toast.error('Draw something on the canvas first! 🎨');
@@ -779,8 +783,15 @@ export function WhiteboardSplitPanel({ onClose, onInsertDrawing }: WhiteboardSpl
     }
 
     const dataUrl = exportCanvas.toDataURL('image/png');
-    onInsertDrawing(dataUrl);
-    toast.success('Sketch inserted into notes! 📝✨');
+    const toastId = toast.loading('Saving sketch...');
+    try {
+      const imageUrl = await uploadNoteImage(user?.uid || 'user', noteId || 'draft', dataUrl, 'sketch');
+      onInsertDrawing(imageUrl);
+      toast.success('Sketch inserted into notes! 📝✨', { id: toastId });
+    } catch {
+      onInsertDrawing(dataUrl);
+      toast.success('Sketch inserted into notes! 📝✨', { id: toastId });
+    }
   };
 
   return (

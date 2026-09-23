@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
@@ -233,6 +233,9 @@ const QUILL_FORMATS = [
 ];
 import toast from 'react-hot-toast';
 import { useNotes } from '@/hooks/useNotes';
+import { useNotesAutosave } from '@/hooks/useNotesAutosave';
+import { sanitizeNoteHtml, prepareContentForAi, stripHtml } from '@/lib/sanitize';
+import { uploadNoteImage } from '@/lib/storage';
 import { useGamification } from '@/hooks/useGamification';
 import { useAuthContext } from '@/context/AuthContext';
 import Card from '@/components/ui/Card';
@@ -244,6 +247,14 @@ import Input from '@/components/ui/Input';
 import PageTransition from '@/components/layout/PageTransition';
 import DiagramModal from '@/components/notes/DiagramModal';
 import MathPalette from '@/components/notes/MathPalette';
+import PdfExportModal from '@/components/notes/modals/PdfExportModal';
+import FlashcardsModal from '@/components/notes/modals/FlashcardsModal';
+import SummaryModal from '@/components/notes/modals/SummaryModal';
+import MarkdownImportModal from '@/components/notes/modals/MarkdownImportModal';
+import BeautifyPreviewModal from '@/components/notes/modals/BeautifyPreviewModal';
+import AlchemyCauldronModal from '@/components/notes/modals/AlchemyCauldronModal';
+import { CreateNoteModal, RenameNoteModal } from '@/components/notes/modals/NoteOrganizeModal';
+import NotesCatalogDrawer from '@/components/notes/catalog/NotesCatalogDrawer';
 import { YouTubePanel, AITutorPanel, ReferenceViewerPanel, WhiteboardSplitPanel, ResizableSplitLayout } from '@/components/notes/MultitaskPanels';
 import { useGroups, useGroupResources } from '@/hooks/useGroups';
 import { useSidebar } from '@/context/SidebarContext';
@@ -267,6 +278,8 @@ function timeAgo(ts: number): string {
 interface Flashcard { question: string; answer: string; }
 
 export default function NotesContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { notes, loading, addNote, updateNote, deleteNote } = useNotes();
   const { awardXP } = useGamification();
   const { profile } = useAuthContext();
@@ -277,19 +290,12 @@ export default function NotesContent() {
   const [viewMode, setViewMode] = useState(false);
   const [search, setSearch] = useState('');
   const [showNewModal, setShowNewModal] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newFolder, setNewFolder] = useState('General');
   const [editContent, setEditContent] = useState('');
   const [editTitle, setEditTitle] = useState('');
   const [selectedText, setSelectedText] = useState('');
   const [latexConverting, setLatexConverting] = useState(false);
   const [renameNoteObj, setRenameNoteObj] = useState<Note | null>(null);
-  const [renameTitle, setRenameTitle] = useState('');
-  const [renameFolder, setRenameFolder] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-  const [showPdfThemeModal, setShowPdfThemeModal] = useState(false);
-  const [selectedPdfTheme, setSelectedPdfTheme] = useState<'modern' | 'editor' | 'parchment' | 'grimoire' | 'druid'>('modern');
-  const searchParams = useSearchParams();
   const [selectedFolder, setSelectedFolder] = useState<string>('all');
   const [catalogCollapsed, setCatalogCollapsed] = useState<boolean>(false);
   const [isScrollsDrawerOpen, setIsScrollsDrawerOpen] = useState<boolean>(false);
@@ -350,13 +356,28 @@ export default function NotesContent() {
   const [brewingRecipe, setBrewingRecipe] = useState<'scroll' | 'cards' | null>(null);
   const [brewCountdown, setBrewCountdown] = useState(0);
 
-  // Autosave & editor state
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // ── Autosave hook with beforeunload and unmount flush ──
   const quillWrapperRef = useRef<HTMLDivElement>(null);
   const actionToolbarRef = useRef<HTMLDivElement>(null);
   const [actionToolbarHeight, setActionToolbarHeight] = useState(0);
   const lastSavedAt = useRef<number>(0);
+
+  const onAutosaveNote = useCallback(async (noteId: string, data: { title: string; content: string }) => {
+    await updateNote(noteId, data);
+    setSelectedNote((prev) => (prev && prev.id === noteId ? { ...prev, ...data, updatedAt: Date.now() } : prev));
+    lastSavedAt.current = Date.now();
+  }, [updateNote]);
+
+  const {
+    saveStatus,
+    setSaveStatus,
+    scheduleAutosave,
+    flushAutosave,
+  } = useNotesAutosave({
+    selectedNote,
+    onSave: onAutosaveNote,
+    debounceMs: 3500,
+  });
 
   // Resize observer to track action toolbar height in real-time
   useEffect(() => {
@@ -411,7 +432,7 @@ export default function NotesContent() {
               content:
                 'You are a grand wizard alchemist. Summarize the user note content into a visually gorgeous, comprehensive "Mastery Scroll" revision guide. Use markdown tables, bold key points, bullet groups, and clear section dividers. Wrap the final output inside clean HTML (do not include markdown ticks like ```html).'
             },
-            { role: 'user', content: editContent }
+            { role: 'user', content: prepareContentForAi(editContent, 4000) }
           ],
         });
 
@@ -419,7 +440,7 @@ export default function NotesContent() {
           throw new Error(result.error || 'Could not brew mastery scroll.');
         }
 
-        const scrollHtml = result.content;
+        const scrollHtml = sanitizeNoteHtml(result.content);
 
         const newId = await addNote({
           title: `${editTitle} - Mastery Scroll 📜`,
@@ -817,7 +838,7 @@ export default function NotesContent() {
         // If autocorrect is disabled, don't intercept suggestions
         if (!autocorrectEnabledRef.current) return;
 
-        // 1. Tab / Shift+Tab: Cycle through suggestions
+        // 1. Tab / Shift+Tab: Accept suggestion on Tab or cycle backwards on Shift+Tab
         if (e.key === 'Tab' && allSuggestions.length > 0) {
           e.preventDefault();
           e.stopPropagation();
@@ -826,43 +847,16 @@ export default function NotesContent() {
             // Shift+Tab: cycle backward
             setActiveSuggestionIndex((prev) => (prev - 1 + allSuggestions.length) % allSuggestions.length);
           } else {
-            // Tab: cycle forward
-            setActiveSuggestionIndex((prev) => (prev + 1) % allSuggestions.length);
+            // Tab: accept currently highlighted suggestion
+            const selected = allSuggestions[activeSuggestionIndexRef.current] || allSuggestions[0];
+            if (selected) {
+              replaceQuillWord(selected);
+            }
           }
           return;
         }
 
-        // ArrowDown / ArrowRight: Cycle to next suggestion
-        if ((e.key === 'ArrowDown' || e.key === 'ArrowRight') && allSuggestions.length > 1) {
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-          setActiveSuggestionIndex((prev) => (prev + 1) % allSuggestions.length);
-          return;
-        }
-
-        // ArrowUp / ArrowLeft: Cycle to previous suggestion
-        if ((e.key === 'ArrowUp' || e.key === 'ArrowLeft') && allSuggestions.length > 1) {
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-          setActiveSuggestionIndex((prev) => (prev - 1 + allSuggestions.length) % allSuggestions.length);
-          return;
-        }
-
-        // 2. Enter key: If suggestions are active, accept the highlighted suggestion without creating a newline!
-        if (e.key === 'Enter' && allSuggestions.length > 0) {
-          const selected = allSuggestions[activeSuggestionIndexRef.current] || allSuggestions[0];
-          if (selected) {
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            replaceQuillWord(selected);
-            return;
-          }
-        }
-
-        // 3. Escape key: Dismiss floating suggestions popover
+        // 2. Escape key: Dismiss floating suggestions popover
         if (e.key === 'Escape') {
           if (allSuggestions.length > 0) {
             e.preventDefault();
@@ -903,16 +897,11 @@ export default function NotesContent() {
         const corrected = autocorrectWord(wordWithPunc);
         
         if (corrected !== wordWithPunc) {
-          const appendChar = e.key === 'Enter' ? '' : e.key;
-          if (e.key !== 'Enter') {
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-          } else {
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-          }
+          // Preserve newline when user hits Enter to trigger autocorrect!
+          const appendChar = e.key === 'Enter' ? '\n' : e.key;
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
 
           // Use updateContents for atomic change
           quill.updateContents({
@@ -1110,17 +1099,6 @@ export default function NotesContent() {
     return map;
   }, [filteredNotes]);
 
-  const handleCreate = async () => {
-    if (!newTitle.trim()) return;
-    const id = await addNote({ title: newTitle.trim(), content: '', folder: newFolder.trim() || 'General', tags: [] });
-    await awardXP(XP_AWARDS.NOTE_CREATED, 'New note created');
-    toast.success('Scroll created! +10 XP 📝');
-    setShowNewModal(false); setNewTitle(''); setNewFolder('General');
-    if (id) {
-      const note = { id, title: newTitle.trim(), content: '', folder: newFolder.trim() || 'General', tags: [], createdAt: Date.now(), updatedAt: Date.now() };
-      setSelectedNote(note); setEditContent(''); setEditTitle(newTitle.trim()); setIsEditing(true);
-    }
-  };
 
   const handleSave = async () => {
     if (!selectedNote) return;
@@ -1162,47 +1140,10 @@ export default function NotesContent() {
     setShowMascotBubble((prev) => !prev);
   };
 
-  const handleRenameNote = async () => {
-    if (!renameNoteObj) return;
-    if (!renameTitle.trim()) {
-      toast.error('Title is required');
-      return;
-    }
-    const finalFolder = renameFolder.trim() || 'General';
-    await updateNote(renameNoteObj.id, {
-      title: renameTitle.trim(),
-      folder: finalFolder,
-    });
-    if (selectedNote?.id === renameNoteObj.id) {
-      setSelectedNote({
-        ...selectedNote,
-        title: renameTitle.trim(),
-        folder: finalFolder,
-        updatedAt: Date.now(),
-      });
-      setEditTitle(renameTitle.trim());
-    }
-    toast.success('Note updated! 📝');
-    setRenameNoteObj(null);
-  };
-
-  // Autosave: fires 5 seconds after last change
-  const triggerAutosave = useCallback(async (content: string, title: string) => {
-    if (!selectedNote) return;
-    setSaveStatus('saving');
-    await updateNote(selectedNote.id, { title, content });
-    setSelectedNote((prev) => prev ? { ...prev, title, content, updatedAt: Date.now() } : prev);
-    lastSavedAt.current = Date.now();
-    setSaveStatus('saved');
-    setTimeout(() => setSaveStatus('idle'), 3000);
-  }, [selectedNote, updateNote]);
 
   const handleContentChange = useCallback((content: string) => {
     setEditContent(content);
-    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-    autosaveTimer.current = setTimeout(() => {
-      triggerAutosave(content, editTitle);
-    }, 5000);
+    scheduleAutosave(content, editTitle);
 
     // Mascot focus state & typing detection (avoid redundant state dispatches if already focusing)
     if (mascotMoodRef.current !== 'focus') {
@@ -1292,17 +1233,73 @@ export default function NotesContent() {
         }
       }
     }
-  }, [editTitle, triggerAutosave, lastWordCount, wordsWrittenSession, awardXP]);
+  }, [editTitle, scheduleAutosave, lastWordCount, wordsWrittenSession, awardXP]);
 
+  // Word count & reading time (state-managed to eliminate synchronous regex on every keypress)
+  const [wordCount, setWordCount] = useState<{ words: number; chars: number; readingTime: string }>({
+    words: 0,
+    chars: 0,
+    readingTime: '0 min',
+  });
 
-  // Cleanup autosave timer
+  const openNote = useCallback(async (note: Note) => {
+    await flushAutosave();
+    setSelectedNote(note);
+    setEditContent(note.content);
+    setEditTitle(note.title);
+    setIsEditing(false);
+    setPreview(false);
+    setViewMode(false);
+    setSaveStatus('idle');
+    setIsScrollsDrawerOpen(false);
+
+    // Sync baseline word count
+    const text = note.content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim();
+    const count = text ? text.split(/\s+/).filter(Boolean).length : 0;
+    setLastWordCount(count);
+    setWordsWrittenSession(0);
+    const mins = Math.max(1, Math.ceil(count / 200));
+    setWordCount({ words: count, chars: text.length, readingTime: `${mins} min read` });
+
+    // Sync URL without reload
+    if (typeof window !== 'undefined') {
+      router.replace(`/notes?id=${note.id}`, { scroll: false });
+    }
+  }, [flushAutosave, router]);
+
+  const backToList = useCallback(async () => {
+    await flushAutosave();
+    setSelectedNote(null);
+    setIsEditing(false);
+    setPreview(false);
+    setViewMode(false);
+    setSaveStatus('idle');
+    setIsScrollsDrawerOpen(true);
+
+    if (typeof window !== 'undefined') {
+      router.replace('/notes', { scroll: false });
+    }
+  }, [flushAutosave, router]);
+
+  // Hydrate selectedNote from ?id=... URL query parameter or auto-select latest note
+  const noteIdParam = searchParams.get('id');
+  const hasHydratedUrlRef = useRef(false);
   useEffect(() => {
-    return () => {
-      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-    };
-  }, []);
-
-
+    if (loading || notes.length === 0) return;
+    if (!hasHydratedUrlRef.current) {
+      hasHydratedUrlRef.current = true;
+      if (noteIdParam) {
+        const target = notes.find((n) => n.id === noteIdParam);
+        if (target) {
+          openNote(target);
+          return;
+        }
+      }
+      if (!selectedNote) {
+        openNote(notes[0]);
+      }
+    }
+  }, [noteIdParam, loading, notes, selectedNote, openNote]);
 
   // Listen to clicks inside the editor to allow editing math equations
   useEffect(() => {
@@ -1333,9 +1330,6 @@ export default function NotesContent() {
   const getQuillEditor = useCallback(() => {
     const wrapper = quillWrapperRef.current;
     if (!wrapper) return null;
-    // react-quill-new stores the instance on the component; access via DOM
-    const quillEl = wrapper.querySelector('.ql-editor');
-    // @ts-ignore - Quill attaches __quill to the container
     return (wrapper.querySelector('.ql-container') as any)?.__quill || null;
   }, []);
 
@@ -1346,180 +1340,6 @@ export default function NotesContent() {
   const handleRedo = () => {
     const editor = getQuillEditor();
     if (editor) editor.history.redo();
-  };
-
-  // Word count & reading time (state-managed to eliminate synchronous regex on every keypress)
-  const [wordCount, setWordCount] = useState<{ words: number; chars: number; readingTime: string }>({
-    words: 0,
-    chars: 0,
-    readingTime: '0 min',
-  });
-
-  const openNote = useCallback((note: Note) => {
-    setSelectedNote(note);
-    setEditContent(note.content);
-    setEditTitle(note.title);
-    setIsEditing(false);
-    setPreview(false);
-    setViewMode(false);
-    setSaveStatus('idle');
-    setIsScrollsDrawerOpen(false);
-
-    // Sync baseline word count
-    const text = note.content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim();
-    const count = text ? text.split(/\s+/).filter(Boolean).length : 0;
-    setLastWordCount(count);
-    setWordsWrittenSession(0);
-    const mins = Math.max(1, Math.ceil(count / 200));
-    setWordCount({ words: count, chars: text.length, readingTime: `${mins} min read` });
-
-    // Sync URL without reload
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      if (url.searchParams.get('id') !== note.id) {
-        url.searchParams.set('id', note.id);
-        window.history.replaceState({}, '', url.toString());
-      }
-    }
-  }, []);
-
-  const backToList = useCallback(() => {
-    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-    setSelectedNote(null);
-    setIsEditing(false);
-    setPreview(false);
-    setViewMode(false);
-    setSaveStatus('idle');
-    setIsScrollsDrawerOpen(true);
-
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      if (url.searchParams.has('id')) {
-        url.searchParams.delete('id');
-        window.history.replaceState({}, '', url.toString());
-      }
-    }
-  }, []);
-
-  // Hydrate selectedNote from ?id=... URL query parameter or auto-select latest note
-  const noteIdParam = searchParams.get('id');
-  const hasAutoSelected = useRef(false);
-  useEffect(() => {
-    if (noteIdParam && notes.length > 0) {
-      const target = notes.find((n) => n.id === noteIdParam);
-      if (target && selectedNote?.id !== target.id) {
-        openNote(target);
-      }
-    } else if (!noteIdParam && !loading && notes.length > 0 && !selectedNote && !hasAutoSelected.current) {
-      hasAutoSelected.current = true;
-      openNote(notes[0]);
-    }
-  }, [noteIdParam, loading, notes, selectedNote?.id, openNote]);
-
-  // Convert markdown to HTML (with Mermaid diagram rendering) and save into the note
-  const handleMarkdownImport = async () => {
-    if (!markdownInput.trim() || !selectedNote) return;
-    let html = await marked.parse(markdownInput);
-
-    // ── Render Mermaid code blocks into SVG images ──
-    // marked.parse() turns ```mermaid ... ``` into <pre><code class="language-mermaid">...</code></pre>
-    // We find each one, compile it with mermaid, and replace with an inline <img> of the SVG.
-    const mermaidBlockRegex = /<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/gi;
-    const mermaidMatches = [...html.matchAll(mermaidBlockRegex)];
-
-    if (mermaidMatches.length > 0) {
-      try {
-        const mermaid = (await import('mermaid')).default;
-        mermaid.initialize({
-          startOnLoad: false,
-          theme: 'dark',
-          themeVariables: {
-            primaryColor: '#7C3AED',
-            primaryTextColor: '#fff',
-            primaryBorderColor: '#a78bfa',
-            lineColor: '#a78bfa',
-            secondaryColor: '#EC4899',
-            tertiaryColor: '#10B981',
-            background: '#1a1a2e',
-            mainBkg: '#1a1a2e',
-            nodeBorder: '#a78bfa',
-            fontFamily: 'system-ui, sans-serif',
-          },
-          securityLevel: 'loose',
-        });
-
-        for (let i = 0; i < mermaidMatches.length; i++) {
-          const match = mermaidMatches[i];
-          const fullMatch = match[0];
-          // Decode HTML entities back to plain text for the mermaid compiler
-          const rawCode = match[1]
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&quot;/g, '"')
-            .replace(/&#39;/g, "'")
-            .trim();
-
-          try {
-            const diagramId = `mermaid-import-${Date.now()}-${i}`;
-            const { svg } = await mermaid.render(diagramId, rawCode);
-            // Convert the SVG string to a base64 data URL so it embeds cleanly in Quill
-            const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
-            const dataUrl = await new Promise<string>((resolve) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.readAsDataURL(svgBlob);
-            });
-            const imgTag = `<p><img src="${dataUrl}" alt="Mermaid Diagram" style="max-width:100%;border-radius:12px;margin:12px 0;background:#1a1a2e;padding:16px;" /></p>`;
-            html = html.replace(fullMatch, imgTag);
-          } catch (mermaidErr) {
-            console.warn(`Mermaid render failed for block ${i}:`, mermaidErr);
-            // Leave the code block as-is if rendering fails
-          }
-        }
-      } catch (importErr) {
-        console.warn('Failed to load mermaid library:', importErr);
-      }
-    }
-
-    // Save the raw markdown source so users can re-edit it later
-    const rawSource = markdownInput;
-
-    const quill = quillRef.current?.getEditor();
-    if (isEditingMarkdown) {
-      // Editing existing markdown — replace entire content
-      if (quill) {
-        quill.root.innerHTML = html;
-        const newContent = quill.root.innerHTML;
-        setEditContent(newContent);
-        await updateNote(selectedNote.id, { content: newContent, markdownSource: rawSource });
-        setSelectedNote({ ...selectedNote, content: newContent, markdownSource: rawSource, updatedAt: Date.now() });
-      } else {
-        setEditContent(html);
-        await updateNote(selectedNote.id, { content: html, markdownSource: rawSource });
-        setSelectedNote({ ...selectedNote, content: html, markdownSource: rawSource, updatedAt: Date.now() });
-      }
-    } else {
-      // First import — append to existing content
-      if (quill) {
-        const length = quill.getLength();
-        quill.clipboard.dangerouslyPasteHTML(length - 1, html);
-        const newContent = quill.root.innerHTML;
-        setEditContent(newContent);
-        await updateNote(selectedNote.id, { content: newContent, markdownSource: rawSource });
-        setSelectedNote({ ...selectedNote, content: newContent, markdownSource: rawSource, updatedAt: Date.now() });
-      } else {
-        const newContent = (editContent || '') + html;
-        setEditContent(newContent);
-        await updateNote(selectedNote.id, { content: newContent, markdownSource: rawSource });
-        setSelectedNote({ ...selectedNote, content: newContent, markdownSource: rawSource, updatedAt: Date.now() });
-      }
-    }
-    
-    setMarkdownInput('');
-    setShowMarkdownImport(false);
-    setIsEditingMarkdown(false);
-    toast.success(isEditingMarkdown ? 'Markdown updated! ✅' : 'Markdown imported! 📄');
   };
 
   // Insert diagram image into note content
@@ -1547,285 +1367,6 @@ export default function NotesContent() {
         updateNote(selectedNote.id, { content: newContent });
         setSelectedNote({ ...selectedNote, content: newContent, updatedAt: Date.now() });
       }
-    }
-  };
-
-  // =================== PDF EXPORT ===================
-  const exportPdf = async () => {
-    if (!selectedNote || !selectedNote.content) { toast.error('Nothing to export'); return; }
-    setShowPdfModal(false);
-
-    const qualityScale = pdfQuality === 'low' ? 1 : pdfQuality === 'medium' ? 2 : 3;
-    const jpegQuality = pdfQuality === 'low' ? 0.5 : pdfQuality === 'medium' ? 0.75 : 0.85;
-
-    const themeBg = 
-      selectedPdfTheme === 'parchment' ? '#FDF6E2' :
-      selectedPdfTheme === 'grimoire' ? '#1E1E2F' :
-      selectedPdfTheme === 'druid' ? '#F2F4F0' :
-      selectedPdfTheme === 'editor' ? '#0B0D17' :
-      '#ffffff';
-
-    const themeText = 
-      selectedPdfTheme === 'parchment' ? '#3E2723' :
-      selectedPdfTheme === 'grimoire' ? '#F3F4F6' :
-      selectedPdfTheme === 'druid' ? '#111827' :
-      selectedPdfTheme === 'editor' ? '#FEF7FF' :
-      '#222222';
-
-    const themeFont = 
-      selectedPdfTheme === 'parchment' ? 'Georgia, Cambria, serif' :
-      selectedPdfTheme === 'grimoire' ? 'Courier New, monospace' :
-      selectedPdfTheme === 'druid' ? 'system-ui, sans-serif' :
-      selectedPdfTheme === 'editor' ? 'Lexend, system-ui, sans-serif' :
-      'system-ui, sans-serif';
-
-    const themeBlockquoteBg = 
-      selectedPdfTheme === 'parchment' ? '#fbf2db' :
-      selectedPdfTheme === 'grimoire' ? '#2A2A3F' :
-      selectedPdfTheme === 'druid' ? '#E6EBE2' :
-      selectedPdfTheme === 'editor' ? '#111328' :
-      '#f5f3ff';
-
-    const themeBlockquoteBorder = 
-      selectedPdfTheme === 'parchment' ? '#B8860B' :
-      selectedPdfTheme === 'grimoire' ? '#A855F7' :
-      selectedPdfTheme === 'druid' ? '#10B981' :
-      selectedPdfTheme === 'editor' ? '#7C3AED' :
-      '#7C3AED';
-
-    const themeCodeBg = 
-      selectedPdfTheme === 'parchment' ? '#F5EAC9' :
-      selectedPdfTheme === 'grimoire' ? '#131320' :
-      selectedPdfTheme === 'druid' ? '#E7EAE3' :
-      selectedPdfTheme === 'editor' ? '#1A1D35' :
-      '#f4f4f5';
-
-    const toastId = toast.loading('Generating PDF...');
-    try {
-      const html2canvas = (await import('html2canvas')).default;
-      const { jsPDF } = (await import('jspdf')) as any;
-
-      // Create offscreen rendering element — match editor styling exactly
-      const container = document.createElement('div');
-      container.style.cssText = `width:794px;padding:0px 40px 20px 40px;position:absolute;left:-9999px;font-family:${themeFont};font-size:14px;line-height:1.8;color:${themeText};background:${themeBg};white-space:pre-wrap;word-wrap:break-word;`;
-      
-      // Include Quill indent CSS so indentation renders in PDF
-      const styleTag = document.createElement('style');
-      styleTag.textContent = `
-        .ql-indent-1 { padding-left: 3em; }
-        .ql-indent-2 { padding-left: 6em; }
-        .ql-indent-3 { padding-left: 9em; }
-        .ql-indent-4 { padding-left: 12em; }
-        p, li, div { white-space: pre-wrap; word-wrap: break-word; color: ${themeText}; }
-        pre { background: ${themeCodeBg}; color: ${themeText}; padding: 12px 16px; border-radius: 8px; overflow-x: auto; font-family: monospace; font-size: 13px; }
-        code { background: ${themeCodeBg}; color: ${themeText}; padding: 2px 4px; border-radius: 4px; font-family: monospace; font-size: 13px; }
-        blockquote { border-left: 4px solid ${themeBlockquoteBorder}; padding: 8px 16px; margin: 12px 0; background: ${themeBlockquoteBg}; color: ${themeText}; border-radius: 0 8px 8px 0; }
-        h1 { font-size: 22px; font-weight: 700; margin: 0px 0 8px; color: ${themeText}; }
-        h2 { font-size: 18px; font-weight: 700; margin: 14px 0 6px; color: ${themeText}; }
-        h3 { font-size: 16px; font-weight: 600; margin: 12px 0 4px; color: ${themeText}; }
-        ul, ol { padding-left: 1.5em; margin: 8px 0; }
-        li { margin: 4px 0; }
-        img { max-width: 100%; border-radius: 8px; margin: 8px 0; }
-        .katex-display { margin: 8px 0; display: block; text-align: center; }
-        .katex-inline { display: inline-block; }
-      `;
-      container.appendChild(styleTag);
-
-      // Copy KaTeX, Tailwind, and custom styles from document to container
-      if (typeof window !== 'undefined') {
-        Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).forEach((style) => {
-          container.appendChild(style.cloneNode(true));
-        });
-      }
-
-      // 1. Process $...$ and $$...$$ math delimiters in note content
-      let processedContent = await renderMathInHtml(selectedNote.content);
-
-      // 2. Setup the HTML inside the PDF export container
-      container.innerHTML += `<h1 style="font-size:24px;font-weight:800;margin-top:0px;margin-bottom:8px;">${selectedNote.title}</h1>
-        <p style="font-size:10px;color:#888;margin-bottom:20px;">Exported from StudyQuest AI - ${new Date().toLocaleDateString()}</p>
-        <div style="line-height:1.8;white-space:pre-wrap;">${processedContent}</div>`;
-      document.body.appendChild(container);
-
-      // 3. Render all <math-field> tags (custom embeds) statically using KaTeX
-      const katexMod = await import('katex');
-      const katex = katexMod.default;
-      const mathFields = container.querySelectorAll('math-field, .studyquest-math-embed');
-      mathFields.forEach((el) => {
-        const latex = el.getAttribute('data-latex') || '';
-        const isBlock = el.getAttribute('data-block') === 'true';
-        try {
-          const renderedSpan = document.createElement(isBlock ? 'div' : 'span');
-          renderedSpan.className = isBlock ? 'katex-block' : 'katex-inline';
-          renderedSpan.innerHTML = katex.renderToString(latex, {
-            throwOnError: false,
-            displayMode: isBlock,
-          });
-          el.parentNode?.replaceChild(renderedSpan, el);
-        } catch {
-          el.textContent = latex;
-        }
-      });
-
-      // 4. Remove empty blockquotes (which render as empty purple boxes)
-      const emptyBlockquotes = container.querySelectorAll('blockquote');
-      emptyBlockquotes.forEach((el) => {
-        const text = el.textContent?.trim() || '';
-        if (!text) {
-          el.parentNode?.removeChild(el);
-        }
-      });
-
-      // 5. Avoid splitting elements across pages by dynamically inserting spacers
-      const pdf = new jsPDF('p', 'mm', pdfPageSize) as any;
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 10;
-      const imgWidth = pageWidth - margin * 2;
-      const usableHeight = pageHeight - 32;
-      
-      const pagePixelHeight = (usableHeight * 794) / imgWidth;
-      const contentDiv = container.querySelector('div');
-      if (contentDiv) {
-        const blocks = Array.from(contentDiv.querySelectorAll('p, li, h1, h2, h3, blockquote, pre, .katex-block, .katex-display'))
-          .filter((block) => block.parentElement === contentDiv || block.parentElement?.parentElement === contentDiv);
-        for (let i = 0; i < blocks.length; i++) {
-          const block = blocks[i] as HTMLElement;
-          const rect = block.getBoundingClientRect();
-          const containerRect = container.getBoundingClientRect();
-          const top = rect.top - containerRect.top;
-          const bottom = rect.bottom - containerRect.top;
-          
-          const pageIndex = Math.floor(top / pagePixelHeight);
-          const endPageIndex = Math.floor(bottom / pagePixelHeight);
-          
-          if (endPageIndex > pageIndex) {
-            const pageBoundary = (pageIndex + 1) * pagePixelHeight;
-            const spacerHeight = pageBoundary - top;
-            // Only add spacer if it fits within a page
-            if (spacerHeight > 0 && block.offsetHeight < pagePixelHeight) {
-              const spacer = document.createElement('div');
-              spacer.style.height = `${spacerHeight}px`;
-              spacer.className = 'pdf-page-spacer';
-              block.parentNode?.insertBefore(spacer, block);
-            }
-          }
-        }
-      }
-
-      const drawBorderColor = 
-        selectedPdfTheme === 'parchment' ? [212, 175, 55] :
-        selectedPdfTheme === 'grimoire' ? [168, 85, 247] :
-        selectedPdfTheme === 'druid' ? [16, 185, 129] :
-        selectedPdfTheme === 'editor' ? [30, 33, 50] :
-        [220, 210, 235];
-
-      const drawHeaderColor = 
-        selectedPdfTheme === 'parchment' ? [139, 69, 19] :
-        selectedPdfTheme === 'grimoire' ? [168, 85, 247] :
-        selectedPdfTheme === 'druid' ? [6, 78, 59] :
-        selectedPdfTheme === 'editor' ? [124, 58, 237] :
-        [124, 58, 237];
-
-      const drawHeaderLineColor = 
-        selectedPdfTheme === 'parchment' ? [212, 175, 55] :
-        selectedPdfTheme === 'grimoire' ? [60, 60, 80] :
-        selectedPdfTheme === 'druid' ? [200, 210, 195] :
-        selectedPdfTheme === 'editor' ? [36, 40, 66] :
-        [235, 230, 245];
-
-      const drawTextColor = 
-        selectedPdfTheme === 'parchment' ? [100, 70, 50] :
-        selectedPdfTheme === 'grimoire' ? [180, 180, 200] :
-        selectedPdfTheme === 'druid' ? [80, 95, 80] :
-        selectedPdfTheme === 'editor' ? [240, 230, 250] :
-        [100, 100, 100];
-
-      const drawFooterTextColor = 
-        selectedPdfTheme === 'parchment' ? [140, 110, 90] :
-        selectedPdfTheme === 'grimoire' ? [130, 130, 150] :
-        selectedPdfTheme === 'druid' ? [110, 125, 110] :
-        selectedPdfTheme === 'editor' ? [150, 150, 170] :
-        [140, 140, 140];
-
-      const brandingTitle = 
-        selectedPdfTheme === 'parchment' ? 'AETHER PARCHMENT' :
-        selectedPdfTheme === 'grimoire' ? 'VOID GRIMOIRE' :
-        selectedPdfTheme === 'druid' ? 'FOREST DRUID LOG' :
-        selectedPdfTheme === 'editor' ? 'STUDYQUEST ACTIVE' :
-        'STUDYQUEST AI';
-
-      const canvas = await html2canvas(container, { scale: qualityScale, useCORS: true, backgroundColor: themeBg });
-      document.body.removeChild(container);
-
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      const totalPages = Math.ceil(imgHeight / usableHeight);
-
-      for (let page = 0; page < totalPages; page++) {
-        if (page > 0) pdf.addPage();
-        const srcY = (page * usableHeight * canvas.width) / imgWidth;
-        const srcH = Math.min((usableHeight * canvas.width) / imgWidth, canvas.height - srcY);
-        const sliceCanvas = document.createElement('canvas');
-        sliceCanvas.width = canvas.width;
-        sliceCanvas.height = srcH;
-        sliceCanvas.getContext('2d')!.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
-        const sliceData = sliceCanvas.toDataURL('image/jpeg', jpegQuality);
-        const sliceHeight = (srcH * imgWidth) / canvas.width;
-        
-        // Fill entire page background for dark themes to avoid white margins
-        if (selectedPdfTheme === 'editor' || selectedPdfTheme === 'grimoire') {
-          const bgRgb = selectedPdfTheme === 'editor' ? [11, 13, 23] : [30, 30, 47];
-          pdf.setFillColor(bgRgb[0], bgRgb[1], bgRgb[2]);
-          pdf.rect(0, 0, pageWidth, pageHeight, 'F');
-        }
-
-        // Draw note content centered vertically within usable area
-        pdf.addImage(sliceData, 'JPEG', margin, 16, imgWidth, sliceHeight, undefined, 'FAST');
-
-        // ══════════ DRAW BEAUTIFIED BORDERS & BRANDING ══════════
-        
-        // 1. Draw outer page border (soft rounded lavender border)
-        pdf.setDrawColor(drawBorderColor[0], drawBorderColor[1], drawBorderColor[2]);
-        pdf.setLineWidth(0.3);
-        pdf.roundedRect(6, 6, pageWidth - 12, pageHeight - 12, 4, 4, 'D');
-
-        // 2. Draw Header
-        pdf.setFont("Helvetica", "bold");
-        pdf.setFontSize(7);
-        pdf.setTextColor(drawHeaderColor[0], drawHeaderColor[1], drawHeaderColor[2]);
-        const titleText = selectedNote.title.length > 50 ? selectedNote.title.substring(0, 47) + '...' : selectedNote.title;
-        pdf.text(`${brandingTitle} - ${titleText.toUpperCase()}`, 12, 11);
-
-        pdf.setFont("Helvetica", "normal");
-        pdf.setFontSize(7);
-        pdf.setTextColor(drawTextColor[0], drawTextColor[1], drawTextColor[2]);
-        pdf.text(new Date().toLocaleDateString(), pageWidth - 12, 11, { align: "right" });
-
-        // Header separator line
-        pdf.setDrawColor(drawHeaderLineColor[0], drawHeaderLineColor[1], drawHeaderLineColor[2]);
-        pdf.line(12, 13, pageWidth - 12, 13);
-
-        // 3. Draw Footer
-        // Footer separator line
-        pdf.setDrawColor(drawHeaderLineColor[0], drawHeaderLineColor[1], drawHeaderLineColor[2]);
-        pdf.line(12, pageHeight - 13, pageWidth - 12, pageHeight - 13);
-
-        pdf.setFont("Helvetica", "italic");
-        pdf.setFontSize(6.5);
-        pdf.setTextColor(drawFooterTextColor[0], drawFooterTextColor[1], drawFooterTextColor[2]);
-        pdf.text("Level Up Your Learning - studyquest.ai", 12, pageHeight - 9);
-
-        pdf.setFont("Helvetica", "normal");
-        pdf.setFontSize(7);
-        pdf.setTextColor(drawFooterTextColor[0], drawFooterTextColor[1], drawFooterTextColor[2]);
-        pdf.text(`Page ${page + 1} of ${totalPages}`, pageWidth - 12, pageHeight - 9, { align: "right" });
-      }
-
-      pdf.save(`${selectedNote.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
-      toast.success('PDF exported! 📄', { id: toastId });
-    } catch (err) {
-      console.error('PDF export error:', err);
-      toast.error('PDF export failed', { id: toastId });
     }
   };
 
@@ -2000,6 +1541,7 @@ export default function NotesContent() {
 
     setAiLoading(true);
     try {
+      const cleanContent = prepareContentForAi(selectedNote.content, 4000);
       const result = await callAiCompletion({
         apiKey: profile?.openRouterKey,
         title: 'StudyQuest Note Summarizer',
@@ -2007,7 +1549,7 @@ export default function NotesContent() {
         max_tokens: 1024,
         messages: [
           { role: 'system', content: 'You are a study assistant. Summarize the following notes concisely into key points with bullet points. Keep it focused and useful for revision.' },
-          { role: 'user', content: selectedNote.content }
+          { role: 'user', content: cleanContent }
         ],
       });
 
@@ -2028,6 +1570,7 @@ export default function NotesContent() {
 
     setAiLoading(true);
     try {
+      const cleanContent = prepareContentForAi(selectedNote.content, 4000);
       const result = await callAiCompletion({
         apiKey: profile?.openRouterKey,
         title: 'StudyQuest Flashcard Generator',
@@ -2035,7 +1578,7 @@ export default function NotesContent() {
         max_tokens: 1024,
         messages: [
           { role: 'system', content: 'Create 5-8 flashcards from the following notes. Return ONLY valid JSON array with objects having "question" and "answer" fields. No markdown, no explanation, just JSON.' },
-          { role: 'user', content: selectedNote.content }
+          { role: 'user', content: cleanContent }
         ],
       });
 
@@ -2480,204 +2023,22 @@ Rules:
     <PageTransition className="h-full flex flex-col min-h-0">
       <div className="w-full h-full flex flex-col min-h-0 space-y-2 relative">
         {/* ═══ Off-Canvas Slide-Out Scrolls Drawer ═══ */}
-        <AnimatePresence>
-          {isScrollsDrawerOpen && (
-            <>
-              {/* Dimmed Backdrop with blur */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
-                onClick={() => setIsScrollsDrawerOpen(false)}
-                className="fixed bottom-0 right-0 bg-black/60 backdrop-blur-sm z-40"
-                style={{ left: drawerLeft, top: drawerTop }}
-              />
-
-              {/* Drawer Panel */}
-              <motion.aside
-                initial={{ x: -380, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={{ x: -380, opacity: 0 }}
-                transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-                className="fixed bottom-0 z-50 w-full max-w-[360px] sm:max-w-[390px] bg-[var(--card-bg)] border-r-2 border-[var(--card-border)] shadow-2xl flex flex-col p-4 space-y-3"
-                style={{ left: drawerLeft, top: drawerTop }}
-              >
-                {/* Catalog Header */}
-                <div className="flex items-center justify-between gap-2 pb-2 border-b border-[var(--card-border)]">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">📜</span>
-                    <div>
-                      <h2 className="text-base font-heading font-black text-[var(--foreground)] tracking-tight">
-                        Scrolls & Notes
-                      </h2>
-                      <p className="text-[11px] text-[var(--muted-foreground)] truncate">Grind & preserve knowledge</p>
-                    </div>
-                    <Badge variant="primary" size="sm">{notes.length}</Badge>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      icon={<HiPlus size={14} />}
-                      onClick={() => { setShowNewModal(true); setIsScrollsDrawerOpen(false); }}
-                    >
-                      New
-                    </Button>
-                    <button
-                      onClick={() => setIsScrollsDrawerOpen(false)}
-                      className="p-1.5 rounded-lg border border-[var(--card-border)] hover:border-primary/40 text-[var(--muted-foreground)] hover:text-primary transition-colors cursor-pointer"
-                      title="Close drawer (Esc)"
-                    >
-                      <HiX size={16} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Search Bar */}
-                <div className="relative">
-                  <HiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" size={15} />
-                  <input
-                    type="text"
-                    placeholder="Search notes, formulas, tags..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-8 pr-7 py-2 rounded-xl border-2 border-[var(--card-border)] bg-[var(--background)] text-xs font-medium focus:border-primary focus:outline-none transition-colors"
-                  />
-                  {search && (
-                    <button
-                      onClick={() => setSearch('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-                    >
-                      <HiX size={13} />
-                    </button>
-                  )}
-                </div>
-
-                {/* Folder Filter Pills */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
-                  <button
-                    onClick={() => setSelectedFolder('all')}
-                    className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
-                      selectedFolder === 'all'
-                        ? 'bg-primary text-white shadow-sm'
-                        : 'bg-[var(--background)] text-[var(--muted-foreground)] border border-[var(--card-border)] hover:border-primary/40'
-                    }`}
-                  >
-                    All ({notes.length})
-                  </button>
-                  {uniqueFolders.map((f) => {
-                    const count = notes.filter((n) => (n.folder || 'General') === f).length;
-                    return (
-                      <button
-                        key={f}
-                        onClick={() => setSelectedFolder(f)}
-                        className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                          selectedFolder === f
-                            ? 'bg-primary text-white shadow-sm'
-                            : 'bg-[var(--background)] text-[var(--muted-foreground)] border border-[var(--card-border)] hover:border-primary/40'
-                        }`}
-                      >
-                        <span>{f}</span>
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${selectedFolder === f ? 'bg-white/25 text-white' : 'bg-[var(--muted)] text-[var(--muted-foreground)]'}`}>
-                          {count}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Catalog Card List */}
-                <div className="space-y-2 flex-1 overflow-y-auto pr-1">
-                  {filteredNotes.length === 0 && !loading ? (
-                    <div className="text-center py-8 px-4 rounded-xl border border-dashed border-[var(--card-border)] bg-[var(--card-bg)]/40">
-                      <span className="text-3xl block mb-2">📜</span>
-                      <p className="text-xs font-heading font-bold text-[var(--foreground)]">No scrolls found</p>
-                      <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5 mb-3">Try adjusting your search or filters.</p>
-                      {search || selectedFolder !== 'all' ? (
-                        <Button variant="ghost" size="sm" onClick={() => { setSearch(''); setSelectedFolder('all'); }}>
-                          Reset Filters
-                        </Button>
-                      ) : (
-                        <Button variant="primary" size="sm" icon={<HiPlus size={14} />} onClick={() => { setShowNewModal(true); setIsScrollsDrawerOpen(false); }}>
-                          Create First Scroll
-                        </Button>
-                      )}
-                    </div>
-                  ) : (
-                    filteredNotes.map((note) => {
-                      const isSelected = selectedNote?.id === note.id;
-                      return (
-                        <div
-                          key={note.id}
-                          onClick={() => {
-                            openNote(note);
-                            setIsScrollsDrawerOpen(false);
-                          }}
-                          className={`p-3 rounded-xl border-2 transition-all cursor-pointer group relative ${
-                            isSelected
-                              ? 'border-primary bg-primary/10 shadow-[0_0_15px_rgba(124,58,237,0.18)] ring-1 ring-primary/40'
-                              : 'border-[var(--card-border)] bg-[var(--background)] hover:border-primary/30 hover:bg-primary/5'
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-2 mb-1">
-                            <h4 className={`text-xs font-heading font-bold leading-snug break-words flex-1 min-w-0 ${
-                              isSelected ? 'text-primary' : 'group-hover:text-primary transition-colors text-[var(--foreground)]'
-                            }`}>
-                              {note.title}
-                            </h4>
-                            <div className="flex items-center gap-1 flex-shrink-0">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setRenameNoteObj(note);
-                                  setRenameTitle(note.title);
-                                  setRenameFolder(note.folder);
-                                }}
-                                className="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-primary/10 text-primary transition-all cursor-pointer"
-                                title="Rename Note"
-                              >
-                                <HiPencil size={12} />
-                              </button>
-                              <HiDocumentText className={isSelected ? 'text-primary' : 'text-[var(--muted-foreground)]'} size={14} />
-                            </div>
-                          </div>
-                          <p className="text-[11px] text-[var(--muted-foreground)] line-clamp-2 mb-2 leading-relaxed break-words font-normal">
-                            {getPlainTextPreview(note.content)}
-                          </p>
-                          <div className="flex items-center justify-between gap-2">
-                            <Badge variant={isSelected ? 'primary' : 'muted'} size="sm">
-                              {note.folder || 'General'}
-                            </Badge>
-                            <span className="text-[9px] text-[var(--muted-foreground)] font-semibold">
-                              <HiClock className="inline mr-0.5" size={10} />
-                              {timeAgo(note.updatedAt)}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-
-                {/* Drawer Footer */}
-                <div className="pt-2 border-t border-[var(--card-border)] flex items-center justify-between gap-2 text-xs">
-                  <Link
-                    href="/whiteboard"
-                    onClick={() => setIsScrollsDrawerOpen(false)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 hover:text-white transition-all text-xs font-bold"
-                  >
-                    <span>🎨</span>
-                    <span>Whiteboard Studio</span>
-                  </Link>
-                  <span className="text-[10px] text-[var(--muted-foreground)] font-mono">
-                    Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-[9px] border border-white/10">Esc</kbd>
-                  </span>
-                </div>
-              </motion.aside>
-            </>
-          )}
-        </AnimatePresence>
+        <NotesCatalogDrawer
+          isOpen={isScrollsDrawerOpen}
+          onClose={() => setIsScrollsDrawerOpen(false)}
+          notes={notes}
+          selectedNoteId={selectedNote?.id || null}
+          onSelectNote={(note) => {
+            openNote(note);
+            setIsScrollsDrawerOpen(false);
+          }}
+          onNewNote={() => {
+            setShowNewModal(true);
+            setIsScrollsDrawerOpen(false);
+          }}
+          onRenameNote={(note) => setRenameNoteObj(note)}
+          loading={loading}
+        />
 
         {/* ═══ Workspace Detail Area (100% Full-Width) ═══ */}
         <div className="flex-1 min-h-0 w-full flex flex-col space-y-2">
@@ -2740,7 +2101,7 @@ Rules:
                   </div>
 
                   {/* Center: Multitask Segmented Glass Dock (Responsive & Bounded) */}
-                  <div className="flex items-center gap-1 p-1 bg-slate-900/70 dark:bg-slate-950/80 border border-[var(--card-border)] rounded-xl shadow-inner shrink-0 z-10">
+                  <div className="hidden md:flex items-center gap-1 p-1 bg-slate-900/70 dark:bg-slate-950/80 border border-[var(--card-border)] rounded-xl shadow-inner shrink-0 z-10">
                     <button
                       type="button"
                       onClick={() => {
@@ -2962,7 +2323,35 @@ Rules:
                       </button>
 
                       {showMoreDropdown && (
-                        <div className="absolute right-0 top-9 z-40 w-44 py-1.5 rounded-xl border-2 border-[var(--card-border)] bg-[var(--card-bg)] shadow-xl backdrop-blur-xl">
+                        <div className="absolute right-0 top-9 z-40 w-48 py-1.5 rounded-xl border-2 border-[var(--card-border)] bg-[var(--card-bg)] shadow-xl backdrop-blur-xl">
+                          {/* Mobile-only Multitask quick options */}
+                          <div className="md:hidden pb-1 border-b border-[var(--card-border)] mb-1">
+                            <span className="px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-[var(--muted-foreground)] block">Multitask Panels</span>
+                            <button
+                              onClick={() => { setShowMoreDropdown(false); setMultitaskPanel('youtube'); }}
+                              className="w-full px-3 py-1.5 text-xs text-left hover:bg-rose-500/15 text-[var(--foreground)] flex items-center gap-2 transition-colors"
+                            >
+                              <span>📺</span> YouTube Lecture
+                            </button>
+                            <button
+                              onClick={() => { setShowMoreDropdown(false); setMultitaskPanel('tutor'); }}
+                              className="w-full px-3 py-1.5 text-xs text-left hover:bg-indigo-500/15 text-[var(--foreground)] flex items-center gap-2 transition-colors"
+                            >
+                              <span>🤖</span> AI Tutor
+                            </button>
+                            <button
+                              onClick={() => { setShowMoreDropdown(false); setMultitaskPanel('reference'); }}
+                              className="w-full px-3 py-1.5 text-xs text-left hover:bg-teal-500/15 text-[var(--foreground)] flex items-center gap-2 transition-colors"
+                            >
+                              <span>📄</span> Reference Document
+                            </button>
+                            <button
+                              onClick={() => { setShowMoreDropdown(false); setMultitaskPanel('whiteboard'); }}
+                              className="w-full px-3 py-1.5 text-xs text-left hover:bg-purple-500/15 text-[var(--foreground)] flex items-center gap-2 transition-colors"
+                            >
+                              <span>🎨</span> Whiteboard Sketch
+                            </button>
+                          </div>
                           <button
                             onClick={() => { setShowMoreDropdown(false); setShowPdfModal(true); }}
                             className="w-full px-3 py-1.5 text-xs text-left hover:bg-primary/15 text-[var(--foreground)] flex items-center gap-2 transition-colors"
@@ -3235,7 +2624,7 @@ Rules:
                           {selectedNote.content && selectedNote.content !== '<p><br></p>' ? (
                             <div
                               className="prose prose-lg max-w-none dark:prose-invert leading-relaxed studyquest-markdown"
-                              dangerouslySetInnerHTML={{ __html: renderedViewContent || selectedNote.content }}
+                              dangerouslySetInnerHTML={{ __html: sanitizeNoteHtml(renderedViewContent || selectedNote.content) }}
                             />
                           ) : (
                             <p className="text-sm text-[var(--muted-foreground)] italic">This note is currently empty.</p>
@@ -3258,7 +2647,7 @@ Rules:
                             {selectedNote.content && selectedNote.content !== '<p><br></p>' ? (
                               <div
                                 className="prose prose-sm max-w-none dark:prose-invert leading-relaxed studyquest-markdown"
-                                dangerouslySetInnerHTML={{ __html: renderedViewContent || selectedNote.content }}
+                                dangerouslySetInnerHTML={{ __html: sanitizeNoteHtml(renderedViewContent || selectedNote.content) }}
                               />
                             ) : (
                               <div className="text-center py-16">
@@ -3330,6 +2719,7 @@ Rules:
                       />
                     ) : (
                       <WhiteboardSplitPanel
+                        noteId={selectedNote?.id}
                         onClose={() => setMultitaskPanel(null)}
                         onInsertDrawing={(dataUrl) => {
                           const imgHtml = `<p><img src="${dataUrl}" alt="Whiteboard Sketch" style="max-width:100%;border-radius:12px;margin:12px 0;border:1px solid rgba(255,255,255,0.12);" /></p>`;
@@ -3511,120 +2901,37 @@ Rules:
         />
 
         {/* PDF Export Modal */}
-        <Modal isOpen={showPdfModal} onClose={() => setShowPdfModal(false)} title="Export as PDF">
-          <div className="space-y-5">
-            {/* Page Size */}
-            <div>
-              <label className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)] block mb-2">Page Size</label>
-              <div className="flex gap-2">
-                {([
-                  { id: 'a4' as const, label: 'A4', desc: '210 × 297 mm' },
-                  { id: 'letter' as const, label: 'Letter', desc: '8.5 × 11 in' },
-                  { id: 'legal' as const, label: 'Legal', desc: '8.5 × 14 in' },
-                ]).map((opt) => (
-                  <button key={opt.id} onClick={() => setPdfPageSize(opt.id)} className={`flex-1 py-3 rounded-xl border-2 text-center transition-all ${pdfPageSize === opt.id ? 'bg-primary text-white border-primary shadow-[0_3px_0_rgba(88,28,135,0.3)]' : 'border-[var(--card-border)] hover:border-primary/30'}`}>
-                    <span className="text-xs font-bold block">{opt.label}</span>
-                    <span className={`text-[9px] block mt-0.5 ${pdfPageSize === opt.id ? 'text-white/70' : 'text-[var(--muted-foreground)]'}`}>{opt.desc}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Image Quality */}
-            <div>
-              <label className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)] block mb-2">Image Quality</label>
-              <div className="flex gap-2">
-                {([
-                  { id: 'low' as const, label: 'Low', desc: 'Small file', emoji: '📄' },
-                  { id: 'medium' as const, label: 'Medium', desc: 'Balanced', emoji: '📋' },
-                  { id: 'high' as const, label: 'High', desc: 'Crystal clear', emoji: '✨' },
-                ]).map((opt) => (
-                  <button key={opt.id} onClick={() => setPdfQuality(opt.id)} className={`flex-1 py-3 rounded-xl border-2 text-center transition-all ${pdfQuality === opt.id ? 'bg-teal text-white border-teal shadow-[0_3px_0_rgba(16,185,129,0.3)]' : 'border-[var(--card-border)] hover:border-teal/30'}`}>
-                    <span className="text-sm block">{opt.emoji}</span>
-                    <span className="text-xs font-bold block">{opt.label}</span>
-                    <span className={`text-[9px] block mt-0.5 ${pdfQuality === opt.id ? 'text-white/70' : 'text-[var(--muted-foreground)]'}`}>{opt.desc}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* PDF Themes / Scroll Styles */}
-            <div>
-              <label className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)] block mb-2">Scroll Style / Theme</label>
-              <div className="grid grid-cols-2 gap-2">
-                {([
-                  { id: 'modern' as const, label: 'Modern Minimalist', desc: 'Clean, sans-serif design', emoji: '📄' },
-                  { id: 'editor' as const, label: 'Active Editor', desc: 'Dopamine dark editor design', emoji: '💻' },
-                  { id: 'parchment' as const, label: 'Aether Parchment', desc: 'Vintage scroll design', emoji: '📜' },
-                  { id: 'grimoire' as const, label: 'Void Grimoire', desc: 'Dark magic theme', emoji: '🔮' },
-                  { id: 'druid' as const, label: 'Forest Druid', desc: 'Sage nature log', emoji: '🌿' },
-                ]).map((opt) => (
-                  <button 
-                    key={opt.id} 
-                    type="button"
-                    onClick={() => setSelectedPdfTheme(opt.id)} 
-                    className={`p-3 rounded-xl border-2 text-left transition-all flex flex-col justify-between ${
-                      selectedPdfTheme === opt.id 
-                        ? 'bg-primary/5 text-primary border-primary shadow-[0_0_8px_rgba(124,58,237,0.2)]' 
-                        : 'border-[var(--card-border)] hover:border-primary/20 bg-[var(--card-bg)] text-[var(--muted-foreground)]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-sm">{opt.emoji}</span>
-                      <span className="text-xs font-bold">{opt.label}</span>
-                    </div>
-                    <span className="text-[9px] block text-[var(--muted-foreground)] opacity-80 leading-snug">{opt.desc}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex gap-2 pt-1">
-              <Button variant="ghost" onClick={() => setShowPdfModal(false)} className="flex-1">Cancel</Button>
-              <Button variant="primary" onClick={exportPdf} className="flex-1" icon={<HiDownload size={14} />}>Export PDF</Button>
-            </div>
-          </div>
-        </Modal>
+        {selectedNote && (
+          <PdfExportModal
+            isOpen={showPdfModal}
+            onClose={() => setShowPdfModal(false)}
+            noteTitle={selectedNote.title}
+            noteContent={selectedNote.content}
+            folder={selectedNote.folder}
+          />
+        )}
 
         {/* AI Summary Modal */}
-        <Modal isOpen={showSummary} onClose={() => setShowSummary(false)} title="AI Summary">
-          <div className="space-y-3">
-            <div className="p-4 rounded-xl bg-primary/5 border-2 border-primary/15 max-h-[400px] overflow-y-auto">
-              <div className="text-sm whitespace-pre-wrap leading-relaxed">{summaryText}</div>
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => { navigator.clipboard.writeText(summaryText); toast.success('Summary copied!'); }}>Copy Summary</Button>
-          </div>
-        </Modal>
+        <SummaryModal
+          isOpen={showSummary}
+          onClose={() => setShowSummary(false)}
+          summaryText={summaryText}
+        />
 
         {/* Flashcards Modal */}
-        <Modal isOpen={showFlashcards} onClose={() => setShowFlashcards(false)} title={`Flashcards (${cardIndex + 1}/${flashcards.length})`}>
-          {flashcards.length > 0 && (
-            <div className="space-y-4">
-              <motion.div
-                className="min-h-[180px] p-6 rounded-2xl border-2 border-[var(--card-border)] flex items-center justify-center cursor-pointer"
-                style={{ background: cardFlipped ? 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(76,201,240,0.1))' : 'linear-gradient(135deg, rgba(124,58,237,0.1), rgba(236,72,153,0.1))' }}
-                onClick={() => setCardFlipped(!cardFlipped)}
-                key={`${cardIndex}-${cardFlipped}`}
-                initial={{ rotateY: 90 }}
-                animate={{ rotateY: 0 }}
-                transition={{ duration: 0.3 }}
-              >
-                <div className="text-center">
-                  <p className="text-[9px] uppercase tracking-wider font-bold text-[var(--muted-foreground)] mb-2">{cardFlipped ? 'Answer' : 'Question'}</p>
-                  <p className="text-sm font-semibold">{cardFlipped ? flashcards[cardIndex].answer : flashcards[cardIndex].question}</p>
-                </div>
-              </motion.div>
-              <p className="text-[10px] text-center text-[var(--muted-foreground)]">Click card to flip</p>
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm" onClick={() => { setCardIndex(Math.max(0, cardIndex - 1)); setCardFlipped(false); }} disabled={cardIndex === 0} className="flex-1">← Previous</Button>
-                <Button variant="primary" size="sm" onClick={() => { setCardIndex(Math.min(flashcards.length - 1, cardIndex + 1)); setCardFlipped(false); }} disabled={cardIndex >= flashcards.length - 1} className="flex-1">Next →</Button>
-              </div>
-            </div>
-          )}
-        </Modal>
+        <FlashcardsModal
+          isOpen={showFlashcards}
+          onClose={() => setShowFlashcards(false)}
+          flashcards={flashcards}
+        />
 
         {/* Diagram Modal */}
-        <DiagramModal isOpen={showDiagram} onClose={() => setShowDiagram(false)} onInsert={handleInsertDiagram} />
+        <DiagramModal
+          isOpen={showDiagram}
+          onClose={() => setShowDiagram(false)}
+          onInsert={handleInsertDiagram}
+          noteId={selectedNote?.id}
+        />
 
         {/* Quiz Modal */}
         {selectedNote && (
@@ -3637,75 +2944,57 @@ Rules:
         )}
 
         {/* Markdown / README Import & Edit Modal */}
-        <Modal isOpen={showMarkdownImport} onClose={() => { setShowMarkdownImport(false); setMarkdownInput(''); setIsEditingMarkdown(false); }} title={isEditingMarkdown ? 'Edit Markdown Source' : 'Import Markdown / README'}>
-          <div className="space-y-4">
-            <p className="text-xs text-[var(--muted-foreground)]">
-              {isEditingMarkdown
-                ? 'Edit the raw Markdown source below. Mermaid diagrams (```mermaid) will be re-rendered. This will replace the entire note content.'
-                : 'Paste raw Markdown or README.md content below. It will be converted to rich text and appended to this note. Mermaid diagrams (```mermaid) will be rendered as visual diagrams.'}
-            </p>
-            <textarea
-              value={markdownInput}
-              onChange={(e) => setMarkdownInput(e.target.value)}
-              placeholder={`# My README\n\nPaste your markdown here...\n\n## Features\n- Feature 1\n- Feature 2\n\n\`\`\`mermaid\ngraph TD\n  A[Start] --> B[Process]\n  B --> C{Decision}\n  C -->|Yes| D[Done]\n\`\`\`\n\n\`\`\`js\nconsole.log("Hello!");\n\`\`\``}
-              className="w-full h-80 p-4 rounded-xl border-2 border-[var(--card-border)] bg-[var(--card-bg)] text-sm font-mono focus:border-primary focus:outline-none transition-colors resize-y"
-            />
-            {isEditingMarkdown && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                <HiLightningBolt className="text-amber-500 flex-shrink-0" size={14} />
-                <p className="text-[10px] text-amber-500 font-semibold">This will replace the entire note content with the re-rendered markdown.</p>
-              </div>
-            )}
-            <div className="flex gap-2">
-              <Button variant="ghost" onClick={() => { setShowMarkdownImport(false); setMarkdownInput(''); setIsEditingMarkdown(false); }} className="flex-1">Cancel</Button>
-              <Button variant="primary" onClick={handleMarkdownImport} className="flex-1" icon={<HiDocumentText size={14} />} disabled={!markdownInput.trim()}>
-                {isEditingMarkdown ? 'Update & Render' : 'Import & Render'}
-              </Button>
-            </div>
-          </div>
-        </Modal>
+        <MarkdownImportModal
+          isOpen={showMarkdownImport}
+          onClose={() => {
+            setShowMarkdownImport(false);
+            setIsEditingMarkdown(false);
+          }}
+          isEditingSource={isEditingMarkdown}
+          initialValue={isEditingMarkdown ? (selectedNote?.markdownSource || '') : ''}
+          onImport={async (compiledHtml, rawMarkdown) => {
+            if (!selectedNote) return;
+            const quill = quillRef.current?.getEditor();
+            if (isEditingMarkdown) {
+              if (quill) {
+                quill.root.innerHTML = compiledHtml;
+                setEditContent(quill.root.innerHTML);
+              } else {
+                setEditContent(compiledHtml);
+              }
+              await updateNote(selectedNote.id, { content: compiledHtml, markdownSource: rawMarkdown });
+              setSelectedNote({ ...selectedNote, content: compiledHtml, markdownSource: rawMarkdown, updatedAt: Date.now() });
+            } else {
+              if (quill) {
+                const len = quill.getLength();
+                quill.clipboard.dangerouslyPasteHTML(len - 1, compiledHtml);
+                setEditContent(quill.root.innerHTML);
+                await updateNote(selectedNote.id, { content: quill.root.innerHTML, markdownSource: rawMarkdown });
+                setSelectedNote({ ...selectedNote, content: quill.root.innerHTML, markdownSource: rawMarkdown, updatedAt: Date.now() });
+              } else {
+                const updated = (editContent || '') + compiledHtml;
+                setEditContent(updated);
+                await updateNote(selectedNote.id, { content: updated, markdownSource: rawMarkdown });
+                setSelectedNote({ ...selectedNote, content: updated, markdownSource: rawMarkdown, updatedAt: Date.now() });
+              }
+            }
+          }}
+        />
 
         {/* AI Beautify Preview Modal */}
-        <Modal isOpen={showBeautifyPreview} onClose={() => { setShowBeautifyPreview(false); setBeautifyResult(''); setBeautifyBeforeHtml(''); setBeautifySelectionRange(null); }} title="✨ Beautify Preview">
-          <div className="space-y-4">
-            <p className="text-xs text-[var(--muted-foreground)]">
-              {beautifySelectionRange 
-                ? 'Review the formatted version of your selected text below. Only the highlighted selection will be updated.'
-                : 'Review the formatted version below. All your content has been preserved — only the formatting has been improved using Quill-native styles (headers, bold, bullets, tables).'}
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* Before */}
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted-foreground)] block mb-1.5">📄 Before</span>
-                <div className="p-3 rounded-xl border-2 border-[var(--card-border)] max-h-[300px] overflow-y-auto bg-red-500/5">
-                  <div className="prose prose-sm max-w-none dark:prose-invert text-xs leading-relaxed" dangerouslySetInnerHTML={{ __html: beautifyBeforeHtml }} />
-                </div>
-              </div>
-              {/* After */}
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-teal block mb-1.5">✨ After</span>
-                <div className="p-3 rounded-xl border-2 border-teal/30 max-h-[300px] overflow-y-auto bg-teal/5">
-                  <div className="prose prose-sm max-w-none dark:prose-invert text-xs leading-relaxed" dangerouslySetInnerHTML={{ __html: beautifyResult }} />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
-              <HiLightningBolt className="text-amber-500 flex-shrink-0" size={14} />
-              <p className="text-[10px] text-amber-500 font-semibold">
-                {beautifySelectionRange 
-                  ? 'This will replace only the selected text range in your editor. The rest of the note remains untouched.' 
-                  : 'This will replace the current note formatting. The content itself is preserved.'}
-              </p>
-            </div>
-
-            <div className="flex gap-2">
-              <Button variant="ghost" onClick={() => { setShowBeautifyPreview(false); setBeautifyResult(''); setBeautifyBeforeHtml(''); setBeautifySelectionRange(null); }} className="flex-1">Cancel</Button>
-              <Button variant="primary" onClick={applyBeautify} className="flex-1" icon={<HiSparkles size={14} />}>Apply Beautify</Button>
-            </div>
-          </div>
-        </Modal>
+        <BeautifyPreviewModal
+          isOpen={showBeautifyPreview}
+          onClose={() => {
+            setShowBeautifyPreview(false);
+            setBeautifyResult('');
+            setBeautifyBeforeHtml('');
+            setBeautifySelectionRange(null);
+          }}
+          beforeHtml={beautifyBeforeHtml}
+          afterHtml={beautifyResult}
+          hasSelection={!!beautifySelectionRange}
+          onApply={applyBeautify}
+        />
 
         {/* Math Formula Palette */}
         <MathPalette
@@ -3733,131 +3022,53 @@ Rules:
         </Modal>
 
         {/* Alchemy Cauldron Modal */}
-        <Modal isOpen={showCauldron} onClose={() => { if (!brewingRecipe) setShowCauldron(false); }} title="🧪 Alchemy Cauldron">
-          <div className="space-y-5 text-left">
-            <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
-              Transmute your current study note into magical study guides. Drop your note into the bubbling pot!
-            </p>
-
-            {/* Brewing Cauldron Animation */}
-            <div className="relative flex flex-col items-center justify-center p-6 rounded-2xl border-2 border-[var(--card-border)] bg-slate-950 overflow-hidden min-h-[160px]">
-              {/* bubbling background keys */}
-              <style>{`
-                @keyframes cauldron-bubble {
-                  0% { transform: translateY(10px) scale(0.6); opacity: 0; }
-                  50% { opacity: 0.8; }
-                  100% { transform: translateY(-70px) scale(1.2); opacity: 0; }
-                }
-              `}</style>
-
-              {/* Bubbles */}
-              {brewingRecipe && (
-                <>
-                  <div className="absolute w-3 h-3 bg-purple-500 rounded-full blur-[1px]" style={{ left: '42%', bottom: '50px', animation: 'cauldron-bubble 1.5s infinite ease-out' }} />
-                  <div className="absolute w-2 h-2 bg-indigo-400 rounded-full blur-[1px]" style={{ left: '50%', bottom: '45px', animation: 'cauldron-bubble 1.2s infinite ease-out 0.3s' }} />
-                  <div className="absolute w-4 h-4 bg-purple-400 rounded-full blur-[1px]" style={{ left: '55%', bottom: '52px', animation: 'cauldron-bubble 1.8s infinite ease-out 0.6s' }} />
-                  <div className="absolute w-2.5 h-2.5 bg-pink-500 rounded-full blur-[1px]" style={{ left: '47%', bottom: '48px', animation: 'cauldron-bubble 1.4s infinite ease-out 0.9s' }} />
-                </>
-              )}
-
-              {/* Cauldron body */}
-              <motion.div
-                animate={brewingRecipe ? { y: [0, -4, 0], scale: [1, 1.03, 1] } : {}}
-                transition={{ duration: 0.5, repeat: Infinity }}
-                className="text-6xl z-10 filter drop-shadow-[0_0_15px_rgba(168,85,247,0.4)]"
-              >
-                {brewingRecipe ? '🧙‍♂️' : '🧪'}
-              </motion.div>
-
-              <div className="mt-4 text-center z-10">
-                {brewingRecipe ? (
-                  <>
-                    <h4 className="text-sm font-heading font-bold text-purple-400 animate-pulse">Brewing Recipe: {brewingRecipe === 'scroll' ? 'Mastery Scroll' : 'Flashcards'}...</h4>
-                    <p className="text-[10px] text-slate-400 mt-1">Stirring ingredients... Manifesting in {brewCountdown}s</p>
-                  </>
-                ) : (
-                  <>
-                    <h4 className="text-xs font-heading font-bold text-slate-400">Cauldron is empty</h4>
-                    <p className="text-[10px] text-slate-500 mt-1">Select a transmutation recipe below. Current Mana: {mana}</p>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Recipes Selector */}
-            <div className="space-y-3">
-              <label className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)] block">Transmutation Recipes</label>
-              
-              {/* Recipe 1: Mastery Scroll */}
-              <button
-                disabled={!!brewingRecipe || mana < 50}
-                onClick={() => startBrewing('scroll')}
-                className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
-                  mana >= 50 && !brewingRecipe
-                    ? 'border-purple-500/30 hover:border-purple-500 bg-purple-500/5 hover:bg-purple-500/10'
-                    : 'border-[var(--card-border)] opacity-60 cursor-not-allowed'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">📜</span>
-                  <div className="text-left">
-                    <h5 className="text-xs font-bold text-[var(--foreground)]">Mastery Scroll (AI Cheatsheet)</h5>
-                    <p className="text-[9px] text-[var(--muted-foreground)]">Brew note summary scroll. Spawns as a new study card.</p>
-                  </div>
-                </div>
-                <Badge variant="pink">Costs 50 Mana</Badge>
-              </button>
-
-              {/* Recipe 2: Flashcards */}
-              <button
-                disabled={!!brewingRecipe || mana < 30}
-                onClick={() => startBrewing('cards')}
-                className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
-                  mana >= 30 && !brewingRecipe
-                    ? 'border-teal/30 hover:border-teal bg-teal/5 hover:bg-teal/10'
-                    : 'border-[var(--card-border)] opacity-60 cursor-not-allowed'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">🃏</span>
-                  <div className="text-left">
-                    <h5 className="text-xs font-bold text-[var(--foreground)]">Study Flashcard Deck</h5>
-                    <p className="text-[9px] text-[var(--muted-foreground)]">Brew interactive flashcards for active recall study.</p>
-                  </div>
-                </div>
-                <Badge variant="teal">Costs 30 Mana</Badge>
-              </button>
-            </div>
-
-            <div className="flex gap-2 pt-2">
-              <Button variant="ghost" onClick={() => setShowCauldron(false)} disabled={!!brewingRecipe} className="flex-1">Close Cauldron</Button>
-            </div>
-          </div>
-        </Modal>
+        <AlchemyCauldronModal
+          isOpen={showCauldron}
+          onClose={() => { if (!brewingRecipe) setShowCauldron(false); }}
+          mana={mana}
+          brewingRecipe={brewingRecipe}
+          brewCountdown={brewCountdown}
+          onStartBrewing={startBrewing}
+        />
 
         {/* Create New Note Modal */}
-        <Modal isOpen={showNewModal} onClose={() => setShowNewModal(false)} title="Create New Note">
-          <div className="space-y-4">
-            <Input label="Title" placeholder="e.g. Physics Chapter 4 Notes" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
-            <Input label="Folder" placeholder="e.g. Physics, General" value={newFolder} onChange={(e) => setNewFolder(e.target.value)} icon={<HiFolder size={16} />} />
-            <div className="flex gap-2 pt-2">
-              <Button variant="ghost" onClick={() => setShowNewModal(false)} className="flex-1">Cancel</Button>
-              <Button variant="primary" onClick={handleCreate} className="flex-1">Create</Button>
-            </div>
-          </div>
-        </Modal>
+        <CreateNoteModal
+          isOpen={showNewModal}
+          onClose={() => setShowNewModal(false)}
+          onCreate={async (title, folder) => {
+            const id = await addNote({ title, content: '', folder, tags: [] });
+            await awardXP(XP_AWARDS.NOTE_CREATED, 'New note created');
+            toast.success('Scroll created! +10 XP 📝');
+            if (id) {
+              const note = { id, title, content: '', folder, tags: [], createdAt: Date.now(), updatedAt: Date.now() };
+              openNote(note);
+              setIsEditing(true);
+            }
+          }}
+        />
 
         {/* Rename Note / Move Folder Modal */}
-        <Modal isOpen={!!renameNoteObj} onClose={() => setRenameNoteObj(null)} title="Rename Note & Organize">
-          <div className="space-y-4">
-            <Input label="Note Title" placeholder="e.g. Physics Chapter 4 Notes" value={renameTitle} onChange={(e) => setRenameTitle(e.target.value)} />
-            <Input label="Folder" placeholder="e.g. Physics, General" value={renameFolder} onChange={(e) => setRenameFolder(e.target.value)} icon={<HiFolder size={16} />} />
-            <div className="flex gap-2 pt-2">
-              <Button variant="ghost" onClick={() => setRenameNoteObj(null)} className="flex-1">Cancel</Button>
-              <Button variant="primary" onClick={handleRenameNote} className="flex-1">Save Changes</Button>
-            </div>
-          </div>
-        </Modal>
+        <RenameNoteModal
+          isOpen={!!renameNoteObj}
+          onClose={() => setRenameNoteObj(null)}
+          initialTitle={renameNoteObj?.title || ''}
+          initialFolder={renameNoteObj?.folder || 'General'}
+          onRename={async (newTitle: string, newFolder: string) => {
+            if (!renameNoteObj) return;
+            const targetId = renameNoteObj.id;
+            await updateNote(targetId, { title: newTitle, folder: newFolder });
+            if (selectedNote?.id === targetId) {
+              setSelectedNote((prev) => (prev ? {
+                ...prev,
+                title: newTitle,
+                folder: newFolder,
+                updatedAt: Date.now(),
+              } : null));
+              setEditTitle(newTitle);
+            }
+            toast.success('Note updated! 📝');
+          }}
+        />
       </div>
     </PageTransition>
   );

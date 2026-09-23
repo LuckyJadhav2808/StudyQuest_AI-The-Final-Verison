@@ -15,6 +15,8 @@ import { toPng } from 'html-to-image';
 import toast from 'react-hot-toast';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
+import { useAuthContext } from '@/context/AuthContext';
+import { uploadNoteImage } from '@/lib/storage';
 
 type DiagramType = 'table' | 'vs' | 'flowchart';
 type FlowOrientation = 'horizontal' | 'vertical';
@@ -33,6 +35,7 @@ interface DiagramModalProps {
   isOpen: boolean;
   onClose: () => void;
   onInsert: (dataUrl: string) => void;
+  noteId?: string;
 }
 
 const FLOWCHART_PRESETS: { name: string; icon: string; nodes: FlowNode[] }[] = [
@@ -69,7 +72,8 @@ const FLOWCHART_PRESETS: { name: string; icon: string; nodes: FlowNode[] }[] = [
   },
 ];
 
-export default function DiagramModal({ isOpen, onClose, onInsert }: DiagramModalProps) {
+export default function DiagramModal({ isOpen, onClose, onInsert, noteId }: DiagramModalProps) {
+  const { user } = useAuthContext();
   const [diagramType, setDiagramType] = useState<DiagramType>('flowchart');
   const [flowOrientation, setFlowOrientation] = useState<FlowOrientation>('horizontal');
   const [canvasTheme, setCanvasTheme] = useState<CanvasTheme>('light');
@@ -203,8 +207,8 @@ export default function DiagramModal({ isOpen, onClose, onInsert }: DiagramModal
         canvasTheme === 'dark' ? '#0f172a' : canvasTheme === 'transparent' ? undefined : '#ffffff';
 
       const dataUrl = await toPng(el, {
-        quality: 1,
-        pixelRatio: 3, // 3x ultra-sharp resolution for crisp note viewing
+        quality: 0.95,
+        pixelRatio: 2, // 2x sharp retina resolution without memory blowup
         backgroundColor: bgColor,
         width: totalWidth,
         height: totalHeight,
@@ -216,7 +220,9 @@ export default function DiagramModal({ isOpen, onClose, onInsert }: DiagramModal
         },
       });
 
-      onInsert(dataUrl);
+      // Upload to Firebase Storage with automatic WebP compression & safety fallback
+      const imageUrl = await uploadNoteImage(user?.uid || 'user', noteId || 'draft', dataUrl, 'diagram');
+      onInsert(imageUrl);
       toast.success('Diagram inserted into note! 📊', { id: toastId });
       onClose();
     } catch (err) {

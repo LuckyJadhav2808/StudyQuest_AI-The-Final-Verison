@@ -30,7 +30,7 @@ import {
 } from '@/lib/firestore';
 import { UserProfile, GamificationData } from '@/types';
 import { getAvatarUrl, getLevelFromXP } from '@/lib/constants';
-import { collection, getDocs, doc, query, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, doc, query, limit } from 'firebase/firestore';
 import { getLocalDateString, getLocalYesterdayDateString } from '@/lib/dateUtils';
 
 interface AuthContextValue {
@@ -121,7 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const [lbSnap, invSnap, xpLogSnap, tasksSnap] = await Promise.all([
           getDocument<any>(lbRef).catch(() => null),
           getDocument<any>(invRef).catch(() => null),
-          getDocs(query(collection(db, 'users', uid, 'xpLog'), orderBy('__name__', 'desc'), limit(90))).catch(() => null),
+          getDocs(collection(db, 'users', uid, 'xpLog')).catch(() => null),
           getDocs(query(collection(db, 'users', uid, 'tasks'), limit(100))).catch(() => null),
         ]);
 
