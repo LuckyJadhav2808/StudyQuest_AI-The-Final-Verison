@@ -109,12 +109,14 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
   const repeatModeRef = useRef(repeatMode);
   const isShuffleRef = useRef(isShuffle);
   const volumeRef = useRef(volume);
+  const isPlayingRef = useRef(isPlaying);
 
   useEffect(() => { playlistRef.current = playlist; }, [playlist]);
   useEffect(() => { currentTrackIndexRef.current = currentTrackIndex; }, [currentTrackIndex]);
   useEffect(() => { repeatModeRef.current = repeatMode; }, [repeatMode]);
   useEffect(() => { isShuffleRef.current = isShuffle; }, [isShuffle]);
   useEffect(() => { volumeRef.current = volume; }, [volume]);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
 
   const currentTrack = playlist[currentTrackIndex] || null;
 
@@ -151,48 +153,49 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
       document.body.appendChild(container);
     }
 
-    const targetVideoId = videoIdToLoad || pendingVideoIdRef.current || 'jfKfPfyJRdk';
+    const targetVideoId = videoIdToLoad || pendingVideoIdRef.current || null;
 
     const createPlayer = () => {
       if (!window.YT || typeof window.YT.Player !== 'function') return;
       if (ytPlayerRef.current && !forceReinit) return;
 
-      try {
-        ytPlayerRef.current = new window.YT.Player('studyquest-yt-embed', {
-          videoId: targetVideoId,
-          height: '140',
-          width: '240',
-          playerVars: {
-            autoplay: videoIdToLoad ? 1 : 0,
-            controls: 0,
-            disablekb: 1,
-            fs: 0,
-            modestbranding: 1,
-            rel: 0,
-            playsinline: 1,
-            enablejsapi: 1,
-            iv_load_policy: 3,
-          },
-          events: {
-            onReady: (e: any) => {
-              isYtReadyRef.current = true;
-              try {
-                e.target.unMute();
-                e.target.setVolume(volumeRef.current);
-              } catch {}
+      const playerConfig: any = {
+        height: '140',
+        width: '240',
+        playerVars: {
+          autoplay: videoIdToLoad ? 1 : 0,
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          modestbranding: 1,
+          rel: 0,
+          playsinline: 1,
+          enablejsapi: 1,
+          iv_load_policy: 3,
+        },
+        events: {
+          onReady: (e: any) => {
+            isYtReadyRef.current = true;
+            try {
+              e.target.unMute();
+              e.target.setVolume(volumeRef.current);
+            } catch {}
 
-              // Set iframe autoplay permission policy on the replaced element
-              try {
-                const el = document.getElementById('studyquest-yt-embed');
-                if (el) {
-                  el.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
-                  el.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
-                }
-              } catch {}
+            try {
+              const el = document.getElementById('studyquest-yt-embed');
+              if (el) {
+                el.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+                el.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+              }
+            } catch {}
 
-              const vid = pendingVideoIdRef.current || videoIdToLoad;
-              if (vid) {
-                pendingVideoIdRef.current = null;
+            const vid = pendingVideoIdRef.current || videoIdToLoad;
+            if (vid) {
+              pendingVideoIdRef.current = null;
+              if (isInitialLoad.current) {
+                try { e.target.cueVideoById({ videoId: vid, startSeconds: 0 }); } catch {}
+                isInitialLoad.current = false;
+              } else {
                 try {
                   e.target.loadVideoById({ videoId: vid, startSeconds: 0 });
                   e.target.unMute();
@@ -202,42 +205,55 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
                   console.warn('[MusicContext] onReady play error:', err);
                 }
               }
-            },
-            onStateChange: (event: any) => {
-              // 1 = PLAYING, 2 = PAUSED, 0 = ENDED, 3 = BUFFERING, 5 = CUED
-              if (event.data === 1) {
-                setIsPlaying(true);
-              } else if (event.data === 2) {
-                setIsPlaying(false);
-              } else if (event.data === 0) {
-                handleTrackEnded();
-              } else if (event.data === 5) {
-                try { event.target.playVideo(); } catch {}
-              }
-            },
-            onError: (err: any) => {
-              console.warn('[MusicContext] YouTube IFrame error code:', err?.data);
-              const list = playlistRef.current;
-              const idx = currentTrackIndexRef.current;
-              const curr = list[idx];
-              if (curr && audioRef.current && (err?.data === 101 || err?.data === 150 || err?.data === 2)) {
-                toast(`Direct audio stream fallback for "${curr.name}"`, { icon: '🎧' });
-                const audio = audioRef.current;
-                audio.src = `/api/music/stream?id=${encodeURIComponent(curr.id)}`;
-                audio.load();
-                audio.play()
-                  .then(() => setIsPlaying(true))
-                  .catch(() => {
-                    nextTrackRef.current();
-                  });
-              } else {
-                toast.error('Unable to play track. Skipping to next...');
-                nextTrackRef.current();
-              }
-            },
+            }
           },
-        });
+          onStateChange: (event: any) => {
+            if (event.data === 1) {
+              setIsPlaying(true);
+            } else if (event.data === 2) {
+              setIsPlaying(false);
+            } else if (event.data === 0) {
+              handleTrackEnded();
+            } else if (event.data === 5) {
+              try { event.target.playVideo(); } catch {}
+            }
+          },
+          onError: (err: any) => {
+            console.warn('[MusicContext] YouTube IFrame error code:', err?.data);
+            // Silently ignore if player was not actively playing or user hasn't pressed play
+            if (!isPlayingRef.current) return;
+
+            const list = playlistRef.current;
+            const idx = currentTrackIndexRef.current;
+            const curr = list[idx];
+            if (curr && audioRef.current && (err?.data === 101 || err?.data === 150 || err?.data === 2)) {
+              toast(`Direct audio stream fallback for "${curr.name}"`, { icon: '🎧' });
+              const audio = audioRef.current;
+              audio.src = `/api/music/stream?id=${encodeURIComponent(curr.id)}`;
+              audio.load();
+              audio.play()
+                .then(() => setIsPlaying(true))
+                .catch(() => {
+                  nextTrackRef.current();
+                });
+            } else {
+              toast.error('Unable to play track. Skipping to next...');
+              nextTrackRef.current();
+            }
+          },
+        },
+      };
+
+      if (targetVideoId) {
+        playerConfig.videoId = targetVideoId;
+      }
+
+      try {
+        ytPlayerRef.current = new window.YT.Player('studyquest-yt-embed', playerConfig);
       } catch (err) {
+        console.warn('[MusicContext] YT.Player init exception:', err);
+      }
+    };
         console.warn('[MusicContext] YT.Player init exception:', err);
       }
     };
