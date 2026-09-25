@@ -15,6 +15,8 @@ import CommandPalette from '@/components/layout/CommandPalette';
 import FloatingXPContainer from '@/components/gamification/FloatingXP';
 import FloatingTimerWidget from '@/components/timer/FloatingTimerWidget';
 import { TimerProvider } from '@/context/TimerContext';
+import { MusicProvider } from '@/context/MusicContext';
+import GlobalMusicPlayer from '@/components/music/GlobalMusicPlayer';
 import ParticleBackground from '@/components/ui/ParticleBackground';
 import StickyNotesOverlay from '@/components/ui/StickyNotesOverlay';
 import LevelUpOverlay from '@/components/gamification/LevelUpOverlay';
@@ -324,10 +326,13 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     <AuthProvider>
       <ThemeProvider>
         <SidebarProvider>
-          <TimerProvider>
-            <AppShell>{children}</AppShell>
-            <FloatingTimerWidget />
-          </TimerProvider>
+          <MusicProvider>
+            <TimerProvider>
+              <AppShell>{children}</AppShell>
+              <FloatingTimerWidget />
+              <GlobalMusicPlayer />
+            </TimerProvider>
+          </MusicProvider>
         </SidebarProvider>
         <QueueToaster />
       </ThemeProvider>

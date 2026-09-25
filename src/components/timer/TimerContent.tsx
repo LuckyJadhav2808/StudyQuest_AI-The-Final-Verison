@@ -11,7 +11,6 @@ import Badge from '@/components/ui/Badge';
 import PageTransition from '@/components/layout/PageTransition';
 import PomodoroPet from '@/components/timer/PomodoroPet';
 import ZenMode from '@/components/timer/ZenMode';
-import LocalMusicPlayer from '@/components/timer/LocalMusicPlayer';
 import SessionCompleteOverlay from '@/components/timer/SessionCompleteOverlay';
 import { useTimerContext } from '@/context/TimerContext';
 import { XP_AWARDS } from '@/lib/constants';
@@ -98,22 +97,6 @@ export default function TimerContent() {
         onReset={resetTimer}
         onSkip={skipPhase}
         onExit={() => setFocusMode(false)}
-        musicProps={{
-          playlist,
-          currentTrackIndex,
-          isPlaying: isPlayingMusic,
-          volume,
-          onPlayPause: handlePlayPauseMusic,
-          onNext: handleNextMusic,
-          onPrev: handlePrevMusic,
-          onVolumeChange: setVolume,
-          onFilesSelected: handleFilesSelected,
-          removeTrack,
-          playTrack,
-          addOnlineTrack,
-          clearQueue,
-          shuffleQueue,
-        }}
       />
     );
   }
@@ -251,24 +234,7 @@ export default function TimerContent() {
           </div>
         </Card>
 
-        {/* Music Player */}
-        <LocalMusicPlayer
-          variant="regular"
-          playlist={playlist}
-          currentTrackIndex={currentTrackIndex}
-          isPlaying={isPlayingMusic}
-          volume={volume}
-          onPlayPause={handlePlayPauseMusic}
-          onNext={handleNextMusic}
-          onPrev={handlePrevMusic}
-          onVolumeChange={setVolume}
-          onFilesSelected={handleFilesSelected}
-          removeTrack={removeTrack}
-          playTrack={playTrack}
-          addOnlineTrack={addOnlineTrack}
-          clearQueue={clearQueue}
-          shuffleQueue={shuffleQueue}
-        />
+
 
         {/* Pomodoro Pet */}
         <PomodoroPet

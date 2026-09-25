@@ -2,12 +2,23 @@
 
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HiX, HiPlay, HiPause, HiRefresh, HiCheck } from 'react-icons/hi';
+import {
+  HiX,
+  HiPlay,
+  HiPause,
+  HiRefresh,
+  HiCheck,
+  HiMusicNote,
+  HiVolumeUp,
+  HiVolumeOff,
+  HiFastForward,
+  HiRewind,
+} from 'react-icons/hi';
 import { usePet } from '@/hooks/usePet';
 import { PET_SPECIES_CONFIG } from '@/lib/constants';
 import { PixelPetSprite } from '@/components/dashboard/PixelPet';
 import { playClick } from '@/lib/sounds';
-import LocalMusicPlayer, { LocalMusicPlayerProps } from '@/components/timer/LocalMusicPlayer';
+import { useMusic } from '@/context/MusicContext';
 import FocusDefense from '@/components/timer/FocusDefense';
 import './ZenMode.css';
 
@@ -21,8 +32,6 @@ const SCENES: { id: Scene; emoji: string; label: string }[] = [
   { id: 'forest', emoji: '🌲', label: 'Midnight Forest' },
 ];
 
-
-
 // Generate deterministic stars
 const STARS = Array.from({ length: 30 }, (_, i) => ({
   left: `${(i * 31 + 7) % 95 + 2}%`,
@@ -34,7 +43,7 @@ const STARS = Array.from({ length: 30 }, (_, i) => ({
 // Generate rain drops
 const RAIN = Array.from({ length: 40 }, (_, i) => ({
   left: `${(i * 2.5) % 100}%`,
-  duration: `${0.5 + (i * 0.03) % 0.5}s`,
+  duration: `${0.5 + ((i * 0.03) % 0.5)}s`,
   delay: `${(i * 0.07) % 2}s`,
   height: 12 + (i % 8),
 }));
@@ -43,7 +52,7 @@ const RAIN = Array.from({ length: 40 }, (_, i) => ({
 const PARTICLES = Array.from({ length: 12 }, (_, i) => ({
   left: `${(i * 8 + 5) % 90 + 5}%`,
   bottom: `${(i * 7) % 20}%`,
-  duration: `${10 + (i * 3) % 10}s`,
+  duration: `${10 + ((i * 3) % 10)}s`,
   delay: `${i * 1.5}s`,
   size: 2 + (i % 3),
   color: i % 2 === 0 ? 'rgba(124, 58, 237, 0.3)' : 'rgba(16, 185, 129, 0.25)',
@@ -61,7 +70,6 @@ interface ZenModeProps {
   onReset: () => void;
   onSkip: () => void;
   onExit: () => void;
-  musicProps: Omit<LocalMusicPlayerProps, 'variant'>;
 }
 
 export default function ZenMode({
@@ -76,12 +84,24 @@ export default function ZenMode({
   onReset,
   onSkip,
   onExit,
-  musicProps,
 }: ZenModeProps) {
   const [scene, setScene] = useState<Scene>('sunset');
   const [viewMode, setViewMode] = useState<'scene' | 'defense'>('scene');
 
   const { pet, getMood } = usePet();
+  const {
+    currentTrack,
+    isPlaying: isMusicPlaying,
+    togglePlayPause: toggleMusic,
+    nextTrack,
+    prevTrack,
+    volume,
+    setVolume,
+    isMuted,
+    toggleMute,
+    setIsPlayerOpen,
+  } = useMusic();
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
 
   const formattedFocusToday = useMemo(() => {
     const hours = Math.floor(totalFocusToday / 3600);
@@ -97,8 +117,6 @@ export default function ZenMode({
   const ringColor = phase === 'focus' ? '#7C3AED' : phase === 'short-break' ? '#10B981' : '#4CC9F0';
   const phaseLabel = phase === 'focus' ? '🎯 Focus Time' : phase === 'short-break' ? '☕ Short Break' : '🌿 Long Break';
 
-  // Pet data
-  const petEmoji = pet ? PET_SPECIES_CONFIG[pet.species]?.emoji[pet.stage] || '🥚' : null;
   const mood = getMood();
 
   // SVG ring
@@ -115,8 +133,6 @@ export default function ZenMode({
 
   const hasRain = scene === 'cyberpunk';
   const hasStars = scene !== 'forest';
-
-
 
   return (
     <motion.div
@@ -209,34 +225,39 @@ export default function ZenMode({
 
       {/* ── Scene Picker (top-left) ── */}
       <div className="zen-scene-picker">
-        {viewMode === 'scene' && SCENES.map((s) => (
-          <motion.button
-            key={s.id}
-            className={`zen-scene-btn ${scene === s.id ? 'active' : ''}`}
-            onClick={() => setScene(s.id)}
-            whileTap={{ scale: 0.9 }}
-            title={s.label}
-          >
-            {s.emoji}
-          </motion.button>
-        ))}
+        {viewMode === 'scene' &&
+          SCENES.map((s) => (
+            <motion.button
+              key={s.id}
+              className={`zen-scene-btn ${scene === s.id ? 'active' : ''}`}
+              onClick={() => setScene(s.id)}
+              whileTap={{ scale: 0.9 }}
+              title={s.label}
+            >
+              {s.emoji}
+            </motion.button>
+          ))}
       </div>
 
       {/* ── View Mode Selector & Unified Timer Controls (Top Center) ── */}
       <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-black/40 border border-white/10 p-1.5 rounded-2xl backdrop-blur-md">
         <div className="flex bg-white/5 p-1 rounded-xl">
           <button
-            onClick={() => { setViewMode('scene'); playClick(); }}
+            onClick={() => {
+              setViewMode('scene');
+              playClick();
+            }}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              viewMode === 'scene'
-                ? 'bg-white/10 text-white shadow-sm'
-                : 'text-white/50 hover:text-white'
+              viewMode === 'scene' ? 'bg-white/10 text-white shadow-sm' : 'text-white/50 hover:text-white'
             }`}
           >
             🧘 Zen Ambiance
           </button>
           <button
-            onClick={() => { setViewMode('defense'); playClick(); }}
+            onClick={() => {
+              setViewMode('defense');
+              playClick();
+            }}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               viewMode === 'defense'
                 ? 'bg-purple-500/20 border border-purple-500/30 text-purple-200 shadow-sm shadow-purple-500/20'
@@ -254,24 +275,33 @@ export default function ZenMode({
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">⏱️</span>
               <span className="text-sm font-mono font-bold text-white">{formatTime(timeLeft)}</span>
             </div>
-            
+
             <div className="flex items-center gap-1">
               <button
-                onClick={() => { onToggle(); playClick(); }}
+                onClick={() => {
+                  onToggle();
+                  playClick();
+                }}
                 className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors"
                 title={isRunning ? 'Pause' : 'Start'}
               >
                 {isRunning ? <HiPause size={12} /> : <HiPlay size={12} />}
               </button>
               <button
-                onClick={() => { onReset(); playClick(); }}
+                onClick={() => {
+                  onReset();
+                  playClick();
+                }}
                 className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors"
                 title="Reset"
               >
                 <HiRefresh size={12} />
               </button>
               <button
-                onClick={() => { onSkip(); playClick(); }}
+                onClick={() => {
+                  onSkip();
+                  playClick();
+                }}
                 className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors"
                 title="Skip"
               >
@@ -367,32 +397,34 @@ export default function ZenMode({
         <div className="flex items-center gap-6 mt-10 z-10">
           <motion.button
             onClick={onReset}
-            className="w-14 h-14 rounded-full border border-white/15 bg-white/5 backdrop-blur-md flex items-center justify-center text-white/60 hover:text-white hover:border-white/30 transition-all"
+            className="w-14 h-14 rounded-full border border-white/15 bg-white/5 backdrop-blur-md flex items-center justify-center text-white/60 hover:text-white hover:border-white/30 transition-all cursor-pointer"
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
+            title="Reset Timer"
           >
             <HiRefresh size={22} />
           </motion.button>
 
           <motion.button
             onClick={onToggle}
-            className="w-24 h-24 rounded-full flex items-center justify-center text-white shadow-2xl"
+            className="w-24 h-24 rounded-full flex items-center justify-center text-white shadow-2xl cursor-pointer"
             style={{
               background: `linear-gradient(135deg, ${ringColor}, ${ringColor}cc)`,
               boxShadow: `0 10px 40px ${ringColor}55`,
             }}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
+            title={isRunning ? 'Pause' : 'Start'}
           >
             {isRunning ? <HiPause size={38} /> : <HiPlay size={38} className="ml-1" />}
           </motion.button>
 
           <motion.button
             onClick={onSkip}
-            className="w-14 h-14 rounded-full border border-white/15 bg-white/5 backdrop-blur-md flex items-center justify-center text-white/60 hover:text-white hover:border-white/30 transition-all"
+            className="w-14 h-14 rounded-full border border-white/15 bg-white/5 backdrop-blur-md flex items-center justify-center text-white/60 hover:text-white hover:border-white/30 transition-all cursor-pointer"
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
-            title="Skip"
+            title="Skip Phase"
           >
             <HiCheck size={22} />
           </motion.button>
@@ -417,13 +449,96 @@ export default function ZenMode({
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-wider font-bold text-white/40">XP Earned</p>
-            <p className="text-xl font-heading font-black" style={{ color: ringColor }}>{sessions * xpPerSession}</p>
+            <p className="text-xl font-heading font-black" style={{ color: ringColor }}>
+              {sessions * xpPerSession}
+            </p>
           </div>
         </motion.div>
       )}
 
-      {/* ── Music Player (bottom-left) ── */}
-      <LocalMusicPlayer variant="zen" {...musicProps} />
+      {/* ── Global Music Player Dock (bottom-left) ── */}
+      <motion.div
+        className="absolute bottom-6 left-6 z-20 flex items-center gap-2.5 px-3 py-2 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md shadow-lg"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.8 }}
+      >
+        <button
+          onClick={() => setIsPlayerOpen(true)}
+          className="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 hover:scale-105 active:scale-95 transition-all overflow-hidden flex-shrink-0 cursor-pointer"
+          title="Open Music Player"
+        >
+          {currentTrack?.image ? (
+            <img src={currentTrack.image} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <HiMusicNote size={16} />
+          )}
+        </button>
+
+        <div
+          onClick={() => setIsPlayerOpen(true)}
+          className="flex flex-col min-w-0 max-w-[110px] sm:max-w-[140px] cursor-pointer"
+          title={currentTrack ? `${currentTrack.name} - ${currentTrack.artists}` : 'Click to open music player'}
+        >
+          <span className="text-[11px] font-semibold text-white truncate leading-tight">
+            {currentTrack ? currentTrack.name : 'Focus Sounds'}
+          </span>
+          <span className="text-[9px] text-white/50 truncate">
+            {currentTrack?.artists ? currentTrack.artists : 'Global Player'}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1 border-l border-white/10 pl-2">
+          <button
+            onClick={prevTrack}
+            className="p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            title="Previous Track"
+          >
+            <HiRewind size={14} />
+          </button>
+          <button
+            onClick={toggleMusic}
+            className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+            title={isMusicPlaying ? 'Pause' : 'Play'}
+          >
+            {isMusicPlaying ? <HiPause size={13} /> : <HiPlay size={13} />}
+          </button>
+          <button
+            onClick={nextTrack}
+            className="p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            title="Next Track"
+          >
+            <HiFastForward size={14} />
+          </button>
+        </div>
+
+        <div className="relative flex items-center">
+          <button
+            onClick={toggleMute}
+            onMouseEnter={() => setShowVolumeSlider(true)}
+            className="p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            title="Volume Control"
+          >
+            {isMuted || volume === 0 ? <HiVolumeOff size={14} /> : <HiVolumeUp size={14} />}
+          </button>
+
+          {showVolumeSlider && (
+            <div
+              className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/90 border border-white/15 rounded-xl backdrop-blur-md flex items-center shadow-xl"
+              onMouseLeave={() => setShowVolumeSlider(false)}
+            >
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={isMuted ? 0 : volume}
+                onChange={(e) => setVolume(Number(e.target.value))}
+                className="w-20 accent-purple-500 cursor-pointer h-1.5 rounded-lg"
+              />
+            </div>
+          )}
+        </div>
+      </motion.div>
 
       {/* ── Pet Corner (bottom-right) ── */}
       {pet && (

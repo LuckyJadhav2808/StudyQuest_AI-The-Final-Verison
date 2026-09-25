@@ -1,41 +1,13 @@
 /**
- * /api/music/song — Proxy for JioSaavn song details + stream URL
- *
- * Query params:
- *   - id: JioSaavn song ID (required)
+ * /api/music/song — Song details and stream URL resolver
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveStreamUrl } from '@/lib/musicEngine';
 
 const SAAVN_BASE = process.env.JIOSAAVN_API_URL || 'https://saavn.dev/api';
 
-interface SaavnDownloadUrl {
-  quality: string;
-  url: string;
-}
-
-interface SaavnImage {
-  quality: string;
-  url: string;
-}
-
-interface SaavnSongDetail {
-  id: string;
-  name: string;
-  duration: number;
-  language: string;
-  year: string;
-  image: SaavnImage[];
-  downloadUrl: SaavnDownloadUrl[];
-  artists?: {
-    primary?: { name: string }[];
-  };
-  primaryArtists?: string;
-  album?: {
-    id: string;
-    name: string;
-  };
-}
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
@@ -49,71 +21,66 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const url = `${SAAVN_BASE}/songs/${encodeURIComponent(id)}`;
+    // Default stream URL points to our HTTP 206 range proxy
+    const proxyStreamUrl = `/api/music/stream?id=${encodeURIComponent(id)}`;
 
-    const response = await fetch(url, {
-      headers: { 'Accept': 'application/json' },
-      next: { revalidate: 3600 }, // Cache song details for 1 hour
-    });
+    // If it's a Saavn track, get rich metadata
+    if (id.startsWith('saavn_') || !id.startsWith('yt_')) {
+      const cleanId = id.replace('saavn_', '');
+      try {
+        const response = await fetch(`${SAAVN_BASE}/songs/${encodeURIComponent(cleanId)}`, {
+          headers: { Accept: 'application/json' },
+        });
 
-    if (!response.ok) {
-      return NextResponse.json(
-        { success: false, error: `JioSaavn API returned ${response.status}` },
-        { status: 502 }
-      );
+        if (response.ok) {
+          const data = await response.json();
+          const song = Array.isArray(data?.data) ? data.data[0] : data?.data;
+
+          if (song) {
+            let image = '';
+            if (song.image && song.image.length > 0) {
+              image = song.image[song.image.length - 1].url;
+            }
+
+            let artists = '';
+            if (song.artists?.primary && song.artists.primary.length > 0) {
+              artists = song.artists.primary.map((a: { name: string }) => a.name).join(', ');
+            } else if (song.primaryArtists) {
+              artists = song.primaryArtists;
+            }
+
+            return NextResponse.json({
+              success: true,
+              song: {
+                id,
+                name: song.name,
+                artists,
+                image,
+                duration: song.duration || 0,
+                album: song.album?.name || '',
+                year: song.year || '',
+                streamUrl: proxyStreamUrl,
+              },
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('[Music Song API] Saavn fetch failed, falling back:', err);
+      }
     }
 
-    const data = await response.json();
-
-    if (!data?.data || (Array.isArray(data.data) && data.data.length === 0)) {
-      return NextResponse.json(
-        { success: false, error: 'Song not found' },
-        { status: 404 }
-      );
-    }
-
-    // data.data can be an array or a single object depending on the endpoint
-    const song: SaavnSongDetail = Array.isArray(data.data) ? data.data[0] : data.data;
-
-    // Get the best quality download URL (prefer 320kbps, fallback to 160kbps, then any)
-    let streamUrl = '';
-    if (song.downloadUrl && song.downloadUrl.length > 0) {
-      const q320 = song.downloadUrl.find((d: SaavnDownloadUrl) => d.quality === '320kbps');
-      const q160 = song.downloadUrl.find((d: SaavnDownloadUrl) => d.quality === '160kbps');
-      streamUrl = q320?.url || q160?.url || song.downloadUrl[song.downloadUrl.length - 1].url;
-    }
-
-    // Get image
-    const image = song.image && song.image.length > 0
-      ? song.image[song.image.length - 1].url
-      : '';
-
-    // Get artists
-    let artists = '';
-    if (song.artists?.primary && song.artists.primary.length > 0) {
-      artists = song.artists.primary.map((a: { name: string }) => a.name).join(', ');
-    } else if (song.primaryArtists) {
-      artists = song.primaryArtists;
-    }
-
+    // For YouTube / generic tracks, return the proxy stream URL
     return NextResponse.json({
       success: true,
       song: {
-        id: song.id,
-        name: song.name,
-        artists,
-        image,
-        duration: song.duration || 0,
-        album: song.album?.name || '',
-        year: song.year || '',
-        language: song.language || '',
-        streamUrl,
+        id,
+        streamUrl: proxyStreamUrl,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Music Song API] Error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch song details' },
+      { success: false, error: error?.message || 'Failed to fetch song' },
       { status: 500 }
     );
   }

@@ -28,6 +28,10 @@ export interface MusicTrack {
   duration: number;
   /** Whether this track was added from a local file */
   isLocal: boolean;
+  /** Optional album name */
+  album?: string;
+  /** Track provider source */
+  source?: 'youtube' | 'saavn' | 'local';
   /** Cached audio blob — stored in IndexedDB for offline playback */
   audioBlob?: Blob;
 }
