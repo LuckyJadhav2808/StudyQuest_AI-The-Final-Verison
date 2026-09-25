@@ -163,7 +163,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
         height: '140',
         width: '240',
         playerVars: {
-          autoplay: videoIdToLoad ? 1 : 0,
+          autoplay: videoIdToLoad && !isInitialLoad.current ? 1 : 0,
           controls: 0,
           disablekb: 1,
           fs: 0,
@@ -181,6 +181,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
               e.target.setVolume(volumeRef.current);
             } catch {}
 
+            // Set iframe autoplay permission policy on the replaced element
             try {
               const el = document.getElementById('studyquest-yt-embed');
               if (el) {
@@ -193,7 +194,10 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
             if (vid) {
               pendingVideoIdRef.current = null;
               if (isInitialLoad.current) {
-                try { e.target.cueVideoById({ videoId: vid, startSeconds: 0 }); } catch {}
+                // Cue only on initial load to respect browser autoplay policies
+                try {
+                  e.target.cueVideoById({ videoId: vid, startSeconds: 0 });
+                } catch {}
                 isInitialLoad.current = false;
               } else {
                 try {
@@ -208,6 +212,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
             }
           },
           onStateChange: (event: any) => {
+            // 1 = PLAYING, 2 = PAUSED, 0 = ENDED, 3 = BUFFERING, 5 = CUED
             if (event.data === 1) {
               setIsPlaying(true);
             } else if (event.data === 2) {
@@ -220,13 +225,15 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
           },
           onError: (err: any) => {
             console.warn('[MusicContext] YouTube IFrame error code:', err?.data);
-            // Silently ignore if player was not actively playing or user hasn't pressed play
+            // Silently ignore errors if playback is idle/paused on boot
             if (!isPlayingRef.current) return;
 
             const list = playlistRef.current;
             const idx = currentTrackIndexRef.current;
             const curr = list[idx];
-            if (curr && audioRef.current && (err?.data === 101 || err?.data === 150 || err?.data === 2)) {
+            if (!curr) return;
+
+            if (audioRef.current && (err?.data === 101 || err?.data === 150 || err?.data === 2)) {
               toast(`Direct audio stream fallback for "${curr.name}"`, { icon: '🎧' });
               const audio = audioRef.current;
               audio.src = `/api/music/stream?id=${encodeURIComponent(curr.id)}`;
@@ -251,9 +258,6 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
       try {
         ytPlayerRef.current = new window.YT.Player('studyquest-yt-embed', playerConfig);
       } catch (err) {
-        console.warn('[MusicContext] YT.Player init exception:', err);
-      }
-    };
         console.warn('[MusicContext] YT.Player init exception:', err);
       }
     };
@@ -573,7 +577,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
       const videoId = currentTrack.id.replace('yt_', '');
       const player = ytPlayerRef.current;
       if (player && isYtReadyRef.current && typeof player.loadVideoById === 'function') {
-        if (!isInitialLoad.current) {
+        if (!isInitialLoad.current && isPlayingRef.current) {
           player.loadVideoById(videoId, 0);
           player.playVideo();
           setIsPlaying(true);
@@ -591,7 +595,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
         if (audio.src !== streamSrc && !audio.src.endsWith(streamSrc)) {
           audio.src = streamSrc;
           audio.load();
-          if (!isInitialLoad.current) {
+          if (!isInitialLoad.current && isPlayingRef.current) {
             audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
           } else {
             isInitialLoad.current = false;
