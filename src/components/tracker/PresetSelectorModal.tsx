@@ -52,11 +52,14 @@ export default function PresetSelectorModal({
                 <p className="text-xs text-[var(--muted-foreground)] line-clamp-1">
                   {tmpl.description}
                 </p>
-                <div className="flex items-center gap-2 pt-1">
+                <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
                   {tmpl.subjects.map((s) => (
-                    <span key={s.id} className="text-[11px] font-bold text-slate-300 flex items-center gap-1">
+                    <span 
+                      key={s.id} 
+                      className="text-[10px] font-bold text-slate-300 bg-slate-800/80 border border-white/10 px-2 py-0.5 rounded-lg flex items-center gap-1"
+                    >
                       <span>{s.icon}</span>
-                      <span>{s.name.split(' ')[0]}</span>
+                      <span>{s.name.length > 20 ? s.name.split(' ')[0] : s.name}</span>
                     </span>
                   ))}
                 </div>

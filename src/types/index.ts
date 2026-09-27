@@ -194,7 +194,7 @@ export interface SavedQuery {
 }
 
 // ----- Resources Vault -----
-export type ResourceType = 'link' | 'pdf' | 'text';
+export type ResourceType = 'link' | 'pdf' | 'youtube' | 'drive' | 'github' | 'text';
 
 export interface ResourceFolder {
   id: string;
@@ -213,6 +213,9 @@ export interface Resource {
   content: string;     // URL for links, base64/URL for PDFs, text content for text
   description: string;
   tags: string[];
+  isPinned?: boolean;
+  thumbnailUrl?: string;
+  embedUrl?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -421,7 +424,7 @@ export interface SkillTreeData {
 }
 
 // ----- Study & Syllabus Progress Tracker -----
-export type TopicStatus = 'todo' | 'in-progress' | 'mastered';
+export type TopicStatus = 'pending' | 'in-progress' | 'done' | 'revised' | 'todo' | 'mastered';
 
 export interface TrackerTopic {
   id: string;
@@ -432,6 +435,9 @@ export interface TrackerTopic {
   notes?: string;
   estimatedHours?: number;
   completedAt?: number;
+  pyqDone?: boolean;
+  dateCompleted?: string;     // ISO YYYY-MM-DD
+  dateRevised?: string;       // ISO YYYY-MM-DD
 }
 
 export interface TrackerUnit {
@@ -463,6 +469,82 @@ export interface SyllabusTrack {
   updatedAt: number;
 }
 
+// Fixed study session slot definition (e.g. 8-10 AM)
+export interface StudyTimeSlotDef {
+  id: string;
+  label: string;
+  defaultHours: number;
+}
+
+// User-customizable daily habit entity with full CRUD control
+export interface DailyStudyHabit {
+  id: string;
+  name: string;
+  icon: string;
+  active: boolean;
+}
+
+// Daily study log entry (spans prep window)
+export interface DailyLogSlot {
+  activity: string;
+  hours: number;
+  completed: boolean;
+}
+
+export interface DailyLogEntry {
+  id: string;
+  trackId: string;
+  date: string;               // YYYY-MM-DD
+  dayNumber: number;          // Day count from prep start (Day 1, 2, 3...)
+  month: string;              // e.g. "Jul", "Aug", "Sep"
+  isoWeek: number;            // ISO week number
+  weekday: string;            // "Mon", "Tue", etc.
+  slots: Record<string, DailyLogSlot>;
+  bonusHours: number;
+  totalHours: number;         // Auto-rolled up sum
+  primarySubjectId?: string;  // FK to TrackerSubject
+  subjectIds: string[];       // FKs to TrackerSubject
+  topicIds: string[];         // FKs to TrackerTopic (Relational Link)
+  dpp: {
+    completed: boolean;
+    score?: number;
+    totalMarks?: number;
+  };
+  habitStatus: Record<string, boolean>; // habitId -> boolean
+  focusRating: number;        // 1 to 5 scale
+  notes?: string;
+  updatedAt: number;
+}
+
+// Append-only test log entry
+export type TestType = 'DPP' | 'Topic' | 'Subject' | 'Mixed' | 'Quiz' | 'Mock';
+
+export interface TestLogEntry {
+  id: string;
+  trackId: string;
+  date: string;               // YYYY-MM-DD
+  testType: TestType;
+  testName: string;
+  subjectId?: string;         // FK to TrackerSubject
+  topicId?: string;           // FK to TrackerTopic
+  score: number;
+  totalMarks: number;
+  percentage: number;         // (score / totalMarks) * 100
+  weakTopicIds: string[];     // FKs to TrackerTopic
+  notes?: string;
+  createdAt: number;
+}
+
+// Configurable settings and reference lists
+export interface StudyTrackerSettings {
+  prepStartDate: string;      // YYYY-MM-DD
+  prepEndDate: string;        // YYYY-MM-DD
+  idealWeeklyHours: number;   // default 52.5
+  totalSyllabusHours: number; // default 1158.78
+  habits: DailyStudyHabit[];
+  slots: StudyTimeSlotDef[];
+}
+
 export interface TrackerKPIs {
   totalTopics: number;
   completedTopics: number;
@@ -475,6 +557,77 @@ export interface TrackerKPIs {
   weakTopicsCount: number;        // low confidence (<= 2) or stuck in-progress
   estimatedHoursLeft: number;
   completedThisWeekCount: number;
+  
+  // Enhanced Command Center KPIs
+  keyStats: {
+    daysElapsed: number;
+    daysRemaining: number;
+    totalStudyHours: number;
+    avgHoursPerDay: number;
+    bestDayHours: number;
+    daysWith5PlusHours: number;
+    topicsDoneOrRevised: number;
+  };
+  slotStats: {
+    slot1Pct: number;
+    slot2Pct: number;
+    slot3Pct: number;
+    slot4Pct: number;
+    dppDonePct: number;
+    avgFocusScore: number;
+  };
+  habitStats: Record<string, {
+    name: string;
+    icon: string;
+    completionPct: number;
+    daysCompleted: number;
+  }>;
+  weeklyHours: Array<{
+    weekNumber: number;
+    startDate: string;
+    endDate: string;
+    actualHours: number;
+    idealHours: number;
+    gapPct: number;
+    dailyAvg: number;
+  }>;
+  monthlyHours: Array<{
+    month: string;
+    totalHours: number;
+    daysCount: number;
+    dailyAvg: number;
+  }>;
+  subjectHoursBreakdown: Array<{
+    subjectId: string;
+    subjectName: string;
+    subjectCode?: string;
+    color: string;
+    icon: string;
+    actualHours: number;
+    idealHours: number;
+  }>;
+  testStats: {
+    overallAvgPct: number;
+    totalTests: number;
+    avgByType: Record<string, number>;
+  };
+  burnDown: {
+    totalSyllabusHours: number;
+    completedHours: number;
+    remainingHours: number;
+    remainingPct: number;
+    rolling7DayDailyAvg: number;
+    projectedCompletionDate: string;
+  };
+  priorityRevisionQueue: Array<{
+    topicId: string;
+    topicTitle: string;
+    subjectName: string;
+    subjectColor: string;
+    subjectIcon: string;
+    reason: string;
+    confidence: number;
+  }>;
 }
 
 // ----- AI Quota & System Telemetry -----

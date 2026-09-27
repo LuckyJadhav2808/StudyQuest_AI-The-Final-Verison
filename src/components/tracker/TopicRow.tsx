@@ -28,13 +28,24 @@ export default function TopicRow({
   const getStatusBadge = (status: TopicStatus) => {
     switch (status) {
       case 'mastered':
+      case 'done':
         return (
           <button
             onClick={onToggleStatus}
             className="px-3 py-1 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold flex items-center gap-1.5 hover:bg-emerald-500/25 transition-all"
           >
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            <span>Mastered</span>
+            <span>Done</span>
+          </button>
+        );
+      case 'revised':
+        return (
+          <button
+            onClick={onToggleStatus}
+            className="px-3 py-1 rounded-xl bg-purple-500/15 text-purple-300 border border-purple-500/30 text-[11px] font-bold flex items-center gap-1.5 hover:bg-purple-500/25 transition-all"
+          >
+            <span className="w-2 h-2 rounded-full bg-purple-400" />
+            <span>Revised</span>
           </button>
         );
       case 'in-progress':
@@ -112,15 +123,42 @@ export default function TopicRow({
         </div>
       </div>
 
-      {/* Right Controls: Status Pill, Revision Count, Actions */}
+      {/* Right Controls: PYQ, Confidence, Status, Revision, Actions */}
       <div className="flex items-center gap-2 flex-wrap justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-800/60 flex-shrink-0">
-        
+        {/* PYQ Done Badge Toggle */}
+        <button
+          onClick={() => onUpdateTopic({ pyqDone: !topic.pyqDone })}
+          title="Toggle Previous Year Questions (PYQs) Done"
+          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1 ${
+            topic.pyqDone
+              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
+              : 'bg-slate-900 text-slate-500 border-slate-800 hover:border-slate-700 hover:text-slate-300'
+          }`}
+        >
+          <span>{topic.pyqDone ? '✓ PYQ' : '+ PYQ'}</span>
+        </button>
+
+        {/* Confidence Rating Stars */}
+        <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-lg bg-slate-900 border border-slate-800" title="Confidence (1-5)">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <button
+              key={star}
+              onClick={() => onUpdateTopic({ confidence: star === topic.confidence ? 0 : star })}
+              className={`text-[11px] transition-transform hover:scale-125 ${
+                star <= (topic.confidence || 0) ? 'text-amber-400' : 'text-slate-700 hover:text-amber-300'
+              }`}
+            >
+              ★
+            </button>
+          ))}
+        </div>
+
         {/* Status Pill */}
         {getStatusBadge(topic.status)}
 
         {/* Revision Count Button */}
         <button
-          onClick={() => onUpdateTopic({ revisionCount: (topic.revisionCount || 0) + 1 })}
+          onClick={() => onUpdateTopic({ revisionCount: (topic.revisionCount || 0) + 1, dateRevised: new Date().toISOString() })}
           title="Click to increment revision count"
           className="px-2.5 py-1 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/25 text-[11px] font-bold flex items-center gap-1 transition-all"
         >

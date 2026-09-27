@@ -17,12 +17,56 @@ import {
   TrackerTopic,
   TopicStatus,
   TrackerKPIs,
+  DailyLogEntry,
+  DailyLogSlot,
+  TestLogEntry,
+  TestType,
+  StudyTrackerSettings,
+  DailyStudyHabit,
+  StudyTimeSlotDef,
 } from '@/types';
 import { useGamification } from '@/hooks/useGamification';
 import { useAuthContext } from '@/context/AuthContext';
+import {
+  getISOWeek,
+  startOfISOWeek,
+  endOfISOWeek,
+  format,
+  parseISO,
+  differenceInDays,
+  addDays,
+} from 'date-fns';
+import { getLocalDateString } from '@/lib/dateUtils';
 
 const STORAGE_KEY = 'studyquest_syllabus_tracker_v1';
 const ACTIVE_TRACK_KEY = 'studyquest_active_track_id';
+const DAILY_LOGS_KEY = 'studyquest_daily_logs_v1';
+const TEST_LOGS_KEY = 'studyquest_test_logs_v1';
+const SETTINGS_KEY = 'studyquest_tracker_settings_v1';
+
+export const DEFAULT_HABITS: DailyStudyHabit[] = [
+  { id: 'habit-exercise', name: 'Exercise / Workout', icon: '💪', active: true },
+  { id: 'habit-guitar', name: 'Guitar / Creative Skill', icon: '🎸', active: true },
+  { id: 'habit-youtube', name: 'YT / Content Creation', icon: '🎥', active: true },
+  { id: 'habit-calls', name: 'Family & Friend Calls', icon: '📞', active: true },
+  { id: 'habit-sleep', name: 'Sleep by 10:00 PM', icon: '🌙', active: true },
+];
+
+export const DEFAULT_SLOTS: StudyTimeSlotDef[] = [
+  { id: 'slot-1', label: 'Slot 1: 8:00 AM – 10:00 AM', defaultHours: 2.0 },
+  { id: 'slot-2', label: 'Slot 2: 10:30 AM – 12:30 PM', defaultHours: 2.0 },
+  { id: 'slot-3', label: 'Slot 3: 1:30 PM – 3:30 PM', defaultHours: 2.0 },
+  { id: 'slot-4', label: 'Revision: 4:00 PM – 5:30 PM', defaultHours: 1.5 },
+];
+
+export const DEFAULT_SETTINGS: StudyTrackerSettings = {
+  prepStartDate: '2026-07-01',
+  prepEndDate: '2027-01-31',
+  idealWeeklyHours: 52.5,
+  totalSyllabusHours: 1158.78,
+  habits: DEFAULT_HABITS,
+  slots: DEFAULT_SLOTS,
+};
 
 // Default starter preset templates - FULL UNABRIDGED SYLLABI
 export const PRESET_SYLLABUS_TEMPLATES: Omit<SyllabusTrack, 'id' | 'createdAt' | 'updatedAt'>[] = [
@@ -407,6 +451,246 @@ export const PRESET_SYLLABUS_TEMPLATES: Omit<SyllabusTrack, 'id' | 'createdAt' |
       },
     ],
   },
+  {
+    title: '🏆 GATE CS & IT — Complete Standard Syllabus',
+    description: 'Standard syllabus covering all 10 core subjects and 53 topics for GATE CSE.',
+    isDefault: false,
+    subjects: [
+      {
+        id: 'gate-em',
+        name: 'Engineering Mathematics',
+        code: 'GATE-EM',
+        color: '#3B82F6',
+        icon: '📐',
+        weightage: 15,
+        units: [
+          {
+            id: 'gate-em-u1',
+            unitNumber: 1,
+            title: 'Unit 1: Complete GATE Syllabus',
+            description: 'Propositional & First-Order Logic, Combinatorics, Linear Algebra, Calculus & Probability',
+            topics: [
+              { id: 'gate-em-t1', title: 'Propositional and first order logic', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 3 },
+              { id: 'gate-em-t2', title: 'Sets, relations, functions, partial orders and lattices', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 3 },
+              { id: 'gate-em-t3', title: 'Monoids, Groups', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 2 },
+              { id: 'gate-em-t4', title: 'Graphs: connectivity, matching, colouring', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 3 },
+              { id: 'gate-em-t5', title: 'Combinatorics: counting, recurrence relations, generating functions', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 3 },
+              { id: 'gate-em-t6', title: 'Matrices, determinants, system of linear equations, eigenvalues and eigenvectors, LU decomposition', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 4 },
+              { id: 'gate-em-t7', title: 'Limits, continuity and differentiability', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 2 },
+              { id: 'gate-em-t8', title: 'Maxima and minima, Mean value theorem, Integration', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 3 },
+              { id: 'gate-em-t9', title: 'Random variables, Uniform, normal, exponential, Poisson and binomial distributions', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 3 },
+              { id: 'gate-em-t10', title: 'Mean, median, mode and standard deviation', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 2 },
+              { id: 'gate-em-t11', title: 'Conditional probability and Bayes theorem', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 2 },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'gate-dl',
+        name: 'Digital Logic',
+        code: 'GATE-DL',
+        color: '#F59E0B',
+        icon: '⚡',
+        weightage: 6,
+        units: [
+          {
+            id: 'gate-dl-u1',
+            unitNumber: 1,
+            title: 'Unit 1: Complete GATE Syllabus',
+            description: 'Boolean Algebra, Minimization, Circuits & Number Representation',
+            topics: [
+              { id: 'gate-dl-t1', title: 'Boolean algebra and minimization – algebraic technique, Karnaugh map, tabular method', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 3 },
+              { id: 'gate-dl-t2', title: 'Design of combinational and sequential circuits', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 4 },
+              { id: 'gate-dl-t3', title: 'Number representation and arithmetic (fixed and floating point)', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 3 },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'gate-coa',
+        name: 'Computer Organization and Architecture',
+        code: 'GATE-COA',
+        color: '#8B5CF6',
+        icon: '🖥️',
+        weightage: 10,
+        units: [
+          {
+            id: 'gate-coa-u1',
+            unitNumber: 1,
+            title: 'Unit 1: Complete GATE Syllabus',
+            description: 'Instruction Set, ALU, Control Unit, Memory Hierarchy, I/O & Pipelining',
+            topics: [
+              { id: 'gate-coa-t1', title: 'Instruction set and addressing modes', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 3 },
+              { id: 'gate-coa-t2', title: 'Design of arithmetic and logic unit (ALU)', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 2 },
+              { id: 'gate-coa-t3', title: 'Design of control unit – hardwired and microprogrammed', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 3 },
+              { id: 'gate-coa-t4', title: 'Memory interfacing and hierarchy: performance, cache memory mapping', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 4 },
+              { id: 'gate-coa-t5', title: 'I/O interface (interrupt and DMA)', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 2 },
+              { id: 'gate-coa-t6', title: 'Instruction pipelining, pipeline hazards', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 4 },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'gate-pds',
+        name: 'Programming and Data Structures',
+        code: 'GATE-PDS',
+        color: '#10B981',
+        icon: '💻',
+        weightage: 12,
+        units: [
+          {
+            id: 'gate-pds-u1',
+            unitNumber: 1,
+            title: 'Unit 1: Complete GATE Syllabus',
+            description: 'C Programming, Recursion & Fundamental Data Structures',
+            topics: [
+              { id: 'gate-pds-t1', title: 'Programming in C', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 4 },
+              { id: 'gate-pds-t2', title: 'Recursion', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 3 },
+              { id: 'gate-pds-t3', title: 'Arrays, stacks, queues, linked lists, trees, binary search trees, binary heaps, graphs', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 6 },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'gate-algo',
+        name: 'Algorithms',
+        code: 'GATE-ALGO',
+        color: '#EC4899',
+        icon: '🧮',
+        weightage: 11,
+        units: [
+          {
+            id: 'gate-algo-u1',
+            unitNumber: 1,
+            title: 'Unit 1: Complete GATE Syllabus',
+            description: 'Searching/Sorting, Asymptotics, Design Techniques & Graph Algorithms',
+            topics: [
+              { id: 'gate-algo-t1', title: 'Searching, sorting, hashing', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 4 },
+              { id: 'gate-algo-t2', title: 'Asymptotic worst case time and space complexity', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 3 },
+              { id: 'gate-algo-t3', title: 'Algorithm design techniques: greedy, dynamic programming and divide-and-conquer', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 5 },
+              { id: 'gate-algo-t4', title: 'Graph traversals, minimum spanning trees, shortest paths', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 4 },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'gate-toc',
+        name: 'Theory of Computation',
+        code: 'GATE-TOC',
+        color: '#06B6D4',
+        icon: '⚙️',
+        weightage: 9,
+        units: [
+          {
+            id: 'gate-toc-u1',
+            unitNumber: 1,
+            title: 'Unit 1: Complete GATE Syllabus',
+            description: 'Automata, Formal Grammars, Pumping Lemma & Turing Machines',
+            topics: [
+              { id: 'gate-toc-t1', title: 'Regular expressions and finite automata', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 4 },
+              { id: 'gate-toc-t2', title: 'Context-free grammars and push-down automata', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 4 },
+              { id: 'gate-toc-t3', title: 'Regular and context-free languages, pumping lemma', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 3 },
+              { id: 'gate-toc-t4', title: 'Turing machines and undecidability', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 4 },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'gate-cd',
+        name: 'Compiler Design',
+        code: 'GATE-CD',
+        color: '#F97316',
+        icon: '🔧',
+        weightage: 5,
+        units: [
+          {
+            id: 'gate-cd-u1',
+            unitNumber: 1,
+            title: 'Unit 1: Complete GATE Syllabus',
+            description: 'Lexical, Syntax, Intermediate Code, Optimization & Data Flow',
+            topics: [
+              { id: 'gate-cd-t1', title: 'Lexical analysis, parsing, syntax-directed translation', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 4 },
+              { id: 'gate-cd-t2', title: 'Runtime environments', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 2 },
+              { id: 'gate-cd-t3', title: 'Intermediate code generation', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 3 },
+              { id: 'gate-cd-t4', title: 'Local optimisation', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 2 },
+              { id: 'gate-cd-t5', title: 'Data flow analyses: constant propagation, liveness analysis, common sub expression elimination', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 3 },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'gate-os',
+        name: 'Operating System',
+        code: 'GATE-OS',
+        color: '#6366F1',
+        icon: '🛡️',
+        weightage: 11,
+        units: [
+          {
+            id: 'gate-os-u1',
+            unitNumber: 1,
+            title: 'Unit 1: Complete GATE Syllabus',
+            description: 'Processes, Threads, Concurrency, Deadlock, Memory & Storage',
+            topics: [
+              { id: 'gate-os-t1', title: 'System calls, processes, threads, inter-process communication, concurrency and synchronization', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 4 },
+              { id: 'gate-os-t2', title: 'Deadlock', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 3 },
+              { id: 'gate-os-t3', title: 'CPU and I/O scheduling', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 3 },
+              { id: 'gate-os-t4', title: 'Memory management and virtual memory', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 4 },
+              { id: 'gate-os-t5', title: 'File systems', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 2 },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'gate-db',
+        name: 'Databases',
+        code: 'GATE-DBMS',
+        color: '#14B8A6',
+        icon: '🗄️',
+        weightage: 8,
+        units: [
+          {
+            id: 'gate-db-u1',
+            unitNumber: 1,
+            title: 'Unit 1: Complete GATE Syllabus',
+            description: 'ER Model, Relational Algebra, SQL, Normalization, Indexing & Transactions',
+            topics: [
+              { id: 'gate-db-t1', title: 'ER-model', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 2 },
+              { id: 'gate-db-t2', title: 'Relational model: relational algebra, tuple calculus, SQL', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 4 },
+              { id: 'gate-db-t3', title: 'Integrity constraints, normal forms', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 3 },
+              { id: 'gate-db-t4', title: 'File organization, indexing (e.g., B and B+ trees)', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 3 },
+              { id: 'gate-db-t5', title: 'Transactions and concurrency control', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 4 },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'gate-cn',
+        name: 'Computer Networks',
+        code: 'GATE-CN',
+        color: '#4F46E5',
+        icon: '🌐',
+        weightage: 13,
+        units: [
+          {
+            id: 'gate-cn-u1',
+            unitNumber: 1,
+            title: 'Unit 1: Complete GATE Syllabus',
+            description: 'Layering, Switching, MAC, Routing, IPv4/NAT, TCP & Application Protocols',
+            topics: [
+              { id: 'gate-cn-t1', title: 'Principles of Layering', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 2 },
+              { id: 'gate-cn-t2', title: 'Basics of switching (circuit, packet and virtual circuit) and performance metrics', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 3 },
+              { id: 'gate-cn-t3', title: 'Data link layer: error detection, Medium Access Control, Ethernet', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 4 },
+              { id: 'gate-cn-t4', title: 'Distance vector and link state routing', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 3 },
+              { id: 'gate-cn-t5', title: 'IPv4 - Fragmentation, CIDR Notation, Network Address Translation', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 4 },
+              { id: 'gate-cn-t6', title: 'TCP - flow control and congestion control, socket API', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 4 },
+              { id: 'gate-cn-t7', title: 'DNS and HTTP', status: 'todo', confidence: 0, revisionCount: 0, estimatedHours: 2 },
+            ],
+          },
+        ],
+      },
+    ],
+  },
 ];
 
 export function useStudyTracker() {
@@ -414,9 +698,12 @@ export function useStudyTracker() {
   const { awardXP } = useGamification();
   const [tracks, setTracks] = useState<SyllabusTrack[]>([]);
   const [activeTrackId, setActiveTrackId] = useState<string>('');
+  const [dailyLogs, setDailyLogs] = useState<DailyLogEntry[]>([]);
+  const [testLogs, setTestLogs] = useState<TestLogEntry[]>([]);
+  const [trackerSettings, setTrackerSettings] = useState<StudyTrackerSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Synchronize with Firebase Firestore when logged in, or fallback to localStorage
+  // Synchronize tracks with Firebase Firestore or fallback to localStorage
   useEffect(() => {
     if (user) {
       const ref = collection(db, 'users', user.uid, 'syllabusTracks');
@@ -480,14 +767,115 @@ export function useStudyTracker() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(initialTracks));
         localStorage.setItem(ACTIVE_TRACK_KEY, defaultTrackId);
       } catch (e) {
-        console.error('Error initializing StudyTracker state:', e);
+        console.error('Error initializing StudyTracker tracks:', e);
       } finally {
         setLoading(false);
       }
     }
   }, [user]);
 
-  // Sync state both locally and to Cloud Firestore
+  // Synchronize Daily Logs (Pure user logs only, zero demo/mock data)
+  useEffect(() => {
+    if (user) {
+      const ref = collection(db, 'users', user.uid, 'dailyLogs');
+      const unsub = subscribeToCollection<DailyLogEntry>(
+        ref,
+        (cloudItems) => {
+          const validItems = (cloudItems || []).filter((l) => !l.id.startsWith('sample-'));
+          if (validItems.length > 0) {
+            validItems.sort((a, b) => b.date.localeCompare(a.date));
+            setDailyLogs(validItems);
+            try {
+              localStorage.setItem(DAILY_LOGS_KEY, JSON.stringify(validItems));
+            } catch { /* ignore */ }
+          } else {
+            try {
+              const local = localStorage.getItem(DAILY_LOGS_KEY);
+              if (local) {
+                const parsed: DailyLogEntry[] = JSON.parse(local);
+                const filtered = parsed.filter((l) => !l.id.startsWith('sample-'));
+                setDailyLogs(filtered);
+                localStorage.setItem(DAILY_LOGS_KEY, JSON.stringify(filtered));
+              }
+            } catch { /* ignore */ }
+          }
+        },
+        orderBy('date', 'desc')
+      );
+      return unsub;
+    } else {
+      try {
+        const raw = localStorage.getItem(DAILY_LOGS_KEY);
+        if (raw) {
+          const parsed: DailyLogEntry[] = JSON.parse(raw);
+          const filtered = parsed.filter((l) => !l.id.startsWith('sample-'));
+          setDailyLogs(filtered);
+          localStorage.setItem(DAILY_LOGS_KEY, JSON.stringify(filtered));
+        }
+      } catch (e) {
+        console.error('Error loading daily logs from localStorage:', e);
+      }
+    }
+  }, [user]);
+
+  // Synchronize Test Logs (Pure user tests only, zero demo/mock data)
+  useEffect(() => {
+    if (user) {
+      const ref = collection(db, 'users', user.uid, 'testLogs');
+      const unsub = subscribeToCollection<TestLogEntry>(
+        ref,
+        (cloudItems) => {
+          const validItems = (cloudItems || []).filter((t) => !t.id.startsWith('sample-'));
+          if (validItems.length > 0) {
+            validItems.sort((a, b) => b.date.localeCompare(a.date));
+            setTestLogs(validItems);
+            try {
+              localStorage.setItem(TEST_LOGS_KEY, JSON.stringify(validItems));
+            } catch { /* ignore */ }
+          } else {
+            try {
+              const local = localStorage.getItem(TEST_LOGS_KEY);
+              if (local) {
+                const parsed: TestLogEntry[] = JSON.parse(local);
+                const filtered = parsed.filter((t) => !t.id.startsWith('sample-'));
+                setTestLogs(filtered);
+                localStorage.setItem(TEST_LOGS_KEY, JSON.stringify(filtered));
+              }
+            } catch { /* ignore */ }
+          }
+        },
+        orderBy('date', 'desc')
+      );
+      return unsub;
+    } else {
+      try {
+        const raw = localStorage.getItem(TEST_LOGS_KEY);
+        if (raw) {
+          const parsed: TestLogEntry[] = JSON.parse(raw);
+          const filtered = parsed.filter((t) => !t.id.startsWith('sample-'));
+          setTestLogs(filtered);
+          localStorage.setItem(TEST_LOGS_KEY, JSON.stringify(filtered));
+        }
+      } catch (e) {
+        console.error('Error loading test logs from localStorage:', e);
+      }
+    }
+  }, [user]);
+
+  // Synchronize Settings
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setTrackerSettings((prev) => ({ ...prev, ...parsed }));
+      }
+    } catch (e) {
+      console.error('Error loading tracker settings:', e);
+    }
+  }, []);
+
+  // Save Tracks
   const saveTracks = useCallback((updatedTracks: SyllabusTrack[], newActiveId?: string) => {
     setTracks(updatedTracks);
     if (newActiveId) {
@@ -511,59 +899,450 @@ export function useStudyTracker() {
     }
   }, [user]);
 
+  // Save Settings
+  const updateTrackerSettings = useCallback((updates: Partial<StudyTrackerSettings>) => {
+    setTrackerSettings((prev) => {
+      const merged = { ...prev, ...updates };
+      try {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
+      } catch { /* ignore */ }
+      if (user) {
+        const docRef = doc(db, 'users', user.uid, 'studySettings', 'main');
+        setDocument(docRef, merged, true);
+      }
+      return merged;
+    });
+    toast.success('Settings updated');
+  }, [user]);
+
+  // Save Daily Logs
+  const saveDailyLog = useCallback((entry: DailyLogEntry) => {
+    setDailyLogs((prev) => {
+      const exists = prev.some((l) => l.id === entry.id || l.date === entry.date);
+      const updated = exists
+        ? prev.map((l) => (l.id === entry.id || l.date === entry.date ? entry : l))
+        : [entry, ...prev];
+      updated.sort((a, b) => b.date.localeCompare(a.date));
+
+      try {
+        localStorage.setItem(DAILY_LOGS_KEY, JSON.stringify(updated));
+      } catch { /* ignore */ }
+
+      if (user) {
+        const docRef = doc(db, 'users', user.uid, 'dailyLogs', entry.id);
+        setDocument(docRef, entry, true);
+      }
+      return updated;
+    });
+
+    awardXP(25, `Logged daily study session (${entry.totalHours}h)`);
+    toast.success(`Saved study log for ${entry.date}! +25 XP`);
+  }, [user, awardXP]);
+
+  const deleteDailyLog = useCallback((logId: string) => {
+    setDailyLogs((prev) => {
+      const updated = prev.filter((l) => l.id !== logId);
+      try {
+        localStorage.setItem(DAILY_LOGS_KEY, JSON.stringify(updated));
+      } catch { /* ignore */ }
+      if (user) {
+        const docRef = doc(db, 'users', user.uid, 'dailyLogs', logId);
+        removeDocument(docRef);
+      }
+      return updated;
+    });
+    toast.success('Daily study log deleted');
+  }, [user]);
+
+  // Save Test Logs
+  const saveTestLog = useCallback((test: TestLogEntry) => {
+    setTestLogs((prev) => {
+      const exists = prev.some((t) => t.id === test.id);
+      const updated = exists
+        ? prev.map((t) => (t.id === test.id ? test : t))
+        : [test, ...prev];
+      updated.sort((a, b) => b.date.localeCompare(a.date));
+
+      try {
+        localStorage.setItem(TEST_LOGS_KEY, JSON.stringify(updated));
+      } catch { /* ignore */ }
+
+      if (user) {
+        const docRef = doc(db, 'users', user.uid, 'testLogs', test.id);
+        setDocument(docRef, test, true);
+      }
+      return updated;
+    });
+
+    awardXP(30, `Recorded test score (${test.percentage.toFixed(0)}%)`);
+    toast.success(`Recorded test "${test.testName}"! +30 XP`);
+  }, [user, awardXP]);
+
+  const deleteTestLog = useCallback((testId: string) => {
+    setTestLogs((prev) => {
+      const updated = prev.filter((t) => t.id !== testId);
+      try {
+        localStorage.setItem(TEST_LOGS_KEY, JSON.stringify(updated));
+      } catch { /* ignore */ }
+      if (user) {
+        const docRef = doc(db, 'users', user.uid, 'testLogs', testId);
+        removeDocument(docRef);
+      }
+      return updated;
+    });
+    toast.success('Test log removed');
+  }, [user]);
+
+  // Habit CRUD with Toast Undo
+  const addHabit = useCallback((name: string, icon: string = '✨') => {
+    const newHabit: DailyStudyHabit = {
+      id: `habit-${uuidv4().slice(0, 8)}`,
+      name,
+      icon,
+      active: true,
+    };
+    updateTrackerSettings({
+      habits: [...trackerSettings.habits, newHabit],
+    });
+    toast.success(`Added habit: ${name}`);
+  }, [trackerSettings.habits, updateTrackerSettings]);
+
+  const updateHabit = useCallback((habitId: string, updates: Partial<DailyStudyHabit>) => {
+    const updated = trackerSettings.habits.map((h) =>
+      h.id === habitId ? { ...h, ...updates } : h
+    );
+    updateTrackerSettings({ habits: updated });
+  }, [trackerSettings.habits, updateTrackerSettings]);
+
+  const restoreHabit = useCallback((habitToRestore: DailyStudyHabit) => {
+    updateTrackerSettings({
+      habits: [...trackerSettings.habits, habitToRestore],
+    });
+    toast.success(`Restored habit: ${habitToRestore.name}`);
+  }, [trackerSettings.habits, updateTrackerSettings]);
+
+  const deleteHabit = useCallback((habitId: string) => {
+    const habitToDelete = trackerSettings.habits.find((h) => h.id === habitId);
+    if (!habitToDelete) return;
+
+    const remainingHabits = trackerSettings.habits.filter((h) => h.id !== habitId);
+    updateTrackerSettings({ habits: remainingHabits });
+    toast.success(`Removed habit "${habitToDelete.name}"`);
+  }, [trackerSettings.habits, updateTrackerSettings]);
+
   // Active track
   const activeTrack = useMemo(() => {
     return tracks.find((t) => t.id === activeTrackId) || tracks[0] || null;
   }, [tracks, activeTrackId]);
 
-  // Compute Dynamic Real KPIs (NO FAKE / MOCK NUMBERS)
+  // Compute Complete Dynamic KPIs
   const kpis: TrackerKPIs = useMemo(() => {
-    if (!activeTrack) {
-      return {
-        totalTopics: 0,
-        completedTopics: 0,
-        inProgressTopics: 0,
-        todoTopics: 0,
-        overallCompletionPct: 0,
-        weightedReadinessScore: 0,
-        averageConfidence: 0,
-        totalSubjects: 0,
-        weakTopicsCount: 0,
-        estimatedHoursLeft: 0,
-        completedThisWeekCount: 0,
-      };
-    }
+    const now = new Date();
+    const todayStr = getLocalDateString(now);
 
+    // Prep window metrics
+    let prepStart = parseISO(trackerSettings.prepStartDate);
+    let prepEnd = parseISO(trackerSettings.prepEndDate);
+    if (isNaN(prepStart.getTime())) prepStart = new Date('2026-07-01');
+    if (isNaN(prepEnd.getTime())) prepEnd = new Date('2027-01-31');
+
+    const rawDaysElapsed = differenceInDays(now, prepStart);
+    const daysElapsed = Math.max(0, rawDaysElapsed);
+    const rawDaysRemaining = differenceInDays(prepEnd, now);
+    const daysRemaining = Math.max(0, rawDaysRemaining);
+
+    // Topic stats
     let totalTopics = 0;
     let completedTopics = 0;
     let inProgressTopics = 0;
     let todoTopics = 0;
+    let totalConfidence = 0;
+    let confidenceCount = 0;
+    let weakTopicsCount = 0;
     let estimatedHoursLeft = 0;
     let completedThisWeekCount = 0;
+    let topicsDoneOrRevised = 0;
     const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
 
-    activeTrack.subjects.forEach((subject) => {
-      subject.units.forEach((unit) => {
-        unit.topics.forEach((topic) => {
-          totalTopics++;
+    const allTrackTopics: Array<{ topic: TrackerTopic; subjectName: string; color: string; icon: string }> = [];
 
-          if (topic.status === 'mastered') {
-            completedTopics++;
-            if (topic.completedAt && topic.completedAt >= oneWeekAgo) {
-              completedThisWeekCount++;
+    if (activeTrack) {
+      activeTrack.subjects.forEach((subject) => {
+        subject.units.forEach((unit) => {
+          unit.topics.forEach((topic) => {
+            totalTopics++;
+            allTrackTopics.push({
+              topic,
+              subjectName: subject.name,
+              color: subject.color,
+              icon: subject.icon,
+            });
+
+            if (topic.confidence && topic.confidence > 0) {
+              totalConfidence += topic.confidence;
+              confidenceCount++;
+              if (topic.confidence <= 2) weakTopicsCount++;
             }
-          } else if (topic.status === 'in-progress') {
-            inProgressTopics++;
-            estimatedHoursLeft += topic.estimatedHours || 2;
-          } else {
-            todoTopics++;
-            estimatedHoursLeft += topic.estimatedHours || 2;
-          }
+
+            const isDone = topic.status === 'mastered' || topic.status === 'done' || topic.status === 'revised';
+            if (isDone) {
+              completedTopics++;
+              topicsDoneOrRevised++;
+              if (topic.completedAt && topic.completedAt >= oneWeekAgo) {
+                completedThisWeekCount++;
+              }
+            } else if (topic.status === 'in-progress') {
+              inProgressTopics++;
+              estimatedHoursLeft += topic.estimatedHours || 2;
+            } else {
+              todoTopics++;
+              estimatedHoursLeft += topic.estimatedHours || 2;
+            }
+          });
         });
       });
-    });
+    }
 
     const overallCompletionPct = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
+    const averageConfidence = confidenceCount > 0 ? Number((totalConfidence / confidenceCount).toFixed(1)) : 0;
+    const weightedReadinessScore = totalTopics > 0
+      ? Math.round(
+          ((completedTopics * 1.0 + inProgressTopics * 0.45) / totalTopics) * 100
+        )
+      : 0;
+
+    // Daily Logs stats
+    const trackLogs = dailyLogs.filter((l) => !l.trackId || !activeTrack || l.trackId === activeTrack.id);
+    const totalStudyHours = Number(trackLogs.reduce((sum, l) => sum + (l.totalHours || 0), 0).toFixed(1));
+    const uniqueDays = new Set(trackLogs.map((l) => l.date)).size;
+    const avgHoursPerDay = uniqueDays > 0 ? Number((totalStudyHours / uniqueDays).toFixed(1)) : 0;
+    let bestDayHours = 0;
+    let daysWith5PlusHours = 0;
+
+    // Time-slot counts
+    let slot1DoneCount = 0;
+    let slot2DoneCount = 0;
+    let slot3DoneCount = 0;
+    let slot4DoneCount = 0;
+    let dppDoneCount = 0;
+    let totalFocus = 0;
+    let focusDaysCount = 0;
+
+    // Habits breakdown
+    const habitCompletedDays: Record<string, number> = {};
+    trackerSettings.habits.forEach((h) => {
+      habitCompletedDays[h.id] = 0;
+    });
+
+    trackLogs.forEach((log) => {
+      if (log.totalHours > bestDayHours) bestDayHours = log.totalHours;
+      if (log.totalHours >= 5.0) daysWith5PlusHours++;
+
+      if (log.slots?.['slot-1']?.completed) slot1DoneCount++;
+      if (log.slots?.['slot-2']?.completed) slot2DoneCount++;
+      if (log.slots?.['slot-3']?.completed) slot3DoneCount++;
+      if (log.slots?.['slot-4']?.completed) slot4DoneCount++;
+
+      if (log.dpp?.completed) dppDoneCount++;
+
+      if (log.focusRating && log.focusRating > 0) {
+        totalFocus += log.focusRating;
+        focusDaysCount++;
+      }
+
+      if (log.habitStatus) {
+        Object.entries(log.habitStatus).forEach(([hId, val]) => {
+          if (val) {
+            habitCompletedDays[hId] = (habitCompletedDays[hId] || 0) + 1;
+          }
+        });
+      }
+    });
+
+    const logsCount = Math.max(1, trackLogs.length);
+    const slotStats = {
+      slot1Pct: Math.round((slot1DoneCount / logsCount) * 100),
+      slot2Pct: Math.round((slot2DoneCount / logsCount) * 100),
+      slot3Pct: Math.round((slot3DoneCount / logsCount) * 100),
+      slot4Pct: Math.round((slot4DoneCount / logsCount) * 100),
+      dppDonePct: Math.round((dppDoneCount / logsCount) * 100),
+      avgFocusScore: focusDaysCount > 0 ? Number((totalFocus / focusDaysCount).toFixed(1)) : 0,
+    };
+
+    const habitStats: TrackerKPIs['habitStats'] = {};
+    trackerSettings.habits.forEach((h) => {
+      const daysDone = habitCompletedDays[h.id] || 0;
+      habitStats[h.id] = {
+        name: h.name,
+        icon: h.icon,
+        daysCompleted: daysDone,
+        completionPct: Math.round((daysDone / logsCount) * 100),
+      };
+    });
+
+    // ISO Weekly Hours aggregation
+    const weekMap: Record<number, { actual: number; startDate: string; endDate: string }> = {};
+    trackLogs.forEach((log) => {
+      try {
+        const d = parseISO(log.date);
+        const w = getISOWeek(d);
+        if (!weekMap[w]) {
+          const s = format(startOfISOWeek(d), 'yyyy-MM-dd');
+          const e = format(endOfISOWeek(d), 'yyyy-MM-dd');
+          weekMap[w] = { actual: 0, startDate: s, endDate: e };
+        }
+        weekMap[w].actual += log.totalHours || 0;
+      } catch { /* ignore */ }
+    });
+
+    const idealWeekly = trackerSettings.idealWeeklyHours || 52.5;
+    const weeklyHours = Object.entries(weekMap)
+      .map(([wNum, data]) => {
+        const actualHours = Number(data.actual.toFixed(1));
+        const gapPct = Math.round(((actualHours - idealWeekly) / idealWeekly) * 100);
+        return {
+          weekNumber: Number(wNum),
+          startDate: data.startDate,
+          endDate: data.endDate,
+          actualHours,
+          idealHours: idealWeekly,
+          gapPct,
+          dailyAvg: Number((actualHours / 7).toFixed(1)),
+        };
+      })
+      .sort((a, b) => b.weekNumber - a.weekNumber);
+
+    // Monthly hours
+    const monthMap: Record<string, { totalHours: number; days: Set<string> }> = {};
+    trackLogs.forEach((log) => {
+      const m = log.month || log.date.slice(0, 7);
+      if (!monthMap[m]) monthMap[m] = { totalHours: 0, days: new Set() };
+      monthMap[m].totalHours += log.totalHours || 0;
+      monthMap[m].days.add(log.date);
+    });
+
+    const monthlyHours = Object.entries(monthMap)
+      .map(([month, data]) => ({
+        month,
+        totalHours: Number(data.totalHours.toFixed(1)),
+        daysCount: data.days.size,
+        dailyAvg: data.days.size > 0 ? Number((data.totalHours / data.days.size).toFixed(1)) : 0,
+      }))
+      .sort((a, b) => b.month.localeCompare(a.month));
+
+    // Subject hours breakdown
+    const subjectHoursBreakdown = (activeTrack?.subjects || []).map((sub) => {
+      // Find logs touching this subject
+      let actualHours = 0;
+      trackLogs.forEach((log) => {
+        if (log.primarySubjectId === sub.id) {
+          actualHours += log.totalHours || 0;
+        } else if (log.subjectIds?.includes(sub.id)) {
+          actualHours += (log.totalHours || 0) / Math.max(1, log.subjectIds.length);
+        }
+      });
+
+      // Ideal hours based on weightage
+      const weight = sub.weightage ?? 10;
+      const ideal = Number(((weight / 100) * (trackerSettings.totalSyllabusHours || 1158.78)).toFixed(1));
+
+      return {
+        subjectId: sub.id,
+        subjectName: sub.name,
+        subjectCode: sub.code,
+        color: sub.color,
+        icon: sub.icon,
+        actualHours: Number(actualHours.toFixed(1)),
+        idealHours: ideal > 0 ? ideal : 60,
+      };
+    });
+
+    // Test stats
+    const trackTests = testLogs.filter((t) => !t.trackId || !activeTrack || t.trackId === activeTrack.id);
+    const totalTests = trackTests.length;
+    const overallAvgPct = totalTests > 0
+      ? Math.round(trackTests.reduce((sum, t) => sum + (t.percentage || 0), 0) / totalTests)
+      : 0;
+
+    const avgByType: Record<string, number> = {};
+    const countByType: Record<string, { sum: number; count: number }> = {};
+    trackTests.forEach((t) => {
+      if (!countByType[t.testType]) countByType[t.testType] = { sum: 0, count: 0 };
+      countByType[t.testType].sum += t.percentage;
+      countByType[t.testType].count++;
+    });
+    Object.entries(countByType).forEach(([type, data]) => {
+      avgByType[type] = Math.round(data.sum / data.count);
+    });
+
+    // Syllabus burn-down & projected finish date
+    const totalSyllabusHours = trackerSettings.totalSyllabusHours || 1158.78;
+    // Completed hours calculation from actual study + completed topics
+    const completedHours = Number(Math.min(totalSyllabusHours, totalStudyHours).toFixed(1));
+    const remainingHours = Number(Math.max(0, totalSyllabusHours - completedHours).toFixed(1));
+    const remainingPct = Math.round((remainingHours / totalSyllabusHours) * 100);
+
+    // Rolling 7-day average
+    const recent7Days = trackLogs.slice(0, 7);
+    const rolling7DayTotal = recent7Days.reduce((sum, l) => sum + (l.totalHours || 0), 0);
+    const rolling7DayDailyAvg = recent7Days.length > 0 ? Number((rolling7DayTotal / recent7Days.length).toFixed(1)) : 0;
+
+    let projectedCompletionDate = 'Calculating...';
+    if (rolling7DayDailyAvg > 0) {
+      const daysNeeded = Math.ceil(remainingHours / rolling7DayDailyAvg);
+      const projDate = addDays(now, daysNeeded);
+      projectedCompletionDate = format(projDate, 'MMM d, yyyy');
+    } else if (remainingHours <= 0) {
+      projectedCompletionDate = 'Syllabus Completed! 🎉';
+    } else {
+      projectedCompletionDate = 'Log hours to project';
+    }
+
+    // Spaced repetition priority revision queue
+    const priorityRevisionQueue: TrackerKPIs['priorityRevisionQueue'] = [];
+    allTrackTopics.forEach(({ topic, subjectName, color, icon }) => {
+      if (topic.confidence && topic.confidence <= 2) {
+        priorityRevisionQueue.push({
+          topicId: topic.id,
+          topicTitle: topic.title,
+          subjectName,
+          subjectColor: color,
+          subjectIcon: icon,
+          reason: `Low Confidence (${topic.confidence}/5)`,
+          confidence: topic.confidence,
+        });
+      } else if (topic.status === 'in-progress') {
+        priorityRevisionQueue.push({
+          topicId: topic.id,
+          topicTitle: topic.title,
+          subjectName,
+          subjectColor: color,
+          subjectIcon: icon,
+          reason: 'In Progress (Active Focus)',
+          confidence: topic.confidence || 3,
+        });
+      }
+    });
+
+    // Also inject topics flagged as weak in recent test logs
+    trackTests.slice(0, 5).forEach((t) => {
+      if (t.weakTopicIds && t.weakTopicIds.length > 0) {
+        t.weakTopicIds.forEach((wId) => {
+          const match = allTrackTopics.find((att) => att.topic.id === wId);
+          if (match && !priorityRevisionQueue.some((q) => q.topicId === wId)) {
+            priorityRevisionQueue.push({
+              topicId: match.topic.id,
+              topicTitle: match.topic.title,
+              subjectName: match.subjectName,
+              subjectColor: match.color,
+              subjectIcon: match.icon,
+              reason: `Weak in ${t.testType} test (${t.percentage.toFixed(0)}%)`,
+              confidence: match.topic.confidence || 2,
+            });
+          }
+        });
+      }
+    });
 
     return {
       totalTopics,
@@ -571,14 +1350,42 @@ export function useStudyTracker() {
       inProgressTopics,
       todoTopics,
       overallCompletionPct,
-      weightedReadinessScore: overallCompletionPct,
-      averageConfidence: 0,
-      totalSubjects: activeTrack.subjects.length,
-      weakTopicsCount: inProgressTopics,
+      weightedReadinessScore,
+      averageConfidence,
+      totalSubjects: activeTrack?.subjects?.length || 0,
+      weakTopicsCount,
       estimatedHoursLeft,
       completedThisWeekCount,
+      keyStats: {
+        daysElapsed,
+        daysRemaining,
+        totalStudyHours,
+        avgHoursPerDay,
+        bestDayHours,
+        daysWith5PlusHours,
+        topicsDoneOrRevised,
+      },
+      slotStats,
+      habitStats,
+      weeklyHours,
+      monthlyHours,
+      subjectHoursBreakdown,
+      testStats: {
+        overallAvgPct,
+        totalTests,
+        avgByType,
+      },
+      burnDown: {
+        totalSyllabusHours,
+        completedHours,
+        remainingHours,
+        remainingPct,
+        rolling7DayDailyAvg,
+        projectedCompletionDate,
+      },
+      priorityRevisionQueue: priorityRevisionQueue.slice(0, 8),
     };
-  }, [activeTrack]);
+  }, [activeTrack, dailyLogs, testLogs, trackerSettings]);
 
   // Track CRUD Actions
   const createTrack = useCallback((title: string, description?: string) => {
@@ -757,7 +1564,7 @@ export function useStudyTracker() {
     toast.success('Unit removed');
   }, [activeTrack, tracks, saveTracks]);
 
-  // Topic CRUD Actions & Gamification Trigger
+  // Topic CRUD Actions
   const addTopic = useCallback((subjectId: string, unitId: string, title: string, confidence: number = 0, estimatedHours: number = 2) => {
     if (!activeTrack) return;
 
@@ -765,9 +1572,10 @@ export function useStudyTracker() {
       id: uuidv4(),
       title,
       status: 'todo',
-      confidence: 0,
+      confidence,
       revisionCount: 0,
       estimatedHours,
+      pyqDone: false,
     };
 
     const updatedTracks = tracks.map((track) => {
@@ -815,6 +1623,7 @@ export function useStudyTracker() {
       confidence: 0,
       revisionCount: 0,
       estimatedHours: 2,
+      pyqDone: false,
     }));
 
     const updatedTracks = tracks.map((track) => {
@@ -862,21 +1671,21 @@ export function useStudyTracker() {
                   if (u.id === unitId) {
                     const nextTopics = u.topics.map((t) => {
                       if (t.id === topicId) {
-                        const isNowMastered = updates.status === 'mastered' && t.status !== 'mastered';
-                        if (isNowMastered) {
+                        const isNowDone = (updates.status === 'mastered' || updates.status === 'done') && t.status !== 'mastered' && t.status !== 'done';
+                        if (isNowDone) {
                           awardXP(15, `Mastered topic: ${t.title}`);
                         }
                         return {
                           ...t,
                           ...updates,
-                          completedAt: updates.status === 'mastered' ? Date.now() : t.completedAt,
+                          completedAt: isNowDone ? Date.now() : t.completedAt,
                         };
                       }
                       return t;
                     });
 
-                    const allDone = nextTopics.length > 0 && nextTopics.every((t) => t.status === 'mastered');
-                    const wasAllDone = u.topics.length > 0 && u.topics.every((t) => t.status === 'mastered');
+                    const allDone = nextTopics.length > 0 && nextTopics.every((t) => t.status === 'mastered' || t.status === 'done');
+                    const wasAllDone = u.topics.length > 0 && u.topics.every((t) => t.status === 'mastered' || t.status === 'done');
                     if (allDone && !wasAllDone) {
                       unitJustCompleted = true;
                     }
@@ -941,12 +1750,59 @@ export function useStudyTracker() {
     if (!topic) return;
 
     let nextStatus: TopicStatus = 'todo';
-    if (topic.status === 'todo') nextStatus = 'in-progress';
-    else if (topic.status === 'in-progress') nextStatus = 'mastered';
-    else if (topic.status === 'mastered') nextStatus = 'todo';
+    if (topic.status === 'todo' || topic.status === 'pending') nextStatus = 'in-progress';
+    else if (topic.status === 'in-progress') nextStatus = 'done';
+    else if (topic.status === 'done' || topic.status === 'mastered') nextStatus = 'revised';
+    else if (topic.status === 'revised') nextStatus = 'todo';
 
     updateTopic(subjectId, unitId, topicId, { status: nextStatus });
   }, [activeTrack, updateTopic]);
+
+  // Export tracker data
+  const exportTrackerData = useCallback((exportFormat: 'json' | 'csv') => {
+    if (exportFormat === 'json') {
+      const data = {
+        exportedAt: new Date().toISOString(),
+        settings: trackerSettings,
+        activeTrack,
+        allTracks: tracks,
+        dailyLogs,
+        testLogs,
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `studyquest_prep_backup_${format(new Date(), 'yyyy-MM-dd')}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Downloaded complete JSON backup!');
+    } else {
+      // CSV Export of Daily Logs
+      const headers = ['Date', 'Day#', 'Weekday', 'ISO Week', 'Total Hours', 'DPP Done', 'DPP Score', 'Focus Rating', 'Notes'];
+      const rows = dailyLogs.map((l) => [
+        l.date,
+        l.dayNumber,
+        l.weekday,
+        l.isoWeek,
+        l.totalHours,
+        l.dpp?.completed ? 'Yes' : 'No',
+        l.dpp?.score !== undefined ? `${l.dpp.score}/${l.dpp.totalMarks || 10}` : '',
+        l.focusRating || '',
+        `"${(l.notes || '').replace(/"/g, '""')}"`,
+      ]);
+
+      const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `studyquest_daily_logs_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Downloaded Daily Logs CSV!');
+    }
+  }, [trackerSettings, activeTrack, tracks, dailyLogs, testLogs]);
 
   return {
     tracks,
@@ -958,6 +1814,9 @@ export function useStudyTracker() {
         localStorage.setItem(ACTIVE_TRACK_KEY, id);
       } catch { /* ignore */ }
     },
+    dailyLogs,
+    testLogs,
+    trackerSettings,
     kpis,
     loading,
     createTrack,
@@ -973,5 +1832,16 @@ export function useStudyTracker() {
     updateTopic,
     deleteTopic,
     toggleTopicStatus,
+    saveDailyLog,
+    deleteDailyLog,
+    saveTestLog,
+    deleteTestLog,
+    updateTrackerSettings,
+    addHabit,
+    updateHabit,
+    deleteHabit,
+    restoreHabit,
+    exportTrackerData,
   };
 }
+

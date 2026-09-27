@@ -20,6 +20,8 @@ interface FolderSidebarProps {
   onAddFolder: (data: Omit<ResourceFolder, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onRenameFolder: (id: string, name: string) => void;
   onDeleteFolder: (id: string) => void;
+  folderCounts?: Record<string, number>;
+  totalCount?: number;
 }
 
 export default function FolderSidebar({
@@ -29,6 +31,8 @@ export default function FolderSidebar({
   onAddFolder,
   onRenameFolder,
   onDeleteFolder,
+  folderCounts,
+  totalCount,
 }: FolderSidebarProps) {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
@@ -121,15 +125,22 @@ export default function FolderSidebar({
       {/* All Resources option */}
       <button
         onClick={() => onSelectFolder(null)}
-        className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-all ${
+        className={`flex items-center justify-between px-4 py-2.5 text-sm font-semibold transition-all ${
           selectedFolderId === null
             ? 'bg-primary/10 text-primary border-r-3 border-primary'
             : 'text-[var(--muted-foreground)] hover:bg-[var(--card-border)]/40'
         }`}
       >
-        <HiFolderOpen size={16} />
-        <span>All Resources</span>
-        </button>
+        <div className="flex items-center gap-2 truncate">
+          <HiFolderOpen size={16} />
+          <span>All Resources</span>
+        </div>
+        {typeof totalCount === 'number' && (
+          <span className="text-xs font-mono text-[var(--muted-foreground)] px-1.5 py-0.5 rounded-full bg-[var(--background)] border border-[var(--card-border)]">
+            {totalCount}
+          </span>
+        )}
+      </button>
 
       {/* Folder list */}
       <div className="flex-1 overflow-y-auto py-1">
@@ -153,18 +164,27 @@ export default function FolderSidebar({
             ) : (
               <button
                 onClick={() => onSelectFolder(folder.id)}
-                className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-all ${
+                className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm font-semibold transition-all ${
                   selectedFolderId === folder.id
                     ? 'bg-primary/10 text-primary border-r-3 border-primary'
                     : 'text-[var(--muted-foreground)] hover:bg-[var(--card-border)]/40'
                 }`}
               >
-                <span className="text-base">{folder.icon}</span>
-                <span className="truncate flex-1 text-left">{folder.name}</span>
-                <span
-                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                  style={{ background: folder.color }}
-                />
+                <div className="flex items-center gap-2 truncate min-w-0">
+                  <span className="text-base">{folder.icon}</span>
+                  <span className="truncate text-left">{folder.name}</span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {folderCounts && folderCounts[folder.id] !== undefined && (
+                    <span className="text-[11px] font-mono text-[var(--muted-foreground)] px-1.5 py-0.5 rounded-md bg-[var(--background)]">
+                      {folderCounts[folder.id]}
+                    </span>
+                  )}
+                  <span
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{ background: folder.color }}
+                  />
+                </div>
               </button>
             )}
 

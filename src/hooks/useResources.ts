@@ -106,10 +106,20 @@ export function useResources() {
     return resources.filter(r => r.folderId === folderId);
   }, [resources]);
 
+  const togglePinResource = useCallback(async (resourceId: string) => {
+    if (!user) return;
+    const target = resources.find(r => r.id === resourceId);
+    if (!target) return;
+    await setDocument(doc(db, 'users', user.uid, 'resources', resourceId), {
+      isPinned: !target.isPinned,
+      updatedAt: Date.now(),
+    });
+  }, [user, resources]);
+
   return {
     folders, resources, loading,
     addFolder, updateFolder, deleteFolder,
     addResource, updateResource, deleteResource,
-    getResourcesByFolder,
+    getResourcesByFolder, togglePinResource,
   };
 }
