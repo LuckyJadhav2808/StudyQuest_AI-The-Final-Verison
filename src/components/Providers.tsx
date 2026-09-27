@@ -16,6 +16,9 @@ import FloatingXPContainer from '@/components/gamification/FloatingXP';
 import FloatingTimerWidget from '@/components/timer/FloatingTimerWidget';
 import { TimerProvider } from '@/context/TimerContext';
 import { MusicProvider } from '@/context/MusicContext';
+import { GamificationProvider } from '@/context/GamificationContext';
+import { ShopProvider } from '@/context/ShopContext';
+import { PetProvider } from '@/context/PetContext';
 import GlobalMusicPlayer from '@/components/music/GlobalMusicPlayer';
 import ParticleBackground from '@/components/ui/ParticleBackground';
 import StickyNotesOverlay from '@/components/ui/StickyNotesOverlay';
@@ -327,11 +330,17 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       <ThemeProvider>
         <SidebarProvider>
           <MusicProvider>
-            <TimerProvider>
-              <AppShell>{children}</AppShell>
-              <FloatingTimerWidget />
-              <GlobalMusicPlayer />
-            </TimerProvider>
+            <GamificationProvider>
+              <ShopProvider>
+                <PetProvider>
+                  <TimerProvider>
+                    <AppShell>{children}</AppShell>
+                    <FloatingTimerWidget />
+                    <GlobalMusicPlayer />
+                  </TimerProvider>
+                </PetProvider>
+              </ShopProvider>
+            </GamificationProvider>
           </MusicProvider>
         </SidebarProvider>
         <QueueToaster />

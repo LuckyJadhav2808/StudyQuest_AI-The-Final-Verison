@@ -30,7 +30,7 @@ const VAULT_QUOTES = [
   'Study hard, loot harder! 🏆',
 ];
 
-export default function ExpressiveTreasureVault({
+function ExpressiveTreasureVault({
   chestAvailable = true,
   onOpenChest,
   className = '',
@@ -67,8 +67,10 @@ export default function ExpressiveTreasureVault({
 
     // 5. Autonomous Blinking Loop
     const scheduleBlink = () => {
+      if (document.hidden) return;
       const delay = 2800 + Math.random() * 3200;
       blinkTimerRef.current = setTimeout(() => {
+        if (document.hidden) return;
         setExpression('blink');
         setTimeout(() => {
           setExpression((prev) => {
@@ -82,8 +84,10 @@ export default function ExpressiveTreasureVault({
 
     // 6. Curious Glancing Loop (Pupil left/right shifts)
     const scheduleGlance = () => {
+      if (document.hidden) return;
       const delay = 5500 + Math.random() * 6500;
       glanceTimerRef.current = setTimeout(() => {
+        if (document.hidden) return;
         const dir: VaultExpression = Math.random() > 0.5 ? 'look-left' : 'look-right';
         setExpression(dir);
         setTimeout(() => {
@@ -96,10 +100,25 @@ export default function ExpressiveTreasureVault({
       }, delay);
     };
 
-    scheduleBlink();
-    scheduleGlance();
+    if (!document.hidden) {
+      scheduleBlink();
+      scheduleGlance();
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current);
+        if (glanceTimerRef.current) clearTimeout(glanceTimerRef.current);
+      } else {
+        scheduleBlink();
+        scheduleGlance();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current);
       if (glanceTimerRef.current) clearTimeout(glanceTimerRef.current);
     };
@@ -591,3 +610,5 @@ export default function ExpressiveTreasureVault({
     </div>
   );
 }
+
+export default React.memo(ExpressiveTreasureVault);

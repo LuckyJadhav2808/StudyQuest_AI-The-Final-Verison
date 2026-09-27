@@ -7,6 +7,39 @@
 import { getActiveSoundPack } from '@/hooks/useCustomization';
 
 let audioCtx: AudioContext | null = null;
+let cachedGlobalVolume: number | null = null;
+let cachedKeyboardTicks: boolean | null = null;
+
+function getCachedVolume(): number {
+  if (cachedGlobalVolume !== null) return cachedGlobalVolume;
+  if (typeof window === 'undefined') return 100;
+  try {
+    const val = localStorage.getItem('sq-sound-volume');
+    cachedGlobalVolume = val !== null ? parseInt(val, 10) : 100;
+  } catch {
+    cachedGlobalVolume = 100;
+  }
+  return cachedGlobalVolume;
+}
+
+function getCachedKeyboardTicks(): boolean {
+  if (cachedKeyboardTicks !== null) return cachedKeyboardTicks;
+  if (typeof window === 'undefined') return true;
+  try {
+    const val = localStorage.getItem('sq-keyboard-ticks');
+    cachedKeyboardTicks = val !== 'false';
+  } catch {
+    cachedKeyboardTicks = true;
+  }
+  return cachedKeyboardTicks;
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'sq-sound-volume') cachedGlobalVolume = null;
+    if (e.key === 'sq-keyboard-ticks') cachedKeyboardTicks = null;
+  });
+}
 
 function getCtx(): AudioContext {
   if (!audioCtx) audioCtx = new AudioContext();
@@ -15,16 +48,7 @@ function getCtx(): AudioContext {
 
 function playTone(frequency: number, duration: number, type: OscillatorType = 'sine', volume = 0.15) {
   try {
-    // Read user volume preferences (0 to 100)
-    let globalVolume = 100;
-    if (typeof window !== 'undefined') {
-      const val = localStorage.getItem('sq-sound-volume');
-      if (val !== null) {
-        globalVolume = parseInt(val);
-      }
-    }
-    
-    // If volume is 0, skip completely
+    const globalVolume = getCachedVolume();
     if (globalVolume <= 0) return;
 
     const ctx = getCtx();
@@ -91,21 +115,13 @@ export function playXP() {
 /** Simulate mechanical keyboard click (Cherry MX style click) */
 export function playKeyboardClick() {
   try {
-    if (typeof window !== 'undefined') {
-      const keyboardTicks = localStorage.getItem('sq-keyboard-ticks');
-      if (keyboardTicks === 'false') return;
-    }
+    if (!getCachedKeyboardTicks()) return;
 
     const ctx = getCtx();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
 
-    // Read user volume preferences (0 to 100)
-    let globalVolume = 100;
-    if (typeof window !== 'undefined') {
-      const val = localStorage.getItem('sq-sound-volume');
-      if (val !== null) globalVolume = parseInt(val);
-    }
+    const globalVolume = getCachedVolume();
     if (globalVolume <= 0) return;
 
     // Pitch variance for organic click feel

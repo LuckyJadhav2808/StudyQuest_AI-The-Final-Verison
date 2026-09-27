@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useMemo, useDeferredValue } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback, useDeferredValue } from 'react';
+import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   HiPlus, HiLightningBolt, HiClipboardCheck,
@@ -30,10 +31,29 @@ import StreakCounter from '@/components/gamification/StreakCounter';
 import PageTransition from '@/components/layout/PageTransition';
 import StudyHeatmap from '@/components/dashboard/StudyHeatmap';
 import TypewriterQuote from '@/components/dashboard/TypewriterQuote';
-import DraggableDashboard from '@/components/dashboard/DraggableDashboard';
-import LofiRoom from '@/components/dashboard/LofiRoom';
-import TreasureChestModal from '@/components/dashboard/TreasureChestModal';
 import MusicWidget from '@/components/dashboard/MusicWidget';
+
+const DraggableDashboard = dynamic(() => import('@/components/dashboard/DraggableDashboard'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-96 rounded-3xl bg-slate-900/30 border border-white/5 animate-pulse flex items-center justify-center text-slate-400 font-medium">
+      Loading Classic Layout...
+    </div>
+  ),
+});
+
+const LofiRoom = dynamic(() => import('@/components/dashboard/LofiRoom'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-96 rounded-3xl bg-slate-900/30 border border-white/5 animate-pulse flex items-center justify-center text-slate-400 font-medium">
+      Loading Lofi Sanctuary...
+    </div>
+  ),
+});
+
+const TreasureChestModal = dynamic(() => import('@/components/dashboard/TreasureChestModal'), {
+  ssr: false,
+});
 import { useNotes } from '@/hooks/useNotes';
 import { useExams } from '@/hooks/useExams';
 import { useShop } from '@/hooks/useShop';
@@ -275,20 +295,30 @@ export default function DashboardContent() {
     }
   };
 
-  const todayTasks = tasks.filter((t) => t.status !== 'done');
-  const completedToday = tasks.filter((t) => {
-    if (t.status !== 'done') return false;
-    const today = getLocalDateString();
-    return getLocalDateString(new Date(t.updatedAt)) === today;
-  });
+  const handleOpenChest = useCallback(() => {
+    playClick();
+    setShowTreasureChest(true);
+  }, []);
 
-  const streakMessage = gamification?.streak && gamification.streak >= 3
-    ? `You've studied for ${gamification.streak} days straight. ${
+  const todayTasks = useMemo(() => tasks.filter((t) => t.status !== 'done'), [tasks]);
+  const completedToday = useMemo(() => {
+    const today = getLocalDateString();
+    return tasks.filter((t) => {
+      if (t.status !== 'done') return false;
+      return getLocalDateString(new Date(t.updatedAt)) === today;
+    });
+  }, [tasks]);
+
+  const streakMessage = useMemo(() => {
+    if (gamification?.streak && gamification.streak >= 3) {
+      return `You've studied for ${gamification.streak} days straight. ${
         gamification.streak < 10
           ? `Only ${10 - gamification.streak} more days until "Eternal Scholar"!`
           : 'Amazing dedication! 🏆'
-      }`
-    : 'Start a study streak to earn bonus XP!';
+      }`;
+    }
+    return 'Start a study streak to earn bonus XP!';
+  }, [gamification?.streak]);
 
   const isNightOwlTime = new Date().getHours() >= 21;
 
@@ -459,7 +489,7 @@ export default function DashboardContent() {
                   ? 'bg-amber-500/15 border-amber-400/30 hover:bg-amber-500/25 animate-pulse-scale'
                   : 'bg-[var(--card-border)]/30 border-[var(--card-border)] opacity-60'
               }`}
-              onClick={() => { playClick(); setShowTreasureChest(true); }}
+              onClick={handleOpenChest}
               title={chestAvailable ? 'Open Daily Treasure Chest!' : 'Already claimed today'}
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.95 }}
@@ -822,10 +852,7 @@ export default function DashboardContent() {
         <div className="absolute right-2 sm:right-6 md:right-10 top-1/2 -translate-y-1/2 flex items-center justify-center z-20">
           <ExpressiveTreasureVault
             chestAvailable={chestAvailable}
-            onOpenChest={() => {
-              playClick();
-              setShowTreasureChest(true);
-            }}
+            onOpenChest={handleOpenChest}
             size={160}
           />
         </div>

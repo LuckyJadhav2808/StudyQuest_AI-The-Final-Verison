@@ -52,7 +52,7 @@ function generateDateRange(days: number): string[] {
   return dates;
 }
 
-export default function StudyHeatmap({ xpByDate, days = 180 }: StudyHeatmapProps) {
+function StudyHeatmap({ xpByDate, days = 180 }: StudyHeatmapProps) {
   const dateRange = useMemo(() => generateDateRange(days), [days]);
 
   // Calculate max XP for scaling
@@ -208,3 +208,19 @@ export default function StudyHeatmap({ xpByDate, days = 180 }: StudyHeatmapProps
     </div>
   );
 }
+
+function arePropsEqual(prevProps: StudyHeatmapProps, nextProps: StudyHeatmapProps): boolean {
+  if (prevProps.days !== nextProps.days) return false;
+  if (prevProps.xpByDate === nextProps.xpByDate) return true;
+  if (!prevProps.xpByDate || !nextProps.xpByDate) return false;
+  const prevKeys = Object.keys(prevProps.xpByDate);
+  const nextKeys = Object.keys(nextProps.xpByDate);
+  if (prevKeys.length !== nextKeys.length) return false;
+  for (let i = 0; i < prevKeys.length; i++) {
+    const k = prevKeys[i];
+    if (prevProps.xpByDate[k] !== nextProps.xpByDate[k]) return false;
+  }
+  return true;
+}
+
+export default React.memo(StudyHeatmap, arePropsEqual);

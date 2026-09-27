@@ -33,7 +33,7 @@ interface StudyDeskWidgetProps {
   className?: string;
 }
 
-export default function StudyDeskWidget({ className = '' }: StudyDeskWidgetProps) {
+function StudyDeskWidget({ className = '' }: StudyDeskWidgetProps) {
   const { pet, feedPet, playWithPet } = usePet();
   const { coins, addCoins } = useShop();
   const { gamification } = useGamification();
@@ -58,24 +58,25 @@ export default function StudyDeskWidget({ className = '' }: StudyDeskWidgetProps
     if (hour >= 23 || hour < 5) return 'sleep';
     if (gamification && gamification.streak >= 3) return 'celebrate';
     return 'idle';
-  }, [gamification]);
+  }, [gamification?.streak]);
+
+  const hasInProgressTask = useMemo(
+    () => tasks?.some((t) => t.status === 'in-progress') ?? false,
+    [tasks]
+  );
 
   // Contextual companion quote
   const dialogueLine = useMemo(() => {
     const hour = new Date().getHours();
     if (hour >= 23 || hour < 5) return 'Zzz... peaceful midnight rest... 🌙';
-    if (tasks && tasks.length > 0 && tasks.some((t) => t.status === 'in-progress')) {
+    if (hasInProgressTask) {
       return 'Laser focus on your active quest! ⚔️';
     }
     if (gamification && gamification.streak >= 3) {
       return `Blazing ${gamification.streak}-day streak! Keep it burning! 🔥`;
     }
     return 'Ready to study and conquer today? 📖';
-  }, [hourCheck(), tasks, gamification]);
-
-  function hourCheck() {
-    return typeof window !== 'undefined' ? new Date().getHours() : 12;
-  }
+  }, [hasInProgressTask, gamification?.streak]);
 
   // ── Pet Cuddle Handler ─────────────────────────────────────────
   const handleDeskPet = async (e?: React.MouseEvent) => {
@@ -255,3 +256,5 @@ export default function StudyDeskWidget({ className = '' }: StudyDeskWidgetProps
     </>
   );
 }
+
+export default React.memo(StudyDeskWidget);

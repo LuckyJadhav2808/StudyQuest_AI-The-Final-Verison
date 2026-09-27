@@ -267,10 +267,13 @@ export function useTheme() {
   if (!themeContext || !motionContext) {
     throw new Error('useTheme must be used within a ThemeProvider');
   }
-  return {
-    ...themeContext,
-    ...motionContext,
-  };
+  return useMemo(
+    () => ({
+      ...themeContext,
+      ...motionContext,
+    }),
+    [themeContext, motionContext]
+  );
 }
 
 export default ThemeContext;

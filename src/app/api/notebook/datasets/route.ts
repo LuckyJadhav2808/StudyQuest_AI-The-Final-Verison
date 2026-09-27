@@ -3,8 +3,13 @@ import fs from 'fs';
 import path from 'path';
 import { PRESET_DATASETS } from '@/data/notebookDatasets';
 
-const USER_DATASETS_DIR = path.join(process.cwd(), 'src', 'components', 'notebook', 'datasets');
-const REPO_DATASETS_DIR = path.join(process.cwd(), 'src', 'data', 'datasets');
+const USER_DATASETS_DIR = path.join(/*turbopackIgnore: true*/ process.cwd(), 'src', 'components', 'notebook', 'datasets');
+
+// Map explicit paths for repository datasets to prevent Turbopack from scanning parent directory trees
+const REPO_FILE_PATHS: Record<string, string> = {
+  'leetcode_questions.csv': path.join(/*turbopackIgnore: true*/ process.cwd(), 'src', 'data', 'datasets', 'Leetcode_Questions_updated (2024-11-02).csv'),
+  'leetcode_analytics.csv': path.join(/*turbopackIgnore: true*/ process.cwd(), 'src', 'data', 'datasets', 'leetcode_dataset - lc.csv'),
+};
 
 // Pre-defined friendly metadata for known dataset files
 const DATASET_METADATA_MAP: Record<
@@ -256,7 +261,7 @@ export async function GET(req: NextRequest) {
       const userFiles = fs.readdirSync(USER_DATASETS_DIR);
       const matched = userFiles.find((f) => f.toLowerCase() === safeFilename);
       if (matched) {
-        const content = fs.readFileSync(path.join(USER_DATASETS_DIR, matched), 'utf-8');
+        const content = fs.readFileSync(path.join(/*turbopackIgnore: true*/ USER_DATASETS_DIR, matched), 'utf-8');
         return new NextResponse(content, {
           headers: {
             'Content-Type': 'text/csv; charset=utf-8',
@@ -277,24 +282,16 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 3. Check repository datasets directory (e.g. LeetCode questions)
-    const REPO_FILE_MAP: Record<string, string> = {
-      'leetcode_questions.csv': 'Leetcode_Questions_updated (2024-11-02).csv',
-      'leetcode_analytics.csv': 'leetcode_dataset - lc.csv',
-    };
-
-    const targetFileName = REPO_FILE_MAP[safeFilename];
-    if (targetFileName && fs.existsSync(REPO_DATASETS_DIR)) {
-      const targetPath = path.join(REPO_DATASETS_DIR, targetFileName);
-      if (fs.existsSync(targetPath)) {
-        const content = fs.readFileSync(targetPath, 'utf-8');
-        return new NextResponse(content, {
-          headers: {
-            'Content-Type': 'text/csv; charset=utf-8',
-            'Cache-Control': 'public, max-age=86400',
-          },
-        });
-      }
+    // 3. Check repository datasets (LeetCode questions & analytics)
+    const targetPath = REPO_FILE_PATHS[safeFilename];
+    if (targetPath && fs.existsSync(targetPath)) {
+      const content = fs.readFileSync(targetPath, 'utf-8');
+      return new NextResponse(content, {
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Cache-Control': 'public, max-age=86400',
+        },
+      });
     }
 
     return NextResponse.json({ error: 'Dataset not found' }, { status: 404 });
@@ -312,7 +309,7 @@ export async function GET(req: NextRequest) {
       const lower = userFile.toLowerCase();
       seenFiles.add(lower);
 
-      const filePath = path.join(USER_DATASETS_DIR, userFile);
+      const filePath = path.join(/*turbopackIgnore: true*/ USER_DATASETS_DIR, userFile);
       const meta = DATASET_METADATA_MAP[lower] || {
         name: userFile.replace(/\.csv$/i, '').replace(/_/g, ' '),
         description: `User-provided dataset with tabular data for machine learning and analytics.`,

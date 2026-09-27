@@ -444,10 +444,9 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
     window.addEventListener('mousemove', updateActivity, { passive: true });
     window.addEventListener('keydown', updateActivity, { passive: true });
     window.addEventListener('click', updateActivity, { passive: true });
-    window.addEventListener('scroll', updateActivity, { capture: true, passive: true });
     window.addEventListener('touchstart', updateActivity, { passive: true });
 
-    // Check idle status every 10 seconds: sleep after 2 minutes of inactivity or late night hours
+    // Check idle status every 15 seconds: sleep after 2 minutes of inactivity or late night hours
     const checkIdleInterval = setInterval(() => {
       const now = Date.now();
       const hour = new Date().getHours();
@@ -459,13 +458,12 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
         setDialogue("Zzz... taking a cozy study nap 💤");
         setShowBubble(true);
       }
-    }, 10000);
+    }, 15000);
 
     return () => {
       window.removeEventListener('mousemove', updateActivity);
       window.removeEventListener('keydown', updateActivity);
       window.removeEventListener('click', updateActivity);
-      window.removeEventListener('scroll', updateActivity, { capture: true });
       window.removeEventListener('touchstart', updateActivity);
       clearInterval(checkIdleInterval);
     };
@@ -473,8 +471,10 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
 
   // Auto roaming (strictly horizontally along the header border line or footer line)
   useEffect(() => {
+    if (!petVisible) return;
+
     const interval = setInterval(() => {
-      if (isSleeping) return; // Pause roaming movements while sleeping to conserve CPU/GPU
+      if (isSleeping || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) return;
       if (Math.random() > 0.4) return; // 60% chance to stay idle
 
       const rand = Math.random();
@@ -494,10 +494,10 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
         // Jump (vertical hop - lands back on border line)
         triggerJump();
       }
-    }, 3500);
+    }, 6000);
 
     return () => clearInterval(interval);
-  }, [isJumping, isSleeping]);
+  }, [isJumping, isSleeping, petVisible]);
 
   const togglePlatform = () => {
     const nextPlatform = platform === 'header' ? 'footer' : 'header';

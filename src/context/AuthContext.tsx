@@ -4,7 +4,7 @@
 // StudyQuest AI — Authentication Context Provider
 // ============================================================
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -419,41 +419,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [initializeProfile]);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     await signInWithEmailAndPassword(auth, email, password);
-  };
+  }, []);
 
-  const signUp = async (email: string, password: string, displayName: string) => {
+  const signUp = useCallback(async (email: string, password: string, displayName: string) => {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(cred.user, { displayName });
-  };
+  }, []);
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = useCallback(async () => {
     const isMobile =
       typeof window !== 'undefined' &&
-      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      /Android|webOS|iPhone|iPad|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
     if (isMobile) {
       await signInWithRedirect(auth, googleProvider);
     } else {
       await signInWithPopup(auth, googleProvider);
     }
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       localStorage.removeItem('sq_auth_uid');
     } catch {}
     await firebaseSignOut(auth);
     setProfile(null);
     setUser(null);
-  };
+  }, []);
 
-  const resetPassword = async (email: string) => {
+  const resetPassword = useCallback(async (email: string) => {
     await sendPasswordResetEmail(auth, email);
-  };
+  }, []);
 
-  const deleteAccount = async () => {
+  const deleteAccount = useCallback(async () => {
     const currentUser = auth.currentUser;
     if (!currentUser) throw new Error('No user logged in');
 
@@ -477,12 +477,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await deleteUser(currentUser);
     setProfile(null);
     setUser(null);
-  };
+  }, []);
+
+  const contextValue = useMemo<AuthContextValue>(
+    () => ({
+      user,
+      profile,
+      loading,
+      signIn,
+      signUp,
+      signInWithGoogle,
+      signOut,
+      resetPassword,
+      deleteAccount,
+    }),
+    [user, profile, loading, signIn, signUp, signInWithGoogle, signOut, resetPassword, deleteAccount]
+  );
 
   return (
-    <AuthContext.Provider
-      value={{ user, profile, loading, signIn, signUp, signInWithGoogle, signOut, resetPassword, deleteAccount }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

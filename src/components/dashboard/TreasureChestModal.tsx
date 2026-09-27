@@ -20,14 +20,14 @@ const RARITY_COLORS = {
   legendary: { glow: '#fbbf24', bg: 'rgba(251, 191, 36, 0.15)', border: 'rgba(251, 191, 36, 0.5)', text: '#fde68a' },
 };
 
-// Generate particles for the opening animation
-const OPENING_PARTICLES = Array.from({ length: 20 }, (_, i) => ({
+// Generate lightweight particles for the opening animation
+const OPENING_PARTICLES = Array.from({ length: 12 }, (_, i) => ({
   id: i,
-  angle: (i * 360) / 20,
-  distance: 60 + Math.random() * 80,
-  size: 4 + Math.random() * 6,
-  delay: Math.random() * 0.3,
-  emoji: ['✨', '⭐', '💫', '🌟', '💎', '🪙'][Math.floor(Math.random() * 6)],
+  angle: (i * 360) / 12,
+  distance: 55 + (i % 3) * 25,
+  size: 5 + (i % 2) * 3,
+  delay: (i * 0.05) % 0.25,
+  emoji: ['✨', '⭐', '🌟', '💎', '🪙'][i % 5],
 }));
 
 interface TreasureChestModalProps {
@@ -50,7 +50,7 @@ export default function TreasureChestModal({ isOpen, onClose }: TreasureChestMod
 
     try {
       // Wait for chest open animation
-      await new Promise((resolve) => setTimeout(resolve, 1200));
+      await new Promise((resolve) => setTimeout(resolve, 1100));
 
       // Phase 2: Claim reward
       const result = await claimTreasureChest();
@@ -153,25 +153,22 @@ export default function TreasureChestModal({ isOpen, onClose }: TreasureChestMod
 
             {/* Chest / Reward Display */}
             <div style={{ position: 'relative', width: '120px', height: '120px' }}>
-              {/* Glow ring */}
+              {/* Hardware-accelerated GPU Glow aura */}
               <motion.div
                 animate={{
-                  boxShadow: phase === 'opening'
-                    ? [
-                        '0 0 20px rgba(139, 92, 246, 0.3)',
-                        '0 0 60px rgba(139, 92, 246, 0.6)',
-                        '0 0 100px rgba(251, 191, 36, 0.8)',
-                      ]
-                    : phase === 'reveal'
-                    ? `0 0 50px ${colors.glow}60`
-                    : '0 0 20px rgba(139, 92, 246, 0.2)',
-                  scale: phase === 'opening' ? [1, 1.1, 1.2] : 1,
+                  opacity: phase === 'opening' ? [0.3, 0.85, 1] : phase === 'reveal' ? 0.75 : 0.25,
+                  scale: phase === 'opening' ? [1, 1.25, 1.45] : 1,
                 }}
-                transition={{ duration: 1.2 }}
+                transition={{ duration: 1.1, ease: 'easeOut' }}
                 style={{
                   position: 'absolute',
-                  inset: -10,
+                  inset: -20,
                   borderRadius: '50%',
+                  background: phase === 'reveal' 
+                    ? `radial-gradient(circle, ${colors.glow} 0%, transparent 70%)`
+                    : 'radial-gradient(circle, rgba(139, 92, 246, 0.6) 0%, rgba(251, 191, 36, 0.35) 45%, transparent 70%)',
+                  willChange: 'transform, opacity',
+                  pointerEvents: 'none',
                 }}
               />
 
@@ -181,7 +178,7 @@ export default function TreasureChestModal({ isOpen, onClose }: TreasureChestMod
                   scale: phase === 'opening' ? [1, 1.15, 0.95, 1.3] : 1,
                   rotate: phase === 'opening' ? [0, -5, 5, -5, 0] : 0,
                 }}
-                transition={{ duration: 1.2 }}
+                transition={{ duration: 1.1 }}
                 style={{
                   fontSize: phase === 'reveal' ? '72px' : '80px',
                   display: 'flex',
@@ -208,7 +205,7 @@ export default function TreasureChestModal({ isOpen, onClose }: TreasureChestMod
                       y: Math.sin((p.angle * Math.PI) / 180) * p.distance,
                       scale: [0, 1.2, 0],
                     }}
-                    transition={{ duration: 1.5, delay: p.delay, ease: 'easeOut' }}
+                    transition={{ duration: 1.3, delay: p.delay, ease: 'easeOut' }}
                     style={{
                       position: 'absolute',
                       top: '50%',
