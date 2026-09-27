@@ -39,6 +39,7 @@ import { useExams } from '@/hooks/useExams';
 import { useShop } from '@/hooks/useShop';
 import { playClick, playSuccess, playXP } from '@/lib/sounds';
 import ExpressiveTreasureVault from '@/components/dashboard/ExpressiveTreasureVault';
+import StudyDeskWidget from '@/components/dashboard/StudyDeskWidget';
 
 // Time-of-day greeting system
 function getTimeOfDay() {
@@ -561,9 +562,12 @@ export default function DashboardContent() {
       <TypewriterQuote />
     ),
 
-    /* ── Music Player Widget ── */
+    /* ── Music Player & Study Desk Widgets ── */
     'music-player': (
-      <MusicWidget />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <MusicWidget />
+        <StudyDeskWidget />
+      </div>
     ),
 
     /* ── Quick Actions + Recent Notes ── */

@@ -6,6 +6,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { playClick, playSuccess } from '@/lib/sounds';
 import { usePet } from '@/hooks/usePet';
+import ChibiCompanionSprite, { CompanionAction } from '@/components/gamification/ChibiCompanionSprite';
+import CompanionDrawer from '@/components/pets/CompanionDrawer';
+import { playCompanionVocal } from '@/lib/companionAudio';
+import { PetSpecies } from '@/types';
 
 // Shared canvas cache to store processed transparent cropped canvas elements globally (across games/pages)
 export const croppedCanvasCache: Record<string, HTMLCanvasElement> = {};
@@ -132,6 +136,7 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
   const [platform, setPlatform] = useState<'header' | 'footer'>('header'); // header border or footer
   const [direction, setDirection] = useState<'left' | 'right'>('right');
   const [isJumping, setIsJumping] = useState(false);
+  const [isMoving, setIsMoving] = useState(false);
   const [hudOpen, setHudOpen] = useState(false);
   
   // Remade High-Fidelity Skins: Cyber Cat, Scholar Owl, Emerald Dragon
@@ -274,7 +279,7 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
 
     setTimeout(() => {
       setIsJumping(false);
-    }, 300);
+    }, 450);
   };
 
   const speak = (msg: string) => {
@@ -477,10 +482,14 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
         // Move left
         setX((prev) => Math.max(2, prev - (3 + Math.floor(Math.random() * 4))));
         setDirection('left');
+        setIsMoving(true);
+        setTimeout(() => setIsMoving(false), 500);
       } else if (rand < 0.90) {
         // Move right
         setX((prev) => Math.min(94, prev + (3 + Math.floor(Math.random() * 4))));
         setDirection('right');
+        setIsMoving(true);
+        setTimeout(() => setIsMoving(false), 500);
       } else {
         // Jump (vertical hop - lands back on border line)
         triggerJump();
@@ -581,19 +590,30 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
     playClick();
   };
 
+  const currentSpecies: PetSpecies = pet?.species || (skinIndex === 0 ? 'cat' : skinIndex === 1 ? 'owl' : 'dragon');
+
+  const companionAction: CompanionAction = isSleeping
+    ? 'sleep'
+    : isJumping
+    ? 'celebrate'
+    : isMoving
+    ? 'walk'
+    : 'idle';
+
   const handlePetClick = () => {
     const randomMsgs = getDynamicMessage();
     const randomMsg = randomMsgs[Math.floor(Math.random() * randomMsgs.length)];
     speak(randomMsg);
     triggerJump();
+    playCompanionVocal(currentSpecies);
   };
 
   // Position settings:
   // - On mobile & desktop floor rail, stands at bottom: 58px (directly on top of bottom nav bar)
-  // - In header mode, stands along the top ceiling edge
+  // - In header mode, stands along the top header bar with safe top clearance
   const positionStyle: React.CSSProperties = platform === 'header' 
     ? {
-        top: '0px',
+        top: '4px',
         left: `${x}%`,
       }
     : {
@@ -606,12 +626,14 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
       {/* Global Viewport Pet Wrapper — Non-blocking click-through for site content underneath */}
       {petVisible && (
         <div 
-          className="fixed transition-all duration-305 ease-out z-30 select-none pointer-events-none"
+          className="fixed transition-all duration-300 ease-out z-30 select-none pointer-events-none"
           style={{
             ...positionStyle,
-            transform: `translateY(${isJumping ? -80 : 0}px)`,
+            // In header mode, hop downward into visible viewport to prevent clipping against the top browser frame.
+            // In footer mode, hop upward away from the bottom dock.
+            transform: `translateY(${isJumping ? (platform === 'header' ? 10 : -22) : 0}px)`,
             transitionProperty: 'left, bottom, top, transform',
-            transitionDuration: isJumping ? '0.15s' : '0.3s',
+            transitionDuration: isJumping ? '0.2s' : '0.35s',
           }}
         >
           {/* Dialogue Bubble — Auto-dismisses after 4s */}
@@ -652,212 +674,50 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
             onClick={handlePetClick}
             className="cursor-pointer group flex flex-col items-center justify-center relative pointer-events-auto"
           >
-            {/* Sleeping Indicator Zzz */}
-            {isSleeping && (
-              <motion.span 
-                className="absolute -top-6 text-sm pointer-events-none z-10 font-bold"
-                animate={{ y: [0, -6, 0], opacity: [0.6, 1, 0.6] }}
-                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-              >
-                💤 Zzz...
-              </motion.span>
-            )}
-
-            {/* Pet Indicator Name */}
+            {/* Pet Indicator Name: in header mode appears below pet to prevent off-screen clipping */}
             <span 
-              className="text-[8px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-555 bg-slate-105 dark:bg-slate-900/60 px-1.5 py-0.5 rounded-full mb-1 border border-slate-200/50 dark:border-slate-800/40 opacity-0 group-hover:opacity-100 transition-opacity"
+              className={`text-[8px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-400 bg-slate-900/80 px-2 py-0.5 rounded-full border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity ${
+                platform === 'header' ? 'order-2 mt-1' : 'order-1 mb-1'
+              }`}
             >
               {pet ? pet.name : skinNames[skinIndex]} (Lv.{stats.level}) {isSleeping ? '😴' : ''}
             </span>
-            <span
-              className={`inline-block transition-transform ${isSleeping ? 'rotate-6 opacity-85 scale-95' : 'hover:scale-110'}`}
-              style={{ transform: `scaleX(${direction === 'left' ? -1 : 1}) ${isSleeping ? 'rotate(6deg)' : ''}` }}
-            >
-              <TransparentSprite 
-                src={skins[skinIndex]} 
-                className="h-16 md:h-18 w-auto filter drop-shadow-[0_4px_6px_rgba(0,0,0,0.15)]"
+            <div className={`hover:scale-110 active:scale-95 transition-transform filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.3)] ${
+              platform === 'header' ? 'order-1' : 'order-2'
+            }`}>
+              <ChibiCompanionSprite
+                species={currentSpecies}
+                action={companionAction}
+                size={58}
+                direction={direction}
+                isSquishing={false}
+                bounceDirection={platform === 'header' ? 'down' : 'up'}
+                showShadow={false}
               />
-            </span>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Floating HUD Controller Toggle Button */}
+      {/* Floating Companion Hub Launcher Button */}
       <div className="fixed bottom-24 md:bottom-20 right-4 z-30">
-        {/* Backdrop overlay for clean tap-outside-to-close */}
-        <AnimatePresence>
-          {hudOpen && (
-            <motion.div
-              className="fixed inset-0 z-[1001] bg-black/60 backdrop-blur-sm"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setHudOpen(false)}
-            />
-          )}
-        </AnimatePresence>
-
         <motion.button 
-          onClick={() => { setHudOpen(!hudOpen); playClick(); }}
-          className={`w-12 h-12 rounded-2xl shadow-2xl flex items-center justify-center transition-all relative z-[1002] border border-white/20 cursor-pointer ${
-            hudOpen 
-              ? 'bg-rose-500 text-white rotate-45' 
-              : 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white hover:scale-105 active:scale-95 shadow-[0_8px_20px_rgba(99,102,241,0.4)]'
-          }`}
+          onClick={() => { setHudOpen(true); playClick(); }}
+          className="w-12 h-12 rounded-2xl shadow-2xl flex items-center justify-center transition-all relative z-[1002] border border-white/20 cursor-pointer bg-gradient-to-br from-indigo-600 to-purple-600 text-white hover:scale-105 active:scale-95 shadow-[0_8px_20px_rgba(99,102,241,0.4)]"
           whileTap={{ scale: 0.9 }}
-          title="Companion Command"
+          title="Open Companion Hub"
         >
-          <span className="text-xl font-bold">{hudOpen ? '×' : '🐾'}</span>
+          <span className="text-xl">🐾</span>
         </motion.button>
-
-        {/* ============================================================ */}
-        {/* DESKTOP HUD PANEL (>= 768px): Glassmorphic Floating Popover */}
-        {/* ============================================================ */}
-        <AnimatePresence>
-          {hudOpen && (
-            <motion.div 
-              className="hidden md:block absolute bottom-16 right-0 w-80 bg-slate-900/95 border border-white/10 p-5 rounded-3xl shadow-2xl backdrop-blur-2xl text-left text-white z-[1002]"
-              initial={{ opacity: 0, y: 16, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 16, scale: 0.95 }}
-              transition={{ type: 'spring', stiffness: 420, damping: 28 }}
-            >
-              {/* Pet Info */}
-              <div className="flex items-center gap-3 mb-3.5 border-b border-white/10 pb-3">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center relative overflow-hidden">
-                  <TransparentSprite src={skins[skinIndex]} className="w-10 h-10" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-1">
-                    <h4 className="text-xs font-heading font-black uppercase text-white truncate">
-                      {pet ? pet.name : skinNames[skinIndex]}
-                    </h4>
-                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-mono font-bold">
-                      Lv.{stats.level}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 mt-1 tabular-nums">
-                    <span>Companion EXP</span>
-                    <span>{stats.exp}/100</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1">
-                    <div 
-                      className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-300"
-                      style={{ width: `${stats.exp}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Interaction buttons */}
-              <div className="grid grid-cols-2 gap-2">
-                <button 
-                  onClick={handleFeed}
-                  className="min-h-[44px] px-3 py-2 rounded-xl border border-white/10 bg-slate-800/80 hover:bg-slate-750 hover:border-indigo-500/40 text-xs font-bold text-slate-200 flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
-                >
-                  <span>🍪</span> Feed (10c)
-                </button>
-                <button 
-                  onClick={handlePet}
-                  className="min-h-[44px] px-3 py-2 rounded-xl border border-white/10 bg-slate-800/80 hover:bg-slate-750 hover:border-indigo-500/40 text-xs font-bold text-slate-200 flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
-                >
-                  <span>💖</span> Pet Friend
-                </button>
-                <button 
-                  onClick={togglePlatform}
-                  className="col-span-2 min-h-[44px] px-3 py-2 rounded-xl border border-white/10 bg-slate-800/80 hover:bg-slate-750 hover:border-indigo-500/40 text-xs font-bold text-slate-200 flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
-                >
-                  <span>↕️</span> Dock: {platform === 'header' ? 'Footer (Bottom)' : 'Header (Top)'}
-                </button>
-                <button 
-                  onClick={togglePetVisible}
-                  className="col-span-2 min-h-[44px] px-3 py-2 rounded-xl border border-white/10 bg-slate-800/80 hover:bg-slate-750 hover:border-indigo-500/40 text-xs font-bold text-slate-200 flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
-                >
-                  <span>{petVisible ? '🚫' : '✨'}</span> {petVisible ? 'Hide Floating Pet' : 'Show Floating Pet'}
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ============================================================ */}
-        {/* MOBILE HUD DRAWER (< 768px): Thumb-Zone Bottom Sheet Drawer  */}
-        {/* ============================================================ */}
-        <AnimatePresence>
-          {hudOpen && (
-            <motion.div 
-              className="md:hidden fixed bottom-0 left-0 right-0 z-[1002] p-5 pb-[max(20px,env(safe-area-inset-bottom,20px))] bg-slate-900/98 border-t border-white/15 rounded-t-3xl shadow-2xl backdrop-blur-2xl text-left text-white"
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-            >
-              {/* Drag Handle Bar */}
-              <div className="w-12 h-1.5 rounded-full bg-slate-700 mx-auto mb-4" />
-
-              {/* Pet Info Card */}
-              <div className="flex items-center gap-3.5 mb-4 p-3 rounded-2xl bg-slate-950/60 border border-white/10">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center shrink-0">
-                  <TransparentSprite src={skins[skinIndex]} className="w-12 h-12" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-heading font-black uppercase text-white truncate">
-                      {pet ? pet.name : skinNames[skinIndex]}
-                    </h4>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono font-bold">
-                      Level {stats.level}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-400 mt-1 tabular-nums">
-                    <span>Experience</span>
-                    <span>{stats.exp}/100 XP</span>
-                  </div>
-                  <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden mt-1.5">
-                    <div 
-                      className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-300"
-                      style={{ width: `${stats.exp}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Quick Actions Grid (44px+ Touch Targets) */}
-              <div className="grid grid-cols-2 gap-2.5">
-                <button 
-                  onClick={handleFeed}
-                  className="min-h-[48px] px-4 py-3 rounded-2xl border border-white/10 bg-slate-800 hover:bg-slate-750 text-sm font-heading font-bold text-white flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
-                >
-                  <span className="text-lg">🍪</span> Feed (10c)
-                </button>
-                <button 
-                  onClick={handlePet}
-                  className="min-h-[48px] px-4 py-3 rounded-2xl border border-white/10 bg-slate-800 hover:bg-slate-750 text-sm font-heading font-bold text-white flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
-                >
-                  <span className="text-lg">💖</span> Pet Friend
-                </button>
-                <button 
-                  onClick={togglePlatform}
-                  className="col-span-2 min-h-[48px] px-4 py-3 rounded-2xl border border-white/10 bg-slate-800 hover:bg-slate-750 text-sm font-heading font-bold text-white flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
-                >
-                  <span>↕️</span> Dock: {platform === 'header' ? 'Footer (Bottom)' : 'Header (Top)'}
-                </button>
-                <button 
-                  onClick={togglePetVisible}
-                  className="col-span-2 min-h-[48px] px-4 py-3 rounded-2xl border border-white/10 bg-slate-800 hover:bg-slate-750 text-sm font-heading font-bold text-white flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
-                >
-                  <span>{petVisible ? '🚫' : '✨'}</span> {petVisible ? 'Hide Floating Pet' : 'Show Floating Pet'}
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
+
+      {/* Production-Grade Companion iOS Drawer & Quick-Dock */}
+      <CompanionDrawer open={hudOpen} onOpenChange={setHudOpen} />
     </>
   );
 }
 
-// Global reusable component to display a pet as a static pixel sprite (replaces pet emojis)
+// Global reusable component to display a pet companion as a 2.5D Chibi Sprite
 // Wrapped in React.memo to prevent unnecessary re-renders in list displays (e.g. Pets page)
 export const PixelPetSprite = React.memo(function PixelPetSprite({ 
   species, 
@@ -868,37 +728,23 @@ export const PixelPetSprite = React.memo(function PixelPetSprite({
   stage: number; 
   className?: string; 
 }) {
-  const skinMap: Record<string, string> = {
-    cat: '/pet_cat_remake.png',
-    owl: '/questie_remake.png',
-    dragon: '/pet_dragon_remake.png',
-    fox: '/pet_dragon_remake.png',
-    bunny: '/pet_cat_remake.png',
-  };
+  const normSpecies: PetSpecies = 
+    species === 'cat' ? 'cat' : 
+    species === 'dragon' ? 'dragon' : 
+    species === 'fox' ? 'fox' : 
+    species === 'bunny' ? 'bunny' : 'owl';
 
-  const src = skinMap[species] || '/pet_cat_remake.png';
-
-  // Calculate size scale based on stage (0 = egg/tiny, 1 = baby, 2 = teen, 3 = adult, 4 = legendary)
-  const scale = stage === 0 ? 0.5 : stage === 1 ? 0.7 : stage === 2 ? 0.85 : 1.0;
-  
-  // Legendary stage (stage 4) has a glowing purple drop-shadow filter
-  const legendaryClass = stage === 4 
-    ? 'drop-shadow-[0_0_8px_rgba(168,85,247,0.7)] animate-pulse' 
-    : 'drop-shadow-[0_2px_4px_rgba(0,0,0,0.15)]';
+  const size = stage === 0 ? 36 : stage === 1 ? 48 : stage === 2 ? 60 : 72;
 
   return (
-    <span 
-      className="inline-flex items-center justify-center relative overflow-visible w-full h-full"
-    >
-      <span 
-        className="inline-block transition-transform duration-300"
-        style={{ transform: `scale(${scale})` }}
-      >
-        <TransparentSprite 
-          src={src} 
-          className={`${className} ${legendaryClass}`} 
-        />
-      </span>
+    <span className={`inline-flex items-center justify-center relative overflow-visible ${className}`}>
+      <ChibiCompanionSprite
+        species={normSpecies}
+        size={size}
+        action={stage === 0 ? 'sleep' : 'idle'}
+        showShadow={false}
+        showAura={stage === 4}
+      />
       {stage === 0 && (
         <span className="absolute bottom-0 right-0 text-xs">🥚</span>
       )}

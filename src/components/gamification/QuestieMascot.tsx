@@ -3,15 +3,16 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePathname } from 'next/navigation';
-import { useAuthContext } from '@/context/AuthContext';
 import { useGamification } from '@/hooks/useGamification';
 import { useTasks } from '@/hooks/useTasks';
 import { getLevelProgress } from '@/lib/constants';
 import { useMotion } from '@/context/ThemeContext';
 import { playClick } from '@/lib/sounds';
 import { HiSparkles } from 'react-icons/hi2';
-import { HiChevronDown, HiChevronUp } from 'react-icons/hi';
+import { HiChevronDown } from 'react-icons/hi';
 import ExpressiveOwlMascot from './ExpressiveOwlMascot';
+import ChibiCompanionSprite from './ChibiCompanionSprite';
+import { playCompanionVocal } from '@/lib/companionAudio';
 
 /* ============================================================
    Questie — Master Companion Mascot 🦉
@@ -132,32 +133,31 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
   const { reduceMotion } = useMotion();
   const [dialogue, setDialogue] = useState('Ready for a quest? 🦉');
   const [mood, setMood] = useState<MascotMood>('active');
-  const [showDialogue, setShowDialogue] = useState(true);
   const [squishing, setSquishing] = useState(false);
   const [collapsedPopoverOpen, setCollapsedPopoverOpen] = useState(false);
-  const [mascotStyle, setMascotStyle] = useState<MascotVisualMode>('expressive');
-  const [isCompact, setIsCompact] = useState(false);
+  const [mascotStyle, setMascotStyle] = useState<MascotVisualMode>(() => {
+    if (typeof window === 'undefined') return 'expressive';
+    try {
+      const saved = localStorage.getItem('sq_questie_style');
+      if (saved === 'pixel' || saved === 'expressive') return saved;
+    } catch {}
+    return 'expressive';
+  });
+  const [isCompact, setIsCompact] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const savedCompact = localStorage.getItem('sq_questie_compact');
+      if (savedCompact !== null) return savedCompact === 'true';
+    } catch {}
+    return false;
+  });
 
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const lastActivityRef = useRef(Date.now());
+  const lastActivityRef = useRef(0);
   const wasIdleRef = useRef(false);
 
   const { gamification } = useGamification();
   const { tasks } = useTasks();
-
-  // Load user's preferred mascot style & compact preference
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('sq_questie_style');
-      if (saved === 'pixel' || saved === 'expressive') {
-        setMascotStyle(saved);
-      }
-      const savedCompact = localStorage.getItem('sq_questie_compact');
-      if (savedCompact !== null) {
-        setIsCompact(savedCompact === 'true');
-      }
-    } catch {}
-  }, []);
 
   const toggleMascotStyle = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -249,11 +249,14 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
     }
 
     if (candidates.length > 0) {
-      setDialogue(pickRandom(candidates));
-      setMood('active');
-      setShowDialogue(true);
-      wasIdleRef.current = false;
-      lastActivityRef.current = Date.now();
+      const chosen = pickRandom(candidates);
+      const timer = setTimeout(() => {
+        setDialogue(chosen);
+        setMood('active');
+        wasIdleRef.current = false;
+        lastActivityRef.current = Date.now();
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [pathname, getContextDialogues]);
 
@@ -265,7 +268,6 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
         wasIdleRef.current = false;
         setMood('active');
         setDialogue(pickRandom(RETURN_MESSAGES));
-        setShowDialogue(true);
       }
     };
 
@@ -275,7 +277,6 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
         wasIdleRef.current = true;
         setMood('sleeping');
         setDialogue(pickRandom(IDLE_MESSAGES));
-        setShowDialogue(true);
       }
     };
 
@@ -296,6 +297,7 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
   // ── Interactive click / squish reaction ──────────────────────
   const handleMascotClick = () => {
     playClick();
+    playCompanionVocal('owl');
     setSquishing(true);
     setTimeout(() => setSquishing(false), 650);
 
@@ -303,7 +305,6 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
     const contextMessages = getContextDialogues();
     const pool = [...routeMessages, ...contextMessages];
     setDialogue(pickRandom(pool.length > 0 ? pool : ['Consistency is your greatest superpower! ✨']));
-    setShowDialogue(true);
     setMood('active');
     setCollapsedPopoverOpen((prev) => !prev);
   };
@@ -353,11 +354,12 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
               size={34}
             />
           ) : (
-            <img
-              src="/questie_remake.png"
-              alt="Questie"
-              className="w-8 h-8 object-contain relative z-10 filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)]"
-              style={{ imageRendering: 'pixelated' }}
+            <ChibiCompanionSprite
+              species="owl"
+              action={currentMood === 'sleeping' ? 'sleep' : currentMood === 'celebration' ? 'celebrate' : squishing ? 'celebrate' : 'idle'}
+              size={34}
+              isSquishing={squishing}
+              showShadow={false}
             />
           )}
 
@@ -378,7 +380,7 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
               <div className="flex items-center gap-1.5 mb-1.5">
                 <span className="text-xs">🦉</span>
                 <span className="text-[10px] font-bold font-heading uppercase text-indigo-300">
-                  Questie's Wisdom
+                  Questie&apos;s Wisdom
                 </span>
               </div>
               <p className="text-xs font-medium text-slate-200 leading-snug">{dialogue}</p>
@@ -413,7 +415,13 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
               {mascotStyle === 'expressive' ? (
                 <ExpressiveOwlMascot mood={currentMood} isSquishing={squishing} size={24} />
               ) : (
-                <img src="/questie_remake.png" alt="Questie" className="w-6 h-6 object-contain" style={{ imageRendering: 'pixelated' }} />
+                <ChibiCompanionSprite
+                  species="owl"
+                  action={currentMood === 'sleeping' ? 'sleep' : currentMood === 'celebration' ? 'celebrate' : squishing ? 'celebrate' : 'idle'}
+                  size={24}
+                  isSquishing={squishing}
+                  showShadow={false}
+                />
               )}
               <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400 ring-1 ring-slate-900" />
             </div>
@@ -481,28 +489,13 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
                 size={50}
               />
             ) : (
-              <>
-                {/* Ground Shadow */}
-                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-2 rounded-full bg-black/40 blur-[2px]" />
-
-                <img
-                  src="/questie_remake.png"
-                  alt="Questie"
-                  className="w-12 h-12 object-contain relative z-10 filter drop-shadow-[0_6px_12px_rgba(0,0,0,0.5)]"
-                  style={{ imageRendering: 'pixelated' }}
-                />
-
-                {/* Zzz particle when sleeping */}
-                {currentMood === 'sleeping' && (
-                  <motion.span
-                    className="absolute -top-1.5 -right-1 text-[10px] font-bold text-indigo-300 pointer-events-none z-20"
-                    animate={{ opacity: [0, 1, 0], y: [0, -8], x: [0, 4] }}
-                    transition={{ duration: 1.8, repeat: Infinity }}
-                  >
-                    zZ
-                  </motion.span>
-                )}
-              </>
+              <ChibiCompanionSprite
+                species="owl"
+                action={currentMood === 'sleeping' ? 'sleep' : currentMood === 'celebration' ? 'celebrate' : squishing ? 'celebrate' : 'idle'}
+                size={50}
+                isSquishing={squishing}
+                showShadow={true}
+              />
             )}
           </motion.div>
 
