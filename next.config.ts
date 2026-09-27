@@ -16,6 +16,14 @@ const nextConfig: NextConfig = {
   },
   // Netlify handles its own adapter — no special config needed for modern Netlify
   // The @netlify/plugin-nextjs handles SSR automatically
+  outputFileTracingExcludes: {
+    '*': [
+      'src/data/datasets/**',
+      'src/data/datasets/**/*',
+      '**/kamyu104/**',
+      '**/*.jsonl',
+    ],
+  },
 };
 
 export default nextConfig;

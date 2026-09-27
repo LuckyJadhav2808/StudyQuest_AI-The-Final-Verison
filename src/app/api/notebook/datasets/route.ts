@@ -5,12 +5,6 @@ import { PRESET_DATASETS } from '@/data/notebookDatasets';
 
 const USER_DATASETS_DIR = path.join(/*turbopackIgnore: true*/ process.cwd(), 'src', 'components', 'notebook', 'datasets');
 
-// Map explicit paths for repository datasets to prevent Turbopack from scanning parent directory trees
-const REPO_FILE_PATHS: Record<string, string> = {
-  'leetcode_questions.csv': path.join(/*turbopackIgnore: true*/ process.cwd(), 'src', 'data', 'datasets', 'Leetcode_Questions_updated (2024-11-02).csv'),
-  'leetcode_analytics.csv': path.join(/*turbopackIgnore: true*/ process.cwd(), 'src', 'data', 'datasets', 'leetcode_dataset - lc.csv'),
-};
-
 // Pre-defined friendly metadata for known dataset files
 const DATASET_METADATA_MAP: Record<
   string,
@@ -246,6 +240,45 @@ df.head()`,
     category: 'Classification',
     icon: '🌸',
   },
+  'leetcode_questions.csv': {
+    name: 'LeetCode 3,300+ Problems & Acceptance Rates',
+    description: 'Complete dataset of 3,300+ LeetCode problems with difficulty (Easy/Med/Hard), topic tags, acceptance rate %, and solution links.',
+    category: 'Machine Learning',
+    icon: '💻',
+    starterCode: `# LeetCode Problems Analysis & Analytics
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+df = pd.read_csv('leetcode_questions.csv')
+print(f"Total Problems: {len(df)}")
+print(df['Difficulty'].value_counts())
+
+# Acceptance Rate distribution by Difficulty
+df['Acceptance_rate_num'] = df['Acceptance_rate'].str.rstrip('%').astype(float)
+
+plt.figure(figsize=(9, 4))
+sns.boxplot(data=df, x='Difficulty', y='Acceptance_rate_num', order=['Easy', 'Medium', 'Hard'], palette='viridis')
+plt.title('LeetCode Acceptance Rate Distribution by Difficulty', fontsize=13, fontweight='bold')
+plt.ylabel('Acceptance Rate (%)')
+plt.show()
+
+df[['Question_No', 'Question', 'Difficulty', 'Acceptance_rate']].head()`,
+  },
+  'leetcode_analytics.csv': {
+    name: 'LeetCode Problem Analytics & Tags',
+    description: 'Detailed analytics dataset for LeetCode algorithmic problems with acceptance rates, question frequency, and tag distributions.',
+    category: 'Machine Learning',
+    icon: '📊',
+    starterCode: `# LeetCode Analytics Exploration
+import pandas as pd
+import matplotlib.pyplot as plt
+
+df = pd.read_csv('leetcode_analytics.csv')
+print("LeetCode Analytics Shape:", df.shape)
+print(df.info())
+df.head()`,
+  },
 };
 
 export async function GET(req: NextRequest) {
@@ -275,18 +308,6 @@ export async function GET(req: NextRequest) {
     const preset = PRESET_DATASETS.find((d) => d.filename.toLowerCase() === safeFilename || d.id === file);
     if (preset) {
       return new NextResponse(preset.csvContent, {
-        headers: {
-          'Content-Type': 'text/csv; charset=utf-8',
-          'Cache-Control': 'public, max-age=86400',
-        },
-      });
-    }
-
-    // 3. Check repository datasets (LeetCode questions & analytics)
-    const targetPath = REPO_FILE_PATHS[safeFilename];
-    if (targetPath && fs.existsSync(targetPath)) {
-      const content = fs.readFileSync(targetPath, 'utf-8');
-      return new NextResponse(content, {
         headers: {
           'Content-Type': 'text/csv; charset=utf-8',
           'Cache-Control': 'public, max-age=86400',
@@ -370,17 +391,18 @@ df.head()`,
     });
   }
 
-  // 3. Add LeetCode repository datasets
-  catalogue.push({
-    id: 'leetcode_questions',
-    name: 'LeetCode 3,300+ Problems & Acceptance Rates',
-    filename: 'leetcode_questions.csv',
-    description: 'Complete dataset of 3,300+ LeetCode problems with difficulty (Easy/Med/Hard), topic tags, acceptance rate %, and solution links.',
-    category: 'Machine Learning',
-    icon: '💻',
-    rows: 3308,
-    columns: ['Question_No', 'Question', 'Topic_tags', 'Acceptance_rate', 'isPremium', 'Difficulty'],
-    starterCode: `# LeetCode Problems Analysis & Analytics
+  // 3. Fallback: Add LeetCode repository dataset if not already in catalogue
+  if (!seenFiles.has('leetcode_questions.csv')) {
+    catalogue.push({
+      id: 'leetcode_questions',
+      name: 'LeetCode 3,300+ Problems & Acceptance Rates',
+      filename: 'leetcode_questions.csv',
+      description: 'Complete dataset of 3,300+ LeetCode problems with difficulty (Easy/Med/Hard), topic tags, acceptance rate %, and solution links.',
+      category: 'Machine Learning',
+      icon: '💻',
+      rows: 3308,
+      columns: ['Question_No', 'Question', 'Topic_tags', 'Acceptance_rate', 'isPremium', 'Difficulty'],
+      starterCode: `# LeetCode Problems Analysis & Analytics
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -399,7 +421,8 @@ plt.ylabel('Acceptance Rate (%)')
 plt.show()
 
 df[['Question_No', 'Question', 'Difficulty', 'Acceptance_rate']].head()`,
-  });
+    });
+  }
 
   return NextResponse.json({ datasets: catalogue });
 }
