@@ -304,7 +304,7 @@ interface ReferenceViewerPanelProps {
   apiKey?: string;
 }
 
-export function ReferenceViewerPanel({ onClose, onInsertText, apiKey }: ReferenceViewerPanelProps) {
+export const ReferenceViewerPanel = React.memo(function ReferenceViewerPanel({ onClose, onInsertText, apiKey }: ReferenceViewerPanelProps) {
   const [activeTab, setActiveTab] = useState<RefType>('image');
   const [refSrc, setRefSrc] = useState<string | null>(null);
   const [refName, setRefName] = useState('');
@@ -314,17 +314,24 @@ export function ReferenceViewerPanel({ onClose, onInsertText, apiKey }: Referenc
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrResult, setOcrResult] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const activeFileRef = useRef<File | null>(null);
 
   const handleFile = useCallback((file: File) => {
+    activeFileRef.current = file;
     if (file.type.startsWith('image/')) {
       setActiveTab('image');
-      const reader = new FileReader();
-      reader.onload = (e) => { setRefSrc(e.target?.result as string); setRefName(file.name); setOcrResult(null); };
-      reader.readAsDataURL(file);
+      setRefSrc((prev) => {
+        if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(file);
+      });
+      setRefName(file.name);
+      setOcrResult(null);
     } else if (file.type === 'application/pdf') {
       setActiveTab('pdf');
-      const url = URL.createObjectURL(file);
-      setRefSrc(url);
+      setRefSrc((prev) => {
+        if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(file);
+      });
       setRefName(file.name);
       setOcrResult(null);
     } else {
@@ -347,26 +354,48 @@ export function ReferenceViewerPanel({ onClose, onInsertText, apiKey }: Referenc
   const loadUrl = () => {
     if (!urlInput.trim()) return;
     setActiveTab('url');
-    setRefSrc(urlInput.trim());
+    setRefSrc((prev) => {
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return urlInput.trim();
+    });
     setRefName(urlInput.trim());
     setOcrResult(null);
+    activeFileRef.current = null;
   };
 
-  const clearRef = () => {
-    if (refSrc && activeTab === 'pdf') URL.revokeObjectURL(refSrc);
-    setRefSrc(null);
+  const clearRef = useCallback(() => {
+    setRefSrc((prev) => {
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return null;
+    });
     setRefName('');
     setZoom(100);
     setOcrResult(null);
-  };
+    activeFileRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (refSrc && refSrc.startsWith('blob:')) {
+        URL.revokeObjectURL(refSrc);
+      }
+    };
+  }, [refSrc]);
 
   const handleOCR = async () => {
-    if (!refSrc || activeTab !== 'image') return;
+    if (!refSrc || activeTab !== 'image' || !activeFileRef.current) return;
 
     setOcrLoading(true);
     const toastId = toast.loading('Vision AI is reading the image...');
 
     try {
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(activeFileRef.current!);
+      });
+
       const result = await callAiCompletion({
         apiKey,
         title: 'StudyQuest Vision OCR',
@@ -383,7 +412,7 @@ export function ReferenceViewerPanel({ onClose, onInsertText, apiKey }: Referenc
               {
                 type: 'image_url',
                 image_url: {
-                  url: refSrc
+                  url: base64Data
                 }
               }
             ]
@@ -528,17 +557,23 @@ export function ReferenceViewerPanel({ onClose, onInsertText, apiKey }: Referenc
           ) : (
             <>
               {activeTab === 'image' && (
-                <img
-                  src={refSrc}
-                  alt="Reference"
-                  style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'center center', transition: 'transform 0.2s' }}
-                />
+                <div className="ref-viewer-img-container">
+                  <img
+                    src={refSrc}
+                    alt="Reference"
+                    style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'center center', transition: 'transform 0.2s' }}
+                  />
+                </div>
               )}
               {activeTab === 'pdf' && (
-                <iframe src={refSrc} title="PDF Viewer" />
+                <div className="ref-viewer-pdf-container">
+                  <iframe src={refSrc} title="PDF Viewer" />
+                </div>
               )}
               {activeTab === 'url' && (
-                <iframe src={refSrc} title="Web Viewer" sandbox="allow-scripts allow-same-origin" />
+                <div className="ref-viewer-pdf-container">
+                  <iframe src={refSrc} title="Web Viewer" sandbox="allow-scripts allow-same-origin" />
+                </div>
               )}
 
               {/* Zoom controls for images */}
@@ -555,7 +590,7 @@ export function ReferenceViewerPanel({ onClose, onInsertText, apiKey }: Referenc
       )}
     </div>
   );
-}
+});
 
 // ════════════════════════════════════════════
 // 4. Whiteboard Split Panel (In-Note Sketchpad)

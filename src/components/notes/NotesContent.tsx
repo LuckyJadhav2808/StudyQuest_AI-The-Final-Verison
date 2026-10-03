@@ -16,221 +16,8 @@ import {
 import QuizModal from '@/components/notes/QuizModal';
 import { marked } from 'marked';
 import 'react-quill-new/dist/quill.snow.css';
-import { autocorrectWord, isMisspelled, getSpellingSuggestions, cleanWord, addToCustomDictionary } from '@/lib/spellcheck';
-import { getAutocompleteSuggestions } from '@/data/notesAutocompleteDataset';
 import { callAiCompletion, resolveOpenRouterKey, parseAiJsonResponse } from '@/lib/ai';
-
-const sanitizeHtmlForQuill = (html: string): string => {
-  if (!html) return '';
-  // Quick pre-check: if it has no elements/classes that could crash Quill, return as-is
-  if (!html.includes('katex') && !html.includes('studyquest-math-embed') && !html.includes('math-field')) {
-    return html;
-  }
-
-  if (typeof window === 'undefined') return html;
-
-  try {
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
-
-    // 1. Clean up studyquest-math-embed / math-field: strip all internal children so it's a clean leaf
-    const mathEmbeds = tempDiv.querySelectorAll('.studyquest-math-embed, math-field');
-    mathEmbeds.forEach((el) => {
-      el.innerHTML = '';
-    });
-
-    // 2. Remove standard KaTeX rendered elements (which may have been pasted or saved)
-    const katexElements = tempDiv.querySelectorAll('.katex');
-    katexElements.forEach((el) => {
-      const annotation = el.querySelector('annotation[encoding="application/x-tex"]');
-      if (annotation && annotation.textContent) {
-        const latex = annotation.textContent.trim();
-        const parent = el.parentElement;
-        const isBlock = parent?.classList.contains('katex-block') || parent?.classList.contains('katex-display') || el.classList.contains('katex-display');
-
-        const newText = isBlock ? `$$${latex}$$` : `$${latex}$`;
-        const textNode = document.createTextNode(newText);
-        el.parentNode?.replaceChild(textNode, el);
-      } else {
-        el.parentNode?.removeChild(el);
-      }
-    });
-
-    // 3. Remove other loose KaTeX wraps
-    const katexWraps = tempDiv.querySelectorAll('.katex-block, .katex-inline, .katex-display');
-    katexWraps.forEach((el) => {
-      if (el.parentNode) {
-        if (!el.textContent?.trim()) {
-          el.parentNode.removeChild(el);
-        } else {
-          const textNode = document.createTextNode(el.textContent);
-          el.parentNode.replaceChild(textNode, el);
-        }
-      }
-    });
-
-    return tempDiv.innerHTML;
-  } catch (e) {
-    console.warn('Failed to sanitize HTML for Quill:', e);
-    return html;
-  }
-};
-
-const getPlainTextPreview = (html: string): string => {
-  if (!html) return 'Empty note...';
-  try {
-    const clean = html
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/\s+/g, ' ')
-      .trim();
-    return clean || 'Empty note...';
-  } catch {
-    return 'Empty note...';
-  }
-};
-
-
-const ReactQuill = dynamic(
-  async () => {
-    const module = await import('react-quill-new');
-    const Quill = module.default.Quill || (module as any).Quill;
-    const Embed = Quill.import('blots/embed') as any;
-
-    class MathEmbed extends Embed {
-      static blotName = 'math';
-      static tagName = 'math-field';
-
-      static create(value: any) {
-        const node = value instanceof HTMLElement ? value : super.create(value);
-        let latex = '';
-        let isBlock = false;
-
-        if (value instanceof HTMLElement) {
-          latex = value.getAttribute('data-latex') || '';
-          isBlock = value.getAttribute('data-block') === 'true';
-        } else if (value && typeof value === 'object') {
-          latex = value.latex || '';
-          isBlock = value.isBlock === true;
-        } else if (typeof value === 'string') {
-          latex = value;
-        }
-
-        node.setAttribute('data-latex', latex);
-        node.setAttribute('data-block', isBlock ? 'true' : 'false');
-        node.className = 'studyquest-math-embed';
-        node.contentEditable = 'false';
-
-        // Check if shadow root already exists (to avoid duplicate attachment)
-        let shadow = node.shadowRoot;
-        let container;
-        if (!shadow && node.attachShadow) {
-          shadow = node.attachShadow({ mode: 'open' });
-          
-          // Load KaTeX stylesheet inside shadow root
-          const link = document.createElement('link');
-          link.rel = 'stylesheet';
-          link.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css';
-          shadow.appendChild(link);
-
-          // Inline styles for display layouts and color inheritance
-          const style = document.createElement('style');
-          style.textContent = `
-            .katex-display {
-              margin: 8px 0;
-              display: block;
-            }
-            .studyquest-math-container {
-              display: inline-block;
-              color: inherit !important;
-            }
-            .katex {
-              color: inherit !important;
-            }
-          `;
-          shadow.appendChild(style);
-
-          container = document.createElement('span');
-          container.className = 'studyquest-math-container';
-          shadow.appendChild(container);
-        } else if (shadow) {
-          container = shadow.querySelector('.studyquest-math-container');
-        }
-
-        if (container) {
-          // Render KaTeX
-          import('katex').then((katexMod) => {
-            const katex = katexMod.default;
-            try {
-              katex.render(latex, container, {
-                displayMode: isBlock,
-                throwOnError: false,
-              });
-            } catch {
-              container.textContent = latex;
-            }
-          });
-        } else if (!node.attachShadow) {
-          // Fallback
-          node.textContent = latex;
-        }
-        return node;
-      }
-
-      static value(node: HTMLElement) {
-        return {
-          latex: node.getAttribute('data-latex') || '',
-          isBlock: node.getAttribute('data-block') === 'true',
-        };
-      }
-    }
-
-    Quill.register(MathEmbed, true);
-    return module.default;
-  },
-  {
-    ssr: false,
-    loading: () => <div className="h-[400px] flex items-center justify-center text-sm text-[var(--muted-foreground)]">Loading editor...</div>
-  }
-) as any;
-
-const QUILL_MODULES = {
-  toolbar: [
-    [{ header: [1, 2, 3, false] }],
-    [{ size: ['small', false, 'large', 'huge'] }],
-    ['bold', 'italic', 'underline', 'strike'],
-    [{ list: 'ordered' }, { list: 'bullet' }],
-    [{ indent: '-1' }, { indent: '+1' }],
-    [{ align: [] }],
-    ['blockquote', 'code-block'],
-    ['link', 'image'],
-    [{ color: [] }, { background: [] }],
-    ['clean'],
-  ],
-  table: true,
-  history: { delay: 500, maxStack: 100, userOnly: true },
-  keyboard: {
-    bindings: {
-      heading1: { key: '1', shortKey: true, handler: function(this: any) { this.quill.format('header', 1); } },
-      heading2: { key: '2', shortKey: true, handler: function(this: any) { this.quill.format('header', 2); } },
-      heading3: { key: '3', shortKey: true, handler: function(this: any) { this.quill.format('header', 3); } },
-      normalText: { key: '0', shortKey: true, handler: function(this: any) { this.quill.format('header', false); } },
-    },
-  },
-};
-const QUILL_FORMATS = [
-  'header', 'size', 'bold', 'italic', 'underline', 'strike',
-  'list', 'indent', 'align', 'blockquote', 'code-block',
-  'link', 'image', 'color', 'background',
-  'table', 'math'
-];
+import { NoteEditorCore, NoteEditorCoreRef, sanitizeHtmlForQuill } from '@/components/notes/NoteEditorCore';
 import toast from 'react-hot-toast';
 import { useNotes } from '@/hooks/useNotes';
 import { useNotesAutosave } from '@/hooks/useNotesAutosave';
@@ -486,8 +273,19 @@ export default function NotesContent() {
     }, 1000);
   };
 
-  // ── Spellcheck & Autocorrect & Autocomplete states for Quill ──
-  const quillRef = useRef<any>(null);
+  // ── Decoupled Editor & Undo/Redo & Shortcuts ──
+  const editorCoreRef = useRef<NoteEditorCoreRef>(null);
+  const quillRef = useRef<any>({
+    getEditor: () => editorCoreRef.current?.getQuill(),
+  });
+  useEffect(() => {
+    quillRef.current = {
+      getEditor: () => editorCoreRef.current?.getQuill(),
+    };
+  });
+
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
   const [autocorrectEnabled, setAutocorrectEnabled] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('studyquest_notes_autocorrect_enabled');
@@ -495,294 +293,10 @@ export default function NotesContent() {
     }
     return true;
   });
-  const autocorrectEnabledRef = useRef(true);
-  const [quillSuggestions, setQuillSuggestions] = useState<string[]>([]);
-  const [quillAutocomplete, setQuillAutocomplete] = useState<string[]>([]);
-  const [quillActiveWord, setQuillActiveWord] = useState('');
-  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
-  const [quillActiveWordRange, setQuillActiveWordRange] = useState<{ start: number; end: number } | null>(null);
-  const [caretPosition, setCaretPosition] = useState<{ top: number; left: number } | null>(null);
-  const quillActiveWordRangeRef = useRef<{ start: number; end: number } | null>(null);
-  const activeSuggestionIndexRef = useRef(0);
-  const quillAutocompleteRef = useRef<string[]>([]);
-  const quillSuggestionsRef = useRef<string[]>([]);
-  const isReplacingRef = useRef(false);
-  const lastSelectionIndexRef = useRef<number | null>(null);
-  const quillSuggestionsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const spellingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const wordCountDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mascotMoodRef = useRef<MascotMood>('active');
-
-  useEffect(() => { autocorrectEnabledRef.current = autocorrectEnabled; }, [autocorrectEnabled]);
-  useEffect(() => { quillAutocompleteRef.current = quillAutocomplete; }, [quillAutocomplete]);
-  useEffect(() => { quillSuggestionsRef.current = quillSuggestions; }, [quillSuggestions]);
-  useEffect(() => { activeSuggestionIndexRef.current = activeSuggestionIndex; }, [activeSuggestionIndex]);
   useEffect(() => { mascotMoodRef.current = mascotMood; }, [mascotMood]);
 
-  // Clean up debounce timers on unmount
-  useEffect(() => {
-    return () => {
-      if (spellingDebounceRef.current) clearTimeout(spellingDebounceRef.current);
-      if (wordCountDebounceRef.current) clearTimeout(wordCountDebounceRef.current);
-    };
-  }, []);
-
-  const performQuillSpellingCheck = useCallback(() => {
-    if (isReplacingRef.current || !autocorrectEnabledRef.current) {
-      if (!autocorrectEnabledRef.current) {
-        setQuillActiveWord('');
-        setQuillSuggestions([]);
-        setQuillAutocomplete([]);
-        setQuillActiveWordRange(null);
-        setCaretPosition(null);
-        setActiveSuggestionIndex(0);
-      }
-      return;
-    }
-
-    const quill = quillRef.current?.getEditor();
-    if (!quill) return;
-
-    const range = quill.getSelection();
-    if (!range) {
-      setQuillActiveWord('');
-      setQuillSuggestions([]);
-      setQuillAutocomplete([]);
-      setQuillActiveWordRange(null);
-      setCaretPosition(null);
-      setActiveSuggestionIndex(0);
-      return;
-    }
-
-    const pos = range.index;
-    lastSelectionIndexRef.current = pos;
-    const text = quill.getText();
-
-    // Find start of current word
-    let start = pos;
-    while (start > 0 && !/\s/.test(text[start - 1])) {
-      start--;
-    }
-
-    // Find end of current word
-    let end = pos;
-    while (end < text.length && !/\s/.test(text[end])) {
-      end++;
-    }
-
-    const word = text.slice(start, end);
-    // Only check if we have a non-empty word of at least 2 characters
-    if (!word || !word.trim() || word.trim().length < 2) {
-      setQuillActiveWord('');
-      setQuillSuggestions([]);
-      setQuillAutocomplete([]);
-      setQuillActiveWordRange(null);
-      setCaretPosition(null);
-      setActiveSuggestionIndex(0);
-      return;
-    }
-    const clean = cleanWord(word);
-
-    if (clean.base && clean.base.length >= 2) {
-      // 1. Instant Autocomplete Suggestions from vocabulary dataset
-      const autoMatches = getAutocompleteSuggestions(clean.base, 4).filter(
-        (w) => w.toLowerCase() !== clean.base.toLowerCase()
-      );
-
-      // 2. Spellcheck suggestions if misspelled
-      const misspelled = isMisspelled(word);
-      const suggestions = misspelled ? getSpellingSuggestions(word) : [];
-
-      // Performance guard: if no suggestions match, reset state without triggering layout reflow
-      if (autoMatches.length === 0 && suggestions.length === 0) {
-        setQuillActiveWord('');
-        setQuillSuggestions([]);
-        setQuillAutocomplete([]);
-        setQuillActiveWordRange(null);
-        setCaretPosition(null);
-        setActiveSuggestionIndex(0);
-        return;
-      }
-
-      setQuillActiveWord(word);
-      setQuillActiveWordRange({ start, end });
-      quillActiveWordRangeRef.current = { start, end };
-      setActiveSuggestionIndex(0);
-      setQuillAutocomplete(autoMatches);
-      setQuillSuggestions(suggestions);
-
-      // Calculate pixel bounds for floating caret popover ONLY when suggestions exist
-      try {
-        const bounds = quill.getBounds(pos);
-        if (bounds) {
-          const toolbarEl = quillWrapperRef.current?.querySelector('.ql-toolbar');
-          const toolbarHeight = toolbarEl ? toolbarEl.getBoundingClientRect().height : 42;
-          setCaretPosition({
-            top: bounds.bottom + toolbarHeight + 10,
-            left: Math.max(16, bounds.left + 16),
-          });
-        }
-      } catch (e) {
-        // Fallback gracefully without throwing
-      }
-    } else {
-      setQuillActiveWord('');
-      setQuillSuggestions([]);
-      setQuillAutocomplete([]);
-      setQuillActiveWordRange(null);
-      setCaretPosition(null);
-      setActiveSuggestionIndex(0);
-    }
-  }, []);
-
-  const checkQuillSpelling = useCallback((immediate = false) => {
-    if (spellingDebounceRef.current) {
-      clearTimeout(spellingDebounceRef.current);
-      spellingDebounceRef.current = null;
-    }
-
-    if (immediate) {
-      performQuillSpellingCheck();
-    } else {
-      // 160ms debounce: keystrokes fly at full native speed with 0ms lag
-      spellingDebounceRef.current = setTimeout(() => {
-        performQuillSpellingCheck();
-      }, 160);
-    }
-  }, [performQuillSpellingCheck]);
-
-
-
-
-
-  const replaceQuillWord = useCallback((replacement: string) => {
-    const quill = quillRef.current?.getEditor();
-    if (!quill) return;
-
-    // Use the active misspelled word range directly from ref if available.
-    let start: number;
-    let end: number;
-
-    if (quillActiveWordRangeRef.current) {
-      start = quillActiveWordRangeRef.current.start;
-      end = quillActiveWordRangeRef.current.end;
-    } else {
-      // Fallback: Get current selection dynamically (or fall back to last focused selection ref)
-      const range = quill.getSelection();
-      const pos = range ? range.index : lastSelectionIndexRef.current;
-      
-      if (pos === null || pos === undefined) {
-        return;
-      }
-
-      const text = quill.getText();
-      
-      // Find start of current word dynamically based on pos
-      start = pos;
-      while (start > 0 && !/\s/.test(text[start - 1])) {
-        start--;
-      }
-
-      // Find end of current word dynamically based on pos
-      end = pos;
-      while (end < text.length && !/\s/.test(text[end])) {
-        end++;
-      }
-    }
-
-    isReplacingRef.current = true;
-
-    // Re-read current text to ensure boundaries match
-    const text = quill.getText();
-    
-    // Validate range against current text
-    if (start < 0 || end > text.length || start >= end) {
-      isReplacingRef.current = false;
-      return;
-    }
-
-    const wordText = text.slice(start, end);
-    const clean = cleanWord(wordText);
-
-    const fullReplacement = clean.leading + replacement + clean.trailing;
-    
-    // Always place cursor right after the replaced word
-    const newCursorPos = start + fullReplacement.length;
-
-    // Perform update in a single atomic Delta operation
-    quill.updateContents({
-      ops: [
-        { retain: start },
-        { delete: end - start },
-        { insert: fullReplacement }
-      ]
-    });
-
-    // Update selection immediately
-    quill.setSelection(newCursorPos);
-
-    // Update React state synchronously to prevent controlled value override race conditions
-    setEditContent(quill.root.innerHTML);
-
-    // Clear suggestions and restore state after Quill finishes its internal update
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        quill.setSelection(newCursorPos);
-        setQuillActiveWord('');
-        setQuillSuggestions([]);
-        setQuillAutocomplete([]);
-        setQuillActiveWordRange(null);
-        setCaretPosition(null);
-        quillActiveWordRangeRef.current = null;
-        lastSelectionIndexRef.current = null;
-        isReplacingRef.current = false;
-      }, 0);
-    });
-  }, [checkQuillSpelling]);
-
-  const addQuillWordToDictionary = useCallback((word: string) => {
-    addToCustomDictionary(word);
-    setQuillActiveWord('');
-    setQuillSuggestions([]);
-    setQuillAutocomplete([]);
-    setQuillActiveWordRange(null);
-    setCaretPosition(null);
-    quillActiveWordRangeRef.current = null;
-    lastSelectionIndexRef.current = null;
-
-    const quill = quillRef.current?.getEditor();
-    if (quill) {
-      setTimeout(() => {
-        checkQuillSpelling();
-      }, 0);
-    }
-  }, [checkQuillSpelling]);
-
-  // Re-check spelling when custom dictionary updates elsewhere
-  useEffect(() => {
-    const handleDictUpdate = () => {
-      checkQuillSpelling();
-    };
-    if (typeof window !== 'undefined') {
-      window.addEventListener('studyquest_custom_dict_update', handleDictUpdate);
-    }
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('studyquest_custom_dict_update', handleDictUpdate);
-      }
-    };
-  }, [checkQuillSpelling]);
-
-  // Clean up spelling suggestions timer on unmount
-  useEffect(() => {
-    return () => {
-      if (quillSuggestionsTimeoutRef.current) {
-        clearTimeout(quillSuggestionsTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Global Escape & shortcut listener (Escape to close drawer/popover/zen, Ctrl+[ to toggle drawer)
+  // Global Escape & shortcut listener (Escape to close drawer/zen, Ctrl+[ to toggle drawer)
   useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -792,13 +306,6 @@ export default function NotesContent() {
         setIsScrollsDrawerOpen(false);
         setShowAiDropdown(false);
         setShowMoreDropdown(false);
-        if (isEditing) {
-          setCaretPosition(null);
-          setQuillAutocomplete([]);
-          setQuillSuggestions([]);
-          setQuillActiveWord('');
-          setActiveSuggestionIndex(0);
-        }
       }
       if ((e.ctrlKey || e.metaKey) && e.key === '[') {
         e.preventDefault();
@@ -808,221 +315,7 @@ export default function NotesContent() {
 
     window.addEventListener('keydown', handleGlobalShortcuts, true);
     return () => window.removeEventListener('keydown', handleGlobalShortcuts, true);
-  }, [isEditing, focusMode, setFocusMode]);
-
-
-  // Keydown listener for space and punctuation autocorrect in Quill + Tab autocomplete
-  useEffect(() => {
-    if (!isEditing || !quillWrapperRef.current) return;
-    
-    let editorEl: HTMLElement | null = null;
-    let listener: ((e: KeyboardEvent) => void) | null = null;
-
-    const setupListener = () => {
-      editorEl = quillWrapperRef.current?.querySelector('.ql-editor') || null;
-      if (!editorEl) {
-        setTimeout(setupListener, 100);
-        return;
-      }
-
-
-      listener = (e: KeyboardEvent) => {
-        const quill = quillRef.current?.getEditor();
-        if (!quill) return;
-
-        const allSuggestions = [
-          ...quillAutocompleteRef.current,
-          ...quillSuggestionsRef.current,
-        ];
-
-        // If autocorrect is disabled, don't intercept suggestions
-        if (!autocorrectEnabledRef.current) return;
-
-        // 1. Tab / Shift+Tab: Accept suggestion on Tab or cycle backwards on Shift+Tab
-        if (e.key === 'Tab' && allSuggestions.length > 0) {
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-          if (e.shiftKey) {
-            // Shift+Tab: cycle backward
-            setActiveSuggestionIndex((prev) => (prev - 1 + allSuggestions.length) % allSuggestions.length);
-          } else {
-            // Tab: accept currently highlighted suggestion
-            const selected = allSuggestions[activeSuggestionIndexRef.current] || allSuggestions[0];
-            if (selected) {
-              replaceQuillWord(selected);
-            }
-          }
-          return;
-        }
-
-        // 2. Escape key: Dismiss floating suggestions popover
-        if (e.key === 'Escape') {
-          if (allSuggestions.length > 0) {
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-          }
-          setCaretPosition(null);
-          setQuillAutocomplete([]);
-          setQuillSuggestions([]);
-          setActiveSuggestionIndex(0);
-          return;
-        }
-
-        const triggers = [' ', '.', ',', '!', '?', ';', ':', 'Enter'];
-        if (!triggers.includes(e.key)) return;
-
-        const range = quill.getSelection();
-        if (!range || range.index === 0) return;
-
-        const pos = range.index;
-        const text = quill.getText(0, pos);
-        
-        // Find the word immediately before the cursor
-        // First find the end of the word (skip trailing whitespace before cursor)
-        let wordEnd = pos;
-        while (wordEnd > 0 && /\s/.test(text[wordEnd - 1])) {
-          wordEnd--;
-        }
-        // Now find the start of the word
-        let wordStart = wordEnd;
-        while (wordStart > 0 && !/\s/.test(text[wordStart - 1])) {
-          wordStart--;
-        }
-
-        if (wordStart === wordEnd) return; // No word found
-
-        const wordWithPunc = text.slice(wordStart, wordEnd);
-        const corrected = autocorrectWord(wordWithPunc);
-        
-        if (corrected !== wordWithPunc) {
-          // Preserve newline when user hits Enter to trigger autocorrect!
-          const appendChar = e.key === 'Enter' ? '\n' : e.key;
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-
-          // Use updateContents for atomic change
-          quill.updateContents({
-            ops: [
-              { retain: wordStart },
-              { delete: wordEnd - wordStart },
-              { insert: corrected + appendChar }
-            ]
-          });
-
-          const newCursorPos = wordStart + corrected.length + appendChar.length;
-
-          // Set selection immediately
-          quill.setSelection(newCursorPos);
-
-          // Update React state synchronously to prevent controlled overwrite
-          setEditContent(quill.root.innerHTML);
-
-          requestAnimationFrame(() => {
-            setTimeout(() => {
-              quill.setSelection(newCursorPos);
-              checkQuillSpelling();
-            }, 0);
-          });
-        }
-      };
-
-      // Capture phase: ensures we intercept Enter and Tab BEFORE Quill's internal Keyboard module splits the line!
-      editorEl.addEventListener('keydown', listener, true);
-    };
-
-    setupListener();
-
-    return () => {
-      if (editorEl && listener) {
-        editorEl.removeEventListener('keydown', listener, true);
-      }
-    };
-  }, [isEditing, checkQuillSpelling]);
-
-  // Hook up text-change and selection-change events
-
-  useEffect(() => {
-    if (!isEditing) return;
-    
-    let quill: any = null;
-    const setupEvents = () => {
-      quill = quillRef.current?.getEditor();
-      if (!quill) {
-        setTimeout(setupEvents, 100);
-        return;
-      }
-
-      quill.on('selection-change', checkQuillSpelling);
-      quill.on('text-change', checkQuillSpelling);
-    };
-
-    setupEvents();
-
-    return () => {
-      if (quill) {
-        quill.off('selection-change', checkQuillSpelling);
-        quill.off('text-change', checkQuillSpelling);
-      }
-    };
-  }, [isEditing, checkQuillSpelling]);
-
-  // Dynamically inject native HTML title tooltips for Quill toolbar elements to guide users
-  useEffect(() => {
-    if (!isEditing) return;
-
-    let attempts = 0;
-    const injectTooltips = () => {
-      const quill = quillRef.current?.getEditor();
-      if (!quill) {
-        if (attempts < 20) {
-          attempts++;
-          setTimeout(injectTooltips, 100);
-        }
-        return;
-      }
-
-      const toolbar = quill.getModule('toolbar');
-      if (toolbar && toolbar.container) {
-        const container = toolbar.container;
-        const tooltips: Record<string, string> = {
-          'ql-bold': 'Bold (Ctrl+B) — Style text thicker',
-          'ql-italic': 'Italic (Ctrl+I) — Slant text for emphasis',
-          'ql-underline': 'Underline (Ctrl+U) — Add underline to text',
-          'ql-strike': 'Strikethrough (Ctrl+Shift+S) — Cross out text',
-          'ql-list[value="ordered"]': 'Numbered List (Ctrl+Shift+7) — Create list of items with numbers',
-          'ql-list[value="bullet"]': 'Bulleted List (Ctrl+Shift+8) — Create list of items with bullets',
-          'ql-indent[value="-1"]': 'Outdent (Shift+Tab) — Move text margins outwards',
-          'ql-indent[value="+1"]': 'Indent (Tab) — Move text margins inwards',
-          'ql-blockquote': 'Blockquote — Highlight a quote or reference block',
-          'ql-code-block': 'Code Block — Write syntax-highlighted code',
-          'ql-link': 'Insert Link (Ctrl+K) — Hyperlink selected text',
-          'ql-image': 'Insert Image — Embed images in notes',
-          'ql-clean': 'Clear Formatting — Strip styles back to plain text',
-          'ql-header': 'Heading Level (Ctrl+1/2/3) — Change title/heading size',
-          'ql-size': 'Font Size — Make text small, normal, large, or huge',
-          'ql-color': 'Text Color — Change writing color',
-          'ql-background': 'Text Highlight Color — Change background highlight color',
-          'ql-align': 'Text Alignment — Left, center, right, or justified alignment'
-        };
-
-        Object.entries(tooltips).forEach(([selector, tooltip]) => {
-          const query = selector.startsWith('ql-') ? `.${selector}` : selector;
-          const elements = container.querySelectorAll(query);
-          elements.forEach((el: any) => {
-            if (el) {
-              el.setAttribute('title', tooltip);
-              el.setAttribute('aria-label', tooltip);
-            }
-          });
-        });
-      }
-    };
-
-    injectTooltips();
-  }, [isEditing, selectedNote]);
+  }, [focusMode, setFocusMode]);
 
   // Markdown import / edit
   const [showMarkdownImport, setShowMarkdownImport] = useState(false);
@@ -1102,8 +395,11 @@ export default function NotesContent() {
 
   const handleSave = async () => {
     if (!selectedNote) return;
+    const latestContent = editorCoreRef.current?.getHtml() || editContent;
     setSaveStatus('saving');
-    await updateNote(selectedNote.id, { title: editTitle, content: editContent });
+    await updateNote(selectedNote.id, { title: editTitle, content: latestContent });
+    setSelectedNote({ ...selectedNote, title: editTitle, content: latestContent, updatedAt: Date.now() });
+    setEditContent(latestContent);
     setSelectedNote({ ...selectedNote, title: editTitle, content: editContent, updatedAt: Date.now() });
     lastSavedAt.current = Date.now();
     setSaveStatus('saved');
@@ -1141,11 +437,15 @@ export default function NotesContent() {
   };
 
 
-  const handleContentChange = useCallback((content: string) => {
-    setEditContent(content);
-    scheduleAutosave(content, editTitle);
+  const handleContentChangeDebounced = useCallback((
+    html: string,
+    stats: { words: number; chars: number; readingTime: string }
+  ) => {
+    setEditContent(html);
+    setWordCount(stats);
+    scheduleAutosave(html, editTitle);
 
-    // Mascot focus state & typing detection (avoid redundant state dispatches if already focusing)
+    // Mascot focus state & typing detection
     if (mascotMoodRef.current !== 'focus') {
       setMascotMood('focus');
     }
@@ -1153,87 +453,41 @@ export default function NotesContent() {
     typingTimerRef.current = setTimeout(() => {
       setMascotMood('active');
     }, 2500);
+  }, [editTitle, scheduleAutosave]);
 
-    // Debounce word count, reading time & mana calculation (400ms) to ensure 60fps typing speed
-    if (wordCountDebounceRef.current) clearTimeout(wordCountDebounceRef.current);
-    wordCountDebounceRef.current = setTimeout(() => {
-      const textOnly = content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim();
-      const currentWordCount = textOnly ? textOnly.split(/\s+/).filter(Boolean).length : 0;
-      const chars = textOnly.length;
-      const mins = Math.max(1, Math.ceil(currentWordCount / 200));
-      setWordCount({ words: currentWordCount, chars, readingTime: `${mins} min read` });
+  const handleHumanWordsTyped = useCallback((count: number) => {
+    setWordsWrittenSession((prevSession) => {
+      const newSession = prevSession + count;
+      if (newSession >= 100) {
+        const awardMana = Math.floor(newSession / 100) * 10;
+        setMana((prevMana) => Math.min(100, prevMana + awardMana));
 
-      if (lastWordCount > 0) {
-        const diff = currentWordCount - lastWordCount;
-        if (diff > 0) {
-          const newSessionCount = wordsWrittenSession + diff;
-          setWordsWrittenSession(newSessionCount);
-          setLastWordCount(currentWordCount);
+        // Award XP, Gold, and a random Ingredient!
+        awardXP(10, 'Focused Note Writing');
 
-          // Check if we hit a 100-word milestone!
-          if (newSessionCount >= 100) {
-            const awardMana = Math.floor(newSessionCount / 100) * 10;
-            setMana(prev => Math.min(100, prev + awardMana));
-            setWordsWrittenSession(newSessionCount % 100);
+        const ingredients = ['ether_shard', 'dragon_scale', 'phoenix_feather', 'mana_core', 'sun_stone', 'mercury_dew'];
+        const randomIng = ingredients[Math.floor(Math.random() * ingredients.length)];
 
-            // Award XP, Gold, and a random Ingredient!
-            awardXP(10, 'Focused Note Writing');
-            
-            // Random alchemy ingredient
-            const ingredients = ['ether_shard', 'dragon_scale', 'phoenix_feather', 'mana_core', 'sun_stone', 'mercury_dew'];
-            const randomIng = ingredients[Math.floor(Math.random() * ingredients.length)];
-            
-            toast.success(`🔮 Mana Infused! +${awardMana} Mana, +10 XP, and found 1x ${randomIng.replace('_', ' ')}!`, {
-              icon: '✨',
-              duration: 4000
-            });
+        toast.success(`🔮 Mana Infused! +${awardMana} Mana, +10 XP, and found 1x ${randomIng.replace('_', ' ')}!`, {
+          icon: '✨',
+          duration: 4000
+        });
 
-            // Questie milestone speech bubble & celebration
-            setMascotMood('celebration');
-            setMascotBubble(`🔥 100 words written! Mana infused! Keep going! 🦉`);
-            setShowMascotBubble(true);
-            playSuccess();
-            setTimeout(() => {
-              setMascotMood('active');
-              setShowMascotBubble(false);
-            }, 4500);
-          }
-        } else {
-          setLastWordCount(currentWordCount);
-        }
-      } else {
-        setLastWordCount(currentWordCount);
+        // Questie milestone celebration
+        setMascotMood('celebration');
+        setMascotBubble(`🔥 100 words written! Mana infused! Keep going! 🦉`);
+        setShowMascotBubble(true);
+        playSuccess();
+        setTimeout(() => {
+          setMascotMood('active');
+          setShowMascotBubble(false);
+        }, 4500);
+
+        return newSession % 100;
       }
-    }, 400);
-
-    // ── Fast check for compare/slash compare command only if 'compare' exists in text ──
-    if (content.includes('compare')) {
-      const quill = quillRef.current?.getEditor();
-      if (quill) {
-        const text = quill.getText();
-        const range = quill.getSelection();
-        if (range) {
-          const compareRegex = /(?:^|\n)(?:\/)?compare\s+(.+?)\s+(?:vs|and|versus|with)\s+([^\r\n]+)(?:\r?\n)/i;
-          const match = text.match(compareRegex);
-          if (match) {
-            const commandText = match[0].trim();
-            const topicA = match[1].trim();
-            const topicB = match[2].trim();
-            if (topicA && topicB) {
-              // Immediately replace the command text with a placeholder
-              const matchStart = text.lastIndexOf(commandText, range.index);
-              if (matchStart !== -1) {
-                const placeholderText = `⏳ Generating comparison: ${topicA} vs ${topicB}...`;
-                quill.deleteText(matchStart, commandText.length);
-                quill.insertText(matchStart, placeholderText);
-                handleCompareCommand(topicA, topicB, placeholderText);
-              }
-            }
-          }
-        }
-      }
-    }
-  }, [editTitle, scheduleAutosave, lastWordCount, wordsWrittenSession, awardXP]);
+      return newSession;
+    });
+  }, [awardXP, playSuccess]);
 
   // Word count & reading time (state-managed to eliminate synchronous regex on every keypress)
   const [wordCount, setWordCount] = useState<{ words: number; chars: number; readingTime: string }>({
@@ -1326,21 +580,14 @@ export default function NotesContent() {
     };
   }, [selectedNote, isEditing]);
 
-  // Undo / Redo via Quill history (accessed through DOM)
-  const getQuillEditor = useCallback(() => {
-    const wrapper = quillWrapperRef.current;
-    if (!wrapper) return null;
-    return (wrapper.querySelector('.ql-container') as any)?.__quill || null;
+  // Undo / Redo via NoteEditorCore imperative handle
+  const handleUndo = useCallback(() => {
+    editorCoreRef.current?.undo();
   }, []);
 
-  const handleUndo = () => {
-    const editor = getQuillEditor();
-    if (editor) editor.history.undo();
-  };
-  const handleRedo = () => {
-    const editor = getQuillEditor();
-    if (editor) editor.history.redo();
-  };
+  const handleRedo = useCallback(() => {
+    editorCoreRef.current?.redo();
+  }, []);
 
   // Insert diagram image into note content
   const handleInsertDiagram = (dataUrl: string) => {
@@ -2398,10 +1645,24 @@ Rules:
                           >
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <div className="flex items-center gap-1">
-                                <button onClick={handleUndo} className="p-1.5 rounded-lg border border-[var(--card-border)] hover:border-primary/40 text-[var(--foreground)] transition-colors" title="Undo (Ctrl+Z)">
+                                <button
+                                  onClick={handleUndo}
+                                  disabled={!canUndo}
+                                  className={`p-1.5 rounded-lg border border-[var(--card-border)] text-[var(--foreground)] transition-colors ${
+                                    !canUndo ? 'opacity-40 cursor-not-allowed' : 'hover:border-primary/40 hover:bg-[var(--card-hover)]'
+                                  }`}
+                                  title="Undo (Ctrl+Z)"
+                                >
                                   <HiReply size={14} />
                                 </button>
-                                <button onClick={handleRedo} className="p-1.5 rounded-lg border border-[var(--card-border)] hover:border-primary/40 text-[var(--foreground)] transition-colors" title="Redo (Ctrl+Y)">
+                                <button
+                                  onClick={handleRedo}
+                                  disabled={!canRedo}
+                                  className={`p-1.5 rounded-lg border border-[var(--card-border)] text-[var(--foreground)] transition-colors ${
+                                    !canRedo ? 'opacity-40 cursor-not-allowed' : 'hover:border-primary/40 hover:bg-[var(--card-hover)]'
+                                  }`}
+                                  title="Redo (Ctrl+Y)"
+                                >
                                   <HiReply size={14} className="scale-x-[-1]" />
                                 </button>
                               </div>
@@ -2441,11 +1702,6 @@ Rules:
                                     localStorage.setItem('studyquest_notes_autocorrect_enabled', String(nextState));
                                   }
                                   if (!nextState) {
-                                    setCaretPosition(null);
-                                    setQuillAutocomplete([]);
-                                    setQuillSuggestions([]);
-                                    setQuillActiveWord('');
-                                    setActiveSuggestionIndex(0);
                                     toast('🪄 Autocorrect & Autocomplete: OFF', { icon: '🔕' });
                                   } else {
                                     toast.success('🪄 Autocorrect & Autocomplete: ON', { icon: '✨' });
@@ -2475,97 +1731,22 @@ Rules:
                             </div>
                           </div>
 
-                          {/* Quill Editor Component */}
-                          <div className="quill-wrapper relative flex-1 min-h-0 flex flex-col" ref={quillWrapperRef}>
-                            {/* Floating Caret Popover for Autocomplete & Spellcheck */}
-                            <AnimatePresence>
-                              {autocorrectEnabled && (quillAutocomplete.length > 0 || quillSuggestions.length > 0) && caretPosition && (
-                                <motion.div
-                                  initial={{ opacity: 0, y: -4, scale: 0.95 }}
-                                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                                  exit={{ opacity: 0, y: -4, scale: 0.95 }}
-                                  transition={{ duration: 0.12 }}
-                                  style={{
-                                    position: 'absolute',
-                                    top: `${Math.max(10, caretPosition.top - 8)}px`,
-                                    left: `${Math.max(16, caretPosition.left)}px`,
-                                    zIndex: 40,
-                                  }}
-                                  className="floating-caret-popover flex flex-col gap-1.5 p-2 rounded-xl bg-slate-900/95 dark:bg-slate-950/95 border border-purple-500/40 shadow-2xl backdrop-blur-xl text-slate-100 font-sans text-xs max-w-sm pointer-events-auto"
-                                >
-                                  {quillSuggestions.length > 0 && (
-                                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-rose-400 px-1 border-b border-rose-500/20 pb-1">
-                                      <span>⚠️ Possible misspelling:</span>
-                                      <span className="font-mono underline text-slate-200">{quillActiveWord}</span>
-                                    </div>
-                                  )}
-
-                                  <div className="flex flex-wrap items-center gap-1 max-h-32 overflow-y-auto">
-                                    {(quillSuggestions.length > 0 ? quillSuggestions : quillAutocomplete).slice(0, 5).map((suggestion, idx) => {
-                                      const isFocused = idx === activeSuggestionIndex;
-                                      return (
-                                        <button
-                                          key={`sugg-${suggestion}-${idx}`}
-                                          type="button"
-                                          onMouseDown={(e) => {
-                                            e.preventDefault();
-                                            replaceQuillWord(suggestion);
-                                          }}
-                                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all flex items-center gap-1 ${
-                                            isFocused
-                                              ? 'bg-purple-600 text-white shadow-md scale-105 ring-1 ring-purple-400'
-                                              : 'bg-slate-800/80 hover:bg-purple-700/60 text-slate-200'
-                                          }`}
-                                        >
-                                          <span>{suggestion}</span>
-                                          {isFocused && (
-                                            <kbd className="ml-1 px-1 py-0.2 text-[8px] bg-purple-400 text-slate-950 font-bold rounded font-mono">
-                                              ↵
-                                            </kbd>
-                                          )}
-                                        </button>
-                                      );
-                                    })}
-
-                                    {quillSuggestions.length > 0 && (
-                                      <button
-                                        type="button"
-                                        onMouseDown={(e) => {
-                                          e.preventDefault();
-                                          addQuillWordToDictionary(quillActiveWord);
-                                        }}
-                                        className="px-2 py-0.5 text-[10px] text-slate-400 hover:text-purple-300 font-semibold transition-colors cursor-pointer"
-                                      >
-                                        + Add word
-                                      </button>
-                                    )}
-                                  </div>
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-
-                            <ReactQuill
-                              key={selectedNote?.id || 'new'}
-                              ref={quillRef}
-                              theme="snow"
-                              defaultValue={sanitizeHtmlForQuill(selectedNote?.content || '')}
-                              onChange={handleContentChange}
-                              onChangeSelection={(range: any, source: any, editor: any) => {
-                                if (range) {
-                                  if (range.length > 0) {
-                                    setSelectedText(editor.getText(range.index, range.length));
-                                  } else {
-                                    setSelectedText('');
-                                  }
-                                }
-                              }}
-                              modules={QUILL_MODULES}
-                              formats={QUILL_FORMATS}
-                              placeholder="Start typing your study notes here... 💡 Hint: Type '/compare Topic A vs Topic B' and press Enter to compare concepts!"
-                              preserveWhitespace={true}
-                              useSemanticHTML={false}
-                            />
-                          </div>
+                          {/* Senior Decoupled Note Editor Core */}
+                          <NoteEditorCore
+                            ref={editorCoreRef}
+                            key={selectedNote?.id || 'new'}
+                            noteId={selectedNote?.id || 'new'}
+                            initialHtml={selectedNote?.content || ''}
+                            autocorrectEnabled={autocorrectEnabled}
+                            onContentChangeDebounced={handleContentChangeDebounced}
+                            onHumanWordsTyped={handleHumanWordsTyped}
+                            onSelectionChange={setSelectedText}
+                            onHistoryChange={(u, r) => {
+                              setCanUndo(u);
+                              setCanRedo(r);
+                            }}
+                            onCompareCommand={handleCompareCommand}
+                          />
 
                           {/* Editor Stats Footer */}
                           <div className="bg-[var(--card-bg)] border-t border-[var(--card-border)] px-4 py-2 text-[11px] text-[var(--muted-foreground)] flex items-center justify-between gap-3 flex-wrap flex-shrink-0">
@@ -2575,26 +1756,6 @@ Rules:
                               <span className="font-mono">{wordCount.chars} chars</span>
                               <span>•</span>
                               <span>{wordCount.readingTime}</span>
-
-                              {/* Autocomplete chips */}
-                              {autocorrectEnabled && quillAutocomplete.length > 0 && (
-                                <div className="flex items-center gap-1 ml-2 bg-teal-500/10 px-2.5 py-0.5 rounded-lg border border-teal-500/30">
-                                  <span className="text-teal-400 text-[10px] font-bold">✨ Autocomplete:</span>
-                                  {quillAutocomplete.slice(0, 3).map((word, idx) => (
-                                    <button
-                                      key={`chip-${word}-${idx}`}
-                                      type="button"
-                                      onMouseDown={(e) => {
-                                        e.preventDefault();
-                                        replaceQuillWord(word);
-                                      }}
-                                      className="text-teal-200 hover:text-white px-1.5 py-0.5 rounded text-[10px] font-mono font-bold hover:bg-teal-500/30 transition-colors cursor-pointer"
-                                    >
-                                      {word}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
                             </div>
 
                             {/* Mana progress strip */}
@@ -2798,7 +1959,7 @@ Rules:
                             </div>
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-[10px] text-[var(--muted-foreground)]">Voice Command Trigger</span>
-                              <span className="text-[9px] font-medium text-purple-400">🎙️ Say "compare Topic A versus Topic B"</span>
+                              <span className="text-[9px] font-medium text-purple-400">🎙️ Say &quot;compare Topic A versus Topic B&quot;</span>
                             </div>
                           </div>
                         </div>
