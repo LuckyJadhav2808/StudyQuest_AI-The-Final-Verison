@@ -277,14 +277,6 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
         tag.src = 'https://www.youtube.com/iframe_api';
         document.head.appendChild(tag);
       }
-
-      const pollTimer = setInterval(() => {
-        if (window.YT && typeof window.YT.Player === 'function') {
-          clearInterval(pollTimer);
-          createPlayer();
-        }
-      }, 200);
-      setTimeout(() => clearInterval(pollTimer), 10000);
     }
   }, []);
 
@@ -424,23 +416,13 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
     playTrack(prevIdx);
   }, [playTrack]);
 
-  // ── Preload YouTube Player on Mount ──
+  // ── Lazy Load YouTube Player on Player Open ──
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    initYouTubePlayer();
-
-    // Polling fallback to ensure player is ready
-    const pollTimer = setInterval(() => {
-      if (window.YT && typeof window.YT.Player === 'function' && !ytPlayerRef.current) {
-        initYouTubePlayer();
-      }
-    }, 300);
-
-    return () => {
-      clearInterval(pollTimer);
-      if (ytTickerRef.current) clearInterval(ytTickerRef.current);
-    };
-  }, [initYouTubePlayer]);
+    if (isPlayerOpen && !ytPlayerRef.current) {
+      initYouTubePlayer();
+    }
+  }, [isPlayerOpen, initYouTubePlayer]);
 
   // ── YouTube Progress Ticker (Optimized 1s Ticks) ──
   useEffect(() => {

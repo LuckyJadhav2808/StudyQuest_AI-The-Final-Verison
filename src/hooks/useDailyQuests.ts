@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { collection, doc, onSnapshot, deleteDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, deleteDoc, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuthContext } from '@/context/AuthContext';
 import { setDocument } from '@/lib/firestore';
@@ -40,28 +40,50 @@ export function useDailyQuests(): UseDailyQuestsReturn {
   // Track in-flight toggles to prevent rapid double-clicks
   const togglingRef = useRef<Set<string>>(new Set());
 
-  // Date rollover detection — checks every 10s
+  // Date rollover detection: triggered at midnight or upon returning to tab
   useEffect(() => {
-    const interval = setInterval(() => {
+    const checkDate = () => {
       const currentToday = getLocalDateString();
-      if (currentToday !== today) {
-        setToday(currentToday);
+      setToday((prev) => (prev !== currentToday ? currentToday : prev));
+    };
+
+    // Calculate time until next midnight + 1 second
+    const now = new Date();
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1);
+    const msUntilMidnight = Math.max(1000, midnight.getTime() - now.getTime());
+
+    const timer = setTimeout(checkDate, msUntilMidnight);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        checkDate();
       }
-    }, 10000);
-    return () => clearInterval(interval);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', checkDate);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', checkDate);
+    };
   }, [today]);
 
-  // Firestore real-time listener for all quests, filtered to today
+  // Firestore real-time listener scoped strictly to today's quests
   useEffect(() => {
     if (!user) { setQuests([]); setLoading(false); return; }
-    const col = collection(db, 'users', user.uid, 'dailyQuests');
-    const unsub = onSnapshot(col, (snap) => {
-      const currentToday = getLocalDateString();
-      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as DailyQuest);
-      // Only show today's quests
-      const todayQuests = items.filter((q) => q.date === currentToday);
+    const q = query(
+      collection(db, 'users', user.uid, 'dailyQuests'),
+      where('date', '==', today)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const todayQuests = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as DailyQuest);
       todayQuests.sort((a, b) => a.createdAt - b.createdAt);
       setQuests(todayQuests);
+      setLoading(false);
+    }, (err) => {
+      console.error('Error fetching today quests:', err);
       setLoading(false);
     });
     return () => unsub();

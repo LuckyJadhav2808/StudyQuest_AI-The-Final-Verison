@@ -92,8 +92,9 @@ export default function CommandPalette() {
   const { tasks } = useTasks();
   const [dsaProblems, setDsaProblems] = useState<DsaProblem[]>([]);
 
-  // Fetch DSA dataset in background for instant Cmd+K search
+  // Lazy fetch DSA dataset on demand when CommandPalette is opened
   useEffect(() => {
+    if (!isOpen || dsaProblems.length > 0) return;
     fetch('/api/dsa/dataset')
       .then((r) => r.json())
       .then((data) => {
@@ -102,7 +103,7 @@ export default function CommandPalette() {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [isOpen, dsaProblems.length]);
 
   // ── Static commands ─────────────────────────────────────
   const staticCommands: CommandItem[] = useMemo(() => [

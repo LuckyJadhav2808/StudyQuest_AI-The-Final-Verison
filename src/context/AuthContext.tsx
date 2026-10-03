@@ -109,6 +109,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      // FAST PATH: Healthy returning user session
+      // Skip the 6-read + 5-write recovery audit storm completely!
+      if (existingProfile && existingGamification && existingProfile.displayName) {
+        const healthyProfile: UserProfile = {
+          ...existingProfile,
+          friendCode: existingProfile.friendCode || Math.random().toString(36).substring(2, 8).toUpperCase(),
+          theme: existingProfile.theme || 'dark',
+          lastSeen: Date.now(),
+        };
+        setProfile(healthyProfile);
+        // Non-blocking fire-and-forget lastSeen update
+        setDocument(profileRef, { lastSeen: Date.now() }, true).catch(() => {});
+        return;
+      }
+
       // 2. Fetch supplementary records to auto-heal any previously wiped data (leaderboard, xpLog, tasks, inventory)
       let lbData: any = null;
       let invData: any = null;

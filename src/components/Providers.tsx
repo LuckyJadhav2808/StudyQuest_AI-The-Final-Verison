@@ -19,6 +19,10 @@ import { MusicProvider } from '@/context/MusicContext';
 import { GamificationProvider } from '@/context/GamificationContext';
 import { ShopProvider } from '@/context/ShopContext';
 import { PetProvider } from '@/context/PetContext';
+import { TasksProvider } from '@/context/TasksContext';
+import { FriendsProvider } from '@/context/FriendsContext';
+import { SkillTreeProvider } from '@/context/SkillTreeContext';
+import { NotesProvider } from '@/context/NotesContext';
 import GlobalMusicPlayer from '@/components/music/GlobalMusicPlayer';
 import ParticleBackground from '@/components/ui/ParticleBackground';
 import StickyNotesOverlay from '@/components/ui/StickyNotesOverlay';
@@ -132,23 +136,30 @@ function AppShell({ children }: { children: React.ReactNode }) {
     // Run initial streak check
     checkStreak();
 
-    // Re-check streak when user returns to tab / focuses window
+    // Re-check streak when user returns to tab / focuses window (throttled to at most once per 60s)
+    let lastChecked = Date.now();
     const handleActive = () => {
-      checkStreak();
+      if (Date.now() - lastChecked > 60000) {
+        lastChecked = Date.now();
+        checkStreak();
+      }
     };
 
     window.addEventListener('focus', handleActive);
     document.addEventListener('visibilitychange', handleActive);
 
-    // Periodic check every 3 minutes in case tab is kept open across midnight
-    const interval = setInterval(() => {
+    // Schedule check for next midnight instead of 180s continuous interval
+    const now = new Date();
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5);
+    const msUntilMidnight = Math.max(1000, midnight.getTime() - now.getTime());
+    const midnightTimer = setTimeout(() => {
       checkStreak();
-    }, 180000);
+    }, msUntilMidnight);
 
     return () => {
       window.removeEventListener('focus', handleActive);
       document.removeEventListener('visibilitychange', handleActive);
-      clearInterval(interval);
+      clearTimeout(midnightTimer);
     };
   }, [checkStreak, gamification?.lastActiveDate]);
 
@@ -331,15 +342,23 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         <SidebarProvider>
           <MusicProvider>
             <GamificationProvider>
-              <ShopProvider>
-                <PetProvider>
-                  <TimerProvider>
-                    <AppShell>{children}</AppShell>
-                    <FloatingTimerWidget />
-                    <GlobalMusicPlayer />
-                  </TimerProvider>
-                </PetProvider>
-              </ShopProvider>
+              <SkillTreeProvider>
+                <TasksProvider>
+                  <FriendsProvider>
+                    <NotesProvider>
+                      <ShopProvider>
+                        <PetProvider>
+                          <TimerProvider>
+                            <AppShell>{children}</AppShell>
+                            <FloatingTimerWidget />
+                            <GlobalMusicPlayer />
+                          </TimerProvider>
+                        </PetProvider>
+                      </ShopProvider>
+                    </NotesProvider>
+                  </FriendsProvider>
+                </TasksProvider>
+              </SkillTreeProvider>
             </GamificationProvider>
           </MusicProvider>
         </SidebarProvider>
