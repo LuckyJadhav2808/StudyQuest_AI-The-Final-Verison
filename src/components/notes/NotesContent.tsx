@@ -22,6 +22,7 @@ import toast from 'react-hot-toast';
 import { useNotes } from '@/hooks/useNotes';
 import { useNotesAutosave } from '@/hooks/useNotesAutosave';
 import { sanitizeNoteHtml, prepareContentForAi, stripHtml } from '@/lib/sanitize';
+import { compileStudyQuestMarkdown } from '@/lib/markdownCompiler';
 import { uploadNoteImage } from '@/lib/storage';
 import { useGamification } from '@/hooks/useGamification';
 import { useAuthContext } from '@/context/AuthContext';
@@ -1206,65 +1207,54 @@ Rules:
   };
 
   // =================== KATEX RENDERING HELPER ===================
-  /**
-   * Post-process HTML to render $...$ (inline) and $$...$$ (block) math
-   * formulas using KaTeX. Returns a promise since we dynamically import KaTeX.
-   */
-  const renderMathInHtml = useCallback(async (html: string): Promise<string> => {
-    // Quick check: does the HTML contain any $ delimiters?
-    if (!html.includes('$')) return html;
-
-    try {
-      const katex = (await import('katex')).default;
-
-      // First render block math: $$...$$
-      html = html.replace(/\$\$([\s\S]*?)\$\$/g, (_match, latex) => {
-        try {
-          // Decode HTML entities that Quill may have inserted
-          const decoded = latex
-            .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-            .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
-            .replace(/<[^>]*>/g, '').trim();
-          return `<div class="katex-block" style="text-align:center;margin:12px 0;font-size:1.2em;">${katex.renderToString(decoded, { throwOnError: false, displayMode: true, output: 'html' })}</div>`;
-        } catch {
-          return _match;
-        }
-      });
-
-      // Then render inline math: $...$  (but not $$ which was already handled)
-      html = html.replace(/(?<!\$)\$(?!\$)((?:[^$\\]|\\.)+?)\$(?!\$)/g, (_match, latex) => {
-        try {
-          const decoded = latex
-            .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-            .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
-            .replace(/<[^>]*>/g, '').trim();
-          return `<span class="katex-inline">${katex.renderToString(decoded, { throwOnError: false, displayMode: false, output: 'html' })}</span>`;
-        } catch {
-          return _match;
-        }
-      });
-
-      return html;
-    } catch {
-      return html;
-    }
-  }, []);
-
-  // ── State for rendered math content in view mode ──
+  // ── State for rendered 19-feature markdown, KaTeX & Mermaid in view mode ──
   const [renderedViewContent, setRenderedViewContent] = useState('');
   const [mathRenderKey, setMathRenderKey] = useState(0);
 
-  // Re-render math when note content changes or view mode is entered
+  // Click delegation handler for code block copy buttons
+  const handleMarkdownContainerClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    const copyBtn = target.closest('.studyquest-copy-btn') as HTMLElement;
+    if (copyBtn) {
+      const encoded = copyBtn.getAttribute('data-code');
+      if (encoded) {
+        try {
+          const code = decodeURIComponent(encoded);
+          navigator.clipboard.writeText(code);
+          const iconSpan = copyBtn.querySelector('.copy-icon');
+          const textSpan = copyBtn.querySelector('.copy-text');
+          if (iconSpan) iconSpan.textContent = '✅';
+          if (textSpan) textSpan.textContent = 'Copied!';
+          setTimeout(() => {
+            if (iconSpan) iconSpan.textContent = '📋';
+            if (textSpan) textSpan.textContent = 'Copy';
+          }, 2000);
+        } catch (copyErr) {
+          console.warn('Clipboard write error:', copyErr);
+        }
+      }
+    }
+  }, []);
+
+  // Re-render comprehensive 19-feature markdown & diagrams when note content changes or view mode is entered
   useEffect(() => {
-    if (!selectedNote?.content) { setRenderedViewContent(''); return; }
+    if (!selectedNote?.content && !selectedNote?.markdownSource) {
+      setRenderedViewContent('');
+      return;
+    }
     if (!isEditing || viewMode) {
       let cancelled = false;
-      renderMathInHtml(selectedNote.content).then((rendered) => {
-        if (!cancelled) setRenderedViewContent(rendered);
-      });
+      compileStudyQuestMarkdown(selectedNote.content, selectedNote.markdownSource)
+        .then((compiled) => {
+          if (!cancelled) setRenderedViewContent(compiled);
+        })
+        .catch((err) => {
+          console.warn('[NotesContent] Markdown compilation fallback:', err);
+          if (!cancelled) setRenderedViewContent(selectedNote.content);
+        });
       return () => { cancelled = true; };
     }
-  }, [selectedNote?.content, isEditing, viewMode, renderMathInHtml, mathRenderKey]);
+  }, [selectedNote?.content, selectedNote?.markdownSource, isEditing, viewMode, mathRenderKey]);
 
   return (
     <PageTransition className="h-full flex flex-col min-h-0">
@@ -1784,8 +1774,9 @@ Rules:
                           </div>
                           {selectedNote.content && selectedNote.content !== '<p><br></p>' ? (
                             <div
+                              onClick={handleMarkdownContainerClick}
                               className="prose prose-lg max-w-none dark:prose-invert leading-relaxed studyquest-markdown"
-                              dangerouslySetInnerHTML={{ __html: sanitizeNoteHtml(renderedViewContent || selectedNote.content) }}
+                              dangerouslySetInnerHTML={{ __html: renderedViewContent || sanitizeNoteHtml(selectedNote.content) }}
                             />
                           ) : (
                             <p className="text-sm text-[var(--muted-foreground)] italic">This note is currently empty.</p>
@@ -1807,8 +1798,9 @@ Rules:
 
                             {selectedNote.content && selectedNote.content !== '<p><br></p>' ? (
                               <div
+                                onClick={handleMarkdownContainerClick}
                                 className="prose prose-sm max-w-none dark:prose-invert leading-relaxed studyquest-markdown"
-                                dangerouslySetInnerHTML={{ __html: sanitizeNoteHtml(renderedViewContent || selectedNote.content) }}
+                                dangerouslySetInnerHTML={{ __html: renderedViewContent || sanitizeNoteHtml(selectedNote.content) }}
                               />
                             ) : (
                               <div className="text-center py-16">
@@ -2067,7 +2059,7 @@ Rules:
             isOpen={showPdfModal}
             onClose={() => setShowPdfModal(false)}
             noteTitle={selectedNote.title}
-            noteContent={selectedNote.content}
+            noteContent={renderedViewContent || selectedNote.content}
             folder={selectedNote.folder}
           />
         )}

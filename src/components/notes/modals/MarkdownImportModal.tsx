@@ -4,8 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import { HiDocumentText, HiLightningBolt } from 'react-icons/hi';
-import { marked } from 'marked';
-import { sanitizeNoteHtml } from '@/lib/sanitize';
+import { compileStudyQuestMarkdown } from '@/lib/markdownCompiler';
 import toast from 'react-hot-toast';
 
 interface MarkdownImportModalProps {
@@ -36,52 +35,10 @@ export default function MarkdownImportModal({
     if (!markdownInput.trim()) return;
 
     setIsCompiling(true);
-    const toastId = toast.loading('Compiling markdown & diagrams...');
+    const toastId = toast.loading('Compiling 19-feature markdown & diagrams...');
 
     try {
-      // 1. Compile markdown to HTML
-      let html = await marked.parse(markdownInput);
-
-      // 2. Render Mermaid code blocks into SVGs if present
-      const mermaidBlockRegex = /<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/gi;
-      const mermaidMatches = [...html.matchAll(mermaidBlockRegex)];
-
-      if (mermaidMatches.length > 0) {
-        try {
-          const mermaid = (await import('mermaid')).default;
-          mermaid.initialize({
-            startOnLoad: false,
-            theme: 'dark',
-            securityLevel: 'loose',
-          });
-
-          for (let i = 0; i < mermaidMatches.length; i++) {
-            const fullMatch = mermaidMatches[i][0];
-            let graphDefinition = mermaidMatches[i][1]
-              .replace(/&amp;/g, '&')
-              .replace(/&lt;/g, '<')
-              .replace(/&gt;/g, '>')
-              .replace(/&quot;/g, '"')
-              .replace(/&#39;/g, "'")
-              .trim();
-
-            try {
-              const { svg } = await mermaid.render(`mermaid-svg-${Date.now()}-${i}`, graphDefinition);
-              // Clean SVG container
-              const svgContainer = `<div class="studyquest-diagram-block" style="text-align:center;margin:16px 0;background:#0f172a;padding:16px;border-radius:14px;overflow-x:auto;">${svg}</div>`;
-              html = html.replace(fullMatch, svgContainer);
-            } catch (mermaidErr) {
-              console.warn(`Mermaid render failed for block ${i}:`, mermaidErr);
-            }
-          }
-        } catch (mErr) {
-          console.warn('Mermaid engine could not be loaded:', mErr);
-        }
-      }
-
-      // 3. Robust HTML sanitization with DOMPurify
-      const sanitizedHtml = sanitizeNoteHtml(html);
-
+      const sanitizedHtml = await compileStudyQuestMarkdown(markdownInput);
       await onImport(sanitizedHtml, markdownInput);
       toast.success(isEditingSource ? 'Note updated! 📝' : 'Markdown imported! 📄', { id: toastId });
       onClose();

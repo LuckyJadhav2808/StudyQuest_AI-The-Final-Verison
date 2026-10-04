@@ -915,9 +915,16 @@ h4 { font-size: 1.125rem; }
 }
 
 /* ============================================================
-   Markdown / README Rendering (studyquest-markdown)
-   Styles for imported .md content rendered via `marked`
+/* ============================================================
+   StudyQuest AI — 19-Feature Markdown Styling Suite
+   Full GFM + LaTeX Math + Mermaid + GitHub Callouts + Footnotes
    ============================================================ */
+
+.studyquest-markdown {
+  color: var(--foreground);
+  line-height: 1.75;
+  word-break: break-word;
+}
 
 .studyquest-markdown h1 {
   font-size: 1.75rem;
@@ -925,6 +932,7 @@ h4 { font-size: 1.125rem; }
   margin: 1.5rem 0 0.75rem;
   padding-bottom: 0.5rem;
   border-bottom: 2px solid var(--card-border);
+  color: var(--foreground);
 }
 
 .studyquest-markdown h2 {
@@ -933,186 +941,624 @@ h4 { font-size: 1.125rem; }
   margin: 1.25rem 0 0.5rem;
   padding-bottom: 0.35rem;
   border-bottom: 1px solid var(--card-border);
+  color: var(--foreground);
 }
 
 .studyquest-markdown h3 {
   font-size: 1.15rem;
   font-weight: 700;
   margin: 1rem 0 0.4rem;
+  color: var(--foreground);
 }
 
 .studyquest-markdown h4, .studyquest-markdown h5, .studyquest-markdown h6 {
   font-size: 1rem;
   font-weight: 600;
   margin: 0.75rem 0 0.35rem;
+  color: var(--foreground);
 }
 
 .studyquest-markdown p {
-  margin: 0.5rem 0;
+  margin: 0.6rem 0;
 }
 
-.studyquest-markdown ul, .studyquest-markdown ol {
-  padding-left: 1.5rem;
-  margin: 0.5rem 0;
+.studyquest-markdown strong, .studyquest-markdown b {
+  font-weight: 700;
+  color: var(--foreground);
 }
 
-.studyquest-markdown li {
-  margin: 0.25rem 0;
+.studyquest-markdown em, .studyquest-markdown i {
+  font-style: italic;
 }
 
-.studyquest-markdown li::marker {
-  color: var(--color-primary);
+.studyquest-markdown del, .studyquest-markdown s, .studyquest-markdown strike {
+  text-decoration: line-through;
+  opacity: 0.65;
 }
 
-/* Inline code */
+/* 1. Inline Code */
 .studyquest-markdown code:not(pre code) {
-  background: rgba(124, 58, 237, 0.1);
+  background: rgba(124, 58, 237, 0.12);
   color: var(--color-primary);
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: 6px;
-  font-family: 'Space Grotesk', 'JetBrains Mono', monospace;
-  font-size: 0.85em;
-  font-weight: 500;
+  font-family: 'Space Grotesk', 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.88em;
+  font-weight: 600;
+  border: 1px solid rgba(124, 58, 237, 0.2);
 }
 
-/* Fenced code blocks */
-.studyquest-markdown pre {
-  background: #1e1e2e;
-  color: #cdd6f4;
+/* 2. Code Block with Language Badge & Copy Button */
+.studyquest-code-wrapper {
+  margin: 1rem 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  background: #0f172a;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.studyquest-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.studyquest-code-badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.studyquest-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 3px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.studyquest-copy-btn:hover {
+  color: #ffffff;
+  background: rgba(124, 58, 237, 0.4);
+  border-color: rgba(124, 58, 237, 0.6);
+}
+
+.studyquest-code-pre {
+  margin: 0 !important;
+  padding: 16px 18px !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  overflow-x: auto;
+  font-family: 'Space Grotesk', 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  line-height: 1.65;
+  color: #e2e8f0;
+}
+
+.studyquest-markdown pre:not(.studyquest-code-pre) {
+  background: #0f172a;
+  color: #e2e8f0;
   border-radius: 12px;
   padding: 16px 20px;
-  margin: 0.75rem 0;
+  margin: 0.85rem 0;
   overflow-x: auto;
   font-family: 'Space Grotesk', 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 13px;
   line-height: 1.6;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--card-border);
 }
 
-.studyquest-markdown pre code {
-  background: none;
-  color: inherit;
-  padding: 0;
-  border-radius: 0;
-  font-size: inherit;
-  font-weight: inherit;
-}
-
-/* Tables */
-.studyquest-markdown table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 0.75rem 0;
-  font-size: 0.875rem;
-  border-radius: 12px;
-  overflow: hidden;
+/* 3. Mermaid Diagrams (Flowchart, Timeline, Mindmap) */
+.studyquest-mermaid-container {
+  margin: 1.25rem 0;
+  padding: 16px;
+  border-radius: 16px;
+  background: #090d16;
   border: 2px solid var(--card-border);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.studyquest-markdown thead {
-  background: rgba(124, 58, 237, 0.08);
+.studyquest-mermaid-header {
+  width: 100%;
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 12px;
 }
 
-.studyquest-markdown th {
-  text-align: left;
-  padding: 10px 14px;
-  font-weight: 700;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-primary);
-  border-bottom: 2px solid var(--card-border);
+.mermaid-badge {
+  font-size: 11px;
+  font-weight: 800;
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.12);
+  padding: 2px 10px;
+  border-radius: 9999px;
+  border: 1px solid rgba(167, 139, 250, 0.25);
 }
 
-.studyquest-markdown td {
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--card-border);
+.studyquest-mermaid-svg {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  display: flex;
+  justify-content: center;
+  padding: 8px 0;
 }
 
-.studyquest-markdown tr:last-child td {
-  border-bottom: none;
+.studyquest-mermaid-svg svg {
+  max-width: 100%;
+  height: auto;
 }
 
-.studyquest-markdown tr:hover td {
-  background: rgba(124, 58, 237, 0.03);
+/* Ensure all Mermaid text and labels are bright and readable in dark mode */
+.studyquest-mermaid-svg svg text,
+.studyquest-mermaid-svg svg text tspan,
+.studyquest-mermaid-svg svg .node text,
+.studyquest-mermaid-svg svg .node tspan,
+.studyquest-mermaid-svg svg .nodeLabel,
+.studyquest-mermaid-svg svg span.nodeLabel,
+.studyquest-mermaid-svg svg p.nodeLabel,
+.studyquest-mermaid-svg svg .label,
+.studyquest-mermaid-svg svg .edgeLabel,
+.studyquest-mermaid-svg svg .edgeLabel text,
+.studyquest-mermaid-svg svg .edgeLabel span,
+.studyquest-mermaid-svg svg .mindmap-node text,
+.studyquest-mermaid-svg svg .mindmap-node tspan,
+.studyquest-mermaid-svg svg .mindmap-node .node-text,
+.studyquest-mermaid-svg svg foreignObject div,
+.studyquest-mermaid-svg svg foreignObject span,
+.studyquest-mermaid-svg svg foreignObject p {
+  fill: #f8fafc !important;
+  color: #f8fafc !important;
+  font-family: inherit !important;
+  font-weight: 600 !important;
 }
 
-/* Blockquotes */
+/* Node boxes in Flowchart - modern dark slate background with primary border */
+.studyquest-mermaid-svg svg .node rect,
+.studyquest-mermaid-svg svg .node polygon,
+.studyquest-mermaid-svg svg .node circle {
+  fill: #1e293b !important;
+  stroke: #8b5cf6 !important;
+  stroke-width: 1.5px !important;
+}
+
+/* Flowchart cluster / subgraph */
+.studyquest-mermaid-svg svg .cluster rect {
+  fill: #0f172a !important;
+  stroke: #475569 !important;
+}
+
+/* Mindmap root node special highlight */
+.studyquest-mermaid-svg svg .mindmap-node.section-root circle,
+.studyquest-mermaid-svg svg .mindmap-node:first-child circle {
+  fill: #7c3aed !important;
+  stroke: #a78bfa !important;
+  stroke-width: 2px !important;
+}
+
+/* Mindmap branches and flowchart connectors */
+.studyquest-mermaid-svg svg .flowchart-link,
+.studyquest-mermaid-svg svg .edge-thickness-normal,
+.studyquest-mermaid-svg svg path.path,
+.studyquest-mermaid-svg svg line,
+.studyquest-mermaid-svg svg .mindmap-edge {
+  stroke: #94a3b8 !important;
+}
+
+.studyquest-mermaid-svg svg marker path {
+  fill: #94a3b8 !important;
+  stroke: #94a3b8 !important;
+}
+
+/* 4. GitHub Callouts (Note, Tip, Warning, Important, Caution) */
+.studyquest-callout {
+  margin: 1rem 0;
+  border-radius: 14px;
+  border-left: 4px solid;
+  padding: 12px 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+
+.studyquest-callout-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
+
+.studyquest-callout-icon {
+  font-size: 1.1rem;
+}
+
+.studyquest-callout-content {
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.studyquest-callout-content p {
+  margin: 0.25rem 0;
+}
+
+/* Callout Themes */
+.studyquest-callout-note {
+  border-left-color: #0ea5e9;
+  background: rgba(14, 165, 233, 0.08);
+  border: 1px solid rgba(14, 165, 233, 0.25);
+  border-left-width: 4px;
+}
+.studyquest-callout-note .studyquest-callout-header { color: #0ea5e9; }
+
+.studyquest-callout-tip {
+  border-left-color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-left-width: 4px;
+}
+.studyquest-callout-tip .studyquest-callout-header { color: #10b981; }
+
+.studyquest-callout-warning {
+  border-left-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-left-width: 4px;
+}
+.studyquest-callout-warning .studyquest-callout-header { color: #f59e0b; }
+
+.studyquest-callout-important {
+  border-left-color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-left-width: 4px;
+}
+.studyquest-callout-important .studyquest-callout-header { color: #8b5cf6; }
+
+.studyquest-callout-caution {
+  border-left-color: #f43f5e;
+  background: rgba(244, 63, 94, 0.08);
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  border-left-width: 4px;
+}
+.studyquest-callout-caution .studyquest-callout-header { color: #f43f5e; }
+
+/* 5. Blockquotes */
 .studyquest-markdown blockquote {
   border-left: 4px solid var(--color-primary);
-  padding: 0.5rem 0 0.5rem 1rem;
-  margin: 0.75rem 0;
-  background: rgba(124, 58, 237, 0.04);
-  border-radius: 0 8px 8px 0;
+  padding: 0.6rem 1rem 0.6rem 1.25rem;
+  margin: 1rem 0;
+  background: rgba(124, 58, 237, 0.05);
+  border-radius: 0 12px 12px 0;
   color: var(--muted-foreground);
+  font-style: italic;
 }
 
 .studyquest-markdown blockquote p {
   margin: 0.25rem 0;
 }
 
-/* Horizontal rules */
-.studyquest-markdown hr {
+/* 6. Collapsible Sections (Details / Summary) */
+.studyquest-details, .studyquest-markdown details {
+  margin: 1rem 0;
+  border-radius: 12px;
+  border: 2px solid var(--card-border);
+  background: var(--card-bg);
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+
+.studyquest-details:hover, .studyquest-markdown details:hover {
+  border-color: rgba(124, 58, 237, 0.4);
+}
+
+.studyquest-summary, .studyquest-markdown summary {
+  padding: 10px 14px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--foreground);
+  cursor: pointer;
+  background: rgba(124, 58, 237, 0.04);
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.studyquest-summary::-webkit-details-marker,
+.studyquest-markdown summary::-webkit-details-marker {
+  display: none;
+}
+
+.studyquest-summary::before,
+.studyquest-markdown summary::before {
+  content: '▶';
+  font-size: 0.75rem;
+  color: var(--color-primary);
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+
+.studyquest-details[open] > .studyquest-summary::before,
+.studyquest-markdown details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.studyquest-details-content, .studyquest-markdown details > *:not(summary) {
+  padding: 12px 16px;
+  border-top: 1px solid var(--card-border);
+}
+
+/* 7. Lists (Unordered, Nested, Ordered & Task Lists) */
+.studyquest-markdown ul:not(:has(> li > input[type="checkbox"])) {
+  list-style-type: disc !important;
+  list-style-position: outside !important;
+  padding-left: 1.5rem !important;
+  margin: 0.65rem 0;
+}
+
+.studyquest-markdown ul ul:not(:has(> li > input[type="checkbox"])) {
+  list-style-type: circle !important;
+  padding-left: 1.5rem !important;
+  margin: 0.35rem 0;
+}
+
+.studyquest-markdown ul ul ul:not(:has(> li > input[type="checkbox"])) {
+  list-style-type: square !important;
+  padding-left: 1.5rem !important;
+  margin: 0.35rem 0;
+}
+
+.studyquest-markdown ol {
+  list-style-type: decimal !important;
+  list-style-position: outside !important;
+  padding-left: 1.5rem !important;
+  margin: 0.65rem 0;
+}
+
+.studyquest-markdown ol ol {
+  list-style-type: lower-alpha !important;
+  padding-left: 1.5rem !important;
+  margin: 0.35rem 0;
+}
+
+.studyquest-markdown ol ol ol {
+  list-style-type: lower-roman !important;
+  padding-left: 1.5rem !important;
+  margin: 0.35rem 0;
+}
+
+.studyquest-markdown li {
+  display: list-item !important;
+  margin: 0.35rem 0;
+  line-height: 1.6;
+}
+
+.studyquest-markdown li::marker {
+  color: #a78bfa !important;
+  font-weight: 700 !important;
+}
+
+/* Task lists (checkboxes): strip bullet markers cleanly */
+.studyquest-markdown ul:has(> li > input[type="checkbox"]) {
+  list-style: none !important;
+  padding-left: 0.25rem !important;
+}
+
+.studyquest-markdown li:has(> input[type="checkbox"]) {
+  list-style: none !important;
+  display: flex !important;
+  align-items: center;
+}
+
+.studyquest-markdown input[type="checkbox"] {
+  accent-color: var(--color-primary);
+  margin-right: 8px;
+  transform: scale(1.2);
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.studyquest-markdown li:has(input[type="checkbox"]:checked) {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+/* 8. Math Formulas (KaTeX Inline & Block) */
+.studyquest-math-block {
+  text-align: center;
+  margin: 1.25rem 0;
+  padding: 14px 10px;
+  background: rgba(124, 58, 237, 0.04);
+  border-radius: 12px;
+  border: 1px dashed var(--card-border);
+  overflow-x: auto;
+  font-size: 1.15em;
+}
+
+.studyquest-math-inline {
+  display: inline-block;
+  padding: 0 3px;
+  font-size: 1.05em;
+  vertical-align: middle;
+}
+
+/* 9-11. Highlight */
+.studyquest-highlight, .studyquest-markdown mark {
+  background: rgba(245, 158, 11, 0.25) !important;
+  color: inherit !important;
+  padding: 2px 6px;
+  border-radius: 5px;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  font-weight: 600;
+}
+
+/* 13. Subscript and Superscript */
+.studyquest-markdown sub {
+  font-size: 0.75em;
+  vertical-align: sub;
+  line-height: 0;
+}
+
+.studyquest-markdown sup {
+  font-size: 0.75em;
+  vertical-align: super;
+  line-height: 0;
+}
+
+/* 15. Horizontal Rule */
+.studyquest-markdown hr, .studyquest-hr {
   border: none;
   height: 2px;
-  background: var(--card-border);
-  margin: 1.5rem 0;
+  background: linear-gradient(90deg, transparent, var(--card-border), transparent);
+  margin: 1.75rem 0;
   border-radius: 2px;
 }
 
-/* Links */
-.studyquest-markdown a {
-  color: var(--color-primary);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  font-weight: 500;
-  transition: color 0.15s;
+/* 16. Tables */
+.studyquest-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  margin: 1rem 0;
+  border-radius: 14px;
+  border: 2px solid var(--card-border);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 
-.studyquest-markdown a:hover {
+.studyquest-table, .studyquest-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  margin: 0;
+}
+
+.studyquest-table thead, .studyquest-markdown thead {
+  background: rgba(124, 58, 237, 0.08);
+}
+
+.studyquest-table th, .studyquest-markdown th {
+  text-align: left;
+  padding: 11px 16px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-primary);
+  border-bottom: 2px solid var(--card-border);
+}
+
+.studyquest-table td, .studyquest-markdown td {
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.studyquest-table tr:last-child td, .studyquest-markdown tr:last-child td {
+  border-bottom: none;
+}
+
+.studyquest-table tr:hover td, .studyquest-markdown tr:hover td {
+  background: rgba(124, 58, 237, 0.04);
+}
+
+/* 17. Links */
+.studyquest-link, .studyquest-markdown a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 600;
+  transition: color 0.15s ease;
+}
+
+.studyquest-link:hover, .studyquest-markdown a:hover {
   color: var(--color-primary-light);
 }
 
-/* Images */
+/* 18. Images */
 .studyquest-markdown img {
   max-width: 100%;
-  border-radius: 12px;
-  margin: 0.75rem 0;
+  height: auto;
+  border-radius: 14px;
+  margin: 1rem auto;
+  display: block;
+  border: 1px solid var(--card-border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
-/* Task lists (GitHub-style checkboxes) */
-.studyquest-markdown input[type="checkbox"] {
-  accent-color: var(--color-primary);
-  margin-right: 6px;
-  transform: scale(1.15);
-  vertical-align: middle;
+.studyquest-figure {
+  margin: 1.25rem 0;
+  text-align: center;
+}
+
+.studyquest-caption {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  margin-top: 6px;
+  font-style: italic;
+}
+
+/* 19. Footnotes */
+.studyquest-footnote-ref {
+  color: var(--color-primary);
+  font-weight: 800;
+  text-decoration: none !important;
+  margin-left: 2px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(124, 58, 237, 0.1);
+  font-size: 0.72em;
+}
+
+.studyquest-footnotes {
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--card-border);
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+}
+
+.studyquest-footnotes-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--foreground);
+  margin-bottom: 8px;
+}
+
+.studyquest-footnotes ol {
+  padding-left: 1.25rem;
+}
+
+.studyquest-footnote-back {
+  color: var(--color-primary);
+  text-decoration: none !important;
+  font-weight: 700;
+  margin-left: 6px;
 }
 
 /* ============================================================
    Quill Editor — Whitespace & Styling Overrides
    ============================================================ */
-
-/* Preserve whitespace/indentation in editor */
-.ql-editor {
-  white-space: pre-wrap !important;
-  word-wrap: break-word;
-  min-height: 400px;
-  font-size: 14px;
-  line-height: 1.8;
-  padding: 1.5rem;
-}
-
-/* Preserve whitespace in rendered view */
-.studyquest-markdown {
-  white-space: pre-wrap;
-}
-
-/* Quill theme overrides for dark mode */
-.quill-wrapper .ql-toolbar {
-  border-color: var(--card-border) !important;
-  background: var(--card-bg);
-  border-radius: 16px 16px 0 0;
-}
 .quill-wrapper .ql-container {
   border-color: var(--card-border) !important;
   border-radius: 0 0 16px 16px;
@@ -2133,3 +2579,50 @@ li .studyquest-math-embed {
   background: linear-gradient(180deg, rgba(124, 58, 237, 0.9), rgba(99, 102, 241, 0.9));
   box-shadow: 0 0 10px rgba(124, 58, 237, 0.6);
 }
+
+/* ============================================================
+   Print / PDF Export Media Styles
+   Expands collapsible sections (<details>) so full content is visible
+   ============================================================ */
+
+@media print {
+  /* Prevent awkward page cutoffs */
+  .studyquest-details,
+  .studyquest-markdown details,
+  .studyquest-code-wrapper,
+  .studyquest-callout {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Force all collapsible sections to open and show inner content */
+  .studyquest-details,
+  .studyquest-markdown details {
+    display: block !important;
+    border: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  .studyquest-details > *,
+  .studyquest-markdown details > * {
+    display: block !important;
+  }
+
+  .studyquest-details-content,
+  .studyquest-markdown details > *:not(summary) {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    border-top: 1px solid #e2e8f0 !important;
+  }
+
+  /* Hide disclosure triangles when printed as an open section */
+  .studyquest-summary::-webkit-details-marker,
+  .studyquest-markdown summary::-webkit-details-marker,
+  .studyquest-summary::before,
+  .studyquest-markdown summary::before {
+    display: none !important;
+  }
+}
+

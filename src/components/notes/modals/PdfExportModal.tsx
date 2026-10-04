@@ -26,6 +26,7 @@ export default function PdfExportModal({
   const [pageSize, setPageSize] = useState<'a4' | 'letter' | 'legal'>('a4');
   const [quality, setQuality] = useState<'low' | 'medium' | 'high'>('medium');
   const [theme, setTheme] = useState<PdfTheme>('modern');
+  const [expandDetails, setExpandDetails] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExport = async () => {
@@ -71,12 +72,76 @@ export default function PdfExportModal({
       const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
       container.innerHTML = `
+        <style>
+          .note-pdf-body details {
+            margin: 14px 0;
+            border-radius: 8px;
+            border: 1px solid rgba(124, 58, 237, 0.25);
+            background: rgba(124, 58, 237, 0.03);
+            overflow: hidden;
+          }
+          .note-pdf-body summary {
+            padding: 8px 12px;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: default;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border-bottom: 1px solid rgba(124, 58, 237, 0.15);
+            background: rgba(124, 58, 237, 0.06);
+          }
+          .note-pdf-body summary::-webkit-details-marker { display: none; }
+          .note-pdf-body .studyquest-details-content,
+          .note-pdf-body details > *:not(summary) {
+            padding: 10px 14px;
+            display: block !important;
+          }
+          .note-pdf-body ul:not(:has(> li > input[type="checkbox"])) {
+            list-style-type: disc !important;
+            padding-left: 1.5rem !important;
+          }
+          .note-pdf-body ol {
+            list-style-type: decimal !important;
+            padding-left: 1.5rem !important;
+          }
+          .note-pdf-body li {
+            display: list-item !important;
+            margin: 4px 0;
+          }
+          .note-pdf-body blockquote {
+            border-left: 4px solid #7c3aed;
+            padding: 8px 14px;
+            margin: 12px 0;
+            background: rgba(124, 58, 237, 0.05);
+          }
+          .note-pdf-body table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0;
+          }
+          .note-pdf-body th, .note-pdf-body td {
+            border: 1px solid rgba(0,0,0,0.15);
+            padding: 6px 10px;
+            text-align: left;
+          }
+        </style>
         <div style="margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid rgba(124,58,237,0.2);">
           <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;opacity:0.6;margin-bottom:4px;">${folderLabel} • ${dateStr}</div>
           <h1 style="font-size:26px;font-weight:900;margin:0 0 8px 0;line-height:1.2;">${noteTitle}</h1>
         </div>
         <div class="note-pdf-body" style="line-height:1.8;">${noteContent}</div>
       `;
+
+      // Expand all details sections so html2canvas captures full inner content
+      if (expandDetails) {
+        const detailsEls = container.querySelectorAll('details');
+        detailsEls.forEach((d) => {
+          d.setAttribute('open', 'true');
+          (d as HTMLDetailsElement).open = true;
+        });
+      }
 
       document.body.appendChild(container);
 
@@ -228,6 +293,21 @@ export default function PdfExportModal({
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Collapsible Sections Toggle */}
+        <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <span className="text-xs font-bold text-[var(--foreground)] block">Expand Collapsible Sections</span>
+            <span className="text-[10px] text-[var(--muted-foreground)] block">Print all folded details & secret blocks expanded in the PDF</span>
+          </div>
+          <input
+            type="checkbox"
+            checked={expandDetails}
+            onChange={(e) => setExpandDetails(e.target.checked)}
+            className="w-4 h-4 accent-primary cursor-pointer shrink-0"
+            aria-label="Expand collapsible sections in PDF"
+          />
         </div>
 
         <div className="flex gap-2 pt-1">

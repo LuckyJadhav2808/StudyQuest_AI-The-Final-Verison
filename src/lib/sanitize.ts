@@ -15,28 +15,39 @@ const NOTE_DOMPURIFY_CONFIG = {
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
     'p', 'blockquote', 'pre', 'code',
     'ul', 'ol', 'li',
-    'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'sub', 'sup',
+    'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del', 'sub', 'sup', 'mark',
     'span', 'div', 'br', 'hr',
     'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
-    'a', 'img',
+    'a', 'img', 'figure', 'figcaption',
+    // Collapsible sections
+    'details', 'summary',
+    // Task lists
+    'input',
+    // Code block copy & interactive badges
+    'button',
+    // Footnotes & layout
+    'section',
     // KaTeX & custom StudyQuest blots
-    'math-field', 'annotation',
-    // SVG diagrams
-    'svg', 'g', 'path', 'rect', 'circle', 'line', 'polyline', 'polygon', 'text',
+    'math-field', 'annotation', 'math', 'semantics', 'mrow', 'mo', 'mn', 'mi', 'msup', 'msub', 'mfrac', 'mroot', 'msqrt', 'mtable', 'mtr', 'mtd',
+    // SVG diagrams (Mermaid)
+    'svg', 'g', 'path', 'rect', 'circle', 'line', 'polyline', 'polygon', 'text', 'tspan', 'foreignObject', 'marker', 'defs', 'style', 'clippath', 'use',
   ],
   ALLOWED_ATTR: [
-    'href', 'src', 'alt', 'title', 'class', 'style',
-    'width', 'height', 'target', 'rel',
-    // Custom data attributes for KaTeX math blot
-    'data-latex', 'data-block', 'encoding',
+    'href', 'src', 'alt', 'title', 'class', 'style', 'id',
+    'width', 'height', 'target', 'rel', 'type', 'checked', 'disabled', 'open',
+    'aria-label', 'aria-hidden', 'role',
+    // Custom data attributes for KaTeX math blot & code blocks
+    'data-latex', 'data-block', 'data-code', 'data-language', 'data-type', 'encoding',
     // SVG attributes
     'viewBox', 'xmlns', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin',
-    'd', 'x', 'y', 'r', 'cx', 'cy', 'x1', 'y1', 'x2', 'y2', 'points', 'transform',
+    'd', 'x', 'y', 'dx', 'dy', 'r', 'rx', 'ry', 'cx', 'cy', 'x1', 'y1', 'x2', 'y2', 'points', 'transform',
+    'marker-end', 'marker-start', 'marker-mid', 'clip-path', 'clipPath', 'text-anchor', 'dominant-baseline',
+    'font-size', 'font-family', 'font-weight', 'opacity', 'fill-opacity', 'stroke-opacity',
   ],
   ALLOW_DATA_ATTR: true,
   ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
   ADD_ATTR: ['target', 'rel'],
-  FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'textarea', 'button'],
+  FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'textarea'],
   FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
 };
 
@@ -49,6 +60,13 @@ if (typeof DOMPurify.addHook === 'function') {
         node.setAttribute('target', '_blank');
         node.setAttribute('rel', 'noopener noreferrer nofollow');
       }
+    }
+    // Protect inputs: only allow disabled checkbox inputs for task lists
+    if (node.tagName === 'INPUT') {
+      if (node.getAttribute('type') !== 'checkbox') {
+        node.setAttribute('type', 'checkbox');
+      }
+      node.setAttribute('disabled', 'true');
     }
   });
 }

@@ -90,21 +90,32 @@ export default function NotesCatalogDrawer({
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
+            exit={{ opacity: 0, transition: { duration: 0.22, ease: 'easeIn' } }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 cursor-pointer"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 cursor-pointer transition-[left] duration-250 ease-in-out"
             style={{ left: sidebarOffset }}
           />
 
           {/* Drawer Panel */}
           <motion.aside
-            initial={{ x: -380, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -380, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-            style={{ left: sidebarOffset }}
-            className="fixed top-0 bottom-0 z-50 w-full max-w-[340px] sm:max-w-[380px] bg-[var(--card-bg)] border-r-2 border-[var(--card-border)] shadow-2xl flex flex-col p-4 space-y-3"
+            initial={{ x: '-100%' }}
+            animate={{ x: '0%' }}
+            exit={{
+              x: '-100%',
+              transition: { duration: 0.22, ease: [0.32, 0, 0.67, 0] },
+            }}
+            transition={{
+              type: 'spring',
+              damping: 30,
+              stiffness: 280,
+              mass: 0.8,
+            }}
+            style={{
+              left: sidebarOffset,
+              willChange: 'transform',
+            }}
+            className="fixed top-0 bottom-0 z-50 w-full max-w-[340px] sm:max-w-[380px] bg-[var(--card-bg)] border-r-2 border-[var(--card-border)] shadow-2xl flex flex-col p-4 space-y-3 transition-[left] duration-250 ease-in-out"
           >
             {/* Catalog Header */}
             <div className="flex items-center justify-between gap-2 pb-2 border-b border-[var(--card-border)] shrink-0">
