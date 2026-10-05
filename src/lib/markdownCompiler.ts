@@ -361,12 +361,32 @@ export async function compileStudyQuestMarkdown(
 ): Promise<string> {
   if (!content && !rawMarkdownSource) return '';
 
-  const sourceToUse = (rawMarkdownSource && rawMarkdownSource.trim().length > 0)
-    ? rawMarkdownSource
-    : content;
+  // Determine which source to use:
+  // If content has images or active rich edits that rawMarkdownSource lacks, content takes precedence!
+  const contentHasImages = /<img\b|data:image\/|blob:/i.test(content || '');
+  const rawHasImages = rawMarkdownSource ? /!\[|<img\b|data:image\/|blob:/i.test(rawMarkdownSource) : false;
+
+  let sourceToUse = content;
+  if (rawMarkdownSource && rawMarkdownSource.trim().length > 0) {
+    if (contentHasImages && !rawHasImages) {
+      sourceToUse = content;
+    } else if (!content || content === '<p><br></p>') {
+      sourceToUse = rawMarkdownSource;
+    } else {
+      sourceToUse = content;
+    }
+  }
+
+  // Protect all <img> tags so base64 / data URLs are never broken by marked line breaks or preprocessing
+  const imgPlaceholders: string[] = [];
+  const protectedSource = sourceToUse.replace(/<img\b[^>]*>/gi, (match) => {
+    const token = `@@@SQ_IMG_TOKEN_${imgPlaceholders.length}@@@`;
+    imgPlaceholders.push(match);
+    return token;
+  });
 
   // 1. Preprocess custom syntax: emojis, callouts, highlights, sub/sup, footnotes, :::details
-  const { text: preprocessed, footnoteDefs } = preprocessMarkdown(sourceToUse);
+  const { text: preprocessed, footnoteDefs } = preprocessMarkdown(protectedSource);
 
   // 2. Compile via marked with custom renderers
   const customRenderer = createCustomMarkedInstance();
@@ -374,6 +394,11 @@ export async function compileStudyQuestMarkdown(
     renderer: customRenderer,
     gfm: true,
     breaks: true,
+  });
+
+  // Restore protected <img> tags intact
+  imgPlaceholders.forEach((imgTag, idx) => {
+    compiledHtml = compiledHtml.replace(`@@@SQ_IMG_TOKEN_${idx}@@@`, imgTag);
   });
 
   // 3. Append footnotes section if footnotes were declared
@@ -389,7 +414,7 @@ export async function compileStudyQuestMarkdown(
   // 4. Render KaTeX math formulas ($...$ and $$...$$)
   compiledHtml = await processMathFormulas(compiledHtml);
 
-  // 5. Security sanitization (DOMPurify with modern whitelisting) on user markdown HTML
+  // 5. Security sanitization (DOMPurify with modern whitelisting & data/blob URI preservation)
   let safeHtml = sanitizeNoteHtml(compiledHtml);
 
   // 6. Render Mermaid diagrams (flowcharts, timelines, mindmaps) on safe code blocks

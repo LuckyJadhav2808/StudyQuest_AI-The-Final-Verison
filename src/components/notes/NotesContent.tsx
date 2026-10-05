@@ -151,8 +151,8 @@ export default function NotesContent() {
   const lastSavedAt = useRef<number>(0);
 
   const onAutosaveNote = useCallback(async (noteId: string, data: { title: string; content: string }) => {
-    await updateNote(noteId, data);
-    setSelectedNote((prev) => (prev && prev.id === noteId ? { ...prev, ...data, updatedAt: Date.now() } : prev));
+    await updateNote(noteId, { ...data, markdownSource: '' });
+    setSelectedNote((prev) => (prev && prev.id === noteId ? { ...prev, ...data, markdownSource: '', updatedAt: Date.now() } : prev));
     lastSavedAt.current = Date.now();
   }, [updateNote]);
 
@@ -400,8 +400,8 @@ export default function NotesContent() {
     setSaveStatus('saving');
 
     try {
-      await updateNote(selectedNote.id, { title: editTitle, content: latestContent });
-      setSelectedNote({ ...selectedNote, title: editTitle, content: latestContent, updatedAt: Date.now() });
+      await updateNote(selectedNote.id, { title: editTitle, content: latestContent, markdownSource: '' });
+      setSelectedNote({ ...selectedNote, title: editTitle, content: latestContent, markdownSource: '', updatedAt: Date.now() });
       setEditContent(latestContent);
       lastSavedAt.current = Date.now();
       setSaveStatus('saved');
@@ -422,7 +422,7 @@ export default function NotesContent() {
     } catch (err) {
       console.warn('[NotesContent] Manual cloud save failed, safely stored in local backup:', err);
       // Fallback: note is already saved locally via NotesContext and localStorage!
-      setSelectedNote({ ...selectedNote, title: editTitle, content: latestContent, updatedAt: Date.now() });
+      setSelectedNote({ ...selectedNote, title: editTitle, content: latestContent, markdownSource: '', updatedAt: Date.now() });
       setEditContent(latestContent);
       lastSavedAt.current = Date.now();
       setSaveStatus('offline');
