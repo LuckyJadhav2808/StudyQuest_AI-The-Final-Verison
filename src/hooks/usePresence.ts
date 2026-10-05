@@ -38,14 +38,21 @@ export function usePresence() {
 
     const presenceRef = doc(db, 'users', user.uid, 'data', 'presence');
 
+    let isQuotaExceeded = false;
     let lastHeartbeat = Date.now();
     const updatePresence = (activity = 'online') => {
+      if (isQuotaExceeded) return;
       lastHeartbeat = Date.now();
       setDoc(presenceRef, {
         online: true,
         lastSeen: Date.now(),
         activity,
-      }, { merge: true }).catch(() => {});
+      }, { merge: true }).catch((err: any) => {
+        if (err?.code === 'resource-exhausted') {
+          isQuotaExceeded = true;
+          console.warn('[usePresence] Firestore daily quota reached. Pausing presence heartbeats.');
+        }
+      });
     };
 
     // Initial heartbeat

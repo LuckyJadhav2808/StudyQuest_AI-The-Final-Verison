@@ -122,7 +122,11 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
           updatedAt: item.updatedAt,
         }, true);
         removeFromSyncQueue(noteId);
-      } catch (err) {
+      } catch (err: any) {
+        if (err?.code === 'resource-exhausted') {
+          console.warn('[NotesContext] Firestore daily quota reached. Pausing cloud sync queue; notes are safe in localStorage.');
+          break;
+        }
         console.warn(`[NotesContext] Retry sync failed for note ${noteId}:`, err);
       }
     }

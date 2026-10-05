@@ -63,6 +63,38 @@ function timeAgo(ts: number): string {
   return `${days}d ago`;
 }
 
+function htmlToBasicMarkdown(html: string): string {
+  if (!html) return '';
+  let md = html;
+  md = md.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n\n');
+  md = md.replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n\n');
+  md = md.replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n\n');
+  md = md.replace(/<h4[^>]*>(.*?)<\/h4>/gi, '#### $1\n\n');
+  md = md.replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**');
+  md = md.replace(/<b[^>]*>(.*?)<\/b>/gi, '**$1**');
+  md = md.replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*');
+  md = md.replace(/<i[^>]*>(.*?)<\/i>/gi, '*$1*');
+  md = md.replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, '```\n$1\n```\n\n');
+  md = md.replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`');
+  md = md.replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1\n');
+  md = md.replace(/<\/ul>/gi, '\n');
+  md = md.replace(/<\/ol>/gi, '\n');
+  md = md.replace(/<br\s*\/?>/gi, '\n');
+  md = md.replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n\n');
+  md = md.replace(/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>/gi, '![$2]($1)');
+  md = md.replace(/<img[^>]*src="([^"]*)"[^>]*>/gi, '![]($1)');
+  md = md.replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)');
+  md = md.replace(/<[^>]+>/g, '');
+  md = md
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ');
+  return md.trim();
+}
+
 interface Flashcard { question: string; answer: string; }
 
 export default function NotesContent() {
@@ -151,8 +183,8 @@ export default function NotesContent() {
   const lastSavedAt = useRef<number>(0);
 
   const onAutosaveNote = useCallback(async (noteId: string, data: { title: string; content: string }) => {
-    await updateNote(noteId, { ...data, markdownSource: '' });
-    setSelectedNote((prev) => (prev && prev.id === noteId ? { ...prev, ...data, markdownSource: '', updatedAt: Date.now() } : prev));
+    await updateNote(noteId, data);
+    setSelectedNote((prev) => (prev && prev.id === noteId ? { ...prev, ...data, updatedAt: Date.now() } : prev));
     lastSavedAt.current = Date.now();
   }, [updateNote]);
 
@@ -400,8 +432,8 @@ export default function NotesContent() {
     setSaveStatus('saving');
 
     try {
-      await updateNote(selectedNote.id, { title: editTitle, content: latestContent, markdownSource: '' });
-      setSelectedNote({ ...selectedNote, title: editTitle, content: latestContent, markdownSource: '', updatedAt: Date.now() });
+      await updateNote(selectedNote.id, { title: editTitle, content: latestContent });
+      setSelectedNote({ ...selectedNote, title: editTitle, content: latestContent, updatedAt: Date.now() });
       setEditContent(latestContent);
       lastSavedAt.current = Date.now();
       setSaveStatus('saved');
@@ -422,7 +454,7 @@ export default function NotesContent() {
     } catch (err) {
       console.warn('[NotesContent] Manual cloud save failed, safely stored in local backup:', err);
       // Fallback: note is already saved locally via NotesContext and localStorage!
-      setSelectedNote({ ...selectedNote, title: editTitle, content: latestContent, markdownSource: '', updatedAt: Date.now() });
+      setSelectedNote({ ...selectedNote, title: editTitle, content: latestContent, updatedAt: Date.now() });
       setEditContent(latestContent);
       lastSavedAt.current = Date.now();
       setSaveStatus('offline');
@@ -1632,14 +1664,20 @@ Rules:
                           >
                             <HiClipboardCopy size={14} /> Import Markdown
                           </button>
-                          {selectedNote?.markdownSource && (
-                            <button
-                              onClick={() => { setShowMoreDropdown(false); setIsEditingMarkdown(true); setMarkdownInput(selectedNote.markdownSource || ''); setShowMarkdownImport(true); }}
-                              className="w-full px-3 py-1.5 text-xs text-left hover:bg-primary/15 text-[var(--foreground)] flex items-center gap-2 transition-colors"
-                            >
-                              <HiCode size={14} /> Edit MD Source
-                            </button>
-                          )}
+                          <button
+                            onClick={() => {
+                              setShowMoreDropdown(false);
+                              setIsEditingMarkdown(true);
+                              const initialMd = (selectedNote?.markdownSource && selectedNote.markdownSource.trim().length > 0)
+                                ? selectedNote.markdownSource
+                                : (selectedNote?.content ? htmlToBasicMarkdown(selectedNote.content) : '');
+                              setMarkdownInput(initialMd);
+                              setShowMarkdownImport(true);
+                            }}
+                            className="w-full px-3 py-1.5 text-xs text-left hover:bg-primary/15 text-[var(--foreground)] flex items-center gap-2 transition-colors"
+                          >
+                            <HiCode size={14} /> Edit MD Source
+                          </button>
                           <div className="h-[1px] bg-[var(--card-border)] my-1" />
                           <button
                             onClick={() => { setShowMoreDropdown(false); setConfirmDelete(selectedNote.id); }}
@@ -2091,6 +2129,7 @@ Rules:
             onClose={() => setShowPdfModal(false)}
             noteTitle={selectedNote.title}
             noteContent={renderedViewContent || selectedNote.content}
+            markdownSource={selectedNote.markdownSource}
             folder={selectedNote.folder}
           />
         )}
@@ -2135,7 +2174,7 @@ Rules:
             setIsEditingMarkdown(false);
           }}
           isEditingSource={isEditingMarkdown}
-          initialValue={isEditingMarkdown ? (selectedNote?.markdownSource || '') : ''}
+          initialValue={isEditingMarkdown ? (selectedNote?.markdownSource || markdownInput || '') : ''}
           onImport={async (compiledHtml, rawMarkdown) => {
             if (!selectedNote) return;
             const quill = quillRef.current?.getEditor();
