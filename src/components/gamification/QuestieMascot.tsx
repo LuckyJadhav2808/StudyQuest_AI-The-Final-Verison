@@ -134,6 +134,7 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
   const [dialogue, setDialogue] = useState('Ready for a quest? 🦉');
   const [mood, setMood] = useState<MascotMood>('active');
   const [squishing, setSquishing] = useState(false);
+  const [isBurstCelebrating, setIsBurstCelebrating] = useState(false);
   const [collapsedPopoverOpen, setCollapsedPopoverOpen] = useState(false);
   const [mascotStyle, setMascotStyle] = useState<MascotVisualMode>(() => {
     if (typeof window === 'undefined') return 'expressive';
@@ -299,7 +300,9 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
     playClick();
     playCompanionVocal('owl');
     setSquishing(true);
+    setIsBurstCelebrating(true);
     setTimeout(() => setSquishing(false), 650);
+    setTimeout(() => setIsBurstCelebrating(false), 1650); // Exactly 3 cheerful hops before settling
 
     const routeMessages = ROUTE_DIALOGUES[pathname] || ROUTE_DIALOGUES['/'] || [];
     const contextMessages = getContextDialogues();
@@ -308,6 +311,14 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
     setMood('active');
     setCollapsedPopoverOpen((prev) => !prev);
   };
+
+  // Mascot sprite action: Active streak retains fiery aura & "On Fire 🔥" badge,
+  // but breathes calmly. Jumping hops play only as finite 3-hop bursts on click/milestones.
+  const mascotAction = useMemo(() => {
+    if (currentMood === 'sleeping') return 'sleep';
+    if (isBurstCelebrating || squishing) return 'celebrate';
+    return 'idle';
+  }, [currentMood, isBurstCelebrating, squishing]);
 
   // ── Aura colors based on mood ────────────────────────────────
   const auraGlow = useMemo(() => {
@@ -335,11 +346,19 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
           onClick={handleMascotClick}
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
-          animate={squishing ? { scale: [1, 0.85, 1.18, 1] } : { y: [0, -3, 0] }}
+          animate={
+            squishing
+              ? { scale: [1, 0.85, 1.18, 1] }
+              : isBurstCelebrating
+              ? { y: [0, -6, 0] }
+              : { y: [0, -3, 0] }
+          }
           transition={
             squishing
               ? { duration: 0.35 }
-              : { duration: 3, repeat: Infinity, ease: 'easeInOut' }
+              : isBurstCelebrating
+              ? { duration: 0.55, repeat: 3, ease: 'easeInOut' }
+              : { duration: 2.8, repeat: Infinity, ease: 'easeInOut' }
           }
           className="relative cursor-pointer group flex items-center justify-center p-1.5 rounded-2xl bg-slate-900/60 dark:bg-slate-950/80 border border-white/10 hover:border-indigo-500/40 shadow-md transition-colors"
           title="Click Questie for wisdom!"
@@ -356,10 +375,11 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
           ) : (
             <ChibiCompanionSprite
               species="owl"
-              action={currentMood === 'sleeping' ? 'sleep' : currentMood === 'celebration' ? 'celebrate' : squishing ? 'celebrate' : 'idle'}
+              action={mascotAction}
               size={34}
               isSquishing={squishing}
               showShadow={false}
+              repeatCelebrate={3}
             />
           )}
 
@@ -417,10 +437,11 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
               ) : (
                 <ChibiCompanionSprite
                   species="owl"
-                  action={currentMood === 'sleeping' ? 'sleep' : currentMood === 'celebration' ? 'celebrate' : squishing ? 'celebrate' : 'idle'}
+                  action={mascotAction}
                   size={24}
                   isSquishing={squishing}
                   showShadow={false}
+                  repeatCelebrate={3}
                 />
               )}
               <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400 ring-1 ring-slate-900" />
@@ -468,16 +489,18 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
                 ? { scale: [1, 0.88, 1.16, 1] }
                 : reduceMotion
                 ? {}
-                : currentMood === 'celebration'
-                ? { y: [0, -6, 0], scale: [1, 1.06, 1] }
+                : isBurstCelebrating
+                ? { y: [0, -8, 0], scale: [1, 1.06, 1] }
                 : currentMood === 'sleeping'
                 ? { y: [0, 2, 0] }
-                : { y: [0, -4, 0] }
+                : { y: [0, -3.5, 0] }
             }
             transition={
               squishing
                 ? { duration: 0.35 }
-                : { duration: 3.2, repeat: Infinity, ease: 'easeInOut' }
+                : isBurstCelebrating
+                ? { duration: 0.55, repeat: 3, ease: 'easeInOut' }
+                : { duration: 2.8, repeat: Infinity, ease: 'easeInOut' }
             }
             className="relative cursor-pointer shrink-0"
             title="Click Questie for wisdom!"
@@ -491,10 +514,11 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
             ) : (
               <ChibiCompanionSprite
                 species="owl"
-                action={currentMood === 'sleeping' ? 'sleep' : currentMood === 'celebration' ? 'celebrate' : squishing ? 'celebrate' : 'idle'}
+                action={mascotAction}
                 size={50}
                 isSquishing={squishing}
                 showShadow={true}
+                repeatCelebrate={3}
               />
             )}
           </motion.div>

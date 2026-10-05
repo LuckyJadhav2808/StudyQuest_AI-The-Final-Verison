@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Note } from '@/types';
 
-export type SaveStatus = 'idle' | 'saving' | 'saved';
+export type SaveStatus = 'idle' | 'saving' | 'saved' | 'offline';
 
 interface UseNotesAutosaveOptions {
   selectedNote: Note | null;
@@ -18,6 +18,7 @@ export function useNotesAutosave({
 }: UseNotesAutosaveOptions) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirtyRef = useRef(false);
   const pendingDataRef = useRef<{ title: string; content: string } | null>(null);
   const selectedNoteRef = useRef<Note | null>(selectedNote);
@@ -31,28 +32,41 @@ export function useNotesAutosave({
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
 
     if (!dirtyRef.current || !pendingDataRef.current || !selectedNoteRef.current) {
       return;
     }
 
-    const { title, content } = pendingDataRef.current;
+    const dataToSave = { ...pendingDataRef.current };
     const noteId = selectedNoteRef.current.id;
-    dirtyRef.current = false;
-    pendingDataRef.current = null;
 
     try {
       setSaveStatus('saving');
-      await onSaveRef.current(noteId, { title, content });
+      await onSaveRef.current(noteId, dataToSave);
+
+      // Only mark clean if no newer edits occurred during save
+      if (
+        pendingDataRef.current?.content === dataToSave.content &&
+        pendingDataRef.current?.title === dataToSave.title
+      ) {
+        dirtyRef.current = false;
+        pendingDataRef.current = null;
+      }
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2500);
     } catch (err) {
-      console.error('Error in flushAutosave:', err);
-      setSaveStatus('idle');
+      console.warn('[useNotesAutosave] flushAutosave deferred to offline/local cache:', err);
+      // Retain pending data and dirty state so nothing is ever lost
+      dirtyRef.current = true;
+      setSaveStatus('offline');
     }
   }, []);
 
-  // Schedule an autosave with debounce
+  // Schedule an autosave with debounce and automatic retry on failure
   const scheduleAutosave = useCallback((content: string, title: string) => {
     if (!selectedNoteRef.current) return;
 
@@ -62,33 +76,52 @@ export function useNotesAutosave({
     if (timerRef.current) {
       clearTimeout(timerRef.current);
     }
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
 
     timerRef.current = setTimeout(async () => {
       timerRef.current = null;
       if (!dirtyRef.current || !pendingDataRef.current || !selectedNoteRef.current) return;
 
       const currentNoteId = selectedNoteRef.current.id;
-      const dataToSave = pendingDataRef.current;
-      dirtyRef.current = false;
-      pendingDataRef.current = null;
+      const dataToSave = { ...pendingDataRef.current };
 
       try {
         setSaveStatus('saving');
         await onSaveRef.current(currentNoteId, dataToSave);
+
+        // Check if user edited more while saving was in-flight
+        if (
+          pendingDataRef.current?.content === dataToSave.content &&
+          pendingDataRef.current?.title === dataToSave.title
+        ) {
+          dirtyRef.current = false;
+          pendingDataRef.current = null;
+        }
+
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2500);
       } catch (err) {
-        console.error('Autosave failed:', err);
-        setSaveStatus('idle');
+        console.warn('[useNotesAutosave] Autosave deferred to offline/local cache, scheduling retry:', err);
+        dirtyRef.current = true;
+        setSaveStatus('offline');
+
+        // Schedule an automatic retry in 5000ms
+        retryTimerRef.current = setTimeout(() => {
+          if (dirtyRef.current && pendingDataRef.current && selectedNoteRef.current) {
+            scheduleAutosave(pendingDataRef.current.content, pendingDataRef.current.title);
+          }
+        }, 5000);
       }
     }, debounceMs);
   }, [debounceMs]);
 
-  // Window beforeunload warning / flush if dirty
+  // Window beforeunload warning if dirty
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (dirtyRef.current) {
-        // Trigger browser's native leave confirmation
         e.preventDefault();
         e.returnValue = 'You have unsaved changes in your note. Are you sure you want to leave?';
         return e.returnValue;
@@ -104,14 +137,12 @@ export function useNotesAutosave({
   // Clean up and flush on unmount
   useEffect(() => {
     return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
       if (dirtyRef.current && pendingDataRef.current && selectedNoteRef.current) {
-        // Fire and forget flush on unmount
         const { title, content } = pendingDataRef.current;
         onSaveRef.current(selectedNoteRef.current.id, { title, content }).catch((err) => {
-          console.warn('Unmount autosave flush error:', err);
+          console.warn('[useNotesAutosave] Unmount autosave flush error (cached locally):', err);
         });
       }
     };

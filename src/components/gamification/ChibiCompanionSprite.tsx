@@ -20,6 +20,7 @@ export interface ChibiCompanionSpriteProps {
   bubbleText?: string;
   showAura?: boolean;
   bounceDirection?: 'up' | 'down'; // 'down' prevents top-edge ceiling clipping for header roamers
+  repeatCelebrate?: number | 'infinite'; // default 3 hops for finite bursts
 }
 
 type EyeState = 'normal' | 'blink' | 'happy' | 'sleep' | 'squish';
@@ -49,6 +50,7 @@ export default function ChibiCompanionSprite({
   bubbleText,
   showAura = true,
   bounceDirection = 'up',
+  repeatCelebrate = 3,
 }: ChibiCompanionSpriteProps) {
   // Gracefully attempt to read reduceMotion from ThemeContext
   let reduceMotion = false;
@@ -170,13 +172,13 @@ export default function ChibiCompanionSprite({
       case 'celebrate':
         return {
           animate: {
-            y: isDown ? [0, 12, 0] : [0, -18, 0],
+            y: isDown ? [0, 10, 0] : [0, -14, 0],
             scaleY: [1, 0.94, 1.08, 1],
             scaleX: [1, 1.06, 0.94, 1],
           },
           transition: {
             duration: 0.55,
-            repeat: Infinity,
+            repeat: repeatCelebrate === 'infinite' ? Infinity : typeof repeatCelebrate === 'number' ? repeatCelebrate : 3,
             ease: 'easeInOut' as const,
           },
         };

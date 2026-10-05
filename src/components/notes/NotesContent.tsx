@@ -398,26 +398,39 @@ export default function NotesContent() {
     if (!selectedNote) return;
     const latestContent = editorCoreRef.current?.getHtml() || editContent;
     setSaveStatus('saving');
-    await updateNote(selectedNote.id, { title: editTitle, content: latestContent });
-    setSelectedNote({ ...selectedNote, title: editTitle, content: latestContent, updatedAt: Date.now() });
-    setEditContent(latestContent);
-    setSelectedNote({ ...selectedNote, title: editTitle, content: editContent, updatedAt: Date.now() });
-    lastSavedAt.current = Date.now();
-    setSaveStatus('saved');
-    setIsEditing(false);
-    toast.success('Note saved! 💾');
-    playSuccess();
 
-    // Questie celebration reaction
-    setMascotMood('celebration');
-    setMascotBubble('✨ Saved to your grimoire! Keep leveling up! 🦉');
-    setShowMascotBubble(true);
-    setTimeout(() => {
-      setMascotMood('active');
-      setShowMascotBubble(false);
-    }, 4000);
+    try {
+      await updateNote(selectedNote.id, { title: editTitle, content: latestContent });
+      setSelectedNote({ ...selectedNote, title: editTitle, content: latestContent, updatedAt: Date.now() });
+      setEditContent(latestContent);
+      lastSavedAt.current = Date.now();
+      setSaveStatus('saved');
+      setIsEditing(false);
+      toast.success('Note saved! 💾');
+      playSuccess();
 
-    setTimeout(() => setSaveStatus('idle'), 2000);
+      // Questie celebration reaction
+      setMascotMood('celebration');
+      setMascotBubble('✨ Saved to your grimoire! Keep leveling up! 🦉');
+      setShowMascotBubble(true);
+      setTimeout(() => {
+        setMascotMood('active');
+        setShowMascotBubble(false);
+      }, 4000);
+
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (err) {
+      console.warn('[NotesContent] Manual cloud save failed, safely stored in local backup:', err);
+      // Fallback: note is already saved locally via NotesContext and localStorage!
+      setSelectedNote({ ...selectedNote, title: editTitle, content: latestContent, updatedAt: Date.now() });
+      setEditContent(latestContent);
+      lastSavedAt.current = Date.now();
+      setSaveStatus('offline');
+      setIsEditing(false);
+      toast.success('Note saved locally! 💾 (Will sync when online)', { icon: '📦' });
+      playSuccess();
+      setTimeout(() => setSaveStatus('idle'), 2500);
+    }
   };
 
   const handleMascotClick = () => {
@@ -1330,9 +1343,27 @@ Rules:
 
                     {/* Save indicator */}
                     {isEditing && saveStatus !== 'idle' && (
-                      <span className={`text-[10px] font-bold flex items-center gap-1 shrink-0 ${saveStatus === 'saving' ? 'text-amber-400' : 'text-teal-400'}`}>
-                        {saveStatus === 'saving' ? <HiRefresh className="animate-spin" size={11} /> : <HiCheck size={11} />}
-                        <span className="hidden md:inline">{saveStatus === 'saving' ? 'Saving...' : 'Saved'}</span>
+                      <span className={`text-[10px] font-bold flex items-center gap-1 shrink-0 ${
+                        saveStatus === 'saving'
+                          ? 'text-amber-400'
+                          : saveStatus === 'offline'
+                          ? 'text-sky-400'
+                          : 'text-teal-400'
+                      }`}>
+                        {saveStatus === 'saving' ? (
+                          <HiRefresh className="animate-spin" size={11} />
+                        ) : saveStatus === 'offline' ? (
+                          <span>💾</span>
+                        ) : (
+                          <HiCheck size={11} />
+                        )}
+                        <span className="hidden md:inline">
+                          {saveStatus === 'saving'
+                            ? 'Saving...'
+                            : saveStatus === 'offline'
+                            ? 'Saved locally'
+                            : 'Saved'}
+                        </span>
                       </span>
                     )}
                   </div>
