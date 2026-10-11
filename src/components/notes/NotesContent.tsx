@@ -583,7 +583,8 @@ export default function NotesContent() {
     // lift them to Firebase Storage and update note content to keep size under 10KB.
     if (note.content && note.content.includes('data:image/')) {
       extractAndUploadNoteImages(note.content, user?.uid || '', note.id).then(({ sanitizedHtml, wasModified, replacedMap }) => {
-        if (wasModified) {
+        const hasCloudUpload = Object.values(replacedMap).some((u) => u && !u.startsWith('data:image/'));
+        if (wasModified && hasCloudUpload) {
           // Guard against race condition: if user already typed words, do NOT wipe them out!
           setEditContent((currentEdit) => {
             if (!currentEdit || currentEdit === note.content) {

@@ -14,7 +14,7 @@ const notesStore = typeof window !== 'undefined'
   : (null as any);
 
 const syncQueueStore = typeof window !== 'undefined'
-  ? createStore('studyquest_notes_db', 'sync_queue_store')
+  ? createStore('studyquest_notes_sync_db', 'sync_queue_store')
   : (null as any);
 
 const LOCAL_NOTE_PREFIX = 'sq_local_note_';

@@ -195,6 +195,10 @@ export async function uploadNoteImage(
   }
 }
 
+// In-memory cache of data URLs that have already been evaluated during this session
+// Prevents continuous re-upload and re-compression storms on auto-save ticks
+const attemptedUploadCache = new Set<string>();
+
 /**
  * Self-healing helper: scans a note's HTML content for embedded base64 images (data:image/...),
  * uploads each to Firebase Storage, and replaces the massive base64 string with the clean HTTPS URL.
@@ -225,11 +229,16 @@ export async function extractAndUploadNoteImages(
     }
   }
 
-  // Deduplicate matches so identical diagrams/screenshots are uploaded only once
-  const uniqueDataUrls = Array.from(new Set(rawMatches));
+  // Deduplicate matches and ignore URLs that have already been attempted in this session
+  const uniqueDataUrls = Array.from(new Set(rawMatches)).filter((u) => !attemptedUploadCache.has(u));
 
   if (uniqueDataUrls.length === 0) {
     return { sanitizedHtml: content, wasModified: false, replacedCount: 0, replacedMap: {} };
+  }
+
+  // Cap cache size to avoid unbounded memory growth
+  if (attemptedUploadCache.size > 300) {
+    attemptedUploadCache.clear();
   }
 
   let sanitizedHtml = content;
@@ -238,8 +247,12 @@ export async function extractAndUploadNoteImages(
 
   // Process up to 5 images concurrently to avoid sequential blocking
   const uploadPromises = uniqueDataUrls.map(async (dataUrl) => {
+    attemptedUploadCache.add(dataUrl);
     try {
       const uploadedUrl = await uploadNoteImage(userId, noteId, dataUrl, 'extracted');
+      if (uploadedUrl) {
+        attemptedUploadCache.add(uploadedUrl);
+      }
       return { dataUrl, uploadedUrl };
     } catch (err) {
       console.warn('[storage] Failed to lift image during note self-healing:', err);

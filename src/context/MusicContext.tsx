@@ -669,6 +669,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         audio.play().then(() => setIsPlaying(true)).catch((err) => {
+          if (err?.name === 'AbortError') return;
           console.warn('Playback error:', err);
           playTrack(idx);
         });

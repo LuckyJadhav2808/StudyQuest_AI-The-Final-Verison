@@ -336,7 +336,11 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
         await removeFromIdbSyncQueue(noteId);
       } catch (err: any) {
         console.warn('[NotesContext] Cloud sync queued/deferred to IndexedDB offline queue:', err);
-        await addToIdbSyncQueue(noteId, payloadToSave, now);
+        try {
+          await addToIdbSyncQueue(noteId, payloadToSave, now);
+        } catch (queueErr) {
+          console.warn('[NotesContext] Safe offline queue notice:', queueErr);
+        }
         setIsOfflineSyncPending(true);
       }
     };
