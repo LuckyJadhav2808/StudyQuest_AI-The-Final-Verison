@@ -2,9 +2,10 @@
 
 // ============================================================
 // StudyQuest AI — Shared Notes Context (Local-First Singleton)
-// - Resilient offline-first persistence with localStorage mirroring
+// - Resilient offline-first persistence with IndexedDB high-capacity storage
+// - Zero 5MB localStorage QuotaExceededError crashes
+// - Automatic image self-healing & Firestore 1 MiB document size protection
 // - Automatic background sync queue with online reconnection listener
-// - Zero destructive state rollbacks on network hiccups
 // ============================================================
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -19,6 +20,17 @@ import {
 import { db } from '@/lib/firebase';
 import { Note } from '@/types';
 import toast from 'react-hot-toast';
+import {
+  hydrateMemoryNotesCache,
+  getCachedNoteSync,
+  saveIdbNote,
+  removeIdbNote,
+  getIdbSyncQueue,
+  addToIdbSyncQueue,
+  removeFromIdbSyncQueue,
+  migrateLocalStorageToIndexedDB,
+} from '@/lib/idbNotes';
+import { extractAndUploadNoteImages } from '@/lib/storage';
 
 export interface NotesContextValue {
   notes: Note[];
@@ -30,9 +42,12 @@ export interface NotesContextValue {
 }
 
 const LOCAL_NOTE_PREFIX = 'sq_local_note_';
-const SYNC_QUEUE_KEY = 'sq_notes_sync_queue';
 
 function getLocalNote(noteId: string): Partial<Note> | null {
+  // First check in-memory cache populated from IndexedDB
+  const cached = getCachedNoteSync(noteId);
+  if (cached) return cached;
+
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(`${LOCAL_NOTE_PREFIX}${noteId}`);
@@ -42,54 +57,30 @@ function getLocalNote(noteId: string): Partial<Note> | null {
   }
 }
 
-function saveLocalNote(noteId: string, data: Partial<Note>): void {
-  if (typeof window === 'undefined') return;
-  try {
-    const existing = getLocalNote(noteId) || {};
-    const updated = { ...existing, ...data, id: noteId };
-    localStorage.setItem(`${LOCAL_NOTE_PREFIX}${noteId}`, JSON.stringify(updated));
-  } catch (err) {
-    console.warn('[NotesContext] LocalStorage write failed (possibly quota):', err);
+async function saveLocalNote(noteId: string, data: Partial<Note>): Promise<void> {
+  // 1. High-capacity IndexedDB write (never hits 5MB quota)
+  await saveIdbNote(noteId, data);
+
+  // 2. Safe defensive localStorage write only for small text notes (< 40KB)
+  if (typeof window !== 'undefined') {
+    try {
+      const serialized = JSON.stringify(data);
+      if (serialized.length < 40000) {
+        localStorage.setItem(`${LOCAL_NOTE_PREFIX}${noteId}`, serialized);
+      }
+    } catch {
+      // Ignore localStorage quota failures silently — IndexedDB holds the authoritative data!
+    }
   }
 }
 
-function removeLocalNote(noteId: string): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.removeItem(`${LOCAL_NOTE_PREFIX}${noteId}`);
-  } catch {}
-}
-
-function getSyncQueue(): Record<string, { data: Partial<Note>; updatedAt: number }> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = localStorage.getItem(SYNC_QUEUE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
+async function removeLocalNote(noteId: string): Promise<void> {
+  await removeIdbNote(noteId);
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(`${LOCAL_NOTE_PREFIX}${noteId}`);
+    } catch {}
   }
-}
-
-function addToSyncQueue(noteId: string, data: Partial<Note>, updatedAt: number): void {
-  if (typeof window === 'undefined') return;
-  try {
-    const queue = getSyncQueue();
-    const prevEntry = queue[noteId];
-    queue[noteId] = {
-      data: { ...(prevEntry?.data || {}), ...data },
-      updatedAt,
-    };
-    localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
-  } catch {}
-}
-
-function removeFromSyncQueue(noteId: string): void {
-  if (typeof window === 'undefined') return;
-  try {
-    const queue = getSyncQueue();
-    delete queue[noteId];
-    localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
-  } catch {}
 }
 
 const NotesContext = createContext<NotesContextValue | null>(null);
@@ -102,10 +93,19 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
   const notesRef = useRef<Note[]>([]);
   notesRef.current = notes;
 
-  // Flush pending sync queue whenever online or user becomes available
+  // 1. Initialize IndexedDB cache and migrate old localStorage data on startup
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      hydrateMemoryNotesCache().then(() => {
+        migrateLocalStorageToIndexedDB();
+      });
+    }
+  }, []);
+
+  // 2. Flush pending sync queue whenever online or user becomes available
   const flushSyncQueue = useCallback(async () => {
     if (!user || typeof window === 'undefined') return;
-    const queue = getSyncQueue();
+    const queue = await getIdbSyncQueue();
     const noteIds = Object.keys(queue);
     if (noteIds.length === 0) {
       setIsOfflineSyncPending(false);
@@ -117,21 +117,39 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
       const item = queue[noteId];
       if (!item) continue;
       try {
+        let payloadToSync = { ...item.data };
+
+        // Lift any embedded images to Firebase Storage before sending to Firestore
+        if (payloadToSync.content && payloadToSync.content.includes('data:image/')) {
+          const extraction = await extractAndUploadNoteImages(payloadToSync.content, user.uid, noteId);
+          if (extraction.wasModified) {
+            payloadToSync.content = extraction.sanitizedHtml;
+          }
+        }
+
+        // Firestore document size check (< 950KB)
+        const sizeBytes = new Blob([payloadToSync.content || '']).size;
+        if (sizeBytes > 950000) {
+          console.warn(`[NotesContext] Skipping cloud sync for oversized note ${noteId} (${sizeBytes} bytes). Safe in IndexedDB.`);
+          continue;
+        }
+
         await setDocument(doc(db, 'users', user.uid, 'notes', noteId), {
-          ...item.data,
+          ...payloadToSync,
           updatedAt: item.updatedAt,
         }, true);
-        removeFromSyncQueue(noteId);
+
+        await removeFromIdbSyncQueue(noteId);
       } catch (err: any) {
         if (err?.code === 'resource-exhausted') {
-          console.warn('[NotesContext] Firestore daily quota reached. Pausing cloud sync queue; notes are safe in localStorage.');
+          console.warn('[NotesContext] Firestore daily quota reached. Pausing cloud sync queue; notes are safe in IndexedDB.');
           break;
         }
         console.warn(`[NotesContext] Retry sync failed for note ${noteId}:`, err);
       }
     }
 
-    const remaining = Object.keys(getSyncQueue());
+    const remaining = Object.keys(await getIdbSyncQueue());
     setIsOfflineSyncPending(remaining.length > 0);
   }, [user]);
 
@@ -184,25 +202,45 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     if (!user) return null;
     const id = crypto.randomUUID();
     const now = Date.now();
+    let initialData = { ...data };
+
+    // Lift any embedded images if created from template or rich paste
+    if (initialData.content && initialData.content.includes('data:image/')) {
+      try {
+        const extraction = await extractAndUploadNoteImages(initialData.content, user.uid, id);
+        if (extraction.wasModified) {
+          initialData.content = extraction.sanitizedHtml;
+        }
+      } catch {}
+    }
+
     const newNote: Note = {
       id,
-      ...data,
+      ...initialData,
       createdAt: now,
       updatedAt: now,
     };
 
     // 1. Optimistic insert & immediate local cache
     setNotes((prev) => [newNote, ...prev]);
-    saveLocalNote(id, newNote);
+    await saveLocalNote(id, newNote);
 
     // 2. Cloud sync
     try {
+      const sizeBytes = new Blob([newNote.content || '']).size;
+      if (sizeBytes > 950000) {
+        console.warn(`[NotesContext] Note ${id} is ${sizeBytes} bytes. Saved in high-capacity IndexedDB; sync queued.`);
+        await addToIdbSyncQueue(id, newNote, now);
+        setIsOfflineSyncPending(true);
+        return id;
+      }
+
       await setDocument(doc(db, 'users', user.uid, 'notes', id), newNote, false);
-      removeFromSyncQueue(id);
+      await removeFromIdbSyncQueue(id);
       return id;
     } catch (err: any) {
       console.warn('[NotesContext] Note created locally; cloud sync queued:', err);
-      addToSyncQueue(id, newNote, now);
+      await addToIdbSyncQueue(id, newNote, now);
       setIsOfflineSyncPending(true);
       return id;
     }
@@ -211,28 +249,51 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
   const updateNote = useCallback(async (noteId: string, data: Partial<Note>) => {
     if (!user) return;
     const now = Date.now();
+    let payloadToSave = { ...data };
 
-    // 1. Optimistic update in state
+    // 1. Self-healing image extraction:
+    // If the note content contains raw data:image/ URIs (e.g. from pasted screenshots or diagrams),
+    // lift them into Firebase Storage and replace with clean URLs to drop document size from 3MB to 10KB.
+    if (payloadToSave.content && payloadToSave.content.includes('data:image/')) {
+      try {
+        const extraction = await extractAndUploadNoteImages(payloadToSave.content, user.uid, noteId);
+        if (extraction.wasModified) {
+          payloadToSave.content = extraction.sanitizedHtml;
+        }
+      } catch (extractErr) {
+        console.warn('[NotesContext] Image extraction deferred to background:', extractErr);
+      }
+    }
+
+    // 2. Optimistic update in state
     setNotes((prev) =>
-      prev.map((n) => (n.id === noteId ? { ...n, ...data, updatedAt: now } : n))
+      prev.map((n) => (n.id === noteId ? { ...n, ...payloadToSave, updatedAt: now } : n))
     );
 
-    // 2. Immediate local cache write (instant safe persistence)
-    saveLocalNote(noteId, { ...data, updatedAt: now });
+    // 3. Immediate local cache write in IndexedDB (zero quota limits, never fails with QuotaExceededError)
+    await saveLocalNote(noteId, { ...payloadToSave, updatedAt: now });
 
-    // 3. Attempt Firestore cloud sync (without destructive rollback on network drop)
+    // 4. Pre-flight check before Firestore:
+    // Ensure document payload is safely below 950,000 bytes (Firestore hard limit is 1,048,576 bytes)
+    const estimatedBytes = new Blob([payloadToSave.content || '']).size;
+    if (estimatedBytes > 950000) {
+      console.warn(`[NotesContext] Note ${noteId} is ${estimatedBytes} bytes (exceeds Firestore 1MB limit). Saved locally in IndexedDB.`);
+      await addToIdbSyncQueue(noteId, payloadToSave, now);
+      setIsOfflineSyncPending(true);
+      return;
+    }
+
+    // 5. Attempt Firestore cloud sync (without destructive rollback on network drop)
     try {
       await setDocument(doc(db, 'users', user.uid, 'notes', noteId), {
-        ...data,
+        ...payloadToSave,
         updatedAt: now,
       }, true);
-      removeFromSyncQueue(noteId);
+      await removeFromIdbSyncQueue(noteId);
     } catch (err: any) {
-      console.warn('[NotesContext] Note saved locally; cloud sync queued:', err);
-      addToSyncQueue(noteId, data, now);
+      console.warn('[NotesContext] Note saved locally in IndexedDB; cloud sync queued:', err);
+      await addToIdbSyncQueue(noteId, payloadToSave, now);
       setIsOfflineSyncPending(true);
-      // NOTE: We deliberately do NOT rollback in-memory notes nor throw an error!
-      // The user's work is safely persisted locally and queued for automatic sync.
     }
   }, [user]);
 
@@ -242,8 +303,8 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
 
     // Optimistic deletion & cleanup
     setNotes((prev) => prev.filter((n) => n.id !== noteId));
-    removeLocalNote(noteId);
-    removeFromSyncQueue(noteId);
+    await removeLocalNote(noteId);
+    await removeFromIdbSyncQueue(noteId);
 
     try {
       await removeDocument(doc(db, 'users', user.uid, 'notes', noteId));

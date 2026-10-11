@@ -23,7 +23,7 @@ import { useNotes } from '@/hooks/useNotes';
 import { useNotesAutosave } from '@/hooks/useNotesAutosave';
 import { sanitizeNoteHtml, prepareContentForAi, stripHtml } from '@/lib/sanitize';
 import { compileStudyQuestMarkdown } from '@/lib/markdownCompiler';
-import { uploadNoteImage } from '@/lib/storage';
+import { uploadNoteImage, extractAndUploadNoteImages } from '@/lib/storage';
 import { useGamification } from '@/hooks/useGamification';
 import { useAuthContext } from '@/context/AuthContext';
 import Card from '@/components/ui/Card';
@@ -102,7 +102,7 @@ export default function NotesContent() {
   const searchParams = useSearchParams();
   const { notes, loading, addNote, updateNote, deleteNote } = useNotes();
   const { awardXP } = useGamification();
-  const { profile } = useAuthContext();
+  const { user, profile } = useAuthContext();
 
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -565,7 +565,40 @@ export default function NotesContent() {
     if (typeof window !== 'undefined') {
       router.replace(`/notes?id=${note.id}`, { scroll: false });
     }
-  }, [flushAutosave, router]);
+
+    // Self-healing: if the note contains raw base64 images (e.g. from pasted screenshots),
+    // lift them to Firebase Storage and update note content to keep size under 10KB.
+    if (note.content && note.content.includes('data:image/')) {
+      extractAndUploadNoteImages(note.content, user?.uid || '', note.id).then(({ sanitizedHtml, wasModified, replacedMap }) => {
+        if (wasModified) {
+          // Guard against race condition: if user already typed words, do NOT wipe them out!
+          setEditContent((currentEdit) => {
+            if (!currentEdit || currentEdit === note.content) {
+              return sanitizedHtml;
+            }
+            // User typed new content while upload was in flight:
+            let merged = currentEdit;
+            if (replacedMap) {
+              for (const [oldUri, newUrl] of Object.entries(replacedMap)) {
+                merged = merged.split(oldUri).join(newUrl);
+              }
+            }
+            return merged;
+          });
+
+          setSelectedNote((prev) => {
+            if (!prev || prev.id !== note.id) return prev;
+            return { ...prev, content: sanitizedHtml };
+          });
+
+          updateNote(note.id, { content: sanitizedHtml });
+          toast.success('Note images optimized for cloud sync! ✨', { id: 'note-healed' });
+        }
+      }).catch((err) => {
+        console.warn('[NotesContent] Self-healing image extraction notice:', err);
+      });
+    }
+  }, [flushAutosave, router, user?.uid, updateNote]);
 
   const backToList = useCallback(async () => {
     await flushAutosave();
@@ -636,8 +669,19 @@ export default function NotesContent() {
   }, []);
 
   // Insert diagram image into note content
-  const handleInsertDiagram = (dataUrl: string) => {
-    const imgTag = `<p><img src="${dataUrl}" alt="Flowchart Diagram" style="max-width:100%;height:auto;border-radius:12px;margin:12px 0;display:block;box-shadow:0 4px 16px rgba(0,0,0,0.08);" /></p><p><br></p>`;
+  const handleInsertDiagram = async (dataUrl: string) => {
+    let finalUrl = dataUrl;
+    if (dataUrl && dataUrl.startsWith('data:image/')) {
+      const toastId = toast.loading('Uploading diagram...', { id: 'diag-upload' });
+      try {
+        finalUrl = await uploadNoteImage(user?.uid || '', selectedNote?.id || '', dataUrl, 'diagram');
+        toast.success('Diagram inserted! 📊', { id: 'diag-upload' });
+      } catch {
+        toast.dismiss(toastId);
+      }
+    }
+
+    const imgTag = `<p><img src="${finalUrl}" alt="Flowchart Diagram" style="max-width:100%;height:auto;border-radius:12px;margin:12px 0;display:block;box-shadow:0 4px 16px rgba(0,0,0,0.08);" /></p><p><br></p>`;
     
     const quill = quillRef.current?.getEditor();
     if (quill) {

@@ -20,6 +20,9 @@ import {
   cleanWord,
 } from '@/lib/spellcheck';
 import { getAutocompleteSuggestions } from '@/data/notesAutocompleteDataset';
+import { useAuthContext } from '@/context/AuthContext';
+import { uploadNoteImage } from '@/lib/storage';
+import toast from 'react-hot-toast';
 
 const ReactQuill = dynamic(
   async () => {
@@ -292,6 +295,7 @@ export const NoteEditorCore = forwardRef<NoteEditorCoreRef, NoteEditorCoreProps>
   ) {
     const quillRef = useRef<any>(null);
     const quillWrapperRef = useRef<HTMLDivElement>(null);
+    const { user } = useAuthContext();
 
     // History stack state
     const [canUndo, setCanUndo] = useState(false);
@@ -575,7 +579,7 @@ export const NoteEditorCore = forwardRef<NoteEditorCoreRef, NoteEditorCoreProps>
       });
     }, []);
 
-    // Listen to native paste and text change
+    // Listen to native paste and text change (with full-resolution image interception)
     useEffect(() => {
       const wrapper = quillWrapperRef.current;
       if (!wrapper) return;
@@ -583,15 +587,122 @@ export const NoteEditorCore = forwardRef<NoteEditorCoreRef, NoteEditorCoreProps>
       const editorEl = wrapper.querySelector('.ql-editor');
       if (!editorEl) return;
 
-      const handlePaste = () => {
+      const handlePaste = async (e: Event) => {
         isPastingRef.current = true;
+        const clipEvent = e as ClipboardEvent;
+        const items = clipEvent.clipboardData?.items;
+        if (!items) return;
+
+        const imageFiles: File[] = [];
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          if (item.type && item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) imageFiles.push(file);
+          }
+        }
+
+        // Only intercept and prevent default if the clipboard is purely an image (e.g. Snipping Tool).
+        // If the paste contains text or HTML, allow Quill to paste the text naturally so words are never lost!
+        const htmlText = clipEvent.clipboardData?.getData('text/html') || '';
+        const plainText = clipEvent.clipboardData?.getData('text/plain') || '';
+        const isPureImagePaste = imageFiles.length > 0 && !htmlText && (!plainText || plainText.trim().length === 0);
+
+        if (isPureImagePaste) {
+          clipEvent.preventDefault();
+          clipEvent.stopPropagation();
+          const quill = quillRef.current?.getEditor();
+          if (!quill) return;
+
+          const toastId = toast.loading('Uploading full-resolution image...', { id: 'note-img-upload' });
+          try {
+            for (const file of imageFiles) {
+              const url = await uploadNoteImage(user?.uid || '', noteId, file, 'pasted');
+              const range = quill.getSelection(true) || { index: quill.getLength() - 1, length: 0 };
+              quill.insertEmbed(range.index, 'image', url, 'user');
+              quill.setSelection(range.index + 1, 0, 'silent');
+            }
+            toast.success('Image added! 🖼️', { id: 'note-img-upload' });
+          } catch (err) {
+            console.warn('[NoteEditorCore] Image paste upload error:', err);
+            toast.error('Failed to upload image.', { id: 'note-img-upload' });
+          }
+        }
+      };
+
+      const handleDrop = async (e: Event) => {
+        const dragEvent = e as DragEvent;
+        const files = dragEvent.dataTransfer?.files;
+        if (!files || files.length === 0) return;
+
+        const imageFiles: File[] = [];
+        for (let i = 0; i < files.length; i++) {
+          if (files[i].type && files[i].type.startsWith('image/')) {
+            imageFiles.push(files[i]);
+          }
+        }
+
+        if (imageFiles.length > 0) {
+          dragEvent.preventDefault();
+          dragEvent.stopPropagation();
+          const quill = quillRef.current?.getEditor();
+          if (!quill) return;
+
+          const toastId = toast.loading('Uploading full-resolution image...', { id: 'note-img-upload' });
+          try {
+            for (const file of imageFiles) {
+              const url = await uploadNoteImage(user?.uid || '', noteId, file, 'dropped');
+              const range = quill.getSelection(true) || { index: quill.getLength() - 1, length: 0 };
+              quill.insertEmbed(range.index, 'image', url, 'user');
+              quill.setSelection(range.index + 1, 0, 'silent');
+            }
+            toast.success('Image added! 🖼️', { id: 'note-img-upload' });
+          } catch (err) {
+            console.warn('[NoteEditorCore] Image drop upload error:', err);
+            toast.error('Failed to upload image.', { id: 'note-img-upload' });
+          }
+        }
       };
 
       editorEl.addEventListener('paste', handlePaste, true);
+      editorEl.addEventListener('drop', handleDrop, true);
       return () => {
         editorEl.removeEventListener('paste', handlePaste, true);
+        editorEl.removeEventListener('drop', handleDrop, true);
       };
-    }, []);
+    }, [noteId, user?.uid]);
+
+    // Override Quill toolbar 'image' button to upload to Firebase Storage directly
+    useEffect(() => {
+      const quill = quillRef.current?.getEditor();
+      if (!quill) return;
+
+      const toolbar = quill.getModule('toolbar');
+      if (toolbar) {
+        toolbar.addHandler('image', () => {
+          const input = document.createElement('input');
+          input.setAttribute('type', 'file');
+          input.setAttribute('accept', 'image/*');
+          input.click();
+          input.onchange = async () => {
+            const file = input.files?.[0];
+            if (file) {
+              const toastId = toast.loading('Uploading full-resolution image...', { id: 'note-img-upload' });
+              try {
+                const url = await uploadNoteImage(user?.uid || '', noteId, file, 'toolbar');
+                const range = quill.getSelection(true) || { index: quill.getLength() - 1, length: 0 };
+                quill.insertEmbed(range.index, 'image', url, 'user');
+                quill.setSelection(range.index + 1, 0, 'silent');
+                toast.success('Image added! 🖼️', { id: 'note-img-upload' });
+              } catch (err) {
+                console.warn('[NoteEditorCore] Toolbar image upload error:', err);
+                toast.error('Failed to upload image.', { id: 'note-img-upload' });
+              }
+            }
+          };
+        });
+      }
+    }, [noteId, user?.uid]);
 
     // Listen to keydown for Tab / Shift+Tab autocomplete and space autocorrect
     useEffect(() => {

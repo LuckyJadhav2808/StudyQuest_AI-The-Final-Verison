@@ -793,13 +793,57 @@ export default function PdfExportModal({
         } catch {}
       }
 
-      // Ensure all images (including base64 pasted images) are fully loaded and decoded before snapshot
-      // Wrapped in Promise.race with a 3,000ms timeout guard to prevent indefinite hang on stalled URLs
+      // Ensure all images (including Firebase Storage URLs and local diagrams) are inlined and fully loaded
+      // Pre-inlining remote images to local data URLs prevents CORS canvas-tainting (SecurityError)
       const images = Array.from(container.querySelectorAll('img'));
       if (images.length > 0) {
         await Promise.race([
           Promise.all(
-            images.map((img) => {
+            images.map(async (img) => {
+              img.crossOrigin = 'anonymous';
+
+              // If image is a remote URL (e.g. Firebase Storage), pre-convert it to a local data URL to guarantee origin-clean canvas
+              if (img.src && img.src.startsWith('http')) {
+                try {
+                  const res = await fetch(img.src, { mode: 'cors' });
+                  if (res.ok) {
+                    const blob = await res.blob();
+                    const reader = new FileReader();
+                    await new Promise<void>((resolve) => {
+                      reader.onloadend = () => {
+                        if (typeof reader.result === 'string') {
+                          img.src = reader.result;
+                        }
+                        resolve();
+                      };
+                      reader.readAsDataURL(blob);
+                    });
+                  }
+                } catch {
+                  // Direct fetch failed; attempt offscreen Image draw with crossOrigin
+                  try {
+                    const offscreen = new Image();
+                    offscreen.crossOrigin = 'anonymous';
+                    offscreen.src = img.src;
+                    await new Promise<void>((resolve) => {
+                      offscreen.onload = () => resolve();
+                      offscreen.onerror = () => resolve();
+                      setTimeout(resolve, 2000);
+                    });
+                    if (offscreen.complete && offscreen.naturalWidth > 0) {
+                      const c = document.createElement('canvas');
+                      c.width = offscreen.naturalWidth;
+                      c.height = offscreen.naturalHeight;
+                      const ctx = c.getContext('2d');
+                      if (ctx) {
+                        ctx.drawImage(offscreen, 0, 0);
+                        img.src = c.toDataURL('image/jpeg', 0.92);
+                      }
+                    }
+                  } catch {}
+                }
+              }
+
               if (img.complete) {
                 if ('decode' in img) {
                   return (img as HTMLImageElement).decode().catch(() => {});
@@ -812,7 +856,7 @@ export default function PdfExportModal({
               });
             })
           ),
-          new Promise<void>((resolve) => setTimeout(resolve, 3000)),
+          new Promise<void>((resolve) => setTimeout(resolve, 4000)),
         ]);
       }
 
@@ -936,7 +980,14 @@ export default function PdfExportModal({
           }
 
           // 3. Hardware SIMD JPEG encoding (libjpeg-turbo): 50x faster than single-threaded CPU PNG
-          const sliceData = sliceCanvas.toDataURL('image/jpeg', jpegQuality);
+          let sliceData: string;
+          try {
+            sliceData = sliceCanvas.toDataURL('image/jpeg', jpegQuality);
+          } catch (taintErr) {
+            console.warn('[PdfExportModal] Canvas export fallback on taint:', taintErr);
+            sliceCtx?.fillRect(0, 0, renderWidth, srcH);
+            sliceData = sliceCanvas.toDataURL('image/jpeg', 0.85);
+          }
           const sliceHeight = (srcH * imgWidth) / renderWidth;
           // Direct zero-copy DCTDecode embedding into PDF stream
           pdf.addImage(sliceData, 'JPEG', margin, margin, imgWidth, sliceHeight, undefined, 'FAST');
