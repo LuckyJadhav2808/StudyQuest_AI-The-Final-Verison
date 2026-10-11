@@ -13,7 +13,6 @@ import {
   HiClipboardCopy, HiX, HiReply, HiCheck, HiAcademicCap,
   HiBeaker, HiMicrophone, HiArrowsExpand,
 } from 'react-icons/hi';
-import QuizModal from '@/components/notes/QuizModal';
 import { marked } from 'marked';
 import { callAiCompletion, resolveOpenRouterKey, parseAiJsonResponse } from '@/lib/ai';
 import { NoteEditorCore, NoteEditorCoreRef, sanitizeHtmlForQuill } from '@/components/notes/NoteEditorCore';
@@ -32,15 +31,18 @@ import Modal from '@/components/ui/Modal';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import Input from '@/components/ui/Input';
 import PageTransition from '@/components/layout/PageTransition';
-import DiagramModal from '@/components/notes/DiagramModal';
 import MathPalette from '@/components/notes/MathPalette';
-import PdfExportModal from '@/components/notes/modals/PdfExportModal';
-import FlashcardsModal from '@/components/notes/modals/FlashcardsModal';
-import SummaryModal from '@/components/notes/modals/SummaryModal';
-import MarkdownImportModal from '@/components/notes/modals/MarkdownImportModal';
-import BeautifyPreviewModal from '@/components/notes/modals/BeautifyPreviewModal';
-import AlchemyCauldronModal from '@/components/notes/modals/AlchemyCauldronModal';
 import { CreateNoteModal, RenameNoteModal } from '@/components/notes/modals/NoteOrganizeModal';
+
+// Dynamically code-split heavy on-demand modals to accelerate initial /notes load
+const QuizModal = dynamic(() => import('@/components/notes/QuizModal'), { ssr: false });
+const DiagramModal = dynamic(() => import('@/components/notes/DiagramModal'), { ssr: false });
+const PdfExportModal = dynamic(() => import('@/components/notes/modals/PdfExportModal'), { ssr: false });
+const FlashcardsModal = dynamic(() => import('@/components/notes/modals/FlashcardsModal'), { ssr: false });
+const SummaryModal = dynamic(() => import('@/components/notes/modals/SummaryModal'), { ssr: false });
+const MarkdownImportModal = dynamic(() => import('@/components/notes/modals/MarkdownImportModal'), { ssr: false });
+const BeautifyPreviewModal = dynamic(() => import('@/components/notes/modals/BeautifyPreviewModal'), { ssr: false });
+const AlchemyCauldronModal = dynamic(() => import('@/components/notes/modals/AlchemyCauldronModal'), { ssr: false });
 import NotesCatalogDrawer from '@/components/notes/catalog/NotesCatalogDrawer';
 import { YouTubePanel, AITutorPanel, ReferenceViewerPanel, WhiteboardSplitPanel, ResizableSplitLayout } from '@/components/notes/MultitaskPanels';
 import { useGroups, useGroupResources } from '@/hooks/useGroups';
@@ -2323,7 +2325,8 @@ Rules:
           onClose={() => setShowNewModal(false)}
           onCreate={async (title, folder) => {
             const id = await addNote({ title, content: '', folder, tags: [] });
-            await awardXP(XP_AWARDS.NOTE_CREATED, 'New note created');
+            // Award XP asynchronously in background without blocking modal close or editor open
+            awardXP(XP_AWARDS.NOTE_CREATED, 'New note created').catch(() => {});
             toast.success('Scroll created! +10 XP 📝');
             if (id) {
               const note = { id, title, content: '', folder, tags: [], createdAt: Date.now(), updatedAt: Date.now() };

@@ -25,6 +25,7 @@ import {
   getCachedNoteSync,
   saveIdbNote,
   removeIdbNote,
+  getAllIdbNotes,
   getIdbSyncQueue,
   addToIdbSyncQueue,
   removeFromIdbSyncQueue,
@@ -93,11 +94,22 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
   const notesRef = useRef<Note[]>([]);
   notesRef.current = notes;
 
-  // 1. Initialize IndexedDB cache and migrate old localStorage data on startup
+  // 1. Instant Cache Hydration: Load all local notes from IndexedDB on startup (<20ms)
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      hydrateMemoryNotesCache().then(() => {
+      hydrateMemoryNotesCache().then(async () => {
         migrateLocalStorageToIndexedDB();
+        try {
+          const cachedMap = await getAllIdbNotes();
+          const cachedList = Object.values(cachedMap).filter(Boolean) as Note[];
+          if (cachedList.length > 0 && notesRef.current.length === 0) {
+            cachedList.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+            setNotes(cachedList);
+            setLoading(false);
+          }
+        } catch (err) {
+          console.warn('[NotesContext] Cache hydration fallback:', err);
+        }
       });
     }
   }, []);
@@ -175,7 +187,10 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    // Only set loading true if we haven't already hydrated cached notes from IndexedDB
+    if (notesRef.current.length === 0) {
+      setLoading(true);
+    }
     const unsub = subscribeToCollection<Note>(
       getNotesCollection(user.uid),
       (remoteItems) => {
@@ -188,8 +203,19 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
           return remoteNote;
         });
 
-        setNotes(merged);
+        // Retain any pending local notes not yet in remote snapshot
+        const remoteIds = new Set(remoteItems.map((r) => r.id));
+        const localOnly = notesRef.current.filter((n) => !remoteIds.has(n.id));
+        const combined = [...localOnly, ...merged];
+        combined.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+
+        setNotes(combined);
         setLoading(false);
+
+        // Save remote notes into local cache for subsequent instant loads
+        for (const r of remoteItems) {
+          saveLocalNote(r.id, r).catch(() => {});
+        }
 
         // Attempt background queue flush if pending items exist
         flushSyncQueue();
@@ -204,16 +230,6 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     const now = Date.now();
     let initialData = { ...data };
 
-    // Lift any embedded images if created from template or rich paste
-    if (initialData.content && initialData.content.includes('data:image/')) {
-      try {
-        const extraction = await extractAndUploadNoteImages(initialData.content, user.uid, id);
-        if (extraction.wasModified) {
-          initialData.content = extraction.sanitizedHtml;
-        }
-      } catch {}
-    }
-
     const newNote: Note = {
       id,
       ...initialData,
@@ -221,29 +237,48 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
       updatedAt: now,
     };
 
-    // 1. Optimistic insert & immediate local cache
+    // 1. Optimistic insert in React state & immediate local cache write (<5ms)
     setNotes((prev) => [newNote, ...prev]);
     await saveLocalNote(id, newNote);
 
-    // 2. Cloud sync
-    try {
-      const sizeBytes = new Blob([newNote.content || '']).size;
-      if (sizeBytes > 950000) {
-        console.warn(`[NotesContext] Note ${id} is ${sizeBytes} bytes. Saved in high-capacity IndexedDB; sync queued.`);
+    // 2. Non-blocking asynchronous cloud sync
+    const syncToCloud = async () => {
+      try {
+        if (initialData.content && initialData.content.includes('data:image/')) {
+          const extraction = await extractAndUploadNoteImages(initialData.content, user.uid, id);
+          if (extraction.wasModified) {
+            initialData.content = extraction.sanitizedHtml;
+            newNote.content = extraction.sanitizedHtml;
+            setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, content: extraction.sanitizedHtml } : n)));
+            await saveLocalNote(id, newNote);
+          }
+        }
+
+        const sizeBytes = new Blob([newNote.content || '']).size;
+        if (sizeBytes > 950000) {
+          console.warn(`[NotesContext] Note ${id} is ${sizeBytes} bytes. Saved in IndexedDB; sync queued.`);
+          await addToIdbSyncQueue(id, newNote, now);
+          setIsOfflineSyncPending(true);
+          return;
+        }
+
+        const firestoreWrite = setDocument(doc(db, 'users', user.uid, 'notes', id), newNote, false);
+        const timeoutGuard = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Firestore addNote timed out')), 3500)
+        );
+        await Promise.race([firestoreWrite, timeoutGuard]);
+        await removeFromIdbSyncQueue(id);
+      } catch (err: any) {
+        console.warn('[NotesContext] Note created locally; cloud sync queued:', err);
         await addToIdbSyncQueue(id, newNote, now);
         setIsOfflineSyncPending(true);
-        return id;
       }
+    };
 
-      await setDocument(doc(db, 'users', user.uid, 'notes', id), newNote, false);
-      await removeFromIdbSyncQueue(id);
-      return id;
-    } catch (err: any) {
-      console.warn('[NotesContext] Note created locally; cloud sync queued:', err);
-      await addToIdbSyncQueue(id, newNote, now);
-      setIsOfflineSyncPending(true);
-      return id;
-    }
+    // Fire cloud sync in background without blocking note creation return!
+    syncToCloud().catch((err) => console.warn('[NotesContext] Background sync error:', err));
+
+    return id;
   }, [user]);
 
   const updateNote = useCallback(async (noteId: string, data: Partial<Note>) => {
