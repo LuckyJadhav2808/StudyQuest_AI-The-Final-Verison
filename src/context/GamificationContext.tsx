@@ -48,9 +48,31 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     }
 
     const ref = getGamificationRef(user.uid);
-    const unsub = subscribeToDocument<GamificationData>(ref, (data) => {
-      setGamification(data);
-      gamRef.current = data;
+    const unsub = subscribeToDocument<GamificationData>(ref, (raw) => {
+      if (raw) {
+        const safeData: GamificationData = {
+          ...raw,
+          achievements: Array.isArray(raw.achievements) ? raw.achievements : [],
+          unlockedTitles: Array.isArray(raw.unlockedTitles) ? raw.unlockedTitles : [],
+          xp: typeof raw.xp === 'number' ? raw.xp : 0,
+          level: typeof raw.level === 'number' ? raw.level : 0,
+          streak: typeof raw.streak === 'number' ? raw.streak : 0,
+          longestStreak: typeof raw.longestStreak === 'number' ? raw.longestStreak : 0,
+          totalTasksCompleted: typeof raw.totalTasksCompleted === 'number' ? raw.totalTasksCompleted : 0,
+          totalFocusMinutes: typeof raw.totalFocusMinutes === 'number' ? raw.totalFocusMinutes : 0,
+          totalNotesCreated: typeof raw.totalNotesCreated === 'number' ? raw.totalNotesCreated : 0,
+          totalCodeRuns: typeof raw.totalCodeRuns === 'number' ? raw.totalCodeRuns : 0,
+          nightOwlCount: typeof raw.nightOwlCount === 'number' ? raw.nightOwlCount : 0,
+          dailyChallengeStreak: typeof raw.dailyChallengeStreak === 'number' ? raw.dailyChallengeStreak : 0,
+          lastDailyChallengeDate: raw.lastDailyChallengeDate || '',
+          lastActiveDate: raw.lastActiveDate || '',
+        };
+        setGamification(safeData);
+        gamRef.current = safeData;
+      } else {
+        setGamification(null);
+        gamRef.current = null;
+      }
       setLoading(false);
     });
 
@@ -133,10 +155,11 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
             level: newLevel,
           };
 
+          const currentAchievements = Array.isArray(g.achievements) ? g.achievements : [];
           const newAchievements: string[] = [];
           for (const achievement of ACHIEVEMENTS) {
             if (
-              !g.achievements.includes(achievement.id) &&
+              !currentAchievements.includes(achievement.id) &&
               achievement.condition(updatedData)
             ) {
               newAchievements.push(achievement.id);
@@ -150,7 +173,7 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
 
           const finalXP = newXP + achievementBonusXP;
           const finalLevel = getLevelFromXP(finalXP);
-          const finalAchievements = [...g.achievements, ...newAchievements];
+          const finalAchievements = [...currentAchievements, ...newAchievements];
 
           transaction.set(
             ref,

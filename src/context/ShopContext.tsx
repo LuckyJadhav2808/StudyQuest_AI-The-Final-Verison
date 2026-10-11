@@ -83,7 +83,15 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
     }
     const ref = doc(db, 'users', user.uid, 'data', 'inventory');
     const unsub = subscribeToDocument<UserInventory>(ref, (data) => {
-      const inv = data || DEFAULT_INVENTORY;
+      const inv: UserInventory = {
+        ...DEFAULT_INVENTORY,
+        ...(data || {}),
+        ownedItems: Array.isArray(data?.ownedItems) ? data.ownedItems : [],
+        activeEffects: Array.isArray(data?.activeEffects) ? data.activeEffects : [],
+        gachaHistory: Array.isArray(data?.gachaHistory) ? data.gachaHistory : [],
+        ingredients: data?.ingredients || {},
+        equippedItems: data?.equippedItems || {},
+      };
       setInventory(inv);
       inventoryRef.current = inv;
       setLoading(false);

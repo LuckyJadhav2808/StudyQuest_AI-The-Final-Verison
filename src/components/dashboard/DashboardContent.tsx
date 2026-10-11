@@ -559,7 +559,7 @@ export default function DashboardContent() {
           </div>
           {gamification && <XPBar xp={gamification.xp} size="md" />}
           <div className="mt-3 flex items-center justify-between">
-            <span className="text-[10px] font-semibold text-[var(--muted-foreground)]">{gamification?.achievements.length || 0} achievements</span>
+            <span className="text-[10px] font-semibold text-[var(--muted-foreground)]">{gamification?.achievements?.length || 0} achievements</span>
             <span className="text-[10px] font-bold text-primary-light">{gamification?.xp?.toLocaleString() || 0} total XP</span>
           </div>
         </Card>
@@ -572,7 +572,7 @@ export default function DashboardContent() {
         <Card padding="md"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center"><HiStar className="text-primary" size={22} /></div><div><p className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Total XP</p><motion.p className="text-xl font-heading font-black" key={gamification?.xp} initial={{ scale: 1.2 }} animate={{ scale: 1 }}>{gamification?.xp?.toLocaleString() || 0}</motion.p></div></div></Card>
         <Card padding="md"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center"><StreakCounter streak={gamification?.streak || 0} size="md" /></div><div><p className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Streak</p><p className="text-xl font-heading font-black">{gamification?.streak || 0} Days</p></div></div><p className="text-[9px] text-[var(--muted-foreground)] mt-1 font-semibold">Best: {gamification?.longestStreak || 0} days</p></Card>
         <Card padding="md"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-teal/15 flex items-center justify-center"><HiClipboardCheck className="text-teal" size={22} /></div><div><p className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Active Quests</p><p className="text-xl font-heading font-black">{todayTasks.length}</p></div></div><p className="text-[9px] text-teal font-bold mt-1">✅ {completedToday.length} completed today</p></Card>
-        <Card padding="md"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-amber/15 flex items-center justify-center text-xl">🏆</div><div><p className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Trophies</p><p className="text-xl font-heading font-black">{gamification?.achievements.length || 0}</p></div></div><p className="text-[9px] text-[var(--muted-foreground)] mt-1 font-semibold">of {ACHIEVEMENTS.length} total</p></Card>
+        <Card padding="md"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-amber/15 flex items-center justify-center text-xl">🏆</div><div><p className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Trophies</p><p className="text-xl font-heading font-black">{gamification?.achievements?.length || 0}</p></div></div><p className="text-[9px] text-[var(--muted-foreground)] mt-1 font-semibold">of {ACHIEVEMENTS.length} total</p></Card>
       </div>
     ),
 
@@ -720,11 +720,11 @@ export default function DashboardContent() {
               <h3 className="text-sm font-heading font-bold flex items-center gap-2">🏆 Hall of Fame</h3>
               <Link href="/analytics" className="text-[10px] text-primary font-bold hover:underline uppercase tracking-wider">View All</Link>
             </div>
-            {(!gamification || gamification.achievements.length === 0) ? (
+            {(!gamification?.achievements || gamification.achievements.length === 0) ? (
               <div className="text-center py-4"><span className="text-3xl mb-2 block">🏅</span><p className="text-xs text-[var(--muted-foreground)]">Complete quests to unlock achievements!</p></div>
             ) : (
               <div className="grid grid-cols-3 gap-2">
-                {gamification.achievements.slice(0, 6).map((id) => {
+                {(gamification.achievements || []).slice(0, 6).map((id) => {
                   const a = ACHIEVEMENTS.find((x) => x.id === id);
                   if (!a) return null;
                   return (
@@ -1260,11 +1260,11 @@ export default function DashboardContent() {
             View all
           </Link>
         </div>
-        {(!gamification || gamification.achievements.length === 0) ? (
+        {(!gamification?.achievements || gamification.achievements.length === 0) ? (
           <p className="text-[10px] text-slate-400 text-center py-4">Unlock achievements by studying!</p>
         ) : (
           <div className="grid grid-cols-5 gap-1.5">
-            {gamification.achievements.slice(0, 5).map((id) => {
+            {(gamification.achievements || []).slice(0, 5).map((id) => {
               const a = ACHIEVEMENTS.find((x) => x.id === id);
               if (!a) return null;
               return (
