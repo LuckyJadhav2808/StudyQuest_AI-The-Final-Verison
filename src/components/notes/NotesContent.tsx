@@ -15,7 +15,6 @@ import {
 } from 'react-icons/hi';
 import QuizModal from '@/components/notes/QuizModal';
 import { marked } from 'marked';
-import 'react-quill-new/dist/quill.snow.css';
 import { callAiCompletion, resolveOpenRouterKey, parseAiJsonResponse } from '@/lib/ai';
 import { NoteEditorCore, NoteEditorCoreRef, sanitizeHtmlForQuill } from '@/components/notes/NoteEditorCore';
 import toast from 'react-hot-toast';
@@ -329,7 +328,9 @@ export default function NotesContent() {
   const mascotMoodRef = useRef<MascotMood>('active');
   useEffect(() => { mascotMoodRef.current = mascotMood; }, [mascotMood]);
 
-  // Global Escape & shortcut listener (Escape to close drawer/zen, Ctrl+[ to toggle drawer)
+  const handleSaveRef = useRef<() => void>(() => {});
+
+  // Global Escape & shortcut listener (Escape to close drawer/zen, Ctrl+[ to toggle drawer, Ctrl+S to save)
   useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -343,6 +344,10 @@ export default function NotesContent() {
       if ((e.ctrlKey || e.metaKey) && e.key === '[') {
         e.preventDefault();
         setIsScrollsDrawerOpen((prev) => !prev);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSaveRef.current();
       }
     };
 
@@ -427,8 +432,9 @@ export default function NotesContent() {
 
 
   const handleSave = async () => {
-    if (!selectedNote) return;
-    const latestContent = editorCoreRef.current?.getHtml() || editContent;
+    if (!selectedNote || saveStatus === 'saving') return;
+    const editorHtml = editorCoreRef.current?.getHtml();
+    const latestContent = typeof editorHtml === 'string' && editorHtml.length > 0 ? editorHtml : editContent;
     setSaveStatus('saving');
 
     try {
@@ -438,7 +444,7 @@ export default function NotesContent() {
       lastSavedAt.current = Date.now();
       setSaveStatus('saved');
       setIsEditing(false);
-      toast.success('Note saved! 💾');
+      toast.success('Note saved! 💾', { id: 'manual-note-save', duration: 3000 });
       playSuccess();
 
       // Questie celebration reaction
@@ -450,7 +456,7 @@ export default function NotesContent() {
         setShowMascotBubble(false);
       }, 4000);
 
-      setTimeout(() => setSaveStatus('idle'), 2000);
+      setTimeout(() => setSaveStatus('idle'), 3000);
     } catch (err) {
       console.warn('[NotesContent] Manual cloud save failed, safely stored in local backup:', err);
       // Fallback: note is already saved locally via NotesContext and localStorage!
@@ -459,11 +465,12 @@ export default function NotesContent() {
       lastSavedAt.current = Date.now();
       setSaveStatus('offline');
       setIsEditing(false);
-      toast.success('Note saved locally! 💾 (Will sync when online)', { icon: '📦' });
+      toast.success('Note saved locally! 💾 (Will sync when online)', { id: 'manual-note-save', icon: '📦', duration: 4000 });
       playSuccess();
-      setTimeout(() => setSaveStatus('idle'), 2500);
+      setTimeout(() => setSaveStatus('idle'), 3500);
     }
   };
+  handleSaveRef.current = handleSave;
 
   const handleMascotClick = () => {
     setMascotSquish(true);
@@ -561,9 +568,9 @@ export default function NotesContent() {
     const mins = Math.max(1, Math.ceil(count / 200));
     setWordCount({ words: count, chars: text.length, readingTime: `${mins} min read` });
 
-    // Sync URL without reload
-    if (typeof window !== 'undefined') {
-      router.replace(`/notes?id=${note.id}`, { scroll: false });
+    // Sync URL without reload (use history.replaceState to avoid Next.js route re-evaluation & preload warnings)
+    if (typeof window !== 'undefined' && searchParams.get('id') !== note.id) {
+      window.history.replaceState(null, '', `/notes?id=${note.id}`);
     }
 
     // Self-healing: if the note contains raw base64 images (e.g. from pasted screenshots),
@@ -609,8 +616,8 @@ export default function NotesContent() {
     setSaveStatus('idle');
     setIsScrollsDrawerOpen(true);
 
-    if (typeof window !== 'undefined') {
-      router.replace('/notes', { scroll: false });
+    if (typeof window !== 'undefined' && searchParams.get('id')) {
+      window.history.replaceState(null, '', '/notes');
     }
   }, [flushAutosave, router]);
 
@@ -1418,7 +1425,7 @@ Rules:
                     </div>
 
                     {/* Save indicator */}
-                    {isEditing && saveStatus !== 'idle' && (
+                    {saveStatus !== 'idle' && (
                       <span className={`text-[10px] font-bold flex items-center gap-1 shrink-0 ${
                         saveStatus === 'saving'
                           ? 'text-amber-400'
@@ -1576,8 +1583,16 @@ Rules:
                     {/* Mode switcher: View vs Edit */}
                     {isEditing ? (
                       <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancel</Button>
-                        <Button variant="primary" size="sm" onClick={handleSave}>Save</Button>
+                        <Button variant="ghost" size="sm" disabled={saveStatus === 'saving'} onClick={() => setIsEditing(false)}>Cancel</Button>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          loading={saveStatus === 'saving'}
+                          disabled={saveStatus === 'saving'}
+                          onClick={handleSave}
+                        >
+                          {saveStatus === 'saving' ? 'Saving...' : 'Save'}
+                        </Button>
                       </div>
                     ) : (
                       <div className="flex items-center gap-1">

@@ -246,8 +246,6 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
 function QueueToaster() {
   const { toasts } = useToasterStore();
-  const currentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const currentToastIdRef = useRef<string | null>(null);
   const [position, setPosition] = useState<'top-right' | 'top-center'>('top-right');
 
   useEffect(() => {
@@ -259,48 +257,20 @@ function QueueToaster() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const visibleToasts = toasts.filter((t) => t.visible);
-  const activeToast = visibleToasts[0];
-
+  // Limit simultaneously visible toasts to 3 so notifications don't overwhelm the viewport,
+  // gracefully dismissing older toasts while never hiding new toasts with display:none
   useEffect(() => {
-    if (!activeToast) {
-      if (currentTimerRef.current) {
-        clearTimeout(currentTimerRef.current);
-        currentTimerRef.current = null;
-      }
-      currentToastIdRef.current = null;
-      return;
-    }
-
-    if (currentToastIdRef.current !== activeToast.id) {
-      if (currentTimerRef.current) {
-        clearTimeout(currentTimerRef.current);
-      }
-      currentToastIdRef.current = activeToast.id;
-
-      const duration = (activeToast.duration && activeToast.duration !== Infinity && activeToast.duration < 999999)
-        ? activeToast.duration
-        : 3500;
-
-      currentTimerRef.current = setTimeout(() => {
-        toast.dismiss(activeToast.id);
-      }, duration);
-    }
-  }, [activeToast]);
-
-  useEffect(() => {
-    return () => {
-      if (currentTimerRef.current) {
-        clearTimeout(currentTimerRef.current);
-      }
-    };
-  }, []);
+    toasts
+      .filter((t) => t.visible)
+      .filter((_, i) => i >= 3)
+      .forEach((t) => toast.dismiss(t.id));
+  }, [toasts]);
 
   return (
     <Toaster
       position={position}
       toastOptions={{
-        duration: Infinity,
+        duration: 3500,
         style: {
           borderRadius: '16px',
           background: 'var(--card-bg)',
@@ -311,27 +281,12 @@ function QueueToaster() {
           fontFamily: 'var(--font-heading)',
           boxShadow: '0 12px 30px rgba(124, 58, 237, 0.15)',
           padding: '12px 20px',
+          zIndex: 99999,
         },
         success: { iconTheme: { primary: '#10B981', secondary: '#fff' } },
         error: { iconTheme: { primary: '#FF6B6B', secondary: '#fff' } },
       }}
-    >
-      {(t) => {
-        if (activeToast?.id !== t.id) {
-          return <div style={{ display: 'none' }} />;
-        }
-        return (
-          <ToastBar toast={t}>
-            {({ icon, message }) => (
-              <>
-                {icon}
-                {message}
-              </>
-            )}
-          </ToastBar>
-        );
-      }}
-    </Toaster>
+    />
   );
 }
 
