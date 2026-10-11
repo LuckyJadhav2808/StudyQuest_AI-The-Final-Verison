@@ -8,7 +8,6 @@ import Button from '@/components/ui/Button';
 import { callAiCompletion, resolveOpenRouterKey } from '@/lib/ai';
 import { useAuthContext } from '@/context/AuthContext';
 import { uploadNoteImage } from '@/lib/storage';
-import './MultitaskPanels.css';
 
 // ════════════════════════════════════════════
 // 1. YouTube Panel

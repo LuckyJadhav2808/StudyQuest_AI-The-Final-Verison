@@ -438,7 +438,11 @@ export default function NotesContent() {
     setSaveStatus('saving');
 
     try {
-      await updateNote(selectedNote.id, { title: editTitle, content: latestContent });
+      // Race updateNote against a 1200ms safety timeout so the UI is guaranteed never to hang
+      const savePromise = updateNote(selectedNote.id, { title: editTitle, content: latestContent });
+      const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 1200));
+      await Promise.race([savePromise, timeoutPromise]);
+
       setSelectedNote({ ...selectedNote, title: editTitle, content: latestContent, updatedAt: Date.now() });
       setEditContent(latestContent);
       lastSavedAt.current = Date.now();

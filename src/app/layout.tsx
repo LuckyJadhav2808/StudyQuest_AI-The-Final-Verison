@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "katex/dist/katex.min.css";
+import "react-quill-new/dist/quill.snow.css";
+import "@/components/notes/MultitaskPanels.css";
 import Providers from "@/components/Providers";
 
 export const metadata: Metadata = {

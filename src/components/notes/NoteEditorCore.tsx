@@ -12,7 +12,6 @@ import React, {
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiSparkles, HiCheck } from 'react-icons/hi';
-import 'react-quill-new/dist/quill.snow.css';
 import {
   autocorrectWord,
   isMisspelled,

@@ -38,59 +38,84 @@ export async function compressImage(
       return resolve(dataUrlToBlob(source));
     }
 
+    // Safety timeout: Guarantee resolution within 2500ms under any circumstances
+    let resolved = false;
+    const fallbackBlob = () => (source instanceof Blob ? source : dataUrlToBlob(source));
+    const safetyTimer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        resolve(fallbackBlob());
+      }
+    }, 2500);
+
+    const safeResolve = (blob: Blob) => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(safetyTimer);
+        resolve(blob);
+      }
+    };
+
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // Only set crossOrigin on remote HTTP/HTTPS URLs — setting it on data: or blob: URIs causes hangs in Chromium
+    if (typeof source === 'string' && (source.startsWith('http://') || source.startsWith('https://'))) {
+      img.crossOrigin = 'anonymous';
+    }
 
     img.onload = () => {
-      let width = img.naturalWidth || img.width;
-      let height = img.naturalHeight || img.height;
+      try {
+        let width = img.naturalWidth || img.width;
+        let height = img.naturalHeight || img.height;
 
-      // Scale down proportionally only if larger than max bounds
-      if (width > maxWidth || height > maxHeight) {
-        if (width / height > maxWidth / maxHeight) {
-          height = Math.round((height * maxWidth) / width);
-          width = maxWidth;
-        } else {
-          width = Math.round((width * maxHeight) / height);
-          maxHeight = height;
-        }
-      }
-
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.max(1, width);
-      canvas.height = Math.max(1, height);
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        return resolve(source instanceof Blob ? source : dataUrlToBlob(source));
-      }
-
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(img, 0, 0, width, height);
-
-      // Try modern WebP first, fallback to JPEG
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            resolve(blob);
+        // Scale down proportionally only if larger than max bounds
+        if (width > maxWidth || height > maxHeight) {
+          if (width / height > maxWidth / maxHeight) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
           } else {
-            canvas.toBlob(
-              (fallbackBlob) => {
-                if (fallbackBlob) resolve(fallbackBlob);
-                else resolve(source instanceof Blob ? source : dataUrlToBlob(source));
-              },
-              'image/jpeg',
-              quality
-            );
+            width = Math.round((width * maxHeight) / height);
+            maxHeight = height;
           }
-        },
-        'image/webp',
-        quality
-      );
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, width);
+        canvas.height = Math.max(1, height);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          return safeResolve(fallbackBlob());
+        }
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Try modern WebP first, fallback to JPEG
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              safeResolve(blob);
+            } else {
+              canvas.toBlob(
+                (fallback) => {
+                  if (fallback) safeResolve(fallback);
+                  else safeResolve(fallbackBlob());
+                },
+                'image/jpeg',
+                quality
+              );
+            }
+          },
+          'image/webp',
+          quality
+        );
+      } catch {
+        safeResolve(fallbackBlob());
+      }
     };
 
     img.onerror = () => {
-      resolve(source instanceof Blob ? source : dataUrlToBlob(source));
+      safeResolve(fallbackBlob());
     };
 
     if (source instanceof Blob) {
@@ -106,12 +131,26 @@ export async function compressImage(
  * guaranteeing the document stays safely below Firestore's 1MB cap.
  */
 async function createUltraCompactDataUrl(source: string | Blob): Promise<string> {
-  const compressedBlob = await compressImage(source, 800, 800, 0.70);
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.readAsDataURL(compressedBlob);
-  });
+  try {
+    const compressedBlob = await compressImage(source, 800, 800, 0.70);
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      const timer = setTimeout(() => {
+        resolve(typeof source === 'string' ? source : '');
+      }, 1500);
+      reader.onloadend = () => {
+        clearTimeout(timer);
+        resolve((reader.result as string) || (typeof source === 'string' ? source : ''));
+      };
+      reader.onerror = () => {
+        clearTimeout(timer);
+        resolve(typeof source === 'string' ? source : '');
+      };
+      reader.readAsDataURL(compressedBlob);
+    });
+  } catch {
+    return typeof source === 'string' ? source : '';
+  }
 }
 
 /**
@@ -133,18 +172,24 @@ export async function uploadNoteImage(
     // 1. Compress image to clean, high-resolution WebP (crisp text, no blurring)
     const compressedBlob = await compressImage(imageSource, 2048, 2048, 0.90);
 
-    // 2. Upload to Firebase Storage
+    // 2. Upload to Firebase Storage with strict 3500ms timeout guard
     const imageRef = ref(storage, storagePath);
-    const snapshot = await uploadBytes(imageRef, compressedBlob, {
-      contentType: 'image/webp',
-      cacheControl: 'public,max-age=31536000',
-    });
+    const uploadOperation = async () => {
+      const snapshot = await uploadBytes(imageRef, compressedBlob, {
+        contentType: 'image/webp',
+        cacheControl: 'public,max-age=31536000',
+      });
+      return await getDownloadURL(snapshot.ref);
+    };
 
-    // 3. Return HTTPS public download URL
-    const downloadUrl = await getDownloadURL(snapshot.ref);
+    const timeoutGuard = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Firebase Storage upload timed out (3.5s)')), 3500)
+    );
+
+    const downloadUrl = await Promise.race([uploadOperation(), timeoutGuard]);
     return downloadUrl;
   } catch (storageError) {
-    console.warn('[storage] Firebase Storage upload unavailable or failed, applying defensive compressed fallback:', storageError);
+    console.warn('[storage] Firebase Storage upload unavailable or timed out, applying defensive compressed fallback:', storageError);
     // Graceful fallback: produce an optimized compact data URL so it never causes Firestore's 1MB limit crash
     return await createUltraCompactDataUrl(imageSource);
   }
@@ -191,9 +236,22 @@ export async function extractAndUploadNoteImages(
   let replacedCount = 0;
   const replacedMap: Record<string, string> = {};
 
-  for (const dataUrl of uniqueDataUrls) {
+  // Process up to 5 images concurrently to avoid sequential blocking
+  const uploadPromises = uniqueDataUrls.map(async (dataUrl) => {
     try {
       const uploadedUrl = await uploadNoteImage(userId, noteId, dataUrl, 'extracted');
+      return { dataUrl, uploadedUrl };
+    } catch (err) {
+      console.warn('[storage] Failed to lift image during note self-healing:', err);
+      return { dataUrl, uploadedUrl: null };
+    }
+  });
+
+  const results = await Promise.allSettled(uploadPromises);
+
+  for (const res of results) {
+    if (res.status === 'fulfilled' && res.value.uploadedUrl) {
+      const { dataUrl, uploadedUrl } = res.value;
       if (uploadedUrl && !uploadedUrl.startsWith('data:image/')) {
         sanitizedHtml = sanitizedHtml.split(dataUrl).join(uploadedUrl);
         replacedMap[dataUrl] = uploadedUrl;
@@ -204,8 +262,6 @@ export async function extractAndUploadNoteImages(
         replacedMap[dataUrl] = uploadedUrl;
         replacedCount++;
       }
-    } catch (err) {
-      console.warn('[storage] Failed to lift image during note self-healing:', err);
     }
   }
 
