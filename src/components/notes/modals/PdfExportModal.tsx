@@ -18,6 +18,418 @@ interface PdfExportModalProps {
   folder?: string;
 }
 
+/**
+ * Smart DOM Pagination Engine:
+ * Analyzes rendered DOM geometry against the target PDF page pixel height.
+ * Detects any atomic blocks (callouts, diagrams, images, code blocks, math formulas,
+ * tables, details, headings, paragraphs) that straddle a page break, and dynamically
+ * inserts precision background-matched spacers before them so that the content begins
+ * cleanly at the top of the next page without being sliced horizontally.
+ */
+/**
+ * Splits a multi-line paragraph between rendered lines at targetCut.
+ * Lines before targetCut stay on the current page (filling the page naturally),
+ * a precision spacer bridges to the page break, and remaining lines start at the top of the next page.
+ * Zero font characters are sliced horizontally; zero giant blank spaces left behind.
+ */
+function splitParagraphAtCut(
+  p: HTMLElement,
+  targetCut: number,
+  containerTop: number
+): boolean {
+  // Collect all text nodes inside p
+  const textNodes: Text[] = [];
+  const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+  let currentNode = walker.nextNode();
+  while (currentNode) {
+    textNodes.push(currentNode as Text);
+    currentNode = walker.nextNode();
+  }
+
+  if (textNodes.length === 0) return false;
+
+  let totalChars = 0;
+  const nodeCharOffsets: { node: Text; start: number; end: number }[] = [];
+  for (const tn of textNodes) {
+    const len = tn.textContent?.length || 0;
+    nodeCharOffsets.push({ node: tn, start: totalChars, end: totalChars + len });
+    totalChars += len;
+  }
+
+  if (totalChars < 30) return false;
+
+  const getDomPosition = (globalCharIndex: number): { node: Text; offset: number } => {
+    for (let i = 0; i < nodeCharOffsets.length; i++) {
+      const item = nodeCharOffsets[i];
+      const isLast = i === nodeCharOffsets.length - 1;
+      if (globalCharIndex >= item.start && (isLast ? globalCharIndex <= item.end : globalCharIndex < item.end)) {
+        return {
+          node: item.node,
+          offset: Math.min(globalCharIndex - item.start, item.node.textContent?.length || 0),
+        };
+      }
+    }
+    const last = nodeCharOffsets[nodeCharOffsets.length - 1];
+    return { node: last.node, offset: last.node.textContent?.length || 0 };
+  };
+
+  const getCharBottom = (globalCharIndex: number): number => {
+    const pos = getDomPosition(globalCharIndex);
+    const range = document.createRange();
+    const len = pos.node.textContent?.length || 0;
+    if (len === 0) return 0;
+    const startOffset = Math.min(pos.offset, Math.max(0, len - 1));
+    range.setStart(pos.node, startOffset);
+    range.setEnd(pos.node, Math.min(startOffset + 1, len));
+    const rects = range.getClientRects();
+    if (rects.length > 0) {
+      return rects[0].bottom - containerTop;
+    }
+    const bRect = range.getBoundingClientRect();
+    return bRect.bottom - containerTop;
+  };
+
+  // Binary search to find the last character that fits cleanly before targetCut
+  let low = 0;
+  let high = totalChars - 1;
+  let bestCharIndex = -1;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const bottomY = getCharBottom(mid);
+    if (bottomY > 0 && bottomY <= targetCut - 2) {
+      bestCharIndex = mid;
+      low = mid + 1; // Try to fit more characters
+    } else {
+      high = mid - 1; // Overshot targetCut
+    }
+  }
+
+  if (bestCharIndex < 30) {
+    // Only a tiny fraction fits on current page; better to push whole element
+    return false;
+  }
+
+  // To avoid cutting in the middle of a word, search backward for whitespace
+  let splitCharIndex = bestCharIndex;
+  const fullText = textNodes.map((tn) => tn.textContent || '').join('');
+  let foundSpace = -1;
+  for (let i = bestCharIndex; i >= Math.max(0, bestCharIndex - 45); i--) {
+    if (/\s/.test(fullText[i])) {
+      foundSpace = i + 1; // Split immediately after the space
+      break;
+    }
+  }
+
+  if (foundSpace > 0 && foundSpace >= 25) {
+    splitCharIndex = foundSpace;
+  }
+
+  const splitPos = getDomPosition(splitCharIndex);
+  if (!splitPos.node) return false;
+
+  const range = document.createRange();
+  range.setStart(splitPos.node, splitPos.offset);
+  range.setEnd(p, p.childNodes.length);
+
+  const fragment = range.extractContents();
+  if (!fragment.textContent || fragment.textContent.trim().length === 0) {
+    return false;
+  }
+
+  const p2 = p.cloneNode(false) as HTMLElement;
+  if (p2.id) p2.removeAttribute('id');
+  p2.appendChild(fragment);
+
+  p.style.marginBottom = '0px';
+  p2.style.marginTop = '0px';
+
+  const pRect = p.getBoundingClientRect();
+  const pBottom = pRect.bottom - containerTop;
+  const spaceNeeded = Math.max(0, Math.ceil(targetCut - pBottom));
+
+  const spacer = document.createElement('div');
+  spacer.className = 'sq-pdf-page-break-spacer';
+  spacer.style.cssText = `
+    height: ${spaceNeeded}px !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    display: block !important;
+    pointer-events: none !important;
+  `;
+
+  p.parentNode?.insertBefore(spacer, p.nextSibling);
+  p.parentNode?.insertBefore(p2, spacer.nextSibling);
+
+  return true;
+}
+
+function applySmartPageBreaks(
+  container: HTMLElement,
+  singlePagePixelHeight: number
+): void {
+  // 1. Defensive sizing: ensure no single standalone image or diagram exceeds the page height
+  const maxMediaH = Math.floor(singlePagePixelHeight * 0.88);
+  const mediaElements = container.querySelectorAll<HTMLElement>(
+    'img, svg, .studyquest-mermaid-container, .studyquest-mermaid-svg, .diagram-container'
+  );
+  mediaElements.forEach((m) => {
+    if (m.offsetHeight > maxMediaH) {
+      m.style.maxHeight = `${maxMediaH}px`;
+      m.style.height = 'auto';
+      m.style.width = 'auto';
+      m.style.objectFit = 'contain';
+    }
+  });
+
+  const ATOMIC_CONTAINER_SELECTOR = [
+    '.studyquest-callout',
+    '.studyquest-code-wrapper',
+    'pre',
+    '.studyquest-mermaid-container',
+    '.diagram-container',
+    '.studyquest-table-wrapper',
+    'table',
+    '.studyquest-math-block',
+    'blockquote',
+    'details',
+    'figure',
+    '.studyquest-footnotes',
+    '.sq-pdf-header',
+  ].join(', ');
+
+  const getTargetBlock = (el: HTMLElement): HTMLElement => {
+    const atomicAncestor = el.closest<HTMLElement>(ATOMIC_CONTAINER_SELECTOR);
+    if (atomicAncestor) return atomicAncestor;
+    return el;
+  };
+
+  let currentPageTop = 0;
+  let safetyCounter = 0;
+  const MAX_PAGES = 300;
+
+  while (safetyCounter < MAX_PAGES) {
+    safetyCounter++;
+    const targetCut = currentPageTop + singlePagePixelHeight;
+    const containerTop = container.getBoundingClientRect().top;
+    const containerHeight = container.getBoundingClientRect().height;
+
+    // Document complete
+    if (targetCut >= containerHeight - 8) {
+      break;
+    }
+
+    // Query all candidate breakable blocks
+    const rawElements = Array.from(
+      container.querySelectorAll<HTMLElement>(
+        '.studyquest-callout, .studyquest-code-wrapper, pre, .studyquest-mermaid-container, .diagram-container, .studyquest-table-wrapper, table, .studyquest-math-block, blockquote, details, figure, img, h1, h2, h3, h4, h5, h6, p, li'
+      )
+    );
+
+    // Deduplicate to distinct top-level atomic blocks
+    const seen = new Set<HTMLElement>();
+    const candidates: HTMLElement[] = [];
+    for (const raw of rawElements) {
+      const block = getTargetBlock(raw);
+      if (!seen.has(block)) {
+        seen.add(block);
+        candidates.push(block);
+      }
+    }
+
+    let blockToPush: HTMLElement | null = null;
+    let didSplitParagraph = false;
+
+    for (const el of candidates) {
+      const rect = el.getBoundingClientRect();
+      const elTop = rect.top - containerTop;
+      const elBottom = rect.bottom - containerTop;
+      const elHeight = rect.height;
+
+      if (elHeight <= 0) continue;
+
+      // Element is completely above this page boundary
+      if (elBottom <= targetCut - 2) {
+        continue;
+      }
+
+      // Check if element is a heading near the bottom of the page (orphan heading prevention)
+      const isHeading = /^H[1-6]$/i.test(el.tagName);
+      if (isHeading && elTop < targetCut && elBottom + 90 > targetCut) {
+        if (elHeight < singlePagePixelHeight) {
+          blockToPush = el;
+          break;
+        }
+      }
+
+      // Check if element crosses the page boundary
+      if (elTop < targetCut && elBottom > targetCut) {
+        // 1. If it's a multi-line paragraph outside atomic containers, split it between lines!
+        // This avoids leaving large blank gaps (e.g. 3/4 page empty) while keeping characters intact.
+        const isParagraph = el.tagName === 'P' && !el.closest(ATOMIC_CONTAINER_SELECTOR);
+        const spaceOnCurrentPage = targetCut - elTop;
+
+        if (isParagraph && elHeight > 75 && spaceOnCurrentPage >= 45) {
+          const splitOk = splitParagraphAtCut(el, targetCut, containerTop);
+          if (splitOk) {
+            didSplitParagraph = true;
+            break;
+          }
+        }
+
+        // 2. If it's a list (UL/OL), break cleanly at the list item that crosses targetCut
+        if (el.tagName === 'UL' || el.tagName === 'OL') {
+          const listItems = Array.from(el.querySelectorAll<HTMLElement>('li'));
+          for (const li of listItems) {
+            const liRect = li.getBoundingClientRect();
+            const liTop = liRect.top - containerTop;
+            const liBottom = liRect.bottom - containerTop;
+            if (liTop < targetCut && liBottom > targetCut && liRect.height < singlePagePixelHeight) {
+              blockToPush = li;
+              break;
+            }
+          }
+          if (blockToPush) break;
+        }
+
+        // 3. For atomic elements (images, diagrams, callout cards, math blocks, headings), push whole element
+        if (elHeight < singlePagePixelHeight) {
+          blockToPush = el;
+          break;
+        }
+      }
+
+      // If element starts after targetCut, stop searching this page
+      if (elTop >= targetCut) {
+        break;
+      }
+    }
+
+    if (!didSplitParagraph && blockToPush) {
+      // Universal lead-in / title grouping (100% keyword-free):
+      // If pushing an atomic block (image, diagram, table, code, math), check if its immediate previous sibling
+      // is a short heading or title that sits near the bottom of the page, and push them together.
+      const isVisualMedia =
+        blockToPush.tagName === 'IMG' ||
+        blockToPush.tagName === 'FIGURE' ||
+        blockToPush.tagName === 'TABLE' ||
+        blockToPush.classList.contains('studyquest-mermaid-container') ||
+        blockToPush.classList.contains('diagram-container') ||
+        blockToPush.classList.contains('studyquest-code-wrapper') ||
+        blockToPush.classList.contains('studyquest-math-block');
+
+      if (isVisualMedia) {
+        const prev = blockToPush.previousElementSibling as HTMLElement | null;
+        if (
+          prev &&
+          (prev.tagName === 'P' || /^H[2-6]$/i.test(prev.tagName)) &&
+          prev.offsetHeight < 70 &&
+          (prev.textContent || '').length < 160
+        ) {
+          const prevRect = prev.getBoundingClientRect();
+          const prevTop = prevRect.top - containerTop;
+          if (prevTop < targetCut && targetCut - prevTop < singlePagePixelHeight * 0.25) {
+            blockToPush = prev;
+          }
+        }
+      }
+
+      const rect = blockToPush.getBoundingClientRect();
+      const elTop = rect.top - containerTop;
+      const spaceNeeded = Math.ceil(targetCut - elTop);
+
+      if (spaceNeeded > 0 && spaceNeeded < singlePagePixelHeight) {
+        if (blockToPush.tagName === 'LI') {
+          const parentList = blockToPush.parentElement as HTMLElement | null;
+          if (parentList && (parentList.tagName === 'OL' || parentList.tagName === 'UL')) {
+            const listChildren = Array.from(parentList.children).filter((c) => c.tagName === 'LI');
+            const itemIndex = listChildren.indexOf(blockToPush);
+
+            if (itemIndex > 0) {
+              // Split list container cleanly: Part 1 stays on Page 1, Part 2 starts on Page 2
+              const list2 = parentList.cloneNode(false) as HTMLElement;
+              if (list2.id) list2.removeAttribute('id');
+
+              // If ordered list, assign correct start attribute to continue sequence seamlessly without skipping
+              if (parentList.tagName === 'OL') {
+                const originalStart = parseInt(parentList.getAttribute('start') || '1', 10) || 1;
+                const newStart = originalStart + itemIndex;
+                list2.setAttribute('start', String(newStart));
+                (list2 as HTMLOListElement).start = newStart;
+              }
+
+              // Move blockToPush and all subsequent siblings into list2
+              let currNode: Node | null = blockToPush;
+              while (currNode) {
+                const nextNode: ChildNode | null = currNode.nextSibling;
+                list2.appendChild(currNode);
+                currNode = nextNode;
+              }
+
+              parentList.style.marginBottom = '0px';
+              list2.style.marginTop = '0px';
+
+              const spacerDiv = document.createElement('div');
+              spacerDiv.className = 'sq-pdf-page-break-spacer';
+              spacerDiv.style.cssText = `
+                height: ${spaceNeeded}px !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: none !important;
+                background: transparent !important;
+                display: block !important;
+                pointer-events: none !important;
+              `;
+
+              parentList.parentNode?.insertBefore(spacerDiv, parentList.nextSibling);
+              parentList.parentNode?.insertBefore(list2, spacerDiv.nextSibling);
+            } else {
+              // Item 0 is crossing: push the entire list container to the next page
+              const parentRect = parentList.getBoundingClientRect();
+              const parentTop = parentRect.top - containerTop;
+              const parentSpaceNeeded = Math.max(0, Math.ceil(targetCut - parentTop));
+
+              const spacerDiv = document.createElement('div');
+              spacerDiv.className = 'sq-pdf-page-break-spacer';
+              spacerDiv.style.cssText = `
+                height: ${parentSpaceNeeded}px !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: none !important;
+                background: transparent !important;
+                display: block !important;
+                pointer-events: none !important;
+              `;
+              parentList.parentNode?.insertBefore(spacerDiv, parentList);
+            }
+          }
+        } else {
+          const spacerDiv = document.createElement('div');
+          spacerDiv.className = 'sq-pdf-page-break-spacer';
+          spacerDiv.style.cssText = `
+            height: ${spaceNeeded}px !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            background: transparent !important;
+            display: block !important;
+            pointer-events: none !important;
+          `;
+          blockToPush.parentNode?.insertBefore(spacerDiv, blockToPush);
+        }
+      }
+    }
+
+    currentPageTop = targetCut;
+  }
+}
+
 export default function PdfExportModal({
   isOpen,
   onClose,
@@ -30,6 +442,7 @@ export default function PdfExportModal({
   const [quality, setQuality] = useState<'low' | 'medium' | 'high'>('medium');
   const [theme, setTheme] = useState<PdfTheme>('editor');
   const [expandDetails, setExpandDetails] = useState(true);
+  const [includePageNumbers, setIncludePageNumbers] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExport = async () => {
@@ -575,6 +988,31 @@ export default function PdfExportModal({
           color: #f1f1f7 !important;
           margin-bottom: ${px(8)} !important;
         }
+
+        /* Page break spacers and atomic boundary preservation */
+        .sq-pdf-page-break-spacer {
+          display: block !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          border: none !important;
+          background: transparent !important;
+          pointer-events: none !important;
+        }
+        .note-pdf-body .studyquest-callout,
+        .note-pdf-body .studyquest-code-wrapper,
+        .note-pdf-body pre,
+        .note-pdf-body .studyquest-mermaid-container,
+        .note-pdf-body .diagram-container,
+        .note-pdf-body .studyquest-table-wrapper,
+        .note-pdf-body table,
+        .note-pdf-body .studyquest-math-block,
+        .note-pdf-body blockquote,
+        .note-pdf-body details,
+        .note-pdf-body figure,
+        .note-pdf-body img {
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
+        }
       `;
 
       // Fallback styles for lighter/other themes with matching header support, scaled natively to target DPI
@@ -737,6 +1175,31 @@ export default function PdfExportModal({
           margin: ${px(12)} auto;
           display: block;
         }
+
+        /* Page break spacers and atomic boundary preservation */
+        .sq-pdf-page-break-spacer {
+          display: block !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          border: none !important;
+          background: transparent !important;
+          pointer-events: none !important;
+        }
+        .note-pdf-body .studyquest-callout,
+        .note-pdf-body .studyquest-code-wrapper,
+        .note-pdf-body pre,
+        .note-pdf-body .studyquest-mermaid-container,
+        .note-pdf-body .diagram-container,
+        .note-pdf-body .studyquest-table-wrapper,
+        .note-pdf-body table,
+        .note-pdf-body .studyquest-math-block,
+        .note-pdf-body blockquote,
+        .note-pdf-body details,
+        .note-pdf-body figure,
+        .note-pdf-body img {
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
+        }
       `;
 
       container.innerHTML = `
@@ -872,6 +1335,12 @@ export default function PdfExportModal({
 
       // Exact pixel height of a single page at target print DPI
       const singlePagePixelHeight = (usableHeight * renderWidth) / imgWidth;
+
+      // Smart DOM Pagination: insert clean background-matched spacers before atomic blocks
+      // that cross page breaks so diagrams, images, callouts, and text lines are NEVER sliced!
+      applySmartPageBreaks(container, singlePagePixelHeight);
+
+      // Re-read totalContentHeight and totalPages AFTER pagination spacers have been applied
       const totalContentHeight = Math.max(container.scrollHeight, container.offsetHeight, Math.round(singlePagePixelHeight));
 
       // Coordinate mapping function: returns the exact pixel Y-offset for page index p
@@ -991,6 +1460,24 @@ export default function PdfExportModal({
           const sliceHeight = (srcH * imgWidth) / renderWidth;
           // Direct zero-copy DCTDecode embedding into PDF stream
           pdf.addImage(sliceData, 'JPEG', margin, margin, imgWidth, sliceHeight, undefined, 'FAST');
+
+          // Vector Footer: Unobtrusive clean page numbering and document label
+          if (includePageNumbers) {
+            const footerY = pageHeight - 4;
+            pdf.setFontSize(8);
+            const isDark = isDarkActive || isGrimoire;
+            if (isDark) {
+              pdf.setTextColor(148, 163, 184); // #94a3b8 slate-400
+            } else if (isParchment) {
+              pdf.setTextColor(120, 100, 80);
+            } else {
+              pdf.setTextColor(100, 116, 139); // slate-500
+            }
+            const leftText = `${folderLabel}  •  ${noteTitle}`;
+            const truncatedLeft = leftText.length > 55 ? `${leftText.slice(0, 52)}...` : leftText;
+            pdf.text(truncatedLeft, margin, footerY, { align: 'left' });
+            pdf.text(`Page ${globalPage + 1} of ${totalPages}`, pageWidth - margin, footerY, { align: 'right' });
+          }
 
           // Free canvas buffer memory immediately to prevent heap spikes on long documents
           sliceCanvas.width = 0;
@@ -1144,6 +1631,21 @@ export default function PdfExportModal({
             onChange={(e) => setExpandDetails(e.target.checked)}
             className="w-4 h-4 accent-primary cursor-pointer shrink-0"
             aria-label="Expand collapsible sections in PDF"
+          />
+        </div>
+
+        {/* Page Numbers & Document Footer Toggle */}
+        <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <span className="text-xs font-bold text-[var(--foreground)] block">Include Page Numbers & Header</span>
+            <span className="text-[10px] text-[var(--muted-foreground)] block">Print clean page numbering (Page X of Y) and document title in the bottom margin</span>
+          </div>
+          <input
+            type="checkbox"
+            checked={includePageNumbers}
+            onChange={(e) => setIncludePageNumbers(e.target.checked)}
+            className="w-4 h-4 accent-primary cursor-pointer shrink-0"
+            aria-label="Include page numbers in PDF"
           />
         </div>
 
