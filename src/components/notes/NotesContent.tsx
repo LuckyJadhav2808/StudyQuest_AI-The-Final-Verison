@@ -117,6 +117,7 @@ export default function NotesContent() {
   const [latexConverting, setLatexConverting] = useState(false);
   const [renameNoteObj, setRenameNoteObj] = useState<Note | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [selectedFolder, setSelectedFolder] = useState<string>('all');
   const [catalogCollapsed, setCatalogCollapsed] = useState<boolean>(false);
   const [isScrollsDrawerOpen, setIsScrollsDrawerOpen] = useState<boolean>(false);
@@ -194,6 +195,7 @@ export default function NotesContent() {
     setSaveStatus,
     scheduleAutosave,
     flushAutosave,
+    cancelAutosave,
   } = useNotesAutosave({
     selectedNote,
     onSave: onAutosaveNote,
@@ -1377,6 +1379,7 @@ Rules:
             setIsScrollsDrawerOpen(false);
           }}
           onRenameNote={(note) => setRenameNoteObj(note)}
+          onDeleteNote={(note) => setConfirmDelete(note.id)}
           loading={loading}
         />
 
@@ -2169,16 +2172,48 @@ Rules:
             )}
           </div>
 
-{/* Delete confirm */}
+        {/* Delete confirm */}
         <ConfirmDialog
           isOpen={!!confirmDelete}
-          onClose={() => setConfirmDelete(null)}
+          onClose={() => {
+            if (!isDeleting) setConfirmDelete(null);
+          }}
+          loading={isDeleting}
           onConfirm={async () => {
-            if (confirmDelete) {
-              await deleteNote(confirmDelete);
+            if (!confirmDelete || isDeleting) return;
+            const targetId = confirmDelete;
+            setIsDeleting(true);
+            try {
+              // 1. Immediately abort any debounced or pending autosave to prevent note resurrection
+              cancelAutosave();
+
+              // 2. If the active open note is being deleted, close it cleanly without flushing autosave
+              if (selectedNote?.id === targetId) {
+                setSelectedNote(null);
+                setIsEditing(false);
+                setPreview(false);
+                setViewMode(false);
+                setSaveStatus('idle');
+                setIsScrollsDrawerOpen(true);
+
+                if (typeof window !== 'undefined' && searchParams.get('id')) {
+                  window.history.replaceState(null, '', '/notes');
+                }
+              }
+
+              // 3. Close the dialog
               setConfirmDelete(null);
-              backToList();
-              toast.success('Note deleted');
+
+              // 4. Perform optimistic local deletion & non-blocking cloud sync
+              await deleteNote(targetId);
+
+              // 5. Toast notification
+              toast.success('Note deleted! 🗑️');
+            } catch (err: any) {
+              console.error('[NotesContent] Failed to delete note:', err);
+              toast.error('Failed to delete note. Please try again.');
+            } finally {
+              setIsDeleting(false);
             }
           }}
           title="Delete Note"

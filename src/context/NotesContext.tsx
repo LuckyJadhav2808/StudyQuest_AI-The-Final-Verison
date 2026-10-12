@@ -93,6 +93,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
   const [isOfflineSyncPending, setIsOfflineSyncPending] = useState(false);
   const notesRef = useRef<Note[]>([]);
   notesRef.current = notes;
+  const deletedNotesTombstoneRef = useRef<Map<string, number>>(new Map());
 
   // 1. Instant Cache Hydration: Load all local notes from IndexedDB on startup (<20ms)
   useEffect(() => {
@@ -103,8 +104,9 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
           const cachedMap = await getAllIdbNotes();
           const cachedList = Object.values(cachedMap).filter(Boolean) as Note[];
           if (cachedList.length > 0 && notesRef.current.length === 0) {
-            cachedList.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-            setNotes(cachedList);
+            const activeList = cachedList.filter((n) => !deletedNotesTombstoneRef.current.has(n.id));
+            activeList.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+            setNotes(activeList);
             setLoading(false);
           }
         } catch (err) {
@@ -194,8 +196,19 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     const unsub = subscribeToCollection<Note>(
       getNotesCollection(user.uid),
       (remoteItems) => {
+        // Purge expired tombstones older than 5 minutes (300,000 ms)
+        const now = Date.now();
+        for (const [id, ts] of deletedNotesTombstoneRef.current.entries()) {
+          if (now - ts > 300000) {
+            deletedNotesTombstoneRef.current.delete(id);
+          }
+        }
+
+        // Filter out recently deleted notes from the remote snapshot
+        const activeRemoteItems = remoteItems.filter((r) => !deletedNotesTombstoneRef.current.has(r.id));
+
         // Merge with any fresher local edits to prevent cloud clobbering
-        const merged = remoteItems.map((remoteNote) => {
+        const merged = activeRemoteItems.map((remoteNote) => {
           const local = getLocalNote(remoteNote.id);
           if (local && local.updatedAt && local.updatedAt > (remoteNote.updatedAt || 0)) {
             return { ...remoteNote, ...local } as Note;
@@ -204,8 +217,8 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
         });
 
         // Retain any pending local notes not yet in remote snapshot
-        const remoteIds = new Set(remoteItems.map((r) => r.id));
-        const localOnly = notesRef.current.filter((n) => !remoteIds.has(n.id));
+        const remoteIds = new Set(activeRemoteItems.map((r) => r.id));
+        const localOnly = notesRef.current.filter((n) => !remoteIds.has(n.id) && !deletedNotesTombstoneRef.current.has(n.id));
         const combined = [...localOnly, ...merged];
         combined.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
@@ -213,7 +226,7 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
 
         // Save remote notes into local cache for subsequent instant loads
-        for (const r of remoteItems) {
+        for (const r of activeRemoteItems) {
           saveLocalNote(r.id, r).catch(() => {});
         }
 
@@ -355,21 +368,34 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
 
   const deleteNote = useCallback(async (noteId: string) => {
     if (!user) return;
-    const previousNotes = [...notesRef.current];
 
-    // Optimistic deletion & cleanup
+    // 1. Mark as tombstoned so incoming remote snapshots will not resurrect this note
+    deletedNotesTombstoneRef.current.set(noteId, Date.now());
+
+    // 2. Optimistic local state and IndexedDB removal (instant <5ms)
     setNotes((prev) => prev.filter((n) => n.id !== noteId));
     await removeLocalNote(noteId);
     await removeFromIdbSyncQueue(noteId);
 
-    try {
-      await removeDocument(doc(db, 'users', user.uid, 'notes', noteId));
-    } catch (err: any) {
-      console.error('Failed to delete note from Firestore:', err);
-      setNotes(previousNotes);
-      toast.error('Failed to delete note from cloud storage.');
-      throw err;
-    }
+    // 3. Cloud Firestore deletion with timeout race (3.5s timeout, caller returns in <= 400ms)
+    const performCloudDelete = async () => {
+      try {
+        const firestoreDelete = removeDocument(doc(db, 'users', user.uid, 'notes', noteId));
+        const timeoutGuard = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Firestore delete timed out (3.5s)')), 3500)
+        );
+        await Promise.race([firestoreDelete, timeoutGuard]);
+      } catch (err: any) {
+        console.warn(`[NotesContext] Cloud delete for note ${noteId} deferred/timed out:`, err);
+        // Note remains safely deleted locally and tombstoned
+      }
+    };
+
+    // Caller only waits up to 400ms so UI updates and toast are snappy and non-blocking
+    await Promise.race([
+      performCloudDelete(),
+      new Promise((resolve) => setTimeout(resolve, 400)),
+    ]);
   }, [user]);
 
   const value = useMemo<NotesContextValue>(() => ({

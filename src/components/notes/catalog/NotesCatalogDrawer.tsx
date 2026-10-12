@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HiPlus, HiX, HiSearch, HiClock, HiDocumentText, HiPencil } from 'react-icons/hi';
+import { HiPlus, HiX, HiSearch, HiClock, HiDocumentText, HiPencil, HiTrash } from 'react-icons/hi';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import { Note } from '@/types';
@@ -18,6 +18,7 @@ interface NotesCatalogDrawerProps {
   onSelectNote: (note: Note) => void;
   onNewNote: () => void;
   onRenameNote: (note: Note) => void;
+  onDeleteNote?: (note: Note) => void;
   loading?: boolean;
 }
 
@@ -40,6 +41,7 @@ export default function NotesCatalogDrawer({
   onSelectNote,
   onNewNote,
   onRenameNote,
+  onDeleteNote,
   loading = false,
 }: NotesCatalogDrawerProps) {
   const [search, setSearch] = useState('');
@@ -276,6 +278,19 @@ export default function NotesCatalogDrawer({
                           >
                             <HiPencil size={12} />
                           </button>
+                          {onDeleteNote && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteNote(note);
+                              }}
+                              className="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-red-500/15 text-red-400 transition-all cursor-pointer"
+                              title="Delete Note"
+                            >
+                              <HiTrash size={12} />
+                            </button>
+                          )}
                           <HiDocumentText
                             className={isSelected ? 'text-primary' : 'text-[var(--muted-foreground)]'}
                             size={14}

@@ -66,6 +66,21 @@ export function useNotesAutosave({
     }
   }, []);
 
+  // Cancel any active debounce timers and discard dirty/pending data (e.g. before note deletion)
+  const cancelAutosave = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+    dirtyRef.current = false;
+    pendingDataRef.current = null;
+    setSaveStatus('idle');
+  }, []);
+
   // Schedule an autosave with debounce and automatic retry on failure
   const scheduleAutosave = useCallback((content: string, title: string) => {
     if (!selectedNoteRef.current) return;
@@ -153,6 +168,7 @@ export function useNotesAutosave({
     setSaveStatus,
     scheduleAutosave,
     flushAutosave,
+    cancelAutosave,
     isDirty: () => dirtyRef.current,
   };
 }

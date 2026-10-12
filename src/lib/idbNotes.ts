@@ -8,13 +8,9 @@
 import { createStore, get, set, del, entries } from 'idb-keyval';
 import { Note } from '@/types';
 
-// Dedicated IndexedDB custom stores for isolation & maximum throughput
+// Dedicated IndexedDB custom store for isolation & maximum throughput
 const notesStore = typeof window !== 'undefined'
   ? createStore('studyquest_notes_db', 'notes_store')
-  : (null as any);
-
-const syncQueueStore = typeof window !== 'undefined'
-  ? createStore('studyquest_notes_sync_db', 'sync_queue_store')
   : (null as any);
 
 const LOCAL_NOTE_PREFIX = 'sq_local_note_';
@@ -32,7 +28,7 @@ export async function hydrateMemoryNotesCache(): Promise<void> {
   try {
     const allEntries = await entries<string, Partial<Note>>(notesStore);
     for (const [key, note] of allEntries) {
-      if (note && key) {
+      if (note && key && key !== SYNC_QUEUE_KEY) {
         memoryNotesCache.set(key, note);
       }
     }
@@ -114,14 +110,18 @@ export async function getAllIdbNotes(): Promise<Record<string, Partial<Note>>> {
     const allEntries = await entries<string, Partial<Note>>(notesStore);
     const result: Record<string, Partial<Note>> = {};
     for (const [k, v] of allEntries) {
-      result[k] = v;
-      memoryNotesCache.set(k, v);
+      if (k !== SYNC_QUEUE_KEY) {
+        result[k] = v;
+        memoryNotesCache.set(k, v);
+      }
     }
     return result;
   } catch {
     const result: Record<string, Partial<Note>> = {};
     for (const [k, v] of memoryNotesCache.entries()) {
-      result[k] = v;
+      if (k !== SYNC_QUEUE_KEY) {
+        result[k] = v;
+      }
     }
     return result;
   }
@@ -131,9 +131,9 @@ export async function getAllIdbNotes(): Promise<Record<string, Partial<Note>>> {
  * Retrieves the pending background sync queue from IndexedDB.
  */
 export async function getIdbSyncQueue(): Promise<Record<string, { data: Partial<Note>; updatedAt: number }>> {
-  if (typeof window === 'undefined' || !syncQueueStore) return {};
+  if (typeof window === 'undefined' || !notesStore) return {};
   try {
-    const queue = await get<Record<string, { data: Partial<Note>; updatedAt: number }>>(SYNC_QUEUE_KEY, syncQueueStore);
+    const queue = await get<Record<string, { data: Partial<Note>; updatedAt: number }>>(SYNC_QUEUE_KEY, notesStore);
     return queue || {};
   } catch {
     return {};
@@ -144,7 +144,7 @@ export async function getIdbSyncQueue(): Promise<Record<string, { data: Partial<
  * Adds an item to the background sync queue in IndexedDB.
  */
 export async function addToIdbSyncQueue(noteId: string, data: Partial<Note>, updatedAt: number): Promise<void> {
-  if (typeof window === 'undefined' || !syncQueueStore) return;
+  if (typeof window === 'undefined' || !notesStore) return;
   try {
     const queue = await getIdbSyncQueue();
     const prevEntry = queue[noteId];
@@ -152,7 +152,7 @@ export async function addToIdbSyncQueue(noteId: string, data: Partial<Note>, upd
       data: { ...(prevEntry?.data || {}), ...data },
       updatedAt,
     };
-    await set(SYNC_QUEUE_KEY, queue, syncQueueStore);
+    await set(SYNC_QUEUE_KEY, queue, notesStore);
   } catch (err) {
     console.warn('[idbNotes] Failed to add to IndexedDB sync queue:', err);
   }
@@ -162,11 +162,11 @@ export async function addToIdbSyncQueue(noteId: string, data: Partial<Note>, upd
  * Removes an item from the background sync queue in IndexedDB.
  */
 export async function removeFromIdbSyncQueue(noteId: string): Promise<void> {
-  if (typeof window === 'undefined' || !syncQueueStore) return;
+  if (typeof window === 'undefined' || !notesStore) return;
   try {
     const queue = await getIdbSyncQueue();
     delete queue[noteId];
-    await set(SYNC_QUEUE_KEY, queue, syncQueueStore);
+    await set(SYNC_QUEUE_KEY, queue, notesStore);
   } catch (err) {
     console.warn('[idbNotes] Failed to remove from IndexedDB sync queue:', err);
   }
@@ -206,7 +206,7 @@ export async function migrateLocalStorageToIndexedDB(): Promise<void> {
             const parsedQueue = JSON.parse(raw);
             const currentIdbQueue = await getIdbSyncQueue();
             const mergedQueue = { ...currentIdbQueue, ...parsedQueue };
-            await set(SYNC_QUEUE_KEY, mergedQueue, syncQueueStore);
+            await set(SYNC_QUEUE_KEY, mergedQueue, notesStore);
             keysToRemove.push(key);
           } catch {}
         }
