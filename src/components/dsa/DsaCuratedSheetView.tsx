@@ -272,7 +272,9 @@ export default function DsaCuratedSheetView({
           }`}
         >
           <span>⚡</span> NeetCode 150
-          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 font-bold">150</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 font-bold">
+            {ALL_CURATED_SHEETS.neetcode150?.sections.reduce((a, s) => a + s.problems.length, 0) || 150}
+          </span>
         </button>
 
         <button
@@ -284,7 +286,9 @@ export default function DsaCuratedSheetView({
           }`}
         >
           <span>🚀</span> Striver's A2Z
-          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 font-bold">280</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 font-bold">
+            {ALL_CURATED_SHEETS.striverA2Z?.sections.reduce((a, s) => a + s.problems.length, 0) || 187}
+          </span>
         </button>
 
         <button
@@ -296,7 +300,9 @@ export default function DsaCuratedSheetView({
           }`}
         >
           <span>🎯</span> Blind 75
-          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 font-bold">75</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 font-bold">
+            {ALL_CURATED_SHEETS.blind75?.sections.reduce((a, s) => a + s.problems.length, 0) || 75}
+          </span>
         </button>
 
         <button

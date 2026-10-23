@@ -84,13 +84,26 @@ export function useDsaTracker() {
     return unsub;
   }, [user?.uid]);
 
-  // 4. Fetch full dataset from API on load (cached in-memory)
+  // 4. Fetch full dataset from API on load (with instant sessionStorage cache + background revalidation)
   useEffect(() => {
+    try {
+      const cached = sessionStorage.getItem('sq_dsa_catalog_v2');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setApiProblems(parsed);
+        }
+      }
+    } catch {}
+
     fetch('/api/dsa/dataset')
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.problems)) {
           setApiProblems(data.problems);
+          try {
+            sessionStorage.setItem('sq_dsa_catalog_v2', JSON.stringify(data.problems));
+          } catch {}
         }
       })
       .catch((err) => {

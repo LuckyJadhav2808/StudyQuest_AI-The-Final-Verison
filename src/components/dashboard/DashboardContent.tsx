@@ -816,7 +816,7 @@ export default function DashboardContent() {
         </div>
 
         {/* Expressive Living Treasure Vault Companion */}
-        <div style={{ contentVisibility: 'auto', containIntrinsicSize: '160px 160px' }} className="absolute right-2 sm:right-6 md:right-10 top-1/2 -translate-y-1/2 flex items-center justify-center z-20">
+        <div className="absolute right-2 sm:right-6 md:right-10 top-1/2 -translate-y-1/2 flex items-center justify-center z-20 pointer-events-auto">
           <ExpressiveTreasureVault
             chestAvailable={chestAvailable}
             onOpenChest={handleOpenChest}

@@ -66,50 +66,92 @@ function normalizeDifficulty(diffStr?: string): DsaDifficulty {
   return 'easy';
 }
 
-// In-memory cache for parsed problems
-let cachedProblems: DsaProblem[] | null = null;
+// In-memory cache for parsed catalog & full details
+let cachedCatalog: DsaProblem[] | null = null;
+let cachedFullDetailsMap: Map<string, DsaProblem> | null = null;
 let lastSyncedMtime = 0;
 
-export async function GET() {
-  try {
-    const syncedPath = path.join(process.cwd(), 'src', 'data', 'datasets', 'synced_contest_problems.json');
-    let currentMtime = 0;
-    if (fs.existsSync(syncedPath)) {
-      try {
-        currentMtime = fs.statSync(syncedPath).mtimeMs;
-      } catch {}
-    }
+function buildDataset() {
+  const syncedPath = path.join(process.cwd(), 'src', 'data', 'datasets', 'synced_contest_problems.json');
+  const csvPath = path.join(process.cwd(), 'src', 'data', 'datasets', 'Leetcode_Questions_updated (2024-11-02).csv');
+  const jsonlPath = path.join(process.cwd(), 'src', 'data', 'datasets', 'leetcode-solutions.jsonl');
 
-    if (cachedProblems && cachedProblems.length > 0 && currentMtime === lastSyncedMtime) {
-      return NextResponse.json({ success: true, problems: cachedProblems, count: cachedProblems.length });
-    }
+  const catalogMap = new Map<string, DsaProblem>();
+  const fullMap = new Map<string, DsaProblem>();
 
-    const csvPath = path.join(process.cwd(), 'src', 'data', 'datasets', 'Leetcode_Questions_updated (2024-11-02).csv');
-    const jsonlPath = path.join(process.cwd(), 'src', 'data', 'datasets', 'leetcode-solutions.jsonl');
-
-    // 1. Build Tag Lookup Map from verified CSV
-    const idToMeta = new Map<number, { tags: string; difficulty?: string; title?: string }>();
-    if (fs.existsSync(csvPath)) {
+  // 1. Ingest all 3,308+ questions from Leetcode_Questions_updated (2024-11-02).csv
+  if (fs.existsSync(csvPath)) {
+    try {
       const csvLines = fs.readFileSync(csvPath, 'utf-8').split('\n');
       for (let i = 1; i < csvLines.length; i++) {
         const line = csvLines[i].trim();
         if (!line) continue;
         const cols = parseCSVLine(line);
         const qNum = parseInt(cols[0], 10);
-        if (qNum) {
-          idToMeta.set(qNum, {
-            title: cols[1],
-            tags: cols[2] || '',
-            difficulty: cols[5],
-          });
-        }
+        if (!qNum) continue;
+
+        const rawTitle = cols[1] || `Problem ${qNum}`;
+        const title = rawTitle.replace(/^\d+\.\s*/, '').trim();
+        const link = cols[6] || '';
+        const slugMatch = link.match(/problems\/([^\/]+)/);
+        const slug = slugMatch ? slugMatch[1] : `problem-${qNum}`;
+        const tags = cols[2] || '';
+        const difficulty = normalizeDifficulty(cols[5]);
+        const category = normalizeTopic(tags, title);
+        const pattern = normalizePattern(tags, title);
+
+        const defaultTemplates = {
+          cpp: `class Solution {\npublic:\n    // Solution for ${title}\n};\n`,
+          python: `class Solution:\n    # Solution for ${title}\n    pass\n`,
+          java: `class Solution {\n    // Solution for ${title}\n}\n`,
+          javascript: `/**\n * @return {any}\n */\nvar solution = function() {\n    \n};\n`,
+        };
+
+        const problemObj: DsaProblem = {
+          id: slug,
+          leetcodeId: qNum,
+          title,
+          difficulty,
+          category,
+          pattern,
+          description: `Challenge **${title}** (#${qNum}). Solve with ${pattern} algorithmic strategy.`,
+          statementExplanation: `Review the constraints and implement the optimal ${pattern} algorithmic strategy for ${title}.`,
+          problemBreakdown: [
+            `💡 Goal: Implement optimal solution for ${title} (#${qNum}).`,
+            `🎯 Topic: ${category} using ${pattern}.`,
+            `⚡ Complexity: Aim for optimal execution.`,
+          ],
+          constraints: ['1 <= N <= 10^5'],
+          examples: [{ input: 'nums = [2,7,11,15], target = 9', output: '[0,1]' }],
+          templates: defaultTemplates,
+          testCases: [{ id: 1, input: 'Sample Test', expectedOutput: 'Expected' }],
+          approaches: [
+            {
+              title: 'Optimal Approach',
+              type: 'optimal' as const,
+              intuition: `Apply ${pattern} strategy to solve ${title}.`,
+              timeComplexity: difficulty === 'easy' ? 'O(N)' : difficulty === 'medium' ? 'O(N log N)' : 'O(N^2)',
+              spaceComplexity: difficulty === 'easy' ? 'O(1)' : 'O(N)',
+              explanation: [
+                'Analyze problem constraints and state invariants.',
+                `Apply ${pattern} to traverse elements and maintain state.`,
+                'Return the optimal result in the required format.',
+              ],
+              code: defaultTemplates,
+            },
+          ],
+        };
+
+        catalogMap.set(slug, problemObj);
       }
+    } catch (err) {
+      console.warn('Error reading LeetCode questions CSV:', err);
     }
+  }
 
-    const problemsMap: Map<string, DsaProblem> = new Map();
-
-    // 2. Parse leetcode-solutions.jsonl with enriched metadata
-    if (fs.existsSync(jsonlPath)) {
+  // 2. Parse leetcode-solutions.jsonl with enriched solutions and approaches
+  if (fs.existsSync(jsonlPath)) {
+    try {
       const fileContent = fs.readFileSync(jsonlPath, 'utf-8');
       const lines = fileContent.split('\n').filter((line) => line.trim().length > 0);
 
@@ -117,18 +159,17 @@ export async function GET() {
         try {
           const item = JSON.parse(lines[idx]);
           const numId = typeof item.id === 'string' ? parseInt(item.id, 10) : item.id;
-          const csvMeta = numId ? idToMeta.get(numId) : undefined;
+          const slug = item.slug || `problem-${numId || idx + 1}`;
+          const existing = catalogMap.get(slug);
 
-          const rawTitle = item.title || csvMeta?.title || `Problem ${numId || idx + 1}`;
+          const rawTitle = item.title || existing?.title || `Problem ${numId || idx + 1}`;
           const title = rawTitle.replace(/^\d+\.\s*/, '').trim();
-          const id = item.slug || `problem-${numId || idx + 1}`;
-          const difficulty = normalizeDifficulty(item.difficulty || csvMeta?.difficulty);
+          const difficulty = normalizeDifficulty(item.difficulty || existing?.difficulty);
+          const tagStr = `${Array.isArray(item.tags) ? item.tags.join(' ') : (item.tags || item.category || existing?.category || '')}`;
+          const category = existing?.category || normalizeTopic(tagStr, title);
+          const pattern = existing?.pattern || normalizePattern(tagStr, title);
 
-          const tagStr = `${csvMeta?.tags || ''} ${Array.isArray(item.tags) ? item.tags.join(' ') : (item.tags || item.category || '')}`;
-          const category = normalizeTopic(tagStr, title);
-          const pattern = normalizePattern(tagStr, title);
-
-          const desc = item.content || item.description || 'No description available.';
+          const desc = item.content || item.description || existing?.description || 'No description available.';
           const cleanDesc = desc.replace(/<[^>]*>/g, '').trim();
           const firstSentence = cleanDesc.split('.')[0] || '';
           const statementExplanation = `This challenge asks you to ${firstSentence.toLowerCase()}. Review the constraints and apply the optimal ${pattern} strategy.`;
@@ -145,20 +186,18 @@ export async function GET() {
           const jsCode = item.answer?.javascript?.replace(/```javascript|```/g, '').trim() || '';
 
           const templates = {
-            cpp: cppCode || `#include <iostream>\n\nint main() {\n    // Solution for ${title}\n    return 0;\n}`,
-            python: pyCode || `def solution():\n    # Solution for ${title}\n    pass`,
-            java: javaCode || `class Solution {\n    public static void main(String[] args) {\n        // Solution for ${title}\n    }\n}`,
-            javascript: jsCode || `function solution() {\n  // Solution for ${title}\n}`,
+            cpp: cppCode || existing?.templates?.cpp || `#include <iostream>\n\nclass Solution {\npublic:\n    // Solution for ${title}\n};\n`,
+            python: pyCode || existing?.templates?.python || `class Solution:\n    # Solution for ${title}\n    pass\n`,
+            java: javaCode || existing?.templates?.java || `class Solution {\n    // Solution for ${title}\n}\n`,
+            javascript: jsCode || existing?.templates?.javascript || `var solution = function() {\n  // Solution for ${title}\n};\n`,
           };
 
           const rawExplanation = item.answer?.explanation || '';
-          // Extract time and space complexity if mentioned in explanation text
           const timeMatch = rawExplanation.match(/time complexity of\s*([A-Za-z0-9^()]+)/i);
           const spaceMatch = rawExplanation.match(/space complexity of\s*([A-Za-z0-9^()]+)/i);
           const parsedTime = timeMatch ? timeMatch[1].replace(/n/g, 'N') : difficulty === 'easy' ? 'O(N)' : difficulty === 'medium' ? 'O(N log N)' : 'O(N^2)';
           const parsedSpace = spaceMatch ? spaceMatch[1].replace(/n/g, 'N') : difficulty === 'easy' ? 'O(1)' : 'O(N)';
 
-          // Parse explanation into clean bullet steps
           let explanationSteps: string[] = [];
           if (rawExplanation.includes('1.') && rawExplanation.includes('2.')) {
             explanationSteps = rawExplanation
@@ -173,9 +212,9 @@ export async function GET() {
           }
           if (explanationSteps.length === 0) {
             explanationSteps = [
-              'Analyze the constraints and edge cases.',
-              `Apply the ${pattern} algorithmic strategy to traverse elements.`,
-              'Return the optimal result in required format.',
+              'Analyze problem constraints and state invariants.',
+              `Apply ${pattern} to traverse elements and maintain state.`,
+              'Return the optimal result in the required format.',
             ];
           }
 
@@ -191,9 +230,9 @@ export async function GET() {
             },
           ];
 
-          problemsMap.set(id, {
-            id,
-            leetcodeId: numId,
+          const fullProblem: DsaProblem = {
+            id: slug,
+            leetcodeId: numId || existing?.leetcodeId || idx + 1,
             title,
             difficulty,
             category,
@@ -206,101 +245,163 @@ export async function GET() {
             templates,
             testCases: [{ id: 1, input: 'Sample Test', expectedOutput: 'Expected' }],
             approaches,
-          });
+          };
+
+          fullMap.set(slug, fullProblem);
+          if (numId) {
+            fullMap.set(String(numId), fullProblem);
+          }
+
+          // Catalog entry with clean description
+          if (existing) {
+            existing.description = cleanDesc;
+            existing.templates = templates;
+            existing.approaches = approaches;
+          } else {
+            catalogMap.set(slug, fullProblem);
+          }
         } catch {
           // Skip malformed lines
         }
       }
+    } catch (err) {
+      console.warn('Error reading leetcode solutions JSONL:', err);
     }
+  }
 
-    // 3. Parse synced_contest_problems.json if available
+  // 3. Parse synced_contest_problems.json if available
+  if (fs.existsSync(syncedPath)) {
+    try {
+      const syncedItems = JSON.parse(fs.readFileSync(syncedPath, 'utf-8'));
+      if (Array.isArray(syncedItems)) {
+        for (const s of syncedItems) {
+          const numId = parseInt(s.frontendQuestionId, 10);
+          const title = s.title || `Problem ${numId}`;
+          const id = s.titleSlug || `problem-${numId}`;
+          const difficulty = normalizeDifficulty(s.difficulty);
+          const tagStr = (s.topicTags || []).join(' ');
+          const category = normalizeTopic(tagStr, title);
+          const pattern = normalizePattern(tagStr, title);
+          const cleanDesc = (s.content || '').replace(/<[^>]*>/g, '').trim();
+
+          const snippets = s.codeSnippets || [];
+          const cppSnippet = snippets.find((x: any) => x.langSlug === 'cpp')?.code || `#include <iostream>\n\nclass Solution {\npublic:\n    // Solution for ${title}\n};\n`;
+          const javaSnippet = snippets.find((x: any) => x.langSlug === 'java')?.code || `class Solution {\n    // Solution for ${title}\n};\n`;
+          const pySnippet = snippets.find((x: any) => x.langSlug === 'python3' || x.langSlug === 'python')?.code || `class Solution:\n    # Solution for ${title}\n    pass\n`;
+          const jsSnippet = snippets.find((x: any) => x.langSlug === 'javascript')?.code || `var solution = function() {\n  // Solution for ${title}\n};\n`;
+
+          const templates = {
+            cpp: cppSnippet,
+            java: javaSnippet,
+            python: pySnippet,
+            javascript: jsSnippet,
+          };
+
+          const hints = s.hints || [];
+          const approaches = [
+            {
+              title: 'Optimal Approach',
+              type: 'optimal' as const,
+              intuition: hints[0] ? `Official Hint: ${hints[0].replace(/<[^>]*>/g, '')}` : `Apply ${pattern} strategy to solve within time limits.`,
+              timeComplexity: difficulty === 'easy' ? 'O(N)' : difficulty === 'medium' ? 'O(N log N)' : 'O(N^2)',
+              spaceComplexity: difficulty === 'easy' ? 'O(1)' : 'O(N)',
+              explanation: hints.length > 0
+                ? hints.map((h: string) => h.replace(/<[^>]*>/g, ''))
+                : [
+                    'Analyze problem constraints and state invariants.',
+                    `Apply ${pattern} to traverse elements and maintain state.`,
+                    'Return the optimal result in the required format.',
+                  ],
+              code: templates,
+            },
+          ];
+
+          const problem: DsaProblem = {
+            id,
+            leetcodeId: numId,
+            title,
+            difficulty,
+            category,
+            pattern,
+            description: cleanDesc || s.content || 'No description available.',
+            statementExplanation: `This challenge asks you to solve ${title}. Review the constraints and apply the optimal ${pattern} strategy.`,
+            problemBreakdown: [
+              `💡 Goal: Implement a tested solution for ${title} (#${numId}).`,
+              `🎯 Category & Pattern: ${category} (${pattern}).`,
+              `⚡ Target Complexity: ${difficulty === 'easy' ? 'O(N) Time, O(1) Space' : 'Optimal Execution'}.`,
+            ],
+            constraints: ['1 <= N <= 10^5'],
+            examples: [{ input: s.sampleTestCase || 'Sample Input', output: 'Sample Output' }],
+            templates,
+            testCases: [{ id: 1, input: s.sampleTestCase || 'Sample Test', expectedOutput: 'Expected' }],
+            approaches,
+          };
+
+          catalogMap.set(id, problem);
+          fullMap.set(id, problem);
+          if (numId) fullMap.set(String(numId), problem);
+        }
+      }
+    } catch (err) {
+      console.warn('Error reading synced contest problems:', err);
+    }
+  }
+
+  // 4. Ensure canonical definitions for foundational roadmap questions
+  DSA_PROBLEMS.forEach((dp) => {
+    catalogMap.set(dp.id, dp);
+    fullMap.set(dp.id, dp);
+    if (dp.leetcodeId) fullMap.set(String(dp.leetcodeId), dp);
+  });
+
+  const combinedCatalog = Array.from(catalogMap.values());
+  // Sort catalog numerically by LeetCode ID where available
+  combinedCatalog.sort((a, b) => (a.leetcodeId || 99999) - (b.leetcodeId || 99999));
+
+  cachedCatalog = combinedCatalog;
+  cachedFullDetailsMap = fullMap;
+}
+
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const targetId = searchParams.get('id');
+
+    const syncedPath = path.join(process.cwd(), 'src', 'data', 'datasets', 'synced_contest_problems.json');
+    let currentMtime = 0;
     if (fs.existsSync(syncedPath)) {
       try {
-        const syncedItems = JSON.parse(fs.readFileSync(syncedPath, 'utf-8'));
-        if (Array.isArray(syncedItems)) {
-          for (const s of syncedItems) {
-            const numId = parseInt(s.frontendQuestionId, 10);
-            const title = s.title || `Problem ${numId}`;
-            const id = s.titleSlug || `problem-${numId}`;
-            const difficulty = normalizeDifficulty(s.difficulty);
-            const tagStr = (s.topicTags || []).join(' ');
-            const category = normalizeTopic(tagStr, title);
-            const pattern = normalizePattern(tagStr, title);
-            const cleanDesc = (s.content || '').replace(/<[^>]*>/g, '').trim();
-
-            const snippets = s.codeSnippets || [];
-            const cppSnippet = snippets.find((x: any) => x.langSlug === 'cpp')?.code || `#include <iostream>\n\nclass Solution {\npublic:\n    // Solution for ${title}\n};`;
-            const javaSnippet = snippets.find((x: any) => x.langSlug === 'java')?.code || `class Solution {\n    // Solution for ${title}\n}`;
-            const pySnippet = snippets.find((x: any) => x.langSlug === 'python3' || x.langSlug === 'python')?.code || `class Solution:\n    # Solution for ${title}\n    pass`;
-            const jsSnippet = snippets.find((x: any) => x.langSlug === 'javascript')?.code || `var solution = function() {\n  // Solution for ${title}\n};`;
-
-            const templates = {
-              cpp: cppSnippet,
-              java: javaSnippet,
-              python: pySnippet,
-              javascript: jsSnippet,
-            };
-
-            const hints = s.hints || [];
-            const approaches = [
-              {
-                title: 'Optimal Approach',
-                type: 'optimal' as const,
-                intuition: hints[0] ? `Official Hint: ${hints[0].replace(/<[^>]*>/g, '')}` : `Apply ${pattern} strategy to solve within time limits.`,
-                timeComplexity: difficulty === 'easy' ? 'O(N)' : difficulty === 'medium' ? 'O(N log N)' : 'O(N^2)',
-                spaceComplexity: difficulty === 'easy' ? 'O(1)' : 'O(N)',
-                explanation: hints.length > 0
-                  ? hints.map((h: string) => h.replace(/<[^>]*>/g, ''))
-                  : [
-                      'Analyze problem constraints and state invariants.',
-                      `Apply ${pattern} to traverse elements and maintain state.`,
-                      'Return the optimal result in the required format.',
-                    ],
-                code: templates,
-              },
-            ];
-
-            problemsMap.set(id, {
-              id,
-              leetcodeId: numId,
-              title,
-              difficulty,
-              category,
-              pattern,
-              description: cleanDesc || s.content || 'No description available.',
-              statementExplanation: `This challenge asks you to solve ${title}. Review the constraints and apply the optimal ${pattern} strategy.`,
-              problemBreakdown: [
-                `💡 Goal: Implement a tested solution for ${title} (#${numId}).`,
-                `🎯 Category & Pattern: ${category} (${pattern}).`,
-                `⚡ Target Complexity: ${difficulty === 'easy' ? 'O(N) Time, O(1) Space' : 'Optimal Execution'}.`,
-              ],
-              constraints: ['1 <= N <= 10^5'],
-              examples: [{ input: s.sampleTestCase || 'Sample Input', output: 'Sample Output' }],
-              templates,
-              testCases: [{ id: 1, input: s.sampleTestCase || 'Sample Test', expectedOutput: 'Expected' }],
-              approaches,
-            });
-          }
-        }
-      } catch (err) {
-        console.warn('Error reading synced contest problems:', err);
-      }
+        currentMtime = fs.statSync(syncedPath).mtimeMs;
+      } catch {}
     }
 
-    // 4. Ensure canonical definitions for foundational 150 questions
-    DSA_PROBLEMS.forEach((dp) => {
-      problemsMap.set(dp.id, dp);
-    });
+    if (!cachedCatalog || currentMtime !== lastSyncedMtime) {
+      buildDataset();
+      lastSyncedMtime = currentMtime;
+    }
 
-    const combinedList = Array.from(problemsMap.values());
-    cachedProblems = combinedList;
-    lastSyncedMtime = currentMtime;
+    // Single problem detail on-demand lookup
+    if (targetId) {
+      const fullProblem = cachedFullDetailsMap?.get(targetId) || cachedCatalog?.find((p) => p.id === targetId || String(p.leetcodeId) === targetId);
+      if (fullProblem) {
+        return NextResponse.json({ success: true, problem: fullProblem });
+      }
+      return NextResponse.json({ success: false, error: `Problem "${targetId}" not found` }, { status: 404 });
+    }
 
-    return NextResponse.json({
-      success: true,
-      problems: combinedList,
-      count: combinedList.length,
-    });
+    // Default: Return the complete catalog of all 3,367+ questions
+    return NextResponse.json(
+      {
+        success: true,
+        problems: cachedCatalog,
+        count: cachedCatalog?.length || 0,
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+        },
+      }
+    );
   } catch (err) {
     console.error('Error serving DSA dataset:', err);
     return NextResponse.json({ success: false, error: (err as Error).message }, { status: 500 });

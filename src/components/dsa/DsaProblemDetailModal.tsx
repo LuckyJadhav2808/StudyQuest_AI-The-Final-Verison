@@ -92,6 +92,25 @@ export default function DsaProblemDetailModal({
     };
   }, [problem, selectedLanguage, userProgress]);
 
+  // On-demand detail hydration: fetch deep multi-language solutions & explanations
+  useEffect(() => {
+    if (!problem?.id) return;
+    if (problem.approaches && problem.approaches.length > 0 && (problem.approaches[0].explanation?.length || 0) > 1) {
+      return;
+    }
+    fetch(`/api/dsa/dataset?id=${problem.id}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.problem && data.problem.approaches?.length > 0) {
+          setCurrentProblem((prev) => ({
+            ...(prev || problem),
+            ...data.problem,
+          }));
+        }
+      })
+      .catch(() => {});
+  }, [problem?.id]);
+
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
 
   const handleFetchSolutions = async () => {
