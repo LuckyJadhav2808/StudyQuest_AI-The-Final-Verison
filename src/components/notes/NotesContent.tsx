@@ -67,6 +67,41 @@ function timeAgo(ts: number): string {
 function htmlToBasicMarkdown(html: string): string {
   if (!html) return '';
   let md = html;
+
+  // 1. GitHub Callouts (Note, Tip, Warning, Important, Caution)
+  md = md.replace(
+    /<div[^>]*class="[^"]*studyquest-callout-(note|tip|warning|important|caution)[^"]*"[^>]*>[\s\S]*?<div[^>]*class="[^"]*studyquest-callout-content[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/gi,
+    (_m, type, content) => {
+      const clean = content.replace(/<p[^>]*>/gi, '').replace(/<\/p>/gi, '\n').replace(/<[^>]+>/g, '').trim();
+      return `> [!${type.toUpperCase()}]\n> ${clean.replace(/\n/g, '\n> ')}\n\n`;
+    }
+  );
+
+  // 2. KaTeX Math Embeds
+  md = md.replace(/<[^>]+data-latex="([^"]*)"[^>]*>[\s\S]*?<\/[^>]+>/gi, '$$\n$1\n$$\n\n');
+
+  // 3. Tables to GFM Markdown tables
+  md = md.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (_match, tableContent) => {
+    const rows = tableContent.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi) || [];
+    if (rows.length === 0) return '';
+    let result = '\n';
+    let isHeader = true;
+    rows.forEach((row: string) => {
+      const cells = row.match(/<(?:th|td)[^>]*>([\s\S]*?)<\/(?:th|td)>/gi) || [];
+      const cellTexts = cells.map((c: string) => c.replace(/<[^>]+>/g, '').trim());
+      result += '| ' + cellTexts.join(' | ') + ' |\n';
+      if (isHeader) {
+        result += '| ' + cellTexts.map(() => '---').join(' | ') + ' |\n';
+        isHeader = false;
+      }
+    });
+    return result + '\n';
+  });
+
+  // 4. Horizontal Dividers
+  md = md.replace(/<hr[^>]*>/gi, '---\n\n');
+
+  // 5. Headings & Formatting
   md = md.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n\n');
   md = md.replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n\n');
   md = md.replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n\n');
@@ -76,6 +111,7 @@ function htmlToBasicMarkdown(html: string): string {
   md = md.replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*');
   md = md.replace(/<i[^>]*>(.*?)<\/i>/gi, '*$1*');
   md = md.replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, '```\n$1\n```\n\n');
+  md = md.replace(/<pre class="ql-syntax"[^>]*>([\s\S]*?)<\/pre>/gi, '```\n$1\n```\n\n');
   md = md.replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`');
   md = md.replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1\n');
   md = md.replace(/<\/ul>/gi, '\n');
@@ -1874,6 +1910,7 @@ Rules:
                               setCanRedo(r);
                             }}
                             onCompareCommand={handleCompareCommand}
+                            onOpenDiagram={() => setShowDiagram(true)}
                           />
 
                           {/* Editor Stats Footer */}

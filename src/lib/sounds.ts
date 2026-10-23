@@ -141,3 +141,107 @@ export function playKeyboardClick() {
     // Fail silently
   }
 }
+
+/**
+ * Ultra-subtle tactile haptic click tick (like iPhone Taptic / Switch joycon click)
+ * Plays a 15ms micro-pulse with mobile physical vibration fallback.
+ */
+export function playHapticTick() {
+  try {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(8);
+      } catch {}
+    }
+
+    const globalVolume = getCachedVolume();
+    if (globalVolume <= 0) return;
+
+    const ctx = getCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'triangle';
+    const now = ctx.currentTime;
+    osc.frequency.setValueAtTime(1400, now);
+    osc.frequency.exponentialRampToValueAtTime(700, now + 0.015);
+
+    const scaledVolume = 0.025 * (globalVolume / 100);
+    gain.gain.setValueAtTime(scaledVolume, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.015);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.015);
+  } catch {}
+}
+
+/**
+ * Resonant Tibetan Singing Bowl / Mindfulness Gong (528Hz Solfeggio clarity frequency)
+ * Uses harmonic overtones with a 2.5s gentle exponential decay for Pomodoro & focus completions.
+ */
+export function playTimerBell() {
+  try {
+    const globalVolume = getCachedVolume();
+    if (globalVolume <= 0) return;
+
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate([30, 80, 40]);
+      } catch {}
+    }
+
+    const ctx = getCtx();
+    const now = ctx.currentTime;
+    const duration = 2.4;
+
+    const harmonics = [
+      { freq: 528, gain: 0.15 },   // Fundamental (528 Hz)
+      { freq: 1056, gain: 0.08 },  // 1st overtone
+      { freq: 1584, gain: 0.04 },  // 2nd overtone
+      { freq: 264, gain: 0.06 },   // Sub-harmonic warm body
+    ];
+
+    harmonics.forEach(({ freq, gain: baseGain }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now);
+
+      const scaledGain = baseGain * (globalVolume / 100);
+      // Fast soft attack (8ms) to prevent speaker popping
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(scaledGain, now + 0.008);
+      // Smooth exponential decay
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + duration);
+    });
+  } catch {}
+}
+
+/**
+ * Triumphant 5-note Pentatonic Ascension Arpeggio for Level-Ups and Epic Quest Completions
+ */
+export function playLevelUpArpeggio() {
+  try {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate([20, 40, 20, 50, 80]);
+      } catch {}
+    }
+
+    // A Major Pentatonic: A4 (440Hz), C#5 (554.37Hz), E5 (659.25Hz), A5 (880Hz), C#6 (1108.73Hz)
+    const notes = [440, 554.37, 659.25, 880, 1108.73];
+    notes.forEach((freq, i) => {
+      setTimeout(() => {
+        playTone(freq, 0.28, i === notes.length - 1 ? 'sine' : 'triangle', 0.14);
+      }, i * 75);
+    });
+  } catch {}
+}

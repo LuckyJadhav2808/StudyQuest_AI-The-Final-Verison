@@ -28,6 +28,7 @@ import {
 import toast from 'react-hot-toast';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
+import Modal from '@/components/ui/Modal';
 import StudioToolbar from '../shared/StudioToolbar';
 import DropzoneZone from '../shared/DropzoneZone';
 import { OfficeSubTool, ExcelWorkbookData, WordDocData, PptxDeckData } from '@/lib/docstudio/types';
@@ -36,11 +37,16 @@ import {
   exportExcelWorkbook,
   readWordDocument,
   exportHtmlToWordBlob,
+  exportHtmlToDocxBinary,
   readPptxDeck,
   compilePptxToStudyPdf,
+  createNewPptxSlide,
+  updatePptxSlide,
+  deletePptxSlide,
 } from '@/lib/docstudio/officeEngine';
 import { computeColumnStats, generateTablePdf } from '@/lib/docstudio/csvEngine';
 import { convertDocument } from '@/lib/docstudio/universalConverter';
+import { evaluateFormula } from '@/lib/docstudio/formulaEngine';
 
 // Dynamically import ReactQuill to prevent SSR window issues
 const ReactQuill = dynamic(() => import('react-quill-new'), {
@@ -83,6 +89,7 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
   const [excelSearch, setExcelSearch] = useState<string>('');
   const [selectedColIdx, setSelectedColIdx] = useState<number | null>(null);
   const [selectedCell, setSelectedCell] = useState<{ rIdx: number; cIdx: number } | null>({ rIdx: 0, cIdx: 0 });
+  const [focusedCell, setFocusedCell] = useState<{ rIdx: number; cIdx: number } | null>(null);
 
   // 2. Word State
   const [wordDoc, setWordDoc] = useState<WordDocData | null>(null);
@@ -93,6 +100,15 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
   const [docZoom, setDocZoom] = useState<number>(1);
   const [isRenderingDocx, setIsRenderingDocx] = useState<boolean>(false);
   const docxContainerRef = useRef<HTMLDivElement>(null);
+  const [showMathModal, setShowMathModal] = useState(false);
+  const [mathInput, setMathInput] = useState('\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}');
+  const [mathPreviewHtml, setMathPreviewHtml] = useState('');
+  const [showCitationModal, setShowCitationModal] = useState(false);
+  const [citationAuthor, setCitationAuthor] = useState('');
+  const [citationTitle, setCitationTitle] = useState('');
+  const [citationYear, setCitationYear] = useState('2025');
+  const [citationJournal, setCitationJournal] = useState('');
+  const [citationStyle, setCitationStyle] = useState<'APA' | 'IEEE' | 'MLA'>('APA');
 
   // 3. PowerPoint State
   const [pptxDeck, setPptxDeck] = useState<PptxDeckData | null>(null);
@@ -101,10 +117,28 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
   const [activeSlideIdx, setActiveSlideIdx] = useState<number>(0);
   const [isFullScreen, setIsFullScreen] = useState<boolean>(false);
   const [isRenderingPptx, setIsRenderingPptx] = useState<boolean>(false);
+  const [pptxViewMode, setPptxViewMode] = useState<'view' | 'edit'>('view');
   const pptxContainerRef = useRef<HTMLDivElement>(null);
   const fullScreenPptxRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pptxViewerRef = useRef<any>(null);
+
+  // Render KaTeX Math formula in real-time when mathInput changes
+  useEffect(() => {
+    if (showMathModal) {
+      import('katex').then((katex) => {
+        try {
+          const rendered = katex.default.renderToString(mathInput, {
+            displayMode: true,
+            throwOnError: false,
+          });
+          setMathPreviewHtml(rendered);
+        } catch {
+          setMathPreviewHtml('<span class="text-rose-500">Invalid LaTeX formula</span>');
+        }
+      });
+    }
+  }, [mathInput, showMathModal]);
 
   // ==========================================
   // EXCEL HANDLERS
@@ -152,6 +186,20 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
     toast.success('Row added');
   };
 
+  const handleDeleteRow = () => {
+    if (!workbook || !currentSheet || !selectedCell || currentSheet.rows.length <= 1) {
+      toast.error('Cannot delete the only row');
+      return;
+    }
+    const copy = { ...workbook };
+    const sheetCopy = { ...currentSheet };
+    sheetCopy.rows = sheetCopy.rows.filter((_, idx) => idx !== selectedCell.rIdx);
+    copy.sheets[activeSheetName] = sheetCopy;
+    setWorkbook(copy);
+    setSelectedCell((prev) => (prev ? { ...prev, rIdx: Math.max(0, prev.rIdx - 1) } : null));
+    toast.success('Row deleted');
+  };
+
   const handleAddColumn = () => {
     if (!workbook || !currentSheet) return;
     const copy = { ...workbook };
@@ -163,6 +211,21 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
     toast.success('Column added');
   };
 
+  const handleDeleteColumn = () => {
+    if (!workbook || !currentSheet || selectedColIdx === null || currentSheet.headers.length <= 1) {
+      toast.error('Cannot delete the only column');
+      return;
+    }
+    const copy = { ...workbook };
+    const sheetCopy = { ...currentSheet };
+    sheetCopy.headers = sheetCopy.headers.filter((_, idx) => idx !== selectedColIdx);
+    sheetCopy.rows = sheetCopy.rows.map((row) => row.filter((_, idx) => idx !== selectedColIdx));
+    copy.sheets[activeSheetName] = sheetCopy;
+    setWorkbook(copy);
+    setSelectedColIdx((prev) => (prev !== null ? Math.max(0, prev - 1) : 0));
+    toast.success('Column deleted');
+  };
+
   const handleAddSheet = () => {
     if (!workbook) return;
     const newName = `Sheet${workbook.sheetNames.length + 1}`;
@@ -172,6 +235,68 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
     setWorkbook(copy);
     setActiveSheetName(newName);
     toast.success(`Created ${newName}`);
+  };
+
+  const handleRenameSheet = (oldName: string) => {
+    const newName = prompt('Enter new sheet name:', oldName);
+    if (!newName || !newName.trim() || newName.trim() === oldName || !workbook) return;
+    const trimmed = newName.trim().substring(0, 31);
+    if (workbook.sheetNames.includes(trimmed)) {
+      toast.error('Sheet name already exists');
+      return;
+    }
+    const copy = { ...workbook };
+    const sheetData = copy.sheets[oldName];
+    delete copy.sheets[oldName];
+    copy.sheets[trimmed] = { ...sheetData, name: trimmed };
+    copy.sheetNames = copy.sheetNames.map((n) => (n === oldName ? trimmed : n));
+    if (activeSheetName === oldName) setActiveSheetName(trimmed);
+    setWorkbook(copy);
+    toast.success(`Renamed to ${trimmed}`);
+  };
+
+  const handleDeleteSheet = (name: string) => {
+    if (!workbook || workbook.sheetNames.length <= 1) {
+      toast.error('Workbook must contain at least one sheet');
+      return;
+    }
+    if (!confirm(`Delete sheet "${name}"?`)) return;
+    const copy = { ...workbook };
+    delete copy.sheets[name];
+    copy.sheetNames = copy.sheetNames.filter((n) => n !== name);
+    if (activeSheetName === name) setActiveSheetName(copy.sheetNames[0]);
+    setWorkbook(copy);
+    toast.success(`Deleted ${name}`);
+  };
+
+  const formatSelectedCell = (type: 'currency' | 'percent' | 'comma') => {
+    if (!workbook || !currentSheet || !selectedCell) return;
+    const currentVal = currentSheet.rows[selectedCell.rIdx]?.[selectedCell.cIdx] ?? '';
+    const num = parseFloat(String(currentVal).replace(/[$€£,%]/g, '').trim());
+    if (isNaN(num)) {
+      toast.error('Selected cell is not numeric');
+      return;
+    }
+    let formatted = String(num);
+    if (type === 'currency') formatted = `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (type === 'percent') formatted = `${num.toFixed(1)}%`;
+    if (type === 'comma') formatted = num.toLocaleString('en-US');
+    handleCellEdit(selectedCell.rIdx, selectedCell.cIdx, formatted);
+    toast.success(`Formatted as ${type}`);
+  };
+
+  const insertQuickFormula = (formulaName: string) => {
+    if (!currentSheet || !selectedCell) return;
+    const colLetter = getExcelColumnLetter(selectedCell.cIdx);
+    const maxRow = currentSheet.rows.length + 1;
+    let template = `=${formulaName}(${colLetter}2:${colLetter}${maxRow})`;
+    if (formulaName === 'IF') {
+      template = `=IF(${colLetter}2>50, "High", "Low")`;
+    } else if (formulaName === 'VLOOKUP') {
+      template = `=VLOOKUP(${colLetter}2, A2:B${maxRow}, 2, FALSE)`;
+    }
+    handleCellEdit(selectedCell.rIdx, selectedCell.cIdx, template);
+    toast.success(`Inserted =${formulaName}() formula`);
   };
 
   const exportExcel = () => {
@@ -262,7 +387,7 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
 
   const exportWordDoc = () => {
     if (!wordDoc) return;
-    const blob = exportHtmlToWordBlob(editorHtml, wordDoc.fileName);
+    const blob = exportHtmlToWordBlob(editorHtml, wordFileName);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -270,12 +395,78 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
     a.download = `${cleanName}.doc`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
-    toast.success('Word document downloaded!');
+    toast.success('Word document downloaded (.doc)!');
+  };
+
+  const exportWordDocBinary = async () => {
+    if (!wordDoc) return;
+    try {
+      setIsProcessing(true);
+      const cleanName = (wordFileName.trim() || wordDoc.fileName.replace(/\.[^/.]+$/, '')).replace(/\.docx?$/i, '');
+      const blob = await exportHtmlToDocxBinary(editorHtml, cleanName);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${cleanName}.docx`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      toast.success('Authentic Word (.docx) downloaded!');
+    } catch (err) {
+      console.error(err);
+      exportWordDoc();
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const insertMathToDoc = () => {
+    if (!mathPreviewHtml) return;
+    const mathBlock = `<div style="text-align:center;margin:16px 0;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">${mathPreviewHtml}</div><p><br></p>`;
+    setEditorHtml((prev) => prev + mathBlock);
+    setShowMathModal(false);
+    toast.success('Math equation inserted!');
+  };
+
+  const insertCitationToDoc = () => {
+    if (!citationAuthor || !citationTitle) {
+      toast.error('Author and Title are required');
+      return;
+    }
+    let citationText = '';
+    if (citationStyle === 'APA') {
+      citationText = `${citationAuthor} (${citationYear}). <em>${citationTitle}</em>. ${citationJournal || 'Academic Press'}.`;
+    } else if (citationStyle === 'IEEE') {
+      citationText = `[1] ${citationAuthor}, "${citationTitle}," <em>${citationJournal || 'Proc.'}</em>, ${citationYear}.`;
+    } else {
+      citationText = `${citationAuthor}. "${citationTitle}." <em>${citationJournal || 'Journal'}</em> (${citationYear}).`;
+    }
+    const citationHtml = `<p style="margin:8px 0;padding-left:24px;text-indent:-24px;">${citationText}</p>`;
+    setEditorHtml((prev) => prev + citationHtml);
+    setShowCitationModal(false);
+    toast.success(`${citationStyle} Citation inserted!`);
   };
 
   // ==========================================
   // POWERPOINT HANDLERS
   // ==========================================
+  const handleAddSlide = () => {
+    if (!pptxDeck) return;
+    const updated = createNewPptxSlide(pptxDeck, `Slide ${pptxDeck.slides.length + 1}`);
+    setPptxDeck(updated);
+    setActiveSlideIdx(updated.slides.length - 1);
+    toast.success('Slide added!');
+  };
+
+  const handleDeleteSlide = (idx: number) => {
+    if (!pptxDeck || pptxDeck.slides.length <= 1) {
+      toast.error('Deck must contain at least one slide');
+      return;
+    }
+    const updated = deletePptxSlide(pptxDeck, idx);
+    setPptxDeck(updated);
+    setActiveSlideIdx(Math.max(0, idx - 1));
+    toast.success('Slide deleted');
+  };
   const handleUploadPptx = async (files: File[]) => {
     const file = files[0];
     if (!file) return;
@@ -588,10 +779,10 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
                 </div>
 
                 <div className="flex items-center gap-1.5">
-                  <Button variant="outline" size="sm" onClick={handleAddRow}>
+                  <Button variant="outline" size="sm" onClick={handleAddRow} title="Add new row">
                     <HiPlus className="w-3.5 h-3.5 mr-1" /> Row
                   </Button>
-                  <Button variant="outline" size="sm" onClick={handleAddColumn}>
+                  <Button variant="outline" size="sm" onClick={handleAddColumn} title="Add new column">
                     <HiPlus className="w-3.5 h-3.5 mr-1" /> Col
                   </Button>
                   <Button variant="outline" size="sm" onClick={exportExcel}>
@@ -617,6 +808,68 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
                 </div>
               </div>
 
+              {/* Excel Quick Formulas & Formatting Ribbon */}
+              <div className="flex flex-wrap items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-surface/80 border border-border text-xs">
+                {/* Quick Formula Helpers */}
+                <div className="flex items-center gap-1 overflow-x-auto py-0.5">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground mr-1">Formulas:</span>
+                  {[
+                    { label: '∑ SUM', fn: 'SUM' },
+                    { label: 'x̄ AVG', fn: 'AVERAGE' },
+                    { label: '123 COUNT', fn: 'COUNT' },
+                    { label: '▲ MAX', fn: 'MAX' },
+                    { label: '▼ MIN', fn: 'MIN' },
+                    { label: '? IF', fn: 'IF' },
+                    { label: '🔍 VLOOKUP', fn: 'VLOOKUP' },
+                  ].map((f) => (
+                    <button
+                      key={f.fn}
+                      onClick={() => insertQuickFormula(f.fn)}
+                      className="px-2 py-0.5 text-[11px] font-mono font-bold rounded-md bg-muted/60 hover:bg-emerald-500/15 hover:text-emerald-600 transition-colors border border-border/60 shrink-0"
+                      title={`Insert =${f.fn}() formula`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Quick Number Formatting & Row/Col Actions */}
+                <div className="flex items-center gap-1.5">
+                  <div className="flex items-center border border-border/80 rounded-lg p-0.5 bg-muted/40">
+                    <button
+                      onClick={() => formatSelectedCell('currency')}
+                      className="px-2 py-0.5 text-xs font-bold rounded hover:bg-background text-foreground transition-colors"
+                      title="Format as Currency ($)"
+                    >
+                      $
+                    </button>
+                    <button
+                      onClick={() => formatSelectedCell('percent')}
+                      className="px-2 py-0.5 text-xs font-bold rounded hover:bg-background text-foreground transition-colors"
+                      title="Format as Percentage (%)"
+                    >
+                      %
+                    </button>
+                    <button
+                      onClick={() => formatSelectedCell('comma')}
+                      className="px-2 py-0.5 text-xs font-bold rounded hover:bg-background text-foreground transition-colors"
+                      title="Format with Commas (,)"
+                    >
+                      ,
+                    </button>
+                  </div>
+
+                  <div className="h-4 w-px bg-border/80 mx-1" />
+
+                  <Button variant="ghost" size="sm" onClick={handleDeleteRow} title="Delete selected row">
+                    <HiTrash className="w-3.5 h-3.5 mr-1 text-rose-500" /> - Row
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={handleDeleteColumn} title="Delete selected column">
+                    <HiTrash className="w-3.5 h-3.5 mr-1 text-rose-500" /> - Col
+                  </Button>
+                </div>
+              </div>
+
               {/* Excel Authentic Formula Bar */}
               <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/40 border border-border rounded-xl text-xs">
                 <div className="w-14 text-center font-bold font-mono bg-background py-1 px-1.5 rounded-lg border border-border text-emerald-600 dark:text-emerald-400">
@@ -635,7 +888,7 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
                       handleCellEdit(selectedCell.rIdx, selectedCell.cIdx, e.target.value);
                     }
                   }}
-                  placeholder="Enter formula or cell value..."
+                  placeholder="Enter formula (e.g. =SUM(A2:A10), =IF(B2>50, 'High', 'Low')) or cell value..."
                   className="flex-1 bg-background border border-border rounded-lg px-3 py-1 font-mono text-xs text-foreground focus:outline-hidden focus:border-emerald-500"
                 />
               </div>
@@ -681,7 +934,19 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
                           {/* Interactive Excel Cells */}
                           {row.map((cell, cIdx) => {
                             const isSelected = selectedCell?.rIdx === originalIdx && selectedCell?.cIdx === cIdx;
-                            const isNumeric = !isNaN(Number(cell)) && cell.trim() !== '';
+                            const isFocused = focusedCell?.rIdx === originalIdx && focusedCell?.cIdx === cIdx;
+                            const isFormula = typeof cell === 'string' && cell.trim().startsWith('=');
+
+                            let displayVal = cell;
+                            if (isFormula && !isFocused && currentSheet) {
+                              try {
+                                displayVal = evaluateFormula(cell, { headers: currentSheet.headers, rows: currentSheet.rows });
+                              } catch {
+                                displayVal = '#ERROR!';
+                              }
+                            }
+
+                            const isNumeric = !isNaN(Number(displayVal)) && String(displayVal).trim() !== '';
 
                             return (
                               <td
@@ -693,13 +958,23 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
                               >
                                 <input
                                   type="text"
-                                  value={cell}
-                                  onFocus={() => setSelectedCell({ rIdx: originalIdx, cIdx })}
+                                  value={isFocused ? cell : displayVal}
+                                  onFocus={() => {
+                                    setSelectedCell({ rIdx: originalIdx, cIdx });
+                                    setFocusedCell({ rIdx: originalIdx, cIdx });
+                                  }}
+                                  onBlur={() => setFocusedCell(null)}
                                   onChange={(e) => handleCellEdit(originalIdx, cIdx, e.target.value)}
                                   className={`w-full px-2 py-1.5 bg-transparent text-foreground text-xs focus:outline-hidden ${
                                     isNumeric ? 'text-right font-mono' : 'text-left'
                                   }`}
                                 />
+                                {isFormula && (
+                                  <div
+                                    title={`Formula: ${cell}`}
+                                    className="absolute top-0 right-0 w-1.5 h-1.5 bg-emerald-500 rounded-bl-xs pointer-events-none"
+                                  />
+                                )}
                                 {isSelected && (
                                   <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-600 rounded-2xs pointer-events-none" />
                                 )}
@@ -717,21 +992,33 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
               <div className="flex items-center justify-between p-2 rounded-xl bg-surface border border-border">
                 <div className="flex items-center gap-1.5 overflow-x-auto">
                   {workbook.sheetNames.map((name) => (
-                    <button
-                      key={name}
-                      onClick={() => {
-                        setActiveSheetName(name);
-                        setSelectedColIdx(0);
-                        setSelectedCell({ rIdx: 0, cIdx: 0 });
-                      }}
-                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all border ${
-                        activeSheetName === name
-                          ? 'bg-emerald-600 text-white border-emerald-700 shadow-2xs'
-                          : 'bg-background text-muted-foreground border-border hover:text-foreground'
-                      }`}
-                    >
-                      {name}
-                    </button>
+                    <div key={name} className="flex items-center">
+                      <button
+                        onClick={() => {
+                          setActiveSheetName(name);
+                          setSelectedColIdx(0);
+                          setSelectedCell({ rIdx: 0, cIdx: 0 });
+                        }}
+                        onDoubleClick={() => handleRenameSheet(name)}
+                        title="Double-click to rename sheet"
+                        className={`px-3 py-1 text-xs font-bold rounded-lg transition-all border ${
+                          activeSheetName === name
+                            ? 'bg-emerald-600 text-white border-emerald-700 shadow-2xs'
+                            : 'bg-background text-muted-foreground border-border hover:text-foreground'
+                        }`}
+                      >
+                        {name}
+                      </button>
+                      {workbook.sheetNames.length > 1 && (
+                        <button
+                          onClick={() => handleDeleteSheet(name)}
+                          title={`Delete sheet "${name}"`}
+                          className="p-1 -ml-1 text-muted-foreground hover:text-rose-500 text-xs transition-colors"
+                        >
+                          <HiX className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   ))}
                   <button
                     onClick={handleAddSheet}
@@ -828,7 +1115,7 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
                     </button>
                   </div>
 
-                  {wordViewMode === 'preview' && (
+                  {wordViewMode === 'preview' ? (
                     <div className="hidden sm:flex items-center gap-1">
                       <Button variant="ghost" size="sm" onClick={() => setDocZoom((z) => Math.max(0.7, z - 0.1))}>
                         <HiZoomOut className="w-3.5 h-3.5" />
@@ -838,10 +1125,35 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
                         <HiZoomIn className="w-3.5 h-3.5" />
                       </Button>
                     </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowMathModal(true)}
+                        className="text-xs text-blue-600 dark:text-blue-400 border-blue-500/30"
+                        title="Insert LaTeX Math Equation"
+                      >
+                        <HiCalculator className="w-3.5 h-3.5 mr-1" /> Math
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowCitationModal(true)}
+                        className="text-xs text-indigo-600 dark:text-indigo-400 border-indigo-500/30"
+                        title="Insert Academic Citation"
+                      >
+                        <HiBookOpen className="w-3.5 h-3.5 mr-1" /> Citation
+                      </Button>
+                    </div>
                   )}
 
-                  <Button variant="outline" size="sm" onClick={exportWordDoc}>
-                    <HiDownload className="w-3.5 h-3.5 mr-1 text-blue-600" /> Export Word
+                  <Button variant="outline" size="sm" onClick={exportWordDocBinary} title="Download pure OpenXML .docx file">
+                    <HiDownload className="w-3.5 h-3.5 mr-1 text-blue-600" /> Download .docx
+                  </Button>
+
+                  <Button variant="ghost" size="sm" onClick={exportWordDoc} title="Export as compatible Word .doc">
+                    Export .doc
                   </Button>
 
                   {onSendToNotes && (
@@ -883,14 +1195,20 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
                   </div>
                 </div>
               ) : (
-                /* Mode B: Rich-Text Editor */
-                <div className="flex-1 min-h-[350px] flex flex-col bg-surface rounded-xl border border-border overflow-hidden">
-                  <ReactQuill
-                    theme="snow"
-                    value={editorHtml}
-                    onChange={setEditorHtml}
-                    className="flex-1 flex flex-col h-full"
-                  />
+                /* Mode B: Rich-Text Editor (A4 Physical Paper Simulation) */
+                <div className="flex-1 min-h-[400px] overflow-auto rounded-2xl border border-border bg-neutral-100 dark:bg-neutral-900/80 p-4 sm:p-8 flex justify-center relative shadow-inner">
+                  <div className="w-full max-w-[210mm] min-h-[297mm] bg-white text-slate-900 shadow-2xl rounded-sm border border-slate-300 p-8 sm:p-14 flex flex-col">
+                    <div className="text-[10px] text-slate-400 font-mono pb-2 border-b border-slate-200 mb-6 flex justify-between select-none">
+                      <span>{wordFileName || 'Document'}</span>
+                      <span>A4 Document Paper (Word Mode)</span>
+                    </div>
+                    <ReactQuill
+                      theme="snow"
+                      value={editorHtml}
+                      onChange={setEditorHtml}
+                      className="flex-1 flex flex-col h-full [&_.ql-container]:border-none [&_.ql-editor]:p-0 [&_.ql-editor]:text-slate-900 [&_.ql-toolbar]:border-slate-200 [&_.ql-toolbar]:mb-4 [&_.ql-toolbar]:rounded-lg [&_.ql-toolbar]:bg-slate-50"
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -918,7 +1236,7 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
               {/* Main Slide Viewer — Authentic 16:9 Stage */}
               <div className="lg:col-span-8 flex flex-col min-h-0 bg-surface/40 rounded-2xl border border-border p-4">
                 {/* Slide Stage Header */}
-                <div className="flex items-center justify-between pb-3 mb-3 border-b border-border/60">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-border/60">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-foreground">
                       Slide {activeSlideIdx + 1} of {pptxDeck.totalSlides}
@@ -929,6 +1247,45 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
                   </div>
 
                   <div className="flex items-center gap-1.5">
+                    {/* View / Edit Mode Toggle */}
+                    <div className="flex items-center p-0.5 rounded-lg bg-muted/60 border border-border text-xs font-semibold mr-1">
+                      <button
+                        onClick={() => setPptxViewMode('view')}
+                        className={`px-2.5 py-1 rounded-md transition-all ${
+                          pptxViewMode === 'view'
+                            ? 'bg-orange-600 text-white shadow-2xs'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <HiEye className="w-3.5 h-3.5 inline mr-1" /> View
+                      </button>
+                      <button
+                        onClick={() => setPptxViewMode('edit')}
+                        className={`px-2.5 py-1 rounded-md transition-all ${
+                          pptxViewMode === 'edit'
+                            ? 'bg-orange-600 text-white shadow-2xs'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        <HiPencil className="w-3.5 h-3.5 inline mr-1" /> Edit
+                      </button>
+                    </div>
+
+                    <Button variant="outline" size="sm" onClick={handleAddSlide} title="Add new slide">
+                      <HiPlus className="w-3.5 h-3.5 mr-1" /> Slide
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteSlide(activeSlideIdx)}
+                      disabled={pptxDeck.slides.length <= 1}
+                      title="Delete active slide"
+                    >
+                      <HiTrash className="w-3.5 h-3.5 text-rose-500" />
+                    </Button>
+
+                    <div className="h-4 w-px bg-border/80 mx-0.5" />
+
                     <Button
                       variant="outline"
                       size="sm"
@@ -957,24 +1314,81 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
                   </div>
                 </div>
 
-                {/* 16:9 Authentic Presentation Slide Canvas ("Render As It Is") */}
+                {/* 16:9 Authentic Presentation Slide Canvas ("Render As It Is" OR Interactive Slide Editor) */}
                 {pptxDeck.slides[activeSlideIdx] && (
                   <div className="flex-1 flex flex-col justify-center items-center p-2 min-h-0 overflow-y-auto">
-                    <div className="aspect-video w-full max-w-3xl bg-neutral-950 rounded-2xl shadow-2xl border border-neutral-700/80 p-2 flex items-center justify-center relative overflow-hidden">
-                      {isRenderingPptx && (
-                        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-neutral-900/85 backdrop-blur-xs">
-                          <div className="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin mb-2" />
-                          <p className="text-xs text-orange-300 font-medium">Rendering Authentic Slide...</p>
-                        </div>
-                      )}
-                      <div
-                        ref={pptxContainerRef}
-                        className="w-full h-full flex items-center justify-center overflow-hidden rounded-xl bg-white"
-                      />
-                    </div>
+                    {pptxViewMode === 'view' ? (
+                      /* Mode A: Authentic 16:9 Slide Canvas */
+                      <div className="aspect-video w-full max-w-3xl bg-neutral-950 rounded-2xl shadow-2xl border border-neutral-700/80 p-2 flex items-center justify-center relative overflow-hidden">
+                        {isRenderingPptx && (
+                          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-neutral-900/85 backdrop-blur-xs">
+                            <div className="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin mb-2" />
+                            <p className="text-xs text-orange-300 font-medium">Rendering Authentic Slide...</p>
+                          </div>
+                        )}
+                        <div
+                          ref={pptxContainerRef}
+                          className="w-full h-full flex items-center justify-center overflow-hidden rounded-xl bg-white"
+                        />
+                      </div>
+                    ) : (
+                      /* Mode B: Slide Content Editor Canvas */
+                      <div className="aspect-video w-full max-w-3xl bg-surface border border-orange-500/30 rounded-2xl shadow-2xl p-6 flex flex-col justify-between overflow-y-auto">
+                        <div className="space-y-4">
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-orange-500 tracking-wider block mb-1">
+                              Slide Title
+                            </span>
+                            <input
+                              type="text"
+                              value={pptxDeck.slides[activeSlideIdx].title}
+                              onChange={(e) => {
+                                const updated = updatePptxSlide(pptxDeck, activeSlideIdx, { title: e.target.value });
+                                setPptxDeck(updated);
+                              }}
+                              className="w-full px-3 py-2 text-base font-bold rounded-xl bg-background border border-border text-foreground focus:outline-hidden focus:border-orange-500"
+                              placeholder="Slide Title..."
+                            />
+                          </div>
 
-                    {/* Teacher Speaker Notes Drawer */}
-                    {pptxDeck.slides[activeSlideIdx].speakerNotes && (
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block mb-1">
+                              Bullet Points / Content (One per line)
+                            </span>
+                            <textarea
+                              rows={5}
+                              value={pptxDeck.slides[activeSlideIdx].bulletPoints.join('\n')}
+                              onChange={(e) => {
+                                const lines = e.target.value.split('\n');
+                                const updated = updatePptxSlide(pptxDeck, activeSlideIdx, { bulletPoints: lines });
+                                setPptxDeck(updated);
+                              }}
+                              className="w-full p-3 text-xs leading-relaxed rounded-xl bg-background border border-border text-foreground focus:outline-hidden focus:border-orange-500 font-mono"
+                              placeholder="• Key concept or lecture bullet point..."
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-amber-500 dark:text-amber-300 tracking-wider block mb-1">
+                            Speaker Notes
+                          </span>
+                          <input
+                            type="text"
+                            value={pptxDeck.slides[activeSlideIdx].speakerNotes || ''}
+                            onChange={(e) => {
+                              const updated = updatePptxSlide(pptxDeck, activeSlideIdx, { speakerNotes: e.target.value });
+                              setPptxDeck(updated);
+                            }}
+                            className="w-full px-3 py-1.5 text-xs rounded-xl bg-background border border-border text-muted-foreground focus:outline-hidden focus:border-amber-500"
+                            placeholder="Optional notes for presentation..."
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Teacher Speaker Notes Drawer (Shown in View mode if available) */}
+                    {pptxViewMode === 'view' && pptxDeck.slides[activeSlideIdx].speakerNotes && (
                       <div className="w-full max-w-3xl mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs">
                         <span className="font-bold text-amber-500 dark:text-amber-300 flex items-center gap-1 mb-0.5">
                           <HiLightBulb className="w-3.5 h-3.5" /> Professor / Speaker Notes:
@@ -1034,25 +1448,46 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
 
                 {/* Thumbnails Grid */}
                 <Card className="p-3 flex-1 flex flex-col min-h-0">
-                  <h4 className="text-xs font-bold text-foreground mb-2">Slide Navigator</h4>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-bold text-foreground">Slide Navigator</h4>
+                    <Button variant="ghost" size="sm" onClick={handleAddSlide} className="text-xs text-orange-600">
+                      <HiPlus className="w-3.5 h-3.5 mr-0.5" /> Add
+                    </Button>
+                  </div>
                   <div className="grid grid-cols-2 gap-2 overflow-y-auto max-h-[40vh] p-1">
                     {pptxDeck.slides.map((s, idx) => (
-                      <button
+                      <div
                         key={idx}
-                        onClick={() => setActiveSlideIdx(idx)}
-                        className={`p-2 rounded-lg border text-left transition-all ${
+                        className={`relative group rounded-lg border text-left transition-all ${
                           idx === activeSlideIdx
                             ? 'border-orange-500 bg-orange-500/10 shadow-2xs'
                             : 'border-border bg-surface hover:bg-muted/50'
                         }`}
                       >
-                        <span className="text-[10px] font-bold text-muted-foreground block mb-0.5">
-                          Slide {s.slideNumber}
-                        </span>
-                        <p className="text-[11px] font-semibold text-foreground line-clamp-2 leading-tight">
-                          {s.title}
-                        </p>
-                      </button>
+                        <button
+                          onClick={() => setActiveSlideIdx(idx)}
+                          className="w-full p-2 text-left"
+                        >
+                          <span className="text-[10px] font-bold text-muted-foreground block mb-0.5">
+                            Slide {s.slideNumber}
+                          </span>
+                          <p className="text-[11px] font-semibold text-foreground line-clamp-2 leading-tight">
+                            {s.title}
+                          </p>
+                        </button>
+                        {pptxDeck.slides.length > 1 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteSlide(idx);
+                            }}
+                            title={`Delete slide ${idx + 1}`}
+                            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-rose-500/20 text-rose-500 transition-opacity"
+                          >
+                            <HiTrash className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </Card>
@@ -1146,6 +1581,133 @@ export default function OfficeStudio({ onBack, onOpenInReader, onSendToNotes }: 
           </div>
         </div>
       )}
+
+      {/* KaTeX Math Equation Modal */}
+      <Modal
+        isOpen={showMathModal}
+        onClose={() => setShowMathModal(false)}
+        title="Insert LaTeX Math Equation"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4 pt-1">
+          <p className="text-xs text-muted-foreground">
+            Add formatted scientific or mathematical equations directly into your Word document
+          </p>
+          <div>
+            <label className="text-xs font-bold text-foreground block mb-1.5">
+              LaTeX Formula:
+            </label>
+            <textarea
+              value={mathInput}
+              onChange={(e) => setMathInput(e.target.value)}
+              rows={3}
+              className="w-full p-2.5 rounded-xl bg-background border border-border text-xs font-mono text-foreground focus:outline-hidden focus:border-blue-500"
+              placeholder="e.g. \int_{0}^{\infty} e^{-x^2} dx = \frac{\sqrt{\pi}}{2}"
+            />
+          </div>
+
+          <div>
+            <span className="text-xs font-bold text-muted-foreground block mb-1.5">Live KaTeX Preview:</span>
+            <div
+              className="p-4 rounded-xl bg-muted/30 border border-border flex items-center justify-center min-h-[70px] overflow-x-auto text-foreground"
+              dangerouslySetInnerHTML={{ __html: mathPreviewHtml }}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" size="sm" onClick={() => setShowMathModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" size="sm" onClick={insertMathToDoc} className="bg-blue-600 hover:bg-blue-700 text-white">
+              Insert Equation
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Academic Citation Modal */}
+      <Modal
+        isOpen={showCitationModal}
+        onClose={() => setShowCitationModal(false)}
+        title="Insert Academic Citation"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-3 pt-1">
+          <p className="text-xs text-muted-foreground">
+            Standardized bibliographic reference in APA, IEEE, or MLA format
+          </p>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-foreground">Citation Style:</span>
+            {(['APA', 'IEEE', 'MLA'] as const).map((style) => (
+              <button
+                key={style}
+                onClick={() => setCitationStyle(style)}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border ${
+                  citationStyle === style
+                    ? 'bg-blue-600 text-white border-blue-700 shadow-2xs'
+                    : 'bg-muted/40 text-muted-foreground border-border hover:text-foreground'
+                }`}
+              >
+                {style}
+              </button>
+            ))}
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-foreground block mb-1">Author(s):</label>
+            <input
+              type="text"
+              value={citationAuthor}
+              onChange={(e) => setCitationAuthor(e.target.value)}
+              placeholder="e.g. Knuth, D. E."
+              className="w-full px-3 py-1.5 rounded-lg bg-background border border-border text-xs text-foreground focus:outline-hidden focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-foreground block mb-1">Paper or Book Title:</label>
+            <input
+              type="text"
+              value={citationTitle}
+              onChange={(e) => setCitationTitle(e.target.value)}
+              placeholder="e.g. The Art of Computer Programming"
+              className="w-full px-3 py-1.5 rounded-lg bg-background border border-border text-xs text-foreground focus:outline-hidden focus:border-blue-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-bold text-foreground block mb-1">Year:</label>
+              <input
+                type="text"
+                value={citationYear}
+                onChange={(e) => setCitationYear(e.target.value)}
+                placeholder="2025"
+                className="w-full px-3 py-1.5 rounded-lg bg-background border border-border text-xs text-foreground focus:outline-hidden focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-foreground block mb-1">Journal / Publisher:</label>
+              <input
+                type="text"
+                value={citationJournal}
+                onChange={(e) => setCitationJournal(e.target.value)}
+                placeholder="e.g. Addison-Wesley"
+                className="w-full px-3 py-1.5 rounded-lg bg-background border border-border text-xs text-foreground focus:outline-hidden focus:border-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" size="sm" onClick={() => setShowCitationModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" size="sm" onClick={insertCitationToDoc} className="bg-blue-600 hover:bg-blue-700 text-white">
+              Insert Citation
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 // src/components/dsa/DsaCuratedSheetView.tsx
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   HiChevronDown, 
@@ -24,6 +24,139 @@ interface DsaCuratedSheetViewProps {
   onSelectProblem: (problem: DsaProblem) => void;
   onSetStatus: (problemId: string, status: 'todo' | 'in_progress' | 'completed') => void;
 }
+
+// Lazy synthetic problem factory - only called when clicked
+function createFallbackProblem(p: SheetProblem, secTitle: string, sheetTitle: string): DsaProblem {
+  return {
+    id: p.id,
+    title: p.title,
+    difficulty: (p.difficulty.toLowerCase() as DsaDifficulty),
+    category: (secTitle.includes('Array') ? 'Arrays & Hashing' : secTitle.includes('Two Pointer') ? 'Two Pointers' : secTitle.includes('Tree') ? 'Trees' : secTitle.includes('Graph') ? 'Graphs' : secTitle.includes('Dynamic') ? 'Dynamic Programming' : 'Arrays & Hashing') as DsaTopic,
+    pattern: (p.pattern || 'Two Pointers') as DsaPattern,
+    description: `Problem statement for **${p.title}** from ${sheetTitle}. Select your preferred language to code and test.`,
+    examples: [
+      { input: 'nums = [2,7,11,15], target = 9', output: '[0,1]' },
+    ],
+    constraints: ['1 <= nums.length <= 10^5', '-10^9 <= nums[i] <= 10^9'],
+    testCases: [
+      { id: 1, input: 'nums = [2,7,11,15], target = 9', expectedOutput: '[0,1]' },
+    ],
+    approaches: [
+      {
+        title: 'Optimal Approach',
+        type: 'optimal',
+        intuition: `Solve ${p.title} with optimal algorithmic pattern.`,
+        timeComplexity: 'O(N)',
+        spaceComplexity: 'O(1)',
+        explanation: [`1. Analyze constraints for ${p.title}`, `2. Apply ${p.pattern || 'core pattern'}`],
+        code: {
+          cpp: `class Solution {\npublic:\n    // Solve ${p.title}\n};\n`,
+          python: `class Solution:\n    # Solve ${p.title}\n    pass\n`,
+          java: `class Solution {\n    // Solve ${p.title}\n}\n`,
+          javascript: `var solution = function() {\n    // Solve ${p.title}\n};\n`,
+        },
+      },
+    ],
+    templates: {
+      cpp: `class Solution {\npublic:\n    // Solve ${p.title}\n};\n`,
+      python: `class Solution:\n    # Solve ${p.title}\n    pass\n`,
+      java: `class Solution {\n    // Solve ${p.title}\n}\n`,
+      javascript: `/**\n * @return {any}\n */\nvar solution = function() {\n    \n};\n`,
+    },
+  };
+}
+
+// Memoized individual problem row for 60 FPS renders
+const ProblemRow = React.memo(function ProblemRow({
+  problem,
+  status,
+  onSelect,
+  onToggleStatus,
+}: {
+  problem: SheetProblem;
+  status: 'solved' | 'in-progress' | 'unsolved';
+  onSelect: () => void;
+  onToggleStatus: () => void;
+}) {
+  const isCompleted = status === 'solved';
+  const isWorking = status === 'in-progress';
+
+  return (
+    <div
+      className={`px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
+        isCompleted
+          ? 'bg-emerald-950/10 hover:bg-emerald-950/20'
+          : isWorking
+          ? 'bg-amber-950/10 hover:bg-amber-950/20'
+          : 'hover:bg-slate-800/30'
+      }`}
+    >
+      {/* Left: Status Toggle & Title */}
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        {/* Checkbox toggle */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleStatus();
+          }}
+          className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all cursor-pointer flex-shrink-0 ${
+            isCompleted
+              ? 'bg-emerald-500 border-emerald-400 text-white shadow-sm shadow-emerald-500/40'
+              : isWorking
+              ? 'bg-amber-500/20 border-amber-400 text-amber-300'
+              : 'border-slate-700 bg-slate-900/80 hover:border-slate-500 text-transparent'
+          }`}
+          title={isCompleted ? 'Mark as Unsolved' : 'Mark as Solved'}
+        >
+          <HiCheckCircle size={14} className={isCompleted ? 'opacity-100' : 'opacity-0'} />
+        </button>
+
+        {/* Problem Title & Pattern Chips */}
+        <div
+          onClick={onSelect}
+          className="cursor-pointer min-w-0 flex-1 group"
+        >
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-xs sm:text-sm font-bold transition-colors ${
+              isCompleted
+                ? 'text-emerald-300 line-through opacity-80'
+                : 'text-slate-200 group-hover:text-primary'
+            }`}>
+              {problem.title}
+            </span>
+
+            <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+              problem.difficulty === 'Easy'
+                ? 'bg-teal-500/10 text-teal-400 border-teal-500/30'
+                : problem.difficulty === 'Medium'
+                ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+            }`}>
+              {problem.difficulty}
+            </span>
+
+            {problem.pattern && (
+              <span className="text-[10px] font-semibold text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-700/50">
+                {problem.pattern}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Right: Practice Button */}
+      <div className="flex items-center gap-2 justify-end flex-shrink-0">
+        <button
+          onClick={onSelect}
+          className="px-3.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-primary text-slate-300 hover:text-white text-xs font-bold transition-all shadow hover:shadow-primary/20 flex items-center gap-1.5 cursor-pointer"
+        >
+          <HiCode size={14} />
+          <span>Practice</span>
+        </button>
+      </div>
+    </div>
+  );
+});
 
 export default function DsaCuratedSheetView({
   activeSheetId,
@@ -381,135 +514,27 @@ export default function DsaCuratedSheetView({
                     exit={{ height: 0, opacity: 0 }}
                     className="divide-y divide-slate-800/50"
                   >
-                    {sec.problems.map((p, pIdx) => {
+                    {sec.problems.map((p) => {
                       const userProg = userProgressMap[p.id];
-                      const isCompleted = userProg?.status === 'solved';
-                      const isWorking = userProg?.status === 'in-progress';
-                      
-                      // Map to full problem if loaded in database
+                      const status = userProg?.status === 'solved' ? 'solved' : userProg?.status === 'in-progress' ? 'in-progress' : 'unsolved';
                       const matchedFullProblem = allProblemsMap[p.id];
 
-                      const handleRowClick = () => {
-                        if (matchedFullProblem) {
-                          onSelectProblem(matchedFullProblem);
-                        } else {
-                          // Create synthetic problem object for modal
-                          const fallbackProblem: DsaProblem = {
-                            id: p.id,
-                            title: p.title,
-                            difficulty: (p.difficulty.toLowerCase() as DsaDifficulty),
-                            category: (sec.title.includes('Array') ? 'Arrays & Hashing' : sec.title.includes('Two Pointer') ? 'Two Pointers' : sec.title.includes('Tree') ? 'Trees' : sec.title.includes('Graph') ? 'Graphs' : sec.title.includes('Dynamic') ? 'Dynamic Programming' : 'Arrays & Hashing') as DsaTopic,
-                            pattern: (p.pattern || 'Two Pointers') as DsaPattern,
-                            description: `Problem statement for **${p.title}** from ${sheet.title}. Select your preferred language to code and test.`,
-                            examples: [
-                              { input: 'nums = [2,7,11,15], target = 9', output: '[0,1]' },
-                            ],
-                            constraints: ['1 <= nums.length <= 10^5', '-10^9 <= nums[i] <= 10^9'],
-                            testCases: [
-                              { id: 1, input: 'nums = [2,7,11,15], target = 9', expectedOutput: '[0,1]' },
-                            ],
-                            approaches: [
-                              {
-                                title: 'Optimal Approach',
-                                type: 'optimal',
-                                intuition: `Solve ${p.title} with optimal algorithmic pattern.`,
-                                timeComplexity: 'O(N)',
-                                spaceComplexity: 'O(1)',
-                                explanation: [`1. Analyze constraints for ${p.title}`, `2. Apply ${p.pattern || 'core pattern'}`],
-                                code: {
-                                  cpp: `class Solution {\npublic:\n    // Solve ${p.title}\n};\n`,
-                                  python: `class Solution:\n    # Solve ${p.title}\n    pass\n`,
-                                  java: `class Solution {\n    // Solve ${p.title}\n}\n`,
-                                  javascript: `var solution = function() {\n    // Solve ${p.title}\n};\n`,
-                                },
-                              },
-                            ],
-                            templates: {
-                              cpp: `class Solution {\npublic:\n    // Solve ${p.title}\n};\n`,
-                              python: `class Solution:\n    # Solve ${p.title}\n    pass\n`,
-                              java: `class Solution {\n    // Solve ${p.title}\n}\n`,
-                              javascript: `/**\n * @return {any}\n */\nvar solution = function() {\n    \n};\n`,
-                            },
-                          };
-                          onSelectProblem(fallbackProblem);
-                        }
-                      };
-
                       return (
-                        <div
+                        <ProblemRow
                           key={p.id}
-                          className={`px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
-                            isCompleted
-                              ? 'bg-emerald-950/10 hover:bg-emerald-950/20'
-                              : isWorking
-                              ? 'bg-amber-950/10 hover:bg-amber-950/20'
-                              : 'hover:bg-slate-800/30'
-                          }`}
-                        >
-                          {/* Left: Status Toggle & Title */}
-                          <div className="flex items-center gap-3 min-w-0 flex-1">
-                            {/* Checkbox toggle */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onSetStatus(p.id, isCompleted ? 'todo' : 'completed');
-                              }}
-                              className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all cursor-pointer flex-shrink-0 ${
-                                isCompleted
-                                  ? 'bg-emerald-500 border-emerald-400 text-white shadow-sm shadow-emerald-500/40'
-                                  : isWorking
-                                  ? 'bg-amber-500/20 border-amber-400 text-amber-300'
-                                  : 'border-slate-700 bg-slate-900/80 hover:border-slate-500 text-transparent'
-                              }`}
-                              title={isCompleted ? 'Mark as Unsolved' : 'Mark as Solved'}
-                            >
-                              <HiCheckCircle size={14} className={isCompleted ? 'opacity-100' : 'opacity-0'} />
-                            </button>
-
-                            {/* Problem Title & Pattern Chips */}
-                            <div
-                              onClick={handleRowClick}
-                              className="cursor-pointer min-w-0 flex-1 group"
-                            >
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className={`text-xs sm:text-sm font-bold transition-colors ${
-                                  isCompleted
-                                    ? 'text-emerald-300 line-through opacity-80'
-                                    : 'text-slate-200 group-hover:text-primary'
-                                }`}>
-                                  {p.title}
-                                </span>
-
-                                <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-                                  p.difficulty === 'Easy'
-                                    ? 'bg-teal-500/10 text-teal-400 border-teal-500/30'
-                                    : p.difficulty === 'Medium'
-                                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                                    : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-                                }`}>
-                                  {p.difficulty}
-                                </span>
-
-                                {p.pattern && (
-                                  <span className="text-[10px] font-semibold text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-700/50">
-                                    {p.pattern}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Right: Practice Button */}
-                          <div className="flex items-center gap-2 justify-end flex-shrink-0">
-                            <button
-                              onClick={handleRowClick}
-                              className="px-3.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-primary text-slate-300 hover:text-white text-xs font-bold transition-all shadow hover:shadow-primary/20 flex items-center gap-1.5 cursor-pointer"
-                            >
-                              <HiCode size={14} />
-                              <span>Practice</span>
-                            </button>
-                          </div>
-                        </div>
+                          problem={p}
+                          status={status}
+                          onSelect={() => {
+                            if (matchedFullProblem) {
+                              onSelectProblem(matchedFullProblem);
+                            } else {
+                              onSelectProblem(createFallbackProblem(p, sec.title, sheet.title));
+                            }
+                          }}
+                          onToggleStatus={() => {
+                            onSetStatus(p.id, status === 'solved' ? 'todo' : 'completed');
+                          }}
+                        />
                       );
                     })}
                   </motion.div>

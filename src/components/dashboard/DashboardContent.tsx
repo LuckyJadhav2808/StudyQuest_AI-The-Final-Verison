@@ -17,7 +17,8 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { db } from '@/lib/firebase';
 import { useAuthContext } from '@/context/AuthContext';
 import { useGamification } from '@/hooks/useGamification';
-import { useTasks } from '@/hooks/useTasks';
+import { useTasksStore } from '@/lib/stores/useTasksStore';
+import DailyQuestsWidget from '@/components/dashboard/DailyQuestsWidget';
 import { useFriends } from '@/hooks/useFriends';
 import { useDailyQuests } from '@/hooks/useDailyQuests';
 import { getAvatarUrl, ACHIEVEMENTS, XP_AWARDS, TITLES } from '@/lib/constants';
@@ -70,15 +71,39 @@ function getTimeOfDay() {
   return { greeting: 'Night Owl Mode', emoji: '🌙', gradient: 'from-violet-600/15 via-purple-500/10 to-indigo-600/10', border: 'border-violet-500/25', accent: 'text-violet-400', tip: '2x XP active!' };
 }
 
+// Decoupled Header Quest Pill to isolate quest state updates from entire dashboard
+const HeaderQuestPill = React.memo(function HeaderQuestPill() {
+  const { todayCompleted, todayTotal } = useDailyQuests();
+  return (
+    <div
+      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border font-bold tabular-nums ${
+        todayTotal > 0 && todayCompleted >= todayTotal
+          ? 'bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500/25 text-emerald-800 dark:text-emerald-300'
+          : 'bg-indigo-500/10 dark:bg-indigo-500/15 border-indigo-500/25 text-indigo-800 dark:text-indigo-300'
+      }`}
+    >
+      <HiClipboardCheck
+        size={14}
+        className={
+          todayTotal > 0 && todayCompleted >= todayTotal
+            ? 'text-emerald-600 dark:text-emerald-400'
+            : 'text-indigo-600 dark:text-indigo-400'
+        }
+      />
+      <span>{todayCompleted}/{todayTotal} Quests</span>
+    </div>
+  );
+});
+
 export default function DashboardContent() {
   const { user, profile } = useAuthContext();
-  const { gamification, awardXP, xpHistory } = useGamification();
-  const { tasks } = useTasks();
+  const { gamification, xpHistory } = useGamification();
+  const tasks = useTasksStore((state) => state.tasks);
   const { friends, incomingRequests, acceptRequest, rejectRequest } = useFriends();
-  const { quests, addQuest, toggleQuest, deleteQuest, todayCompleted, todayTotal } = useDailyQuests();
+
   const { notes } = useNotes();
   const { upcomingExams } = useExams();
-  const { coins, addCoins, canClaimTreasureChest } = useShop();
+  const { coins, canClaimTreasureChest } = useShop();
   const [showTreasureChest, setShowTreasureChest] = useState(false);
   const chestAvailable = canClaimTreasureChest();
 
@@ -130,7 +155,7 @@ export default function DashboardContent() {
     setMounted(true);
   }, []);
 
-  const [newQuest, setNewQuest] = useState('');
+
   const [showNotifs, setShowNotifs] = useState(false);
   const classicNotifRef = useRef<HTMLDivElement>(null);
   const modernNotifRef = useRef<HTMLDivElement>(null);
@@ -322,32 +347,6 @@ export default function DashboardContent() {
 
   const isNightOwlTime = new Date().getHours() >= 21;
 
-  const handleAddQuest = async () => {
-    if (!newQuest.trim()) return;
-    await addQuest(newQuest);
-    toast.success('Quest added! 🎯');
-    setNewQuest('');
-  };
-
-  const handleToggleQuest = (id: string, wasCompleted: boolean) => {
-    toggleQuest(id).catch(() => {});
-    if (!wasCompleted) {
-      awardXP(XP_AWARDS.TASK_COMPLETE, 'Daily quest completed').catch(() => {});
-      playSuccess();
-      toast.success('+25 XP! Quest complete! ⚡');
-    }
-  };
-
-  const handleDeleteQuest = (id: string) => {
-    toast((t) => (
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-semibold">Delete this quest?</span>
-        <button onClick={() => { deleteQuest(id); toast.dismiss(t.id); toast.success('Quest removed'); }} className="px-3 py-1 bg-[#FF6B6B] text-white rounded-lg text-xs font-bold">Yes</button>
-        <button onClick={() => toast.dismiss(t.id)} className="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg text-xs font-bold">No</button>
-      </div>
-    ), { duration: 5000 });
-  };
-
   const getWeeklyDates = () => {
     const dates = [];
     const today = new Date();
@@ -516,39 +515,7 @@ export default function DashboardContent() {
     /* ── Daily Quests + Level Journey ── */
     'daily-quests': (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2 relative overflow-hidden" padding="lg">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center"><HiSparkles className="text-primary" size={18} /></div>
-            <h3 className="text-base font-heading font-bold">Daily Quests</h3>
-            <Badge variant="primary" size="sm" dot>Today</Badge>
-            {todayTotal > 0 && (<Badge variant={todayCompleted >= todayTotal ? 'teal' : 'amber'} size="sm">{todayCompleted}/{todayTotal}</Badge>)}
-          </div>
-          <div className="flex gap-2 mb-3">
-            <input type="text" placeholder="Add a quest for today..." value={newQuest} onChange={(e) => setNewQuest(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddQuest()} className="flex-1 min-w-0 px-3 py-2 rounded-xl border-2 border-[var(--card-border)] bg-transparent text-sm font-medium focus:border-primary focus:outline-none transition-colors" />
-            <Button variant="primary" size="sm" icon={<HiPlus />} onClick={handleAddQuest}>Add</Button>
-          </div>
-          {quests.length === 0 ? (
-            <p className="text-xs text-[var(--muted-foreground)] text-center py-4">No quests yet. Add one above to get started! ⚡</p>
-          ) : (
-            <div className="space-y-1.5 max-h-48 overflow-y-auto">
-              {quests.map((quest) => (
-                <motion.div key={quest.id} className="flex items-center gap-2 px-3 py-2 rounded-xl border-2 border-[var(--card-border)]/50 hover:border-primary/20 transition-colors" layout>
-                  <motion.button onClick={() => handleToggleQuest(quest.id, quest.completed)} className={`w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-all ${quest.completed ? 'bg-teal/15 border-teal/30' : 'border-[var(--card-border)]'}`} whileTap={{ scale: 0.8 }}>
-                    {quest.completed && <HiCheck className="text-teal" size={14} />}
-                  </motion.button>
-                  <span className={`flex-1 text-sm font-semibold ${quest.completed ? 'line-through opacity-50' : ''}`}>{quest.title}</span>
-                  <button onClick={() => handleDeleteQuest(quest.id)} className="p-1 rounded-lg hover:bg-coral/10 text-[var(--muted-foreground)] hover:text-coral transition-colors"><HiTrash size={14} /></button>
-                </motion.div>
-              ))}
-            </div>
-          )}
-          {todayTotal > 0 && (
-            <div className="mt-3">
-              <div className="xp-bar-track h-2.5"><motion.div className="xp-bar-fill" animate={{ width: `${(todayCompleted / todayTotal) * 100}%` }} transition={{ duration: 0.8 }} /></div>
-              {todayCompleted >= todayTotal && (<p className="text-xs text-teal font-bold mt-1.5">🎉 All quests complete!</p>)}
-            </div>
-          )}
-        </Card>
+        <DailyQuestsWidget variant="classic" />
         <Card className="relative overflow-hidden" padding="lg">
           <div className="flex items-center gap-3 mb-4">
             <LevelBadge level={gamification?.level || 0} size="lg" />
@@ -767,7 +734,7 @@ export default function DashboardContent() {
       </div>
     ),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [gamification, tasks, friends, incomingRequests, quests, newQuest, showNotifs, xpHistory, profile, todayTasks, completedToday, todayCompleted, todayTotal, streakMessage, isNightOwlTime, notes, timeOfDay, upcomingExams, chestAvailable, dashboardMode]);
+  }), [gamification, tasks, friends, incomingRequests, showNotifs, xpHistory, profile, todayTasks, completedToday, streakMessage, isNightOwlTime, notes, timeOfDay, upcomingExams, chestAvailable, dashboardMode]);
 
   const modernWidgetMap = useMemo(() => ({
     'banner': (
@@ -849,7 +816,7 @@ export default function DashboardContent() {
         </div>
 
         {/* Expressive Living Treasure Vault Companion */}
-        <div className="absolute right-2 sm:right-6 md:right-10 top-1/2 -translate-y-1/2 flex items-center justify-center z-20">
+        <div style={{ contentVisibility: 'auto', containIntrinsicSize: '160px 160px' }} className="absolute right-2 sm:right-6 md:right-10 top-1/2 -translate-y-1/2 flex items-center justify-center z-20">
           <ExpressiveTreasureVault
             chestAvailable={chestAvailable}
             onOpenChest={handleOpenChest}
@@ -859,109 +826,10 @@ export default function DashboardContent() {
       </div>
     ),
     'quests': (
-      <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 bg-white/90 dark:bg-[var(--card-bg)]/85 backdrop-blur-xl border border-indigo-100/80 dark:border-[var(--card-border)] hover:border-indigo-300/60 dark:hover:border-white/20 shadow-md transition-all text-left">
-        {/* Subtle ambient cyan glow */}
-        <div className="absolute -right-10 -top-10 w-36 h-36 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" />
-
-        <div className="flex items-center gap-2 mb-4 justify-between relative z-10">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-              <HiSparkles size={18} />
-            </div>
-            <div>
-              <h3 className="text-base font-heading font-bold text-[var(--foreground)] tracking-tight">
-                Daily Quests
-              </h3>
-              <p className="text-[11px] text-[var(--muted-foreground)]">Complete rituals for +25 XP each</p>
-            </div>
-          </div>
-          {todayTotal > 0 && (
-            <Badge variant={todayCompleted >= todayTotal ? 'teal' : 'amber'} size="sm" className="font-mono tabular-nums">
-              {todayCompleted} / {todayTotal} Complete
-            </Badge>
-          )}
-        </div>
-
-        {/* Add Quest input */}
-        <div className="flex gap-2 mb-4 relative z-10">
-          <input
-            type="text"
-            placeholder="Add a new quest for today..."
-            value={newQuest}
-            onChange={(e) => setNewQuest(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAddQuest()}
-            className="flex-1 min-w-0 px-4 py-2.5 text-xs rounded-xl border border-indigo-100 dark:border-[var(--card-border)] bg-slate-50/80 dark:bg-black/20 focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 focus:outline-none transition-all text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]"
-          />
-          <Button variant="primary" size="sm" icon={<HiPlus />} onClick={handleAddQuest} className="min-h-[40px] px-4">
-            Add
-          </Button>
-        </div>
-
-        {quests.length === 0 ? (
-          <p className="text-xs text-[var(--muted-foreground)] text-center py-6">
-            No daily quests active. Add one above to kickstart your streak! ⚡
-          </p>
-        ) : (
-          <div className="space-y-2 max-h-52 overflow-y-auto pr-1 relative z-10">
-            {quests.map((quest) => (
-              <motion.div
-                key={quest.id}
-                className="group flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-indigo-100/70 dark:border-[var(--card-border)]/70 bg-slate-50/70 dark:bg-white/[0.02] hover:border-indigo-300/60 hover:bg-indigo-50/50 transition-all"
-                layout
-              >
-                <motion.button
-                  onClick={() => handleToggleQuest(quest.id, quest.completed)}
-                  className={`w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-all cursor-pointer ${
-                    quest.completed
-                      ? 'bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-400 text-white shadow-sm shadow-emerald-500/20'
-                      : 'border-slate-300 dark:border-[var(--card-border)] hover:border-indigo-400 bg-white dark:bg-transparent'
-                  }`}
-                  whileHover={{ scale: 1.15 }}
-                  whileTap={{ scale: 0.85 }}
-                  aria-label={quest.completed ? 'Mark incomplete' : 'Mark complete'}
-                >
-                  {quest.completed && <HiCheck className="w-3.5 h-3.5 stroke-2" />}
-                </motion.button>
-                <span
-                  className={`flex-1 text-xs font-semibold text-[var(--foreground)] transition-all ${
-                    quest.completed ? 'line-through opacity-50 text-[var(--muted-foreground)]' : ''
-                  }`}
-                >
-                  {quest.title}
-                </span>
-                <button
-                  onClick={() => handleDeleteQuest(quest.id)}
-                  className="p-1 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-rose-500/10 text-[var(--muted-foreground)] hover:text-rose-500 transition-all cursor-pointer"
-                  title="Delete quest"
-                >
-                  <HiTrash size={14} />
-                </button>
-              </motion.div>
-            ))}
-          </div>
-        )}
-
-        {todayTotal > 0 && (
-          <div className="mt-4 pt-3.5 border-t border-indigo-100/80 dark:border-[var(--card-border)]/60 relative z-10">
-            <div className="flex justify-between text-[10px] font-bold text-[var(--muted-foreground)] mb-1.5">
-              <span>Quest Journey</span>
-              <span className="font-mono tabular-nums text-indigo-600 dark:text-indigo-400">
-                {Math.round((todayCompleted / todayTotal) * 100)}%
-              </span>
-            </div>
-            <div className="h-2 rounded-full bg-indigo-100/80 dark:bg-black/40 overflow-hidden border border-indigo-200/50 dark:border-white/5">
-              <motion.div
-                className="h-full rounded-full bg-gradient-to-r from-teal-500 via-indigo-500 to-violet-500 shadow-sm shadow-indigo-500/30"
-                animate={{ width: `${(todayCompleted / todayTotal) * 100}%` }}
-                transition={{ type: 'spring', stiffness: 200, damping: 25 }}
-              />
-            </div>
-          </div>
-        )}
-      </div>
+      <DailyQuestsWidget variant="modern" />
     ),
     'scrolls': (
-      <div className="text-left">
+      <div style={{ contentVisibility: 'auto', containIntrinsicSize: '0 260px' }} className="text-left">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="font-heading font-bold text-base text-[var(--foreground)] tracking-tight">
@@ -1029,7 +897,7 @@ export default function DashboardContent() {
       </div>
     ),
     'heatmap': (
-      <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 bg-white/90 dark:bg-[var(--card-bg)]/85 backdrop-blur-xl border border-indigo-100/80 dark:border-[var(--card-border)] hover:border-indigo-300/60 dark:hover:border-white/20 shadow-md transition-all text-left">
+      <div style={{ contentVisibility: 'auto', containIntrinsicSize: '0 280px' }} className="relative overflow-hidden rounded-3xl p-5 sm:p-6 bg-white/90 dark:bg-[var(--card-bg)]/85 backdrop-blur-xl border border-indigo-100/80 dark:border-[var(--card-border)] hover:border-indigo-300/60 dark:hover:border-white/20 shadow-md transition-all text-left">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-violet-500/10 dark:bg-violet-500/15 border border-violet-500/20 flex items-center justify-center text-violet-600 dark:text-violet-400">
@@ -1048,7 +916,7 @@ export default function DashboardContent() {
       </div>
     ),
     'exams': (
-      <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 bg-white/90 dark:bg-[var(--card-bg)]/85 backdrop-blur-xl border border-indigo-100/80 dark:border-[var(--card-border)] hover:border-indigo-300/60 dark:hover:border-white/20 shadow-md transition-all text-left">
+      <div style={{ contentVisibility: 'auto', containIntrinsicSize: '0 220px' }} className="relative overflow-hidden rounded-3xl p-5 sm:p-6 bg-white/90 dark:bg-[var(--card-bg)]/85 backdrop-blur-xl border border-indigo-100/80 dark:border-[var(--card-border)] hover:border-indigo-300/60 dark:hover:border-white/20 shadow-md transition-all text-left">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-rose-500/10 dark:bg-rose-500/15 border border-rose-500/20 flex items-center justify-center text-rose-600 dark:text-rose-400">
@@ -1253,7 +1121,7 @@ export default function DashboardContent() {
       </div>
     ),
     'halloffame': (
-      <div className="modern-card p-4 bg-white dark:bg-[#111328] border border-indigo-100/80 dark:border-[#1e293b] rounded-3xl text-left">
+      <div style={{ contentVisibility: 'auto', containIntrinsicSize: '0 160px' }} className="modern-card p-4 bg-white dark:bg-[#111328] border border-indigo-100/80 dark:border-[#1e293b] rounded-3xl text-left">
         <div className="flex justify-between items-center mb-3">
           <span className="text-xs font-bold text-slate-800 dark:text-white">🏆 Hall of Fame</span>
           <Link href="/analytics" className="text-[9px] text-indigo-600 dark:text-blue-400 font-bold hover:underline">
@@ -1278,7 +1146,7 @@ export default function DashboardContent() {
       </div>
     ),
     'calendar': (
-      <div className="modern-card p-4 bg-white dark:bg-[#111328] border border-indigo-100/80 dark:border-slate-800 rounded-3xl text-left">
+      <div style={{ contentVisibility: 'auto', containIntrinsicSize: '0 150px' }} className="modern-card p-4 bg-white dark:bg-[#111328] border border-indigo-100/80 dark:border-slate-800 rounded-3xl text-left">
         <div className="flex justify-between items-center mb-3">
           <span className="text-xs font-bold text-slate-800 dark:text-white">Calendar Week</span>
         </div>
@@ -1305,7 +1173,7 @@ export default function DashboardContent() {
       </div>
     ),
     'activity': (
-      <div className="modern-card p-4 bg-white dark:bg-[#111328] border border-indigo-100/80 dark:border-slate-800 rounded-3xl text-left">
+      <div style={{ contentVisibility: 'auto', containIntrinsicSize: '0 160px' }} className="modern-card p-4 bg-white dark:bg-[#111328] border border-indigo-100/80 dark:border-slate-800 rounded-3xl text-left">
         <div className="flex justify-between items-center mb-3">
           <span className="text-xs font-bold text-slate-800 dark:text-white">Your Activity</span>
           <span className="text-[9px] font-bold text-indigo-700 dark:text-slate-400 uppercase bg-indigo-50 dark:bg-slate-800 border border-indigo-100 dark:border-transparent px-2 py-0.5 rounded">
@@ -1356,7 +1224,7 @@ export default function DashboardContent() {
       </div>
     ),
     'tasks': (
-      <div className="modern-card p-4 bg-white dark:bg-[#111328] border border-indigo-100/80 dark:border-slate-800 rounded-3xl text-left">
+      <div style={{ contentVisibility: 'auto', containIntrinsicSize: '0 200px' }} className="modern-card p-4 bg-white dark:bg-[#111328] border border-indigo-100/80 dark:border-slate-800 rounded-3xl text-left">
         <div className="flex justify-between items-center mb-3">
           <span className="text-xs font-bold text-slate-800 dark:text-white">Upcoming Tasks</span>
           <Link href="/tasks" className="text-[9px] text-indigo-600 dark:text-blue-400 font-bold hover:underline">
@@ -1390,7 +1258,7 @@ export default function DashboardContent() {
       </div>
     ),
     'jukebox': (
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full items-stretch">
+      <div style={{ contentVisibility: 'auto', containIntrinsicSize: '0 260px' }} className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full items-stretch">
         <div className="modern-card p-4 bg-white dark:bg-[#111328] border border-indigo-100/80 dark:border-slate-800 rounded-3xl text-left flex flex-col justify-between h-full">
           <div className="flex justify-between items-center mb-2">
             <span className="text-xs font-bold text-slate-800 dark:text-white">Lofi Music Player</span>
@@ -1401,7 +1269,7 @@ export default function DashboardContent() {
       </div>
     ),
     'scratchpad': null
-  }), [gamification, tasks, friends, incomingRequests, quests, newQuest, xpHistory, profile, todayTasks, completedToday, todayCompleted, todayTotal, streakMessage, isNightOwlTime, notes, timeOfDay, upcomingExams, chestAvailable, coins]);
+  }), [gamification, tasks, friends, incomingRequests, xpHistory, profile, todayTasks, completedToday, streakMessage, isNightOwlTime, notes, timeOfDay, upcomingExams, chestAvailable, coins]);
 
   if (!mounted) {
     return (
@@ -1458,33 +1326,7 @@ export default function DashboardContent() {
             {/* Compact widgets below the room */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Daily Quests */}
-              <Card className="lg:col-span-2" padding="lg">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center"><HiSparkles className="text-primary" size={18} /></div>
-                  <h3 className="text-base font-heading font-bold">Daily Quests</h3>
-                  <Badge variant="primary" size="sm" dot>Today</Badge>
-                  {todayTotal > 0 && (<Badge variant={todayCompleted >= todayTotal ? 'teal' : 'amber'} size="sm">{todayCompleted}/{todayTotal}</Badge>)}
-                </div>
-                <div className="flex gap-2 mb-3">
-                  <input type="text" placeholder="Add a quest for today..." value={newQuest} onChange={(e) => setNewQuest(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddQuest()} className="flex-1 min-w-0 px-3 py-2 rounded-xl border-2 border-[var(--card-border)] bg-transparent text-sm font-medium focus:border-primary focus:outline-none transition-colors" />
-                  <Button variant="primary" size="sm" icon={<HiPlus />} onClick={handleAddQuest}>Add</Button>
-                </div>
-                {quests.length === 0 ? (
-                  <p className="text-xs text-[var(--muted-foreground)] text-center py-4">No quests yet. Add one above! ⚡</p>
-                ) : (
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                    {quests.map((quest) => (
-                      <motion.div key={quest.id} className="flex items-center gap-2 px-3 py-2 rounded-xl border-2 border-[var(--card-border)]/50 hover:border-primary/20 transition-colors" layout>
-                        <motion.button onClick={() => handleToggleQuest(quest.id, quest.completed)} className={`w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-all ${quest.completed ? 'bg-teal/15 border-teal/30' : 'border-[var(--card-border)]'}`} whileTap={{ scale: 0.8 }}>
-                          {quest.completed && <HiCheck className="text-teal" size={14} />}
-                        </motion.button>
-                        <span className={`flex-1 text-sm font-semibold ${quest.completed ? 'line-through opacity-50' : ''}`}>{quest.title}</span>
-                        <button onClick={() => handleDeleteQuest(quest.id)} className="p-1 rounded-lg hover:bg-coral/10 text-[var(--muted-foreground)] hover:text-coral transition-colors"><HiTrash size={14} /></button>
-                      </motion.div>
-                    ))}
-                  </div>
-                )}
-              </Card>
+              <DailyQuestsWidget variant="lofi" />
 
               {/* Quick Actions */}
               <div>
@@ -1553,14 +1395,7 @@ export default function DashboardContent() {
                       <span>{coins || 0} Coins</span>
                     </div>
 
-                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border font-bold tabular-nums ${
-                      todayTotal > 0 && todayCompleted >= todayTotal
-                        ? 'bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500/25 text-emerald-800 dark:text-emerald-300'
-                        : 'bg-indigo-500/10 dark:bg-indigo-500/15 border-indigo-500/25 text-indigo-800 dark:text-indigo-300'
-                    }`}>
-                      <HiClipboardCheck size={14} className={todayTotal > 0 && todayCompleted >= todayTotal ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400'} />
-                      <span>{todayCompleted}/{todayTotal} Quests</span>
-                    </div>
+                    <HeaderQuestPill />
 
                     <span className="hidden sm:inline-block text-slate-500 dark:text-slate-400 text-[11px] font-medium">
                       {timeOfDay.tip}

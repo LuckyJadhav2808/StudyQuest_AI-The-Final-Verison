@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiPlus, HiX, HiSearch, HiClock, HiDocumentText, HiPencil, HiTrash } from 'react-icons/hi';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import { Note } from '@/types';
@@ -81,6 +82,15 @@ export default function NotesCatalogDrawer({
       return matchesSearch && matchesFolder;
     });
   }, [notes, search, selectedFolder]);
+
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: filteredNotes.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 110,
+    overscan: 5,
+  });
 
   if (!mounted) return null;
 
@@ -215,7 +225,7 @@ export default function NotesCatalogDrawer({
             </div>
 
             {/* Catalog Card List */}
-            <div className="space-y-2 flex-1 overflow-y-auto pr-1">
+            <div ref={parentRef} className="flex-1 overflow-y-auto pr-1">
               {filteredNotes.length === 0 && !loading ? (
                 <div className="text-center py-10 px-4 rounded-xl border border-dashed border-[var(--card-border)] bg-[var(--card-bg)]/40">
                   <span className="text-3xl block mb-2">📜</span>
@@ -239,81 +249,104 @@ export default function NotesCatalogDrawer({
                   )}
                 </div>
               ) : (
-                filteredNotes.map((note) => {
-                  const isSelected = selectedNoteId === note.id;
-                  const preview = stripHtml(note.content) || 'Empty scroll...';
+                <div
+                  style={{
+                    height: `${rowVirtualizer.getTotalSize()}px`,
+                    width: '100%',
+                    position: 'relative',
+                  }}
+                >
+                  {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                    const note = filteredNotes[virtualRow.index];
+                    if (!note) return null;
+                    const isSelected = selectedNoteId === note.id;
+                    const preview = stripHtml(note.content) || 'Empty scroll...';
 
-                  return (
-                    <div
-                      key={note.id}
-                      onClick={() => {
-                        onSelectNote(note);
-                        onClose();
-                      }}
-                      className={`p-3 rounded-xl border-2 transition-all cursor-pointer group relative ${
-                        isSelected
-                          ? 'border-primary bg-primary/10 shadow-[0_0_15px_rgba(124,58,237,0.18)] ring-1 ring-primary/40'
-                          : 'border-[var(--card-border)] bg-[var(--background)] hover:border-primary/30 hover:bg-primary/5'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <h4
-                          className={`text-xs font-heading font-bold leading-snug break-words flex-1 min-w-0 ${
+                    return (
+                      <div
+                        key={note.id}
+                        ref={rowVirtualizer.measureElement}
+                        data-index={virtualRow.index}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          transform: `translateY(${virtualRow.start}px)`,
+                          paddingBottom: '8px',
+                        }}
+                      >
+                        <div
+                          onClick={() => {
+                            onSelectNote(note);
+                            onClose();
+                          }}
+                          className={`p-3 rounded-xl border-2 transition-all cursor-pointer group relative ${
                             isSelected
-                              ? 'text-primary'
-                              : 'group-hover:text-primary transition-colors text-[var(--foreground)]'
+                              ? 'border-primary bg-primary/10 shadow-[0_0_15px_rgba(124,58,237,0.18)] ring-1 ring-primary/40'
+                              : 'border-[var(--card-border)] bg-[var(--background)] hover:border-primary/30 hover:bg-primary/5'
                           }`}
                         >
-                          {note.title}
-                        </h4>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onRenameNote(note);
-                            }}
-                            className="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-primary/10 text-primary transition-all cursor-pointer"
-                            title="Rename / Move Note"
-                          >
-                            <HiPencil size={12} />
-                          </button>
-                          {onDeleteNote && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteNote(note);
-                              }}
-                              className="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-red-500/15 text-red-400 transition-all cursor-pointer"
-                              title="Delete Note"
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <h4
+                              className={`text-xs font-heading font-bold leading-snug break-words flex-1 min-w-0 ${
+                                isSelected
+                                  ? 'text-primary'
+                                  : 'group-hover:text-primary transition-colors text-[var(--foreground)]'
+                              }`}
                             >
-                              <HiTrash size={12} />
-                            </button>
-                          )}
-                          <HiDocumentText
-                            className={isSelected ? 'text-primary' : 'text-[var(--muted-foreground)]'}
-                            size={14}
-                          />
+                              {note.title}
+                            </h4>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRenameNote(note);
+                                }}
+                                className="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-primary/10 text-primary transition-all cursor-pointer"
+                                title="Rename / Move Note"
+                              >
+                                <HiPencil size={12} />
+                              </button>
+                              {onDeleteNote && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDeleteNote(note);
+                                  }}
+                                  className="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-red-500/15 text-red-400 transition-all cursor-pointer"
+                                  title="Delete Note"
+                                >
+                                  <HiTrash size={12} />
+                                </button>
+                              )}
+                              <HiDocumentText
+                                className={isSelected ? 'text-primary' : 'text-[var(--muted-foreground)]'}
+                                size={14}
+                              />
+                            </div>
+                          </div>
+
+                          <p className="text-[11px] text-[var(--muted-foreground)] line-clamp-2 mb-2 leading-relaxed break-words font-normal">
+                            {preview}
+                          </p>
+
+                          <div className="flex items-center justify-between gap-2">
+                            <Badge variant={isSelected ? 'primary' : 'muted'} size="sm">
+                              {note.folder || 'General'}
+                            </Badge>
+                            <span className="text-[9px] text-[var(--muted-foreground)] font-semibold">
+                              <HiClock className="inline mr-0.5" size={10} />
+                              {timeAgo(note.updatedAt)}
+                            </span>
+                          </div>
                         </div>
                       </div>
-
-                      <p className="text-[11px] text-[var(--muted-foreground)] line-clamp-2 mb-2 leading-relaxed break-words font-normal">
-                        {preview}
-                      </p>
-
-                      <div className="flex items-center justify-between gap-2">
-                        <Badge variant={isSelected ? 'primary' : 'muted'} size="sm">
-                          {note.folder || 'General'}
-                        </Badge>
-                        <span className="text-[9px] text-[var(--muted-foreground)] font-semibold">
-                          <HiClock className="inline mr-0.5" size={10} />
-                          {timeAgo(note.updatedAt)}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })
+                    );
+                  })}
+                </div>
               )}
             </div>
           </motion.aside>

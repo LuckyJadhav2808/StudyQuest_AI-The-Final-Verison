@@ -24,7 +24,7 @@ import PageTransition from '@/components/layout/PageTransition';
 import EmptyState from '@/components/ui/EmptyState';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { XP_AWARDS } from '@/lib/constants';
-import { playSuccess } from '@/lib/sounds';
+import { playSuccess, playHapticTick } from '@/lib/sounds';
 import { spawnXPFromEvent } from '@/components/gamification/FloatingXP';
 import { getLocalDateString, getLocalYesterdayDateString } from '@/lib/dateUtils';
 
@@ -117,6 +117,7 @@ export default function HabitsContent() {
   };
 
   const handleToggleToday = async (habitId: string, isCompleted: boolean, event?: React.MouseEvent) => {
+    playHapticTick();
     await toggleDate(habitId, today);
     if (!isCompleted) {
       await awardXP(XP_AWARDS.HABIT_CHECKED, 'Daily habit quest completed');
@@ -356,6 +357,7 @@ export default function HabitsContent() {
                                 whileHover={{ scale: 1.25 }}
                                 whileTap={{ scale: 0.9 }}
                                 onClick={async (e) => {
+                                  playHapticTick();
                                   await toggleDate(habit.id, day);
                                   if (!done) {
                                     await awardXP(XP_AWARDS.HABIT_CHECKED, 'Daily habit completed');
@@ -473,6 +475,7 @@ export default function HabitsContent() {
                                 <motion.button
                                   key={day}
                                   onClick={async (e) => {
+                                    playHapticTick();
                                     await toggleDate(habit.id, day);
                                     if (!done) {
                                       await awardXP(XP_AWARDS.HABIT_CHECKED, 'Daily habit completed');

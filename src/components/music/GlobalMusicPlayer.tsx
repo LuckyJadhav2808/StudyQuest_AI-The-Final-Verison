@@ -21,6 +21,7 @@ import {
 import { useMusic } from '@/context/MusicContext';
 import { usePathname } from 'next/navigation';
 import { type CuratedCategory } from '@/lib/musicEngine';
+import BinauralFocusModal from './BinauralFocusModal';
 
 function formatTime(seconds: number): string {
   if (!seconds || isNaN(seconds)) return '0:00';
@@ -69,6 +70,7 @@ export default function GlobalMusicPlayer() {
   const [activeCategoryTracks, setActiveCategoryTracks] = useState<any[]>([]);
   const [loadingCategory, setLoadingCategory] = useState<string | null>(null);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+  const [showBinauralModal, setShowBinauralModal] = useState(false);
 
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
@@ -216,6 +218,15 @@ export default function GlobalMusicPlayer() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {/* Binaural Brainwave Waves Button */}
+                  <button
+                    onClick={() => setShowBinauralModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 text-xs font-bold transition-all cursor-pointer shadow-sm shadow-purple-500/10"
+                    title="Open Binaural Brainwave Focus & Pink/Brown Noise Generator"
+                  >
+                    <span>⚡</span>
+                    <span className="hidden sm:inline">Binaural Waves</span>
+                  </button>
                   {/* Minimize */}
                   <button
                     onClick={() => setIsPlayerOpen(false)}
@@ -661,6 +672,10 @@ export default function GlobalMusicPlayer() {
         )}
       </AnimatePresence>
 
+      <BinauralFocusModal
+        isOpen={showBinauralModal}
+        onClose={() => setShowBinauralModal(false)}
+      />
     </>
   );
 }

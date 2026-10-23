@@ -247,6 +247,227 @@ const QUILL_FORMATS = [
   'math',
 ];
 
+export interface SlashCommandItem {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  category: 'Visual Callouts' | 'Media & Math' | 'Basic Blocks' | 'AI & Tools';
+  keywords: string[];
+  action: (quill: any, index: number, onOpenDiagram?: () => void) => void;
+}
+
+export const SLASH_COMMANDS: SlashCommandItem[] = [
+  {
+    id: 'tip',
+    title: 'Tip Callout',
+    description: 'Highlighted card with green accent and tip icon',
+    icon: '💡',
+    category: 'Visual Callouts',
+    keywords: ['tip', 'callout', 'box', 'note', 'alert'],
+    action: (quill, index) => {
+      quill.clipboard.dangerouslyPasteHTML(
+        index,
+        '<div class="studyquest-callout studyquest-callout-tip"><div class="studyquest-callout-header"><span class="studyquest-callout-icon">💡</span><span class="studyquest-callout-title">Tip</span></div><div class="studyquest-callout-content"><p>Enter your key insight, formula, or tip...</p></div></div><p><br></p>',
+        'user'
+      );
+    },
+  },
+  {
+    id: 'important',
+    title: 'Important Callout',
+    description: 'Crucial concept card with purple accent',
+    icon: '⚡',
+    category: 'Visual Callouts',
+    keywords: ['important', 'alert', 'callout', 'crucial', 'exam'],
+    action: (quill, index) => {
+      quill.clipboard.dangerouslyPasteHTML(
+        index,
+        '<div class="studyquest-callout studyquest-callout-important"><div class="studyquest-callout-header"><span class="studyquest-callout-icon">⚡</span><span class="studyquest-callout-title">Important</span></div><div class="studyquest-callout-content"><p>Crucial exam concept or core takeaway...</p></div></div><p><br></p>',
+        'user'
+      );
+    },
+  },
+  {
+    id: 'warning',
+    title: 'Warning Callout',
+    description: 'Caution alert for common edge cases',
+    icon: '⚠️',
+    category: 'Visual Callouts',
+    keywords: ['warning', 'caution', 'alert', 'beware', 'danger'],
+    action: (quill, index) => {
+      quill.clipboard.dangerouslyPasteHTML(
+        index,
+        '<div class="studyquest-callout studyquest-callout-warning"><div class="studyquest-callout-header"><span class="studyquest-callout-icon">⚠️</span><span class="studyquest-callout-title">Warning</span></div><div class="studyquest-callout-content"><p>Common misconception or edge case to avoid...</p></div></div><p><br></p>',
+        'user'
+      );
+    },
+  },
+  {
+    id: 'math',
+    title: 'Math Formula',
+    description: 'KaTeX LaTeX math equation block',
+    icon: '🧮',
+    category: 'Media & Math',
+    keywords: ['math', 'latex', 'formula', 'equation', 'integral', 'katex'],
+    action: (quill, index) => {
+      quill.clipboard.dangerouslyPasteHTML(
+        index,
+        '<p class="studyquest-math-embed" data-latex="f(x) = \\int_{0}^{\\infty} e^{-x^2} dx" data-block="true"></p><p><br></p>',
+        'user'
+      );
+    },
+  },
+  {
+    id: 'table',
+    title: 'Data Table',
+    description: '3x3 structured comparison table',
+    icon: '📊',
+    category: 'Media & Math',
+    keywords: ['table', 'grid', 'matrix', 'data', 'comparison'],
+    action: (quill, index) => {
+      quill.clipboard.dangerouslyPasteHTML(
+        index,
+        '<div class="studyquest-table-wrapper"><table class="studyquest-table"><thead><tr><th>Property / Concept</th><th>Definition / Formula</th><th>Notes</th></tr></thead><tbody><tr><td>Concept A</td><td>Description or Value</td><td>Key nuance</td></tr><tr><td>Concept B</td><td>Description or Value</td><td>Key nuance</td></tr></tbody></table></div><p><br></p>',
+        'user'
+      );
+    },
+  },
+  {
+    id: 'code',
+    title: 'Code Block',
+    description: 'Syntax highlighted monospace block',
+    icon: '💻',
+    category: 'Media & Math',
+    keywords: ['code', 'snippet', 'syntax', 'programming', 'pre', 'function'],
+    action: (quill, index) => {
+      quill.clipboard.dangerouslyPasteHTML(
+        index,
+        '<pre class="ql-syntax" spellcheck="false">// Code block&#10;function solve() {&#10;  return true;&#10;}&#10;</pre><p><br></p>',
+        'user'
+      );
+    },
+  },
+  {
+    id: 'h1',
+    title: 'Heading 1',
+    description: 'Large section heading',
+    icon: 'H1',
+    category: 'Basic Blocks',
+    keywords: ['h1', 'heading', 'title', 'header'],
+    action: (quill, index) => {
+      quill.formatLine(index, 1, 'header', 1, 'user');
+    },
+  },
+  {
+    id: 'h2',
+    title: 'Heading 2',
+    description: 'Medium subsection heading',
+    icon: 'H2',
+    category: 'Basic Blocks',
+    keywords: ['h2', 'heading', 'subtitle'],
+    action: (quill, index) => {
+      quill.formatLine(index, 1, 'header', 2, 'user');
+    },
+  },
+  {
+    id: 'h3',
+    title: 'Heading 3',
+    description: 'Small subsection heading',
+    icon: 'H3',
+    category: 'Basic Blocks',
+    keywords: ['h3', 'heading', 'subheading'],
+    action: (quill, index) => {
+      quill.formatLine(index, 1, 'header', 3, 'user');
+    },
+  },
+  {
+    id: 'todo',
+    title: 'To-Do / Checklist',
+    description: 'Trackable task item',
+    icon: '☑️',
+    category: 'Basic Blocks',
+    keywords: ['todo', 'task', 'checklist', 'check'],
+    action: (quill, index) => {
+      quill.clipboard.dangerouslyPasteHTML(
+        index,
+        '<p>☐ <strong>Task:</strong> Add action item here...</p>',
+        'user'
+      );
+    },
+  },
+  {
+    id: 'bullet',
+    title: 'Bulleted List',
+    description: 'Unordered bullet point list',
+    icon: '•',
+    category: 'Basic Blocks',
+    keywords: ['bullet', 'list', 'ul', 'unordered'],
+    action: (quill, index) => {
+      quill.formatLine(index, 1, 'list', 'bullet', 'user');
+    },
+  },
+  {
+    id: 'number',
+    title: 'Numbered List',
+    description: 'Sequential ordered list',
+    icon: '1.',
+    category: 'Basic Blocks',
+    keywords: ['number', 'ordered', 'ol', 'list', '1'],
+    action: (quill, index) => {
+      quill.formatLine(index, 1, 'list', 'ordered', 'user');
+    },
+  },
+  {
+    id: 'quote',
+    title: 'Blockquote',
+    description: 'Quotation block with left accent',
+    icon: '💬',
+    category: 'Basic Blocks',
+    keywords: ['quote', 'blockquote', 'saying'],
+    action: (quill, index) => {
+      quill.formatLine(index, 1, 'blockquote', true, 'user');
+    },
+  },
+  {
+    id: 'divider',
+    title: 'Divider',
+    description: 'Clean visual horizontal separator',
+    icon: '➖',
+    category: 'Basic Blocks',
+    keywords: ['divider', 'hr', 'line', 'separator'],
+    action: (quill, index) => {
+      quill.clipboard.dangerouslyPasteHTML(
+        index,
+        '<hr class="studyquest-hr" /><p><br></p>',
+        'user'
+      );
+    },
+  },
+  {
+    id: 'diagram',
+    title: 'Mermaid Diagram',
+    description: 'Architecture flowchart or mindmap',
+    icon: '🗺️',
+    category: 'AI & Tools',
+    keywords: ['diagram', 'mermaid', 'flowchart', 'architecture', 'mindmap'],
+    action: (_quill, _index, onOpenDiagram) => {
+      onOpenDiagram?.();
+    },
+  },
+  {
+    id: 'compare',
+    title: 'AI Concept Compare',
+    description: 'Side-by-side concept comparison table',
+    icon: '⚖️',
+    category: 'AI & Tools',
+    keywords: ['compare', 'vs', 'versus', 'diff'],
+    action: (quill, index) => {
+      quill.insertText(index, '/compare Concept A vs Concept B\n', 'user');
+    },
+  },
+];
+
 export interface NoteEditorCoreRef {
   undo: () => void;
   redo: () => void;
@@ -273,6 +494,7 @@ export interface NoteEditorCoreProps {
   onSelectionChange?: (selectedText: string) => void;
   onHistoryChange?: (canUndo: boolean, canRedo: boolean) => void;
   onCompareCommand?: (topicA: string, topicB: string, placeholder: string) => void;
+  onOpenDiagram?: () => void;
   className?: string;
 }
 
@@ -281,13 +503,14 @@ export const NoteEditorCore = forwardRef<NoteEditorCoreRef, NoteEditorCoreProps>
     {
       noteId,
       initialHtml,
-      placeholder = 'Start typing your study notes here... 💡 Hint: Type \'/compare Topic A vs Topic B\' to compare concepts!',
+      placeholder = 'Start typing your study notes here... 💡 Hint: Type \'/\' for Notion-style slash commands or \'/compare\' to compare concepts!',
       autocorrectEnabled = true,
       onContentChangeDebounced,
       onHumanWordsTyped,
       onSelectionChange,
       onHistoryChange,
       onCompareCommand,
+      onOpenDiagram,
       className = '',
     },
     ref
@@ -304,6 +527,44 @@ export const NoteEditorCore = forwardRef<NoteEditorCoreRef, NoteEditorCoreProps>
     const isPastingRef = useRef(false);
     const lastWordCountRef = useRef(0);
     const wordCountDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Notion-style Slash Command state & refs
+    const [isSlashOpen, setIsSlashOpen] = useState(false);
+    const [slashQuery, setSlashQuery] = useState('');
+    const [slashActiveIndex, setSlashActiveIndex] = useState(0);
+    const [slashCaretPos, setSlashCaretPos] = useState<{ top: number; left: number } | null>(null);
+
+    const isSlashOpenRef = useRef(false);
+    const slashQueryRef = useRef('');
+    const slashActiveIndexRef = useRef(0);
+    const filteredSlashCommandsRef = useRef<SlashCommandItem[]>(SLASH_COMMANDS);
+
+    useEffect(() => {
+      isSlashOpenRef.current = isSlashOpen;
+    }, [isSlashOpen]);
+
+    useEffect(() => {
+      slashQueryRef.current = slashQuery;
+    }, [slashQuery]);
+
+    useEffect(() => {
+      slashActiveIndexRef.current = slashActiveIndex;
+    }, [slashActiveIndex]);
+
+    const filteredSlashCommands = useMemo(() => {
+      if (!slashQuery.trim()) return SLASH_COMMANDS;
+      const q = slashQuery.toLowerCase().trim();
+      return SLASH_COMMANDS.filter(
+        (cmd) =>
+          cmd.title.toLowerCase().includes(q) ||
+          cmd.id.toLowerCase().includes(q) ||
+          cmd.keywords.some((k) => k.toLowerCase().includes(q))
+      );
+    }, [slashQuery]);
+
+    useEffect(() => {
+      filteredSlashCommandsRef.current = filteredSlashCommands;
+    }, [filteredSlashCommands]);
 
     // Autocorrect / Autocomplete floating popover state
     const [quillActiveWord, setQuillActiveWord] = useState('');
@@ -344,6 +605,78 @@ export const NoteEditorCore = forwardRef<NoteEditorCoreRef, NoteEditorCoreProps>
       lastWordCountRef.current = textOnly ? textOnly.split(/\s+/).filter(Boolean).length : 0;
       return sanitized;
     }, [noteId, initialHtml]);
+
+    // Execute a selected slash command
+    const executeSlashCommand = useCallback(
+      (cmd: SlashCommandItem) => {
+        const quill = quillRef.current?.getEditor();
+        if (!quill) return;
+
+        const range = quill.getSelection();
+        const pos = range ? range.index : quill.getLength() - 1;
+        const text = quill.getText(0, pos);
+
+        const lastSlashIndex = text.lastIndexOf('/');
+        if (lastSlashIndex !== -1) {
+          const charsToDelete = pos - lastSlashIndex;
+          quill.deleteText(lastSlashIndex, charsToDelete, 'user');
+          cmd.action(quill, lastSlashIndex, onOpenDiagram);
+        } else {
+          cmd.action(quill, pos, onOpenDiagram);
+        }
+
+        setIsSlashOpen(false);
+        setSlashQuery('');
+        setSlashActiveIndex(0);
+      },
+      [onOpenDiagram]
+    );
+
+    // Detect when user types / at line start or after whitespace
+    const checkSlashTrigger = useCallback(() => {
+      const quill = quillRef.current?.getEditor();
+      if (!quill) return;
+
+      const range = quill.getSelection();
+      if (!range) {
+        setIsSlashOpen(false);
+        return;
+      }
+
+      const pos = range.index;
+      const text = quill.getText(0, pos);
+
+      const lastNewline = text.lastIndexOf('\n');
+      const lineText = lastNewline === -1 ? text : text.slice(lastNewline + 1);
+      const slashIdx = lineText.lastIndexOf('/');
+
+      if (slashIdx !== -1) {
+        const charBefore = slashIdx > 0 ? lineText[slashIdx - 1] : ' ';
+        if (/\s/.test(charBefore) || slashIdx === 0) {
+          const query = lineText.slice(slashIdx + 1);
+          if (!/\s/.test(query) && query.length <= 15) {
+            setSlashQuery(query);
+            setIsSlashOpen(true);
+            setSlashActiveIndex(0);
+
+            try {
+              const bounds = quill.getBounds(pos);
+              if (bounds) {
+                const toolbarEl = quillWrapperRef.current?.querySelector('.ql-toolbar');
+                const toolbarHeight = toolbarEl ? toolbarEl.getBoundingClientRect().height : 42;
+                setSlashCaretPos({
+                  top: bounds.bottom + toolbarHeight + 10,
+                  left: Math.max(16, Math.min(bounds.left + 16, 400)),
+                });
+              }
+            } catch {}
+            return;
+          }
+        }
+      }
+
+      setIsSlashOpen(false);
+    }, []);
 
     // Update history indicators
     const updateHistoryState = useCallback(() => {
@@ -722,6 +1055,45 @@ export const NoteEditorCore = forwardRef<NoteEditorCoreRef, NoteEditorCoreProps>
           const quill = quillRef.current?.getEditor();
           if (!quill) return;
 
+          // 0. Notion-Style Slash Command Menu Interception
+          if (isSlashOpenRef.current && filteredSlashCommandsRef.current.length > 0) {
+            if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              e.stopPropagation();
+              e.stopImmediatePropagation();
+              setSlashActiveIndex((prev) => (prev + 1) % filteredSlashCommandsRef.current.length);
+              return;
+            }
+            if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              e.stopPropagation();
+              e.stopImmediatePropagation();
+              setSlashActiveIndex(
+                (prev) => (prev - 1 + filteredSlashCommandsRef.current.length) % filteredSlashCommandsRef.current.length
+              );
+              return;
+            }
+            if (e.key === 'Enter' || e.key === 'Tab') {
+              e.preventDefault();
+              e.stopPropagation();
+              e.stopImmediatePropagation();
+              const target =
+                filteredSlashCommandsRef.current[slashActiveIndexRef.current] ||
+                filteredSlashCommandsRef.current[0];
+              if (target) {
+                executeSlashCommand(target);
+              }
+              return;
+            }
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              e.stopPropagation();
+              e.stopImmediatePropagation();
+              setIsSlashOpen(false);
+              return;
+            }
+          }
+
           const allSuggestions = [
             ...quillAutocompleteRef.current,
             ...quillSuggestionsRef.current,
@@ -828,6 +1200,7 @@ export const NoteEditorCore = forwardRef<NoteEditorCoreRef, NoteEditorCoreProps>
     const handleContentChange = useCallback(
       (content: string) => {
         updateHistoryState();
+        checkSlashTrigger();
 
         // Throttled spellcheck trigger (350ms)
         if (spellingDebounceRef.current) clearTimeout(spellingDebounceRef.current);
@@ -916,9 +1289,76 @@ export const NoteEditorCore = forwardRef<NoteEditorCoreRef, NoteEditorCoreProps>
         className={`quill-wrapper relative flex-1 min-h-0 flex flex-col ${className}`}
         ref={quillWrapperRef}
       >
+        {/* Notion / Obsidian Style Floating Slash Command Palette */}
+        <AnimatePresence>
+          {isSlashOpen && filteredSlashCommands.length > 0 && slashCaretPos && (
+            <motion.div
+              initial={{ opacity: 0, y: 6, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.12 }}
+              style={{
+                top: slashCaretPos.top,
+                left: slashCaretPos.left,
+              }}
+              className="absolute z-50 bg-slate-900/95 border-2 border-primary/50 rounded-2xl shadow-[0_15px_35px_-5px_rgba(0,0,0,0.5)] p-2 flex flex-col gap-1 w-[300px] sm:w-[340px] max-h-[340px] backdrop-blur-xl select-none"
+            >
+              <div className="flex items-center justify-between px-2.5 py-1 border-b border-slate-800 text-[10px] font-bold text-slate-400">
+                <span className="flex items-center gap-1.5 uppercase tracking-wider text-primary">
+                  <span>⚡</span> Slash Commands
+                </span>
+                <span className="font-mono text-slate-500">Esc to close</span>
+              </div>
+
+              <div className="flex flex-col gap-0.5 overflow-y-auto pr-0.5 custom-scrollbar max-h-[280px]">
+                {filteredSlashCommands.map((cmd, idx) => {
+                  const isSelected = idx === slashActiveIndex;
+                  return (
+                    <button
+                      key={cmd.id}
+                      type="button"
+                      onMouseEnter={() => setSlashActiveIndex(idx)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        executeSlashCommand(cmd);
+                      }}
+                      className={`text-left px-2.5 py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-between gap-2.5 cursor-pointer ${
+                        isSelected
+                          ? 'bg-primary text-white shadow-md shadow-primary/20 scale-[1.01]'
+                          : 'hover:bg-slate-800/60 text-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm shrink-0 border ${
+                          isSelected ? 'bg-white/20 border-white/30 text-white' : 'bg-slate-800 border-slate-700/60 text-slate-300'
+                        }`}>
+                          {cmd.icon}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-bold truncate text-xs">{cmd.title}</div>
+                          <div className={`text-[10px] truncate ${isSelected ? 'text-white/80' : 'text-slate-400'}`}>
+                            {cmd.description}
+                          </div>
+                        </div>
+                      </div>
+                      <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded-md border shrink-0 ${
+                        isSelected ? 'bg-white/20 border-white/30 text-white' : 'bg-slate-800 text-slate-500 border-slate-700'
+                      }`}>
+                        /{cmd.id.split('-')[0]}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Floating Autocomplete & Spellcheck Suggestions Popover */}
         <AnimatePresence>
           {autocorrectEnabled &&
+            !isSlashOpen &&
             caretPosition &&
             (quillSuggestions.length > 0 || quillAutocomplete.length > 0) && (
               <motion.div
@@ -977,6 +1417,7 @@ export const NoteEditorCore = forwardRef<NoteEditorCoreRef, NoteEditorCoreProps>
           onChange={handleContentChange}
           onChangeSelection={(range: any, _source: any, editor: any) => {
             updateHistoryState();
+            checkSlashTrigger();
             if (range) {
               if (range.length > 0) {
                 onSelectionChange?.(editor.getText(range.index, range.length));

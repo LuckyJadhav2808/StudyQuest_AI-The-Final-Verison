@@ -1,13 +1,14 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   HiPlay, HiPause, HiFastForward, HiRewind,
-  HiVolumeUp, HiVolumeOff, HiMusicNote, HiChevronUp,
+  HiVolumeUp, HiVolumeOff, HiMusicNote, HiChevronUp, HiLightningBolt
 } from 'react-icons/hi';
 import { useMusic } from '@/context/MusicContext';
 import Card from '@/components/ui/Card';
+import BinauralFocusModal from '@/components/music/BinauralFocusModal';
 
 export default function MusicWidget() {
   const {
@@ -24,25 +25,38 @@ export default function MusicWidget() {
     setIsPlayerOpen,
   } = useMusic();
 
+  const [showBinaural, setShowBinaural] = useState(false);
+
   return (
-    <Card className="music-widget overflow-hidden" padding="none" hover={false}>
-      {/* Header */}
-      <div className="music-widget-header flex items-center justify-between px-3 py-2 border-b border-[var(--card-border)] bg-[var(--card-bg)]">
-        <div className="flex items-center gap-2">
-          <span className="text-sm">🎵</span>
-          <h3 className="text-[11px] font-heading font-bold uppercase tracking-wider">
-            Study Jukebox
-          </h3>
+    <>
+      <Card className="music-widget overflow-hidden" padding="none" hover={false}>
+        {/* Header */}
+        <div className="music-widget-header flex items-center justify-between px-3 py-2 border-b border-[var(--card-border)] bg-[var(--card-bg)]">
+          <div className="flex items-center gap-2">
+            <span className="text-sm">🎵</span>
+            <h3 className="text-[11px] font-heading font-bold uppercase tracking-wider">
+              Study Jukebox
+            </h3>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setShowBinaural(true)}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 transition-colors cursor-pointer"
+              title="Open Offline Binaural Brainwaves"
+            >
+              <span>⚡</span>
+              <span>Waves</span>
+            </button>
+            <button
+              onClick={() => setIsPlayerOpen(true)}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+              title="Open StudyQuest Music Studio"
+            >
+              <span>Studio</span>
+              <HiChevronUp size={12} />
+            </button>
+          </div>
         </div>
-        <button
-          onClick={() => setIsPlayerOpen(true)}
-          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-primary hover:bg-primary/10 transition-colors cursor-pointer"
-          title="Open StudyQuest Music Studio"
-        >
-          <span>Studio</span>
-          <HiChevronUp size={12} />
-        </button>
-      </div>
 
       {/* Now playing section */}
       <div className="music-widget-player p-3 flex items-center gap-3">
@@ -120,5 +134,11 @@ export default function MusicWidget() {
         </div>
       </div>
     </Card>
-  );
+
+    <BinauralFocusModal
+      isOpen={showBinaural}
+      onClose={() => setShowBinaural(false)}
+    />
+  </>
+);
 }

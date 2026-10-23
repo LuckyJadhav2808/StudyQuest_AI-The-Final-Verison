@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { useGamification } from '@/hooks/useGamification';
-import { playCelebration } from '@/lib/sounds';
+import { playLevelUpArpeggio } from '@/lib/sounds';
 
 /**
  * LevelUpOverlay — Cinematic full-screen overlay that triggers
@@ -32,7 +32,7 @@ export default function LevelUpOverlay() {
     if (currentLevel > prevLevelRef.current) {
       setDisplayLevel(currentLevel);
       setShowOverlay(true);
-      playCelebration();
+      playLevelUpArpeggio();
 
       // Fire confetti burst
       const duration = 2500;
@@ -89,9 +89,9 @@ export default function LevelUpOverlay() {
             exit={{ scale: 0.5, opacity: 0 }}
             transition={{
               type: 'spring',
-              stiffness: 200,
-              damping: 15,
-              delay: 0.1,
+              stiffness: 350,
+              damping: 20,
+              delay: 0.05,
             }}
           >
             {/* Glow ring behind level */}

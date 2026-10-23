@@ -39,13 +39,20 @@ export default function XPBar({ xp, showLabel = true, size = 'md' }: XPBarProps)
           </span>
         </div>
       )}
-      <div className={`xp-bar-track ${heights[size]}`}>
+      <div className={`xp-bar-track ${heights[size]} relative overflow-hidden rounded-full`}>
         <motion.div
-          className="xp-bar-fill"
+          className="xp-bar-fill relative overflow-hidden h-full rounded-full"
           initial={hasAnimatedOnce ? { width: `${Math.min(progress * 100, 100)}%` } : { width: 0 }}
           animate={{ width: `${Math.min(progress * 100, 100)}%` }}
-          transition={{ duration: 1, ease: 'easeOut' }}
-        />
+          transition={{ type: 'spring', stiffness: 220, damping: 24 }}
+        >
+          {/* Subtle Duolingo-style ambient shine highlight */}
+          <motion.div
+            className="absolute inset-0 w-1/3 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12"
+            animate={{ x: ['-100%', '350%'] }}
+            transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut', repeatDelay: 1.5 }}
+          />
+        </motion.div>
       </div>
     </div>
   );

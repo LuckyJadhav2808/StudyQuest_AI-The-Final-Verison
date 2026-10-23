@@ -16,8 +16,22 @@ import Modal from '@/components/ui/Modal';
 import PageTransition from '@/components/layout/PageTransition';
 import { useNotes } from '@/hooks/useNotes';
 
-type Tool = 'pen' | 'highlighter' | 'eraser' | 'rect' | 'circle' | 'line' | 'arrow' | 'triangle' | 'text' | 'select';
-const SHAPE_TOOLS: Tool[] = ['rect', 'circle', 'line', 'arrow', 'triangle'];
+type Tool =
+  | 'select'
+  | 'hand'
+  | 'pen'
+  | 'highlighter'
+  | 'eraser'
+  | 'rect'
+  | 'circle'
+  | 'diamond'
+  | 'line'
+  | 'arrow'
+  | 'triangle'
+  | 'sticky'
+  | 'text';
+
+const SHAPE_TOOLS: Tool[] = ['rect', 'circle', 'diamond', 'line', 'arrow', 'triangle'];
 const isShapeTool = (t: Tool) => SHAPE_TOOLS.includes(t);
 
 interface Stroke {
@@ -36,11 +50,35 @@ interface TextBox {
   color: string;
 }
 
+export interface StickyNote {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  text: string;
+  color: 'yellow' | 'pink' | 'blue' | 'green' | 'purple';
+}
+
+export const STICKY_COLORS: Record<
+  'yellow' | 'pink' | 'blue' | 'green' | 'purple',
+  { bg: string; border: string; text: string; label: string }
+> = {
+  yellow: { bg: '#fef08a', border: '#facc15', text: '#713f12', label: 'Yellow' },
+  pink: { bg: '#fbcfe8', border: '#f472b6', text: '#831843', label: 'Pink' },
+  blue: { bg: '#bfdbfe', border: '#60a5fa', text: '#1e3a8a', label: 'Blue' },
+  green: { bg: '#bbf7d0', border: '#4ade80', text: '#14532d', label: 'Green' },
+  purple: { bg: '#e9d5ff', border: '#c084fc', text: '#581c87', label: 'Purple' },
+};
+
 interface Board {
   id: string;
   name: string;
   strokes: Stroke[];
   textBoxes: TextBox[];
+  stickyNotes?: StickyNote[];
+  pan?: { x: number; y: number };
+  zoom?: number;
 }
 
 const PALETTE = [
@@ -64,20 +102,23 @@ const BG_COLORS = [
 const WIDTHS = [2, 4, 6, 10, 16, 24];
 
 const TOOL_CONFIG: Record<Tool, { label: string; emoji: string; cursor: string }> = {
+  select: { label: 'Select', emoji: '🔀', cursor: 'default' },
+  hand: { label: 'Hand (Pan)', emoji: '🖐️', cursor: 'grab' },
   pen: { label: 'Pen', emoji: '✏️', cursor: 'crosshair' },
   highlighter: { label: 'Highlighter', emoji: '🖍️', cursor: 'crosshair' },
   eraser: { label: 'Eraser', emoji: '🧹', cursor: 'cell' },
   rect: { label: 'Rectangle', emoji: '⬜', cursor: 'crosshair' },
   circle: { label: 'Circle', emoji: '⭕', cursor: 'crosshair' },
+  diamond: { label: 'Diamond', emoji: '💠', cursor: 'crosshair' },
   line: { label: 'Line', emoji: '📏', cursor: 'crosshair' },
   arrow: { label: 'Arrow', emoji: '➡️', cursor: 'crosshair' },
   triangle: { label: 'Triangle', emoji: '🔺', cursor: 'crosshair' },
+  sticky: { label: 'Sticky Note', emoji: '📌', cursor: 'copy' },
   text: { label: 'Text', emoji: '📝', cursor: 'text' },
-  select: { label: 'Select', emoji: '🔀', cursor: 'default' },
 };
 
 function createBoard(name = 'Untitled Board'): Board {
-  return { id: crypto.randomUUID(), name, strokes: [], textBoxes: [] };
+  return { id: crypto.randomUUID(), name, strokes: [], textBoxes: [], stickyNotes: [], pan: { x: 0, y: 0 }, zoom: 1 };
 }
 
 /** Draw a full stroke or shape on a canvas context */
@@ -158,6 +199,19 @@ function drawStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
     ctx.restore();
     return;
   }
+  if (stroke.tool === 'diamond') {
+    const mx = (p0.x + p1.x) / 2;
+    const my = (p0.y + p1.y) / 2;
+    ctx.beginPath();
+    ctx.moveTo(mx, p0.y);
+    ctx.lineTo(p1.x, my);
+    ctx.lineTo(mx, p1.y);
+    ctx.lineTo(p0.x, my);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
 
   // ── Freehand stroke ──
   ctx.beginPath();
@@ -216,6 +270,7 @@ export default function WhiteboardContent() {
     }, 2000);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, [boards, activeBoardIdx, user?.uid, loaded]);
+
   const [tool, setTool] = useState<Tool>('pen');
   const [color, setColor] = useState('#1a1a1a');
   const [strokeWidth, setStrokeWidth] = useState(4);
@@ -229,7 +284,20 @@ export default function WhiteboardContent() {
   const [activeTextId, setActiveTextId] = useState<string | null>(null);
   const [draggingTextId, setDraggingTextId] = useState<string | null>(null);
   const dragOffset = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const dragInitialPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [textFontSize, setTextFontSize] = useState(18);
+
+  // ─── Infinite Canvas Viewport State (Excalidraw / Miro / tldraw feel) ───
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState<number>(1.0);
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
+  const isPanningRef = useRef(false);
+  const startPanRef = useRef({ x: 0, y: 0 });
+
+  // ─── Sticky Notes State ───
+  const [draggingStickyId, setDraggingStickyId] = useState<string | null>(null);
+  const [activeStickyId, setActiveStickyId] = useState<string | null>(null);
+  const [stickyColor, setStickyColor] = useState<'yellow' | 'pink' | 'blue' | 'green' | 'purple'>('yellow');
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -241,20 +309,47 @@ export default function WhiteboardContent() {
   const { notes, updateNote } = useNotes();
   const activeBoard = boards[activeBoardIdx];
   const textBoxes = activeBoard?.textBoxes || [];
+  const stickyNotes = activeBoard?.stickyNotes || [];
 
-  // ─── Full redraw ───
-  const fullRedraw = useCallback((strokes: Stroke[]) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const dpr = window.devicePixelRatio || 1;
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.restore();
-    for (const s of strokes) drawStroke(ctx, s);
-  }, []);
+  // Convert client pointer event coordinates to World Canvas space
+  const getWorldPos = useCallback(
+    (e: React.PointerEvent | React.MouseEvent) => {
+      const container = containerRef.current;
+      if (!container) return { x: 0, y: 0 };
+      const rect = container.getBoundingClientRect();
+      const screenX = e.clientX - rect.left;
+      const screenY = e.clientY - rect.top;
+      return {
+        x: (screenX - pan.x) / zoom,
+        y: (screenY - pan.y) / zoom,
+      };
+    },
+    [pan, zoom]
+  );
+
+  // ─── Full redraw applying viewport transformations ───
+  const fullRedraw = useCallback(
+    (strokes: Stroke[]) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const dpr = window.devicePixelRatio || 1;
+
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Apply device pixel ratio and virtual infinite canvas transform
+      ctx.scale(dpr, dpr);
+      ctx.translate(pan.x, pan.y);
+      ctx.scale(zoom, zoom);
+
+      for (const s of strokes) drawStroke(ctx, s);
+      ctx.restore();
+    },
+    [pan, zoom]
+  );
 
   // ─── Canvas setup & resize ───
   useEffect(() => {
@@ -282,98 +377,177 @@ export default function WhiteboardContent() {
     fullRedraw(boards[activeBoardIdx]?.strokes || []);
   }, [boards, activeBoardIdx, fullRedraw]);
 
-  // ─── Pointer position helper ───
-  const getPos = (e: React.PointerEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-  };
-
-  // ─── Draw the last segment incrementally (no full clear) ───
-  const drawLastSegment = useCallback((stroke: Stroke) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx || stroke.points.length < 2) return;
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    if (stroke.tool === 'eraser') {
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.strokeStyle = 'rgba(0,0,0,1)';
-      ctx.lineWidth = stroke.width * 3;
-    } else if (stroke.tool === 'highlighter') {
-      ctx.globalCompositeOperation = 'multiply';
-      ctx.strokeStyle = stroke.color + '55';
-      ctx.lineWidth = stroke.width * 3;
-    } else {
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.strokeStyle = stroke.color;
-      ctx.lineWidth = stroke.width;
-    }
-
-    const pts = stroke.points;
-    const prev = pts[pts.length - 2];
-    const curr = pts[pts.length - 1];
-    const mx = (prev.x + curr.x) / 2;
-    const my = (prev.y + curr.y) / 2;
-    ctx.moveTo(prev.x, prev.y);
-    ctx.quadraticCurveTo(prev.x, prev.y, mx, my);
-    ctx.stroke();
-    ctx.restore();
-  }, []);
-
-  // ─── Pointer handlers ───
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (tool === 'text' || tool === 'select') return; // handled by overlay
-    e.preventDefault();
-    const pos = getPos(e);
-    currentStrokeRef.current = { points: [pos], color, width: strokeWidth, tool };
-    isDrawingRef.current = true;
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  }, [color, strokeWidth, tool]);
-
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!isDrawingRef.current || !currentStrokeRef.current) return;
-    e.preventDefault();
-    const pos = getPos(e);
-
-    if (isShapeTool(currentStrokeRef.current.tool)) {
-      // Shapes: keep only start + current end point, full redraw for preview
-      currentStrokeRef.current.points = [currentStrokeRef.current.points[0], pos];
-      fullRedraw(boardsRef.current[activeBoardIdx]?.strokes || []);
+  // ─── Draw the last segment incrementally ───
+  const drawLastSegment = useCallback(
+    (stroke: Stroke) => {
       const canvas = canvasRef.current;
-      if (canvas) {
-        const ctx = canvas.getContext('2d');
-        if (ctx) drawStroke(ctx, currentStrokeRef.current);
-      }
-    } else {
-      currentStrokeRef.current.points.push(pos);
-      drawLastSegment(currentStrokeRef.current);
-    }
-  }, [drawLastSegment, fullRedraw, activeBoardIdx]);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx || stroke.points.length < 2) return;
+      const dpr = window.devicePixelRatio || 1;
 
-  const handlePointerUp = useCallback(() => {
-    if (!currentStrokeRef.current || currentStrokeRef.current.points.length < 2) {
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+      ctx.translate(pan.x, pan.y);
+      ctx.scale(zoom, zoom);
+
+      ctx.beginPath();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      if (stroke.tool === 'eraser') {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.strokeStyle = 'rgba(0,0,0,1)';
+        ctx.lineWidth = stroke.width * 3;
+      } else if (stroke.tool === 'highlighter') {
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.strokeStyle = stroke.color + '55';
+        ctx.lineWidth = stroke.width * 3;
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = stroke.color;
+        ctx.lineWidth = stroke.width;
+      }
+
+      const pts = stroke.points;
+      const prev = pts[pts.length - 2];
+      const curr = pts[pts.length - 1];
+      const mx = (prev.x + curr.x) / 2;
+      const my = (prev.y + curr.y) / 2;
+      ctx.moveTo(prev.x, prev.y);
+      ctx.quadraticCurveTo(prev.x, prev.y, mx, my);
+      ctx.stroke();
+      ctx.restore();
+    },
+    [pan, zoom]
+  );
+
+  // ─── Trackpad & Wheel Gestures (Zoom around cursor + Two-finger Pan) ───
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey) {
+        // Zoom centered around cursor
+        const zoomFactor = e.deltaY < 0 ? 1.08 : 0.92;
+        const newZoom = Math.min(Math.max(0.2, Number((zoom * zoomFactor).toFixed(3))), 4.0);
+
+        const container = containerRef.current;
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        const newPanX = mouseX - (mouseX - pan.x) * (newZoom / zoom);
+        const newPanY = mouseY - (mouseY - pan.y) * (newZoom / zoom);
+
+        setZoom(newZoom);
+        setPan({ x: newPanX, y: newPanY });
+      } else {
+        // Two-finger trackpad or wheel pan
+        setPan((prev) => ({
+          x: prev.x - e.deltaX,
+          y: prev.y - e.deltaY,
+        }));
+      }
+    },
+    [pan, zoom]
+  );
+
+  // ─── Pointer handlers (Drawing & Panning) ───
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      // Pan mode trigger: Middle button, Hand tool, or Space key held
+      if (e.button === 1 || tool === 'hand' || isSpacePressed) {
+        e.preventDefault();
+        isPanningRef.current = true;
+        startPanRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+        return;
+      }
+
+      if (tool === 'text' || tool === 'select' || tool === 'sticky') return;
+
+      e.preventDefault();
+      const worldPos = getWorldPos(e);
+      currentStrokeRef.current = { points: [worldPos], color, width: strokeWidth, tool };
+      isDrawingRef.current = true;
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    },
+    [color, strokeWidth, tool, isSpacePressed, pan, getWorldPos]
+  );
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (isPanningRef.current) {
+        e.preventDefault();
+        setPan({
+          x: e.clientX - startPanRef.current.x,
+          y: e.clientY - startPanRef.current.y,
+        });
+        return;
+      }
+
+      if (!isDrawingRef.current || !currentStrokeRef.current) return;
+      e.preventDefault();
+      const worldPos = getWorldPos(e);
+
+      if (isShapeTool(currentStrokeRef.current.tool)) {
+        currentStrokeRef.current.points = [currentStrokeRef.current.points[0], worldPos];
+        fullRedraw(boardsRef.current[activeBoardIdx]?.strokes || []);
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            const dpr = window.devicePixelRatio || 1;
+            ctx.save();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.scale(dpr, dpr);
+            ctx.translate(pan.x, pan.y);
+            ctx.scale(zoom, zoom);
+            drawStroke(ctx, currentStrokeRef.current);
+            ctx.restore();
+          }
+        }
+      } else {
+        currentStrokeRef.current.points.push(worldPos);
+        drawLastSegment(currentStrokeRef.current);
+      }
+    },
+    [drawLastSegment, fullRedraw, activeBoardIdx, getWorldPos, pan, zoom]
+  );
+
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      if (isPanningRef.current) {
+        isPanningRef.current = false;
+        try {
+          (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+        } catch {}
+        return;
+      }
+
+      if (!currentStrokeRef.current || currentStrokeRef.current.points.length < 2) {
+        currentStrokeRef.current = null;
+        isDrawingRef.current = false;
+        return;
+      }
+      const stroke = currentStrokeRef.current;
+      setUndoStack((prev) => [...prev, boardsRef.current[activeBoardIdx].strokes]);
+      setRedoStack([]);
+      setBoards((prev) => {
+        const next = [...prev];
+        next[activeBoardIdx] = {
+          ...next[activeBoardIdx],
+          strokes: [...next[activeBoardIdx].strokes, stroke],
+        };
+        return next;
+      });
       currentStrokeRef.current = null;
       isDrawingRef.current = false;
-      return;
-    }
-    const stroke = currentStrokeRef.current;
-    setUndoStack((prev) => [...prev, boardsRef.current[activeBoardIdx].strokes]);
-    setRedoStack([]);
-    setBoards((prev) => {
-      const next = [...prev];
-      next[activeBoardIdx] = { ...next[activeBoardIdx], strokes: [...next[activeBoardIdx].strokes, stroke] };
-      return next;
-    });
-    currentStrokeRef.current = null;
-    isDrawingRef.current = false;
-  }, [activeBoardIdx]);
+    },
+    [activeBoardIdx]
+  );
 
   // ─── Undo/Redo/Clear ───
   const undo = useCallback(() => {
@@ -381,7 +555,11 @@ export default function WhiteboardContent() {
     setRedoStack((p) => [...p, boardsRef.current[activeBoardIdx].strokes]);
     const prev = undoStack[undoStack.length - 1];
     setUndoStack((p) => p.slice(0, -1));
-    setBoards((b) => { const n = [...b]; n[activeBoardIdx] = { ...n[activeBoardIdx], strokes: prev }; return n; });
+    setBoards((b) => {
+      const n = [...b];
+      n[activeBoardIdx] = { ...n[activeBoardIdx], strokes: prev };
+      return n;
+    });
   }, [undoStack, activeBoardIdx]);
 
   const redo = useCallback(() => {
@@ -389,49 +567,232 @@ export default function WhiteboardContent() {
     setUndoStack((p) => [...p, boardsRef.current[activeBoardIdx].strokes]);
     const next = redoStack[redoStack.length - 1];
     setRedoStack((p) => p.slice(0, -1));
-    setBoards((b) => { const n = [...b]; n[activeBoardIdx] = { ...n[activeBoardIdx], strokes: next }; return n; });
+    setBoards((b) => {
+      const n = [...b];
+      n[activeBoardIdx] = { ...n[activeBoardIdx], strokes: next };
+      return n;
+    });
   }, [redoStack, activeBoardIdx]);
 
   const clearCanvas = () => {
-    if (activeBoard.strokes.length === 0 && textBoxes.length === 0) return;
+    if (activeBoard.strokes.length === 0 && textBoxes.length === 0 && stickyNotes.length === 0) return;
     setUndoStack((p) => [...p, boards[activeBoardIdx].strokes]);
     setRedoStack([]);
-    setBoards((b) => { const n = [...b]; n[activeBoardIdx] = { ...n[activeBoardIdx], strokes: [], textBoxes: [] }; return n; });
+    setBoards((b) => {
+      const n = [...b];
+      n[activeBoardIdx] = { ...n[activeBoardIdx], strokes: [], textBoxes: [], stickyNotes: [] };
+      return n;
+    });
     setActiveTextId(null);
+    setActiveStickyId(null);
     toast.success('Canvas cleared');
   };
+
+  // ─── Viewport Zoom Helpers ───
+  const zoomIn = () => setZoom((z) => Math.min(4.0, Number((z * 1.2).toFixed(2))));
+  const zoomOut = () => setZoom((z) => Math.max(0.2, Number((z / 1.2).toFixed(2))));
+  const resetView = () => {
+    setZoom(1.0);
+    setPan({ x: 0, y: 0 });
+  };
+
+  const fitToContent = () => {
+    const currentStrokes = activeBoard.strokes || [];
+    const currentNotes = activeBoard.stickyNotes || [];
+    const currentTexts = activeBoard.textBoxes || [];
+
+    if (currentStrokes.length === 0 && currentNotes.length === 0 && currentTexts.length === 0) {
+      resetView();
+      return;
+    }
+
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+
+    currentStrokes.forEach((s) => {
+      s.points.forEach((p) => {
+        minX = Math.min(minX, p.x);
+        minY = Math.min(minY, p.y);
+        maxX = Math.max(maxX, p.x);
+        maxY = Math.max(maxY, p.y);
+      });
+    });
+
+    currentNotes.forEach((n) => {
+      minX = Math.min(minX, n.x);
+      minY = Math.min(minY, n.y);
+      maxX = Math.max(maxX, n.x + (n.width || 200));
+      maxY = Math.max(maxY, n.y + (n.height || 180));
+    });
+
+    currentTexts.forEach((t) => {
+      minX = Math.min(minX, t.x);
+      minY = Math.min(minY, t.y);
+      maxX = Math.max(maxX, t.x + 200);
+      maxY = Math.max(maxY, t.y + 60);
+    });
+
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const contentW = Math.max(maxX - minX, 100);
+    const contentH = Math.max(maxY - minY, 100);
+
+    const scaleX = (rect.width - 120) / contentW;
+    const scaleY = (rect.height - 120) / contentH;
+    const targetZoom = Math.min(Math.max(Math.min(scaleX, scaleY), 0.2), 2.0);
+
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+
+    setZoom(Number(targetZoom.toFixed(2)));
+    setPan({
+      x: rect.width / 2 - centerX * targetZoom,
+      y: rect.height / 2 - centerY * targetZoom,
+    });
+  };
+  // ─── Sticky Notes helpers ───
+  const addStickyNote = useCallback(
+    (x: number, y: number) => {
+      const note: StickyNote = {
+        id: crypto.randomUUID(),
+        x,
+        y,
+        width: 200,
+        height: 180,
+        text: '',
+        color: stickyColor,
+      };
+      setBoards((prev) => {
+        const n = [...prev];
+        const cur = n[activeBoardIdx].stickyNotes || [];
+        n[activeBoardIdx] = { ...n[activeBoardIdx], stickyNotes: [...cur, note] };
+        return n;
+      });
+      setActiveStickyId(note.id);
+    },
+    [activeBoardIdx, stickyColor]
+  );
+
+  const updateStickyNote = useCallback(
+    (id: string, updates: Partial<StickyNote>) => {
+      setBoards((prev) => {
+        const n = [...prev];
+        const cur = n[activeBoardIdx].stickyNotes || [];
+        n[activeBoardIdx] = {
+          ...n[activeBoardIdx],
+          stickyNotes: cur.map((sn) => (sn.id === id ? { ...sn, ...updates } : sn)),
+        };
+        return n;
+      });
+    },
+    [activeBoardIdx]
+  );
+
+  const deleteStickyNote = useCallback(
+    (id: string) => {
+      setBoards((prev) => {
+        const n = [...prev];
+        const cur = n[activeBoardIdx].stickyNotes || [];
+        n[activeBoardIdx] = {
+          ...n[activeBoardIdx],
+          stickyNotes: cur.filter((sn) => sn.id !== id),
+        };
+        return n;
+      });
+      if (activeStickyId === id) setActiveStickyId(null);
+    },
+    [activeBoardIdx, activeStickyId]
+  );
 
   // ─── Board management ───
   const addBoard = () => {
     setBoards((p) => [...p, createBoard(`Board ${p.length + 1}`)]);
     setActiveBoardIdx(boards.length);
-    setUndoStack([]); setRedoStack([]);
+    setUndoStack([]);
+    setRedoStack([]);
   };
+
   const deleteBoard = (idx: number) => {
     if (boards.length <= 1) return;
     setBoards((p) => p.filter((_, i) => i !== idx));
     if (activeBoardIdx >= boards.length - 1) setActiveBoardIdx(Math.max(0, activeBoardIdx - 1));
-    setUndoStack([]); setRedoStack([]);
-  };
-  const renameBoard = (idx: number, name: string) => {
-    setBoards((p) => { const n = [...p]; n[idx] = { ...n[idx], name }; return n; });
+    setUndoStack([]);
+    setRedoStack([]);
   };
 
-  // ─── Export helpers ───
+  const renameBoard = (idx: number, name: string) => {
+    setBoards((p) => {
+      const n = [...p];
+      n[idx] = { ...n[idx], name };
+      return n;
+    });
+  };
+
+  // ─── Bounding-Box Cropped High-Res Export (Strokes + Texts + Sticky Notes) ───
   const getExportDataUrl = (): string | null => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
+
+    const currentStrokes = activeBoard.strokes || [];
+    const currentNotes = activeBoard.stickyNotes || [];
+    const currentTexts = activeBoard.textBoxes || [];
+
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+
+    currentStrokes.forEach((s) => {
+      s.points.forEach((p) => {
+        minX = Math.min(minX, p.x);
+        minY = Math.min(minY, p.y);
+        maxX = Math.max(maxX, p.x);
+        maxY = Math.max(maxY, p.y);
+      });
+    });
+
+    currentNotes.forEach((n) => {
+      minX = Math.min(minX, n.x);
+      minY = Math.min(minY, n.y);
+      maxX = Math.max(maxX, n.x + (n.width || 200));
+      maxY = Math.max(maxY, n.y + (n.height || 180));
+    });
+
+    currentTexts.forEach((t) => {
+      minX = Math.min(minX, t.x);
+      minY = Math.min(minY, t.y);
+      maxX = Math.max(maxX, t.x + 200);
+      maxY = Math.max(maxY, t.y + 60);
+    });
+
+    const pad = 40;
+    const hasContent = minX !== Infinity;
+    const cropX = hasContent ? minX - pad : 0;
+    const cropY = hasContent ? minY - pad : 0;
+    const cropW = hasContent ? Math.max(maxX - minX + pad * 2, 400) : canvas.width;
+    const cropH = hasContent ? Math.max(maxY - minY + pad * 2, 300) : canvas.height;
+
     const exp = document.createElement('canvas');
-    exp.width = canvas.width; exp.height = canvas.height;
+    exp.width = cropW;
+    exp.height = cropH;
     const ctx = exp.getContext('2d');
     if (!ctx) return null;
-    const dpr = window.devicePixelRatio || 1;
-    ctx.scale(dpr, dpr);
+
+    // Background fill
     ctx.fillStyle = canvasBg;
-    ctx.fillRect(0, 0, exp.width / dpr, exp.height / dpr);
-    for (const s of activeBoard.strokes) drawStroke(ctx, s);
-    // Render text boxes onto export canvas
-    for (const tb of textBoxes) {
+    ctx.fillRect(0, 0, exp.width, exp.height);
+
+    ctx.save();
+    ctx.translate(-cropX, -cropY);
+
+    // 1. Strokes
+    for (const s of currentStrokes) drawStroke(ctx, s);
+
+    // 2. Text boxes
+    for (const tb of currentTexts) {
       ctx.save();
       ctx.font = `${tb.fontSize}px system-ui, sans-serif`;
       ctx.fillStyle = tb.color;
@@ -442,6 +803,34 @@ export default function WhiteboardContent() {
       });
       ctx.restore();
     }
+
+    // 3. Sticky notes
+    for (const sn of currentNotes) {
+      ctx.save();
+      const col = STICKY_COLORS[sn.color] || STICKY_COLORS.yellow;
+      ctx.fillStyle = col.bg;
+      ctx.strokeStyle = col.border;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      // Rounded rect
+      const r = 12;
+      const w = sn.width || 200;
+      const h = sn.height || 180;
+      ctx.roundRect ? ctx.roundRect(sn.x, sn.y, w, h, r) : ctx.rect(sn.x, sn.y, w, h);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = col.text;
+      ctx.font = '13px system-ui, sans-serif';
+      ctx.textBaseline = 'top';
+      const lines = (sn.text || '').split('\n');
+      lines.forEach((line, i) => {
+        ctx.fillText(line, sn.x + 12, sn.y + 24 + i * 16);
+      });
+      ctx.restore();
+    }
+
+    ctx.restore();
     return exp.toDataURL('image/png');
   };
 
@@ -465,60 +854,138 @@ export default function WhiteboardContent() {
     setShowNoteModal(false);
     toast.success(`Drawing added to "${note.title}"! 🖊️`);
   };
+
   // ─── Text box helpers ───
-  const addTextBox = useCallback((x: number, y: number) => {
-    const tb: TextBox = { id: crypto.randomUUID(), x, y, text: '', fontSize: textFontSize, color };
-    setBoards((prev) => {
-      const n = [...prev];
-      n[activeBoardIdx] = { ...n[activeBoardIdx], textBoxes: [...(n[activeBoardIdx].textBoxes || []), tb] };
-      return n;
-    });
-    setActiveTextId(tb.id);
-  }, [activeBoardIdx, color, textFontSize]);
+  const addTextBox = useCallback(
+    (x: number, y: number) => {
+      const tb: TextBox = { id: crypto.randomUUID(), x, y, text: '', fontSize: textFontSize, color };
+      setBoards((prev) => {
+        const n = [...prev];
+        n[activeBoardIdx] = {
+          ...n[activeBoardIdx],
+          textBoxes: [...(n[activeBoardIdx].textBoxes || []), tb],
+        };
+        return n;
+      });
+      setActiveTextId(tb.id);
+    },
+    [activeBoardIdx, color, textFontSize]
+  );
 
-  const updateTextBox = useCallback((id: string, updates: Partial<TextBox>) => {
-    setBoards((prev) => {
-      const n = [...prev];
-      n[activeBoardIdx] = { ...n[activeBoardIdx], textBoxes: (n[activeBoardIdx].textBoxes || []).map((t) => t.id === id ? { ...t, ...updates } : t) };
-      return n;
-    });
-  }, [activeBoardIdx]);
+  const updateTextBox = useCallback(
+    (id: string, updates: Partial<TextBox>) => {
+      setBoards((prev) => {
+        const n = [...prev];
+        n[activeBoardIdx] = {
+          ...n[activeBoardIdx],
+          textBoxes: (n[activeBoardIdx].textBoxes || []).map((t) =>
+            t.id === id ? { ...t, ...updates } : t
+          ),
+        };
+        return n;
+      });
+    },
+    [activeBoardIdx]
+  );
 
-  const deleteTextBox = useCallback((id: string) => {
-    setBoards((prev) => {
-      const n = [...prev];
-      n[activeBoardIdx] = { ...n[activeBoardIdx], textBoxes: (n[activeBoardIdx].textBoxes || []).filter((t) => t.id !== id) };
-      return n;
-    });
-    if (activeTextId === id) setActiveTextId(null);
-  }, [activeBoardIdx, activeTextId]);
+  const deleteTextBox = useCallback(
+    (id: string) => {
+      setBoards((prev) => {
+        const n = [...prev];
+        n[activeBoardIdx] = {
+          ...n[activeBoardIdx],
+          textBoxes: (n[activeBoardIdx].textBoxes || []).filter((t) => t.id !== id),
+        };
+        return n;
+      });
+      if (activeTextId === id) setActiveTextId(null);
+    },
+    [activeBoardIdx, activeTextId]
+  );
 
-  // Click on canvas overlay for text tool
-  const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (tool !== 'text') return;
-    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    addTextBox(x, y);
-  }, [tool, addTextBox]);
+  // Click on canvas overlay for text & sticky tools
+  const handleCanvasClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const worldPos = getWorldPos(e);
+      if (tool === 'text') {
+        addTextBox(worldPos.x, worldPos.y);
+      } else if (tool === 'sticky') {
+        addStickyNote(worldPos.x - 100, worldPos.y - 90);
+      }
+    },
+    [tool, addTextBox, addStickyNote, getWorldPos]
+  );
 
-  // ─── Keyboard shortcuts ───
+  // ─── Keyboard shortcuts with Space panning & Zoom ───
   useEffect(() => {
-    const h = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || (e.target as HTMLElement)?.isContentEditable) return;
-      if (e.ctrlKey && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
-      if (e.ctrlKey && e.key === 'z' && e.shiftKey) { e.preventDefault(); redo(); }
-      if (e.ctrlKey && e.key === 'y') { e.preventDefault(); redo(); }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement)?.isContentEditable
+      )
+        return;
+
+      if (e.code === 'Space' && !e.repeat) {
+        e.preventDefault();
+        setIsSpacePressed(true);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+        e.preventDefault();
+        resetView();
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        zoomIn();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+        e.preventDefault();
+        zoomOut();
+      }
+      if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      if ((e.ctrlKey && e.key === 'z' && e.shiftKey) || (e.ctrlKey && e.key === 'y')) {
+        e.preventDefault();
+        redo();
+      }
+      if (e.key === 'h' && !e.ctrlKey) setTool('hand');
       if (e.key === 'p' && !e.ctrlKey) setTool('pen');
-      if (e.key === 'h' && !e.ctrlKey) setTool('highlighter');
+      if (e.key === 'i' && !e.ctrlKey) setTool('highlighter');
       if (e.key === 'e' && !e.ctrlKey) setTool('eraser');
+      if (e.key === 's' && !e.ctrlKey) setTool('sticky');
       if (e.key === 't' && !e.ctrlKey) setTool('text');
       if (e.key === 'v' && !e.ctrlKey) setTool('select');
-      if (e.key === 'Delete' && activeTextId) deleteTextBox(activeTextId);
+      if (e.key === 'Delete') {
+        if (activeTextId) deleteTextBox(activeTextId);
+        if (activeStickyId) deleteStickyNote(activeStickyId);
+      }
     };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  }, [undo, redo, activeTextId, deleteTextBox]);
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setIsSpacePressed(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [undo, redo, activeTextId, activeStickyId, deleteTextBox, deleteStickyNote]);
+
+  // Global window pointerup listener to clean up drag states
+  useEffect(() => {
+    const handleGlobalPointerUp = () => {
+      setDraggingTextId(null);
+      setDraggingStickyId(null);
+    };
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    return () => window.removeEventListener('pointerup', handleGlobalPointerUp);
+  }, []);
 
   return (
     <PageTransition>
@@ -579,98 +1046,244 @@ export default function WhiteboardContent() {
         {/* Workspace Canvas Container with Floating Dock */}
         <div
           ref={containerRef}
+          onWheel={handleWheel}
           className="flex-1 min-h-[520px] md:min-h-[620px] rounded-2xl border-2 border-[var(--card-border)] overflow-hidden relative transition-colors shadow-2xl flex flex-col"
-          style={{ backgroundColor: canvasBg }}
+          style={{
+            backgroundColor: canvasBg,
+            backgroundImage: `radial-gradient(circle, ${canvasBg === '#ffffff' ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.12)'} 1.2px, transparent 1.2px)`,
+            backgroundSize: `${28 * zoom}px ${28 * zoom}px`,
+            backgroundPosition: `${pan.x}px ${pan.y}px`,
+          }}
         >
           <canvas
             ref={canvasRef}
             className="absolute inset-0 touch-none w-full h-full"
-            style={{ cursor: TOOL_CONFIG[tool].cursor }}
+            style={{
+              cursor: isSpacePressed || tool === 'hand'
+                ? (isPanningRef.current ? 'grabbing' : 'grab')
+                : TOOL_CONFIG[tool].cursor,
+            }}
             onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
-            onPointerLeave={handlePointerUp}
+            onPointerMove={(e) => {
+              if (draggingTextId) {
+                const dx = (e.clientX - dragOffset.current.x) / zoom;
+                const dy = (e.clientY - dragOffset.current.y) / zoom;
+                updateTextBox(draggingTextId, {
+                  x: dragInitialPos.current.x + dx,
+                  y: dragInitialPos.current.y + dy,
+                });
+                return;
+              }
+              if (draggingStickyId) {
+                const dx = (e.clientX - dragOffset.current.x) / zoom;
+                const dy = (e.clientY - dragOffset.current.y) / zoom;
+                updateStickyNote(draggingStickyId, {
+                  x: dragInitialPos.current.x + dx,
+                  y: dragInitialPos.current.y + dy,
+                });
+                return;
+              }
+              handlePointerMove(e);
+            }}
+            onPointerUp={(e) => {
+              setDraggingTextId(null);
+              setDraggingStickyId(null);
+              handlePointerUp(e);
+            }}
+            onPointerCancel={(e) => {
+              setDraggingTextId(null);
+              setDraggingStickyId(null);
+              handlePointerUp(e);
+            }}
+            onPointerLeave={(e) => {
+              handlePointerUp(e);
+            }}
           />
 
-          {/* Text overlay — click to place, drag to move */}
-          {(tool === 'text' || tool === 'select') && (
+          {/* Canvas click overlay for placing text or sticky notes */}
+          {(tool === 'text' || tool === 'sticky') && (
             <div
               className="absolute inset-0"
-              style={{ cursor: tool === 'text' ? 'text' : 'default', zIndex: 5 }}
+              style={{ cursor: TOOL_CONFIG[tool].cursor, zIndex: 5 }}
               onClick={handleCanvasClick}
-              onMouseMove={(e) => {
-                if (!draggingTextId) return;
-                const rect = e.currentTarget.getBoundingClientRect();
-                updateTextBox(draggingTextId, { x: e.clientX - rect.left - dragOffset.current.x, y: e.clientY - rect.top - dragOffset.current.y });
-              }}
-              onMouseUp={() => setDraggingTextId(null)}
-              onMouseLeave={() => setDraggingTextId(null)}
             />
           )}
 
-          {/* Render text boxes */}
-          {textBoxes.map((tb) => (
-            <div
-              key={tb.id}
-              className={`absolute group ${tool === 'select' ? 'cursor-move' : ''}`}
-              style={{ left: tb.x, top: tb.y, zIndex: activeTextId === tb.id ? 15 : 10 }}
-              onMouseDown={(e) => {
-                if (tool !== 'select') return;
-                e.stopPropagation();
-                setDraggingTextId(tb.id);
-                setActiveTextId(tb.id);
-                dragOffset.current = { x: e.clientX - e.currentTarget.getBoundingClientRect().left, y: e.clientY - e.currentTarget.getBoundingClientRect().top };
-              }}
-            >
-              <div className="relative">
-                <div
-                  contentEditable={tool === 'text' || activeTextId === tb.id}
-                  suppressContentEditableWarning
-                  className={`min-w-[60px] min-h-[24px] outline-none px-1 rounded ${activeTextId === tb.id ? 'ring-2 ring-teal/50 bg-white/10' : 'hover:ring-1 hover:ring-[var(--card-border)]'}`}
-                  style={{ fontSize: tb.fontSize, color: tb.color, fontFamily: 'system-ui, sans-serif', whiteSpace: 'pre-wrap', lineHeight: 1.3 }}
-                  onFocus={() => setActiveTextId(tb.id)}
-                  onBlur={(e) => updateTextBox(tb.id, { text: (e.target as HTMLElement).innerText })}
-                  onClick={(e) => e.stopPropagation()}
-                  ref={(el) => {
-                    // Set initial text only once when element mounts
-                    if (el && !el.dataset.initialized && tb.text) {
-                      el.innerText = tb.text;
-                      el.dataset.initialized = 'true';
-                    }
-                  }}
-                />
-                {!tb.text && activeTextId !== tb.id && (
-                  <span className="absolute left-1 top-0 pointer-events-none opacity-40" style={{ fontSize: tb.fontSize, lineHeight: 1.3 }}>Type here...</span>
+          {/* Virtual World HTML Overlay (Text Boxes & Sticky Notes) */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transformOrigin: '0 0',
+            }}
+          >
+            {/* Render text boxes */}
+            {textBoxes.map((tb) => (
+              <div
+                key={tb.id}
+                className={`absolute group pointer-events-auto ${tool === 'select' ? 'cursor-move' : ''}`}
+                style={{ left: tb.x, top: tb.y, zIndex: activeTextId === tb.id ? 20 : 10 }}
+                onMouseDown={(e) => {
+                  if (tool !== 'select') return;
+                  e.stopPropagation();
+                  setDraggingTextId(tb.id);
+                  setActiveTextId(tb.id);
+                  dragOffset.current = { x: e.clientX, y: e.clientY };
+                  dragInitialPos.current = { x: tb.x, y: tb.y };
+                }}
+              >
+                <div className="relative">
+                  <div
+                    contentEditable={tool === 'text' || activeTextId === tb.id}
+                    suppressContentEditableWarning
+                    className={`min-w-[60px] min-h-[24px] outline-none px-1.5 py-0.5 rounded ${activeTextId === tb.id ? 'ring-2 ring-teal/50 bg-white/10' : 'hover:ring-1 hover:ring-[var(--card-border)]'}`}
+                    style={{ fontSize: tb.fontSize, color: tb.color, fontFamily: 'system-ui, sans-serif', whiteSpace: 'pre-wrap', lineHeight: 1.3 }}
+                    onFocus={() => setActiveTextId(tb.id)}
+                    onBlur={(e) => updateTextBox(tb.id, { text: (e.target as HTMLElement).innerText })}
+                    onClick={(e) => e.stopPropagation()}
+                    ref={(el) => {
+                      if (el && !el.dataset.initialized && tb.text) {
+                        el.innerText = tb.text;
+                        el.dataset.initialized = 'true';
+                      }
+                    }}
+                  />
+                  {!tb.text && activeTextId !== tb.id && (
+                    <span className="absolute left-1.5 top-0.5 pointer-events-none opacity-40" style={{ fontSize: tb.fontSize, lineHeight: 1.3 }}>Type here...</span>
+                  )}
+                </div>
+                {(activeTextId === tb.id || tool === 'select') && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deleteTextBox(tb.id); }}
+                    className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-coral text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity shadow cursor-pointer"
+                  >×</button>
                 )}
               </div>
-              {(activeTextId === tb.id || tool === 'select') && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); deleteTextBox(tb.id); }}
-                  className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-coral text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity shadow cursor-pointer"
-                >×</button>
-              )}
-            </div>
-          ))}
+            ))}
+
+            {/* Render Sticky Notes */}
+            {stickyNotes.map((note) => {
+              const theme = STICKY_COLORS[note.color] || STICKY_COLORS.yellow;
+              return (
+                <div
+                  key={note.id}
+                  className="absolute pointer-events-auto rounded-xl shadow-lg border flex flex-col transition-shadow hover:shadow-2xl select-none group"
+                  style={{
+                    left: note.x,
+                    top: note.y,
+                    width: note.width,
+                    minHeight: note.height,
+                    backgroundColor: theme.bg,
+                    borderColor: theme.border,
+                    color: theme.text,
+                    zIndex: activeStickyId === note.id ? 25 : 12,
+                  }}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    setActiveStickyId(note.id);
+                    setDraggingStickyId(note.id);
+                    dragOffset.current = { x: e.clientX, y: e.clientY };
+                    dragInitialPos.current = { x: note.x, y: note.y };
+                  }}
+                >
+                  {/* Note Header / Drag Grip + Color Switcher */}
+                  <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-black/10 cursor-grab active:cursor-grabbing bg-black/5 rounded-t-xl">
+                    <div className="flex items-center gap-1.5">
+                      {(['yellow', 'pink', 'blue', 'green', 'purple'] as const).map((cKey) => (
+                        <button
+                          key={cKey}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateStickyNote(note.id, { color: cKey });
+                          }}
+                          className={`w-3.5 h-3.5 rounded-full border border-black/20 transition-transform ${note.color === cKey ? 'scale-125 ring-1 ring-black/40' : 'hover:scale-110'}`}
+                          style={{ backgroundColor: STICKY_COLORS[cKey].bg }}
+                          title={STICKY_COLORS[cKey].label}
+                        />
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteStickyNote(note.id);
+                      }}
+                      className="w-4 h-4 rounded-full flex items-center justify-center text-xs font-bold text-black/40 hover:text-rose-600 hover:bg-black/10 cursor-pointer"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  {/* Sticky Note Content */}
+                  <textarea
+                    value={note.text}
+                    onChange={(e) => updateStickyNote(note.id, { text: e.target.value })}
+                    placeholder="Write a sticky note..."
+                    className="w-full flex-1 bg-transparent p-3 outline-none resize-none text-xs font-medium leading-relaxed placeholder-black/35 font-sans"
+                    style={{ color: theme.text }}
+                    rows={5}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              );
+            })}
+          </div>
 
           {/* Empty State Prompt */}
-          {activeBoard.strokes.length === 0 && textBoxes.length === 0 && !isDrawingRef.current && (
+          {activeBoard.strokes.length === 0 && textBoxes.length === 0 && stickyNotes.length === 0 && !isDrawingRef.current && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="text-center opacity-30 select-none">
                 <p className="text-5xl mb-3">🎨</p>
                 <p className="text-base font-heading font-black">Whiteboard Studio</p>
-                <p className="text-xs text-[var(--muted-foreground)] mt-1">Select a tool from the floating dock below or press P (Pen), H (Highlighter), E (Eraser), T (Text)</p>
+                <p className="text-xs text-[var(--muted-foreground)] mt-1">Infinite canvas. Press Space+Drag to pan, Ctrl+Scroll to zoom, or select tools below.</p>
               </div>
             </div>
           )}
+
+          {/* Infinite Canvas Viewport Navigation HUD (Bottom-Left) */}
+          <div className="absolute bottom-4 left-4 z-30 flex items-center gap-1 p-1 rounded-xl bg-slate-900/90 dark:bg-[#0c1021]/95 backdrop-blur-md border border-white/10 shadow-lg text-white select-none">
+            <button
+              type="button"
+              onClick={zoomOut}
+              className="w-7 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center text-sm font-bold cursor-pointer transition-colors"
+              title="Zoom Out (Ctrl+-)"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              onClick={resetView}
+              className="px-2 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center text-[11px] font-mono font-semibold cursor-pointer transition-colors"
+              title="Reset Zoom to 100% (Ctrl+0)"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <button
+              type="button"
+              onClick={zoomIn}
+              className="w-7 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center text-sm font-bold cursor-pointer transition-colors"
+              title="Zoom In (Ctrl++)"
+            >
+              +
+            </button>
+            <div className="w-px h-4 bg-white/15 mx-0.5" />
+            <button
+              type="button"
+              onClick={fitToContent}
+              className="px-2 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center text-[10px] font-semibold tracking-wide uppercase cursor-pointer transition-colors text-teal-400 hover:text-teal-300"
+              title="Fit to Content"
+            >
+              Fit
+            </button>
+          </div>
 
           {/* Floating Island Control Dock (Bottom-Centered) */}
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100vw-24px)] overflow-x-auto no-scrollbar">
             <div className="p-1.5 md:p-2 rounded-2xl bg-slate-900/90 dark:bg-[#0c1021]/95 backdrop-blur-2xl border border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.5)] flex items-center gap-1 sm:gap-1.5 select-none">
               
-              {/* 1. Primary Drawing Tools */}
+              {/* 1. Primary Navigation & Drawing Tools */}
               <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
-                {(['pen', 'highlighter', 'eraser'] as Tool[]).map((t) => (
+                {(['hand', 'pen', 'highlighter', 'eraser'] as Tool[]).map((t) => (
                   <motion.button
                     key={t}
                     type="button"
@@ -681,7 +1294,7 @@ export default function WhiteboardContent() {
                         : 'text-white/70 hover:text-white hover:bg-white/10'
                     }`}
                     whileTap={{ scale: 0.92 }}
-                    title={`${TOOL_CONFIG[t].label} (${t[0].toUpperCase()})`}
+                    title={`${TOOL_CONFIG[t].label} (${t === 'hand' ? 'H' : t[0].toUpperCase()})`}
                   >
                     {TOOL_CONFIG[t].emoji}
                   </motion.button>
@@ -708,9 +1321,9 @@ export default function WhiteboardContent() {
                 ))}
               </div>
 
-              {/* 3. Text & Select */}
+              {/* 3. Sticky, Text & Select */}
               <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
-                {(['text', 'select'] as Tool[]).map((t) => (
+                {(['sticky', 'text', 'select'] as Tool[]).map((t) => (
                   <motion.button
                     key={t}
                     type="button"
@@ -721,7 +1334,7 @@ export default function WhiteboardContent() {
                         : 'text-white/70 hover:text-white hover:bg-white/10'
                     }`}
                     whileTap={{ scale: 0.92 }}
-                    title={`${TOOL_CONFIG[t].label} (${t === 'text' ? 'T' : 'V'})`}
+                    title={`${TOOL_CONFIG[t].label} (${t === 'sticky' ? 'S' : t === 'text' ? 'T' : 'V'})`}
                   >
                     {TOOL_CONFIG[t].emoji}
                   </motion.button>
@@ -897,7 +1510,7 @@ export default function WhiteboardContent() {
               {TOOL_CONFIG[tool].emoji} {TOOL_CONFIG[tool].label}
             </Badge>
             <Badge variant="muted" size="sm" className="bg-slate-900/85 backdrop-blur-md border border-white/10 text-white font-medium shadow-md">
-              {activeBoard.strokes.length} strokes · {textBoxes.length} texts
+              {activeBoard.strokes.length} strokes · {textBoxes.length} texts · {stickyNotes.length} notes
             </Badge>
           </div>
         </div>
@@ -905,13 +1518,15 @@ export default function WhiteboardContent() {
         {/* Ergonomic Keyboard Shortcuts footer */}
         <div className="flex items-center gap-4 text-[9px] text-[var(--muted-foreground)] font-bold uppercase tracking-wider flex-shrink-0 px-1 flex-wrap">
           <span>⌨️ Shortcuts:</span>
+          <span><kbd className="px-1 py-0.5 rounded bg-[var(--card-border)] text-[8px]">Space+Drag</kbd> Pan</span>
+          <span><kbd className="px-1 py-0.5 rounded bg-[var(--card-border)] text-[8px]">Ctrl+Scroll</kbd> Zoom</span>
+          <span><kbd className="px-1 py-0.5 rounded bg-[var(--card-border)] text-[8px]">H</kbd> Hand</span>
           <span><kbd className="px-1 py-0.5 rounded bg-[var(--card-border)] text-[8px]">P</kbd> Pen</span>
-          <span><kbd className="px-1 py-0.5 rounded bg-[var(--card-border)] text-[8px]">H</kbd> Highlighter</span>
-          <span><kbd className="px-1 py-0.5 rounded bg-[var(--card-border)] text-[8px]">E</kbd> Eraser</span>
+          <span><kbd className="px-1 py-0.5 rounded bg-[var(--card-border)] text-[8px]">S</kbd> Sticky</span>
           <span><kbd className="px-1 py-0.5 rounded bg-[var(--card-border)] text-[8px]">T</kbd> Text</span>
           <span><kbd className="px-1 py-0.5 rounded bg-[var(--card-border)] text-[8px]">V</kbd> Select/Move</span>
           <span><kbd className="px-1 py-0.5 rounded bg-[var(--card-border)] text-[8px]">Ctrl+Z</kbd> Undo</span>
-          <span><kbd className="px-1 py-0.5 rounded bg-[var(--card-border)] text-[8px]">Del</kbd> Delete text</span>
+          <span><kbd className="px-1 py-0.5 rounded bg-[var(--card-border)] text-[8px]">Del</kbd> Delete</span>
         </div>
       </div>
 

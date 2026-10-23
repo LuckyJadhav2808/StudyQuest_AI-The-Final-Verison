@@ -3,6 +3,7 @@
 import React from 'react';
 import { motion, HTMLMotionProps } from 'framer-motion';
 import clsx from 'clsx';
+import { playHapticTick } from '@/lib/sounds';
 
 type ButtonVariant = 'primary' | 'coral' | 'teal' | 'amber' | 'ghost' | 'outline';
 type ButtonSize = 'sm' | 'md' | 'lg' | 'xl';
@@ -14,6 +15,7 @@ interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
   icon?: React.ReactNode;
   loading?: boolean;
   fullWidth?: boolean;
+  haptic?: boolean;
 }
 
 export default function Button({
@@ -23,8 +25,10 @@ export default function Button({
   icon,
   loading = false,
   fullWidth = false,
+  haptic = true,
   className,
   disabled,
+  onClick,
   ...props
 }: ButtonProps) {
   const is3D = ['primary', 'coral', 'teal', 'amber'].includes(variant);
@@ -46,12 +50,21 @@ export default function Button({
     className,
   );
 
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!disabled && !loading && haptic) {
+      playHapticTick();
+    }
+    onClick?.(e);
+  };
+
   return (
     <motion.button
       className={baseClasses}
       whileHover={!disabled && !loading ? { scale: 1.02 } : undefined}
-      whileTap={!disabled && !loading ? { scale: 0.97 } : undefined}
+      whileTap={!disabled && !loading ? { scale: 0.96 } : undefined}
+      transition={{ type: 'spring', stiffness: 450, damping: 25 }}
       disabled={disabled || loading}
+      onClick={handleClick}
       {...props}
     >
       {loading ? (

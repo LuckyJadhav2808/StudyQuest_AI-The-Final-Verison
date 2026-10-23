@@ -7,7 +7,7 @@ import { useShop } from '@/hooks/useShop';
 import { useSkillTree } from '@/hooks/useSkillTree';
 import { usePet } from '@/hooks/usePet';
 import { POMODORO_DEFAULTS, XP_AWARDS, COIN_AWARDS } from '@/lib/constants';
-import { playCelebration, playNotify } from '@/lib/sounds';
+import { playCelebration, playNotify, playTimerBell } from '@/lib/sounds';
 import { useMusic } from '@/context/MusicContext';
 import {
   type MusicTrack,
@@ -296,13 +296,16 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (isLongBreak) {
+        playTimerBell();
         playCelebration();
         switchPhase('long-break');
       } else {
+        playTimerBell();
         playCelebration();
         switchPhase('short-break');
       }
     } else {
+      playTimerBell();
       playNotify();
       toast('Break over! Time to focus 🎯');
       switchPhase('focus');

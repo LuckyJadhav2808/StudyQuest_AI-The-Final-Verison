@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { motion } from 'framer-motion';
 import {
   HiTable,
@@ -155,6 +156,23 @@ export default function CsvDataGrid({ onBack, onOpenInReader, onSendToNotes }: C
       .map((row, originalIndex) => ({ row, originalIndex }))
       .filter(({ row }) => row.some((cell) => cell.toLowerCase().includes(q)));
   }, [rows, searchQuery]);
+
+  // Virtualizer for high-performance 60fps scrolling across 10,000+ rows
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: filteredRowsWithIndex.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 38,
+    overscan: 12,
+  });
+
+  const virtualItems = rowVirtualizer.getVirtualItems();
+  const paddingTop = virtualItems.length > 0 ? virtualItems[0]?.start || 0 : 0;
+  const paddingBottom =
+    virtualItems.length > 0
+      ? rowVirtualizer.getTotalSize() - (virtualItems[virtualItems.length - 1]?.end || 0)
+      : 0;
 
   // Compute stats for currently selected column
   const columnStats: NumericColumnStats | null = useMemo(() => {
@@ -327,8 +345,8 @@ export default function CsvDataGrid({ onBack, onOpenInReader, onSendToNotes }: C
             </div>
           </div>
 
-          {/* Interactive Editable Table Grid */}
-          <div className="flex-1 min-h-[350px] overflow-auto rounded-2xl border border-border bg-surface/50">
+          {/* Interactive Editable Table Grid (Virtual Table with TanStack Virtual) */}
+          <div ref={parentRef} className="flex-1 min-h-[350px] max-h-[65vh] overflow-auto rounded-2xl border border-border bg-surface/50">
             <table className="w-full border-collapse text-xs">
               <thead className="sticky top-0 bg-muted/90 backdrop-blur-xs z-10">
                 <tr>
@@ -376,40 +394,53 @@ export default function CsvDataGrid({ onBack, onOpenInReader, onSendToNotes }: C
               </thead>
 
               <tbody>
-                {filteredRowsWithIndex.map(({ row, originalIndex }, displayIdx) => (
-                  <tr key={originalIndex} className="hover:bg-muted/40 transition-colors border-b border-border/60">
-                    <td className="p-2 text-center text-[10px] text-muted-foreground font-mono border-r border-border/60 bg-muted/20">
-                      {originalIndex + 1}
-                    </td>
-
-                    {row.map((cell, colIdx) => (
-                      <td
-                        key={colIdx}
-                        onClick={() => setSelectedColIndex(colIdx)}
-                        className={`p-1 border-r border-border/60 ${
-                          selectedColIndex === colIdx ? 'bg-primary/5' : ''
-                        }`}
-                      >
-                        <input
-                          type="text"
-                          value={cell}
-                          onChange={(e) => handleCellChange(originalIndex, colIdx, e.target.value)}
-                          className="w-full px-2 py-1 bg-transparent text-foreground text-xs focus:outline-hidden focus:bg-background focus:ring-1 focus:ring-primary rounded"
-                        />
-                      </td>
-                    ))}
-
-                    <td className="p-1 text-center">
-                      <button
-                        onClick={() => deleteRow(originalIndex)}
-                        className="p-1 rounded hover:bg-rose-500/10 text-rose-500 opacity-40 hover:opacity-100 transition-opacity"
-                        title="Delete row"
-                      >
-                        <HiTrash className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
+                {paddingTop > 0 && (
+                  <tr>
+                    <td style={{ height: `${paddingTop}px` }} colSpan={headers.length + 2} />
                   </tr>
-                ))}
+                )}
+                {virtualItems.map((virtualRow) => {
+                  const { row, originalIndex } = filteredRowsWithIndex[virtualRow.index];
+                  return (
+                    <tr key={originalIndex} className="hover:bg-muted/40 transition-colors border-b border-border/60">
+                      <td className="p-2 text-center text-[10px] text-muted-foreground font-mono border-r border-border/60 bg-muted/20">
+                        {originalIndex + 1}
+                      </td>
+
+                      {row.map((cell, colIdx) => (
+                        <td
+                          key={colIdx}
+                          onClick={() => setSelectedColIndex(colIdx)}
+                          className={`p-1 border-r border-border/60 ${
+                            selectedColIndex === colIdx ? 'bg-primary/5' : ''
+                          }`}
+                        >
+                          <input
+                            type="text"
+                            value={cell}
+                            onChange={(e) => handleCellChange(originalIndex, colIdx, e.target.value)}
+                            className="w-full px-2 py-1 bg-transparent text-foreground text-xs focus:outline-hidden focus:bg-background focus:ring-1 focus:ring-primary rounded"
+                          />
+                        </td>
+                      ))}
+
+                      <td className="p-1 text-center">
+                        <button
+                          onClick={() => deleteRow(originalIndex)}
+                          className="p-1 rounded hover:bg-rose-500/10 text-rose-500 opacity-40 hover:opacity-100 transition-opacity"
+                          title="Delete row"
+                        >
+                          <HiTrash className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {paddingBottom > 0 && (
+                  <tr>
+                    <td style={{ height: `${paddingBottom}px` }} colSpan={headers.length + 2} />
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

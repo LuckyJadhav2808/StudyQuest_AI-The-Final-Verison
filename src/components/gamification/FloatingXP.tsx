@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { playXP } from '@/lib/sounds';
 
 /* ============================================================
    FloatingXP — Spawns a floating "+N XP" particle that drifts
@@ -16,11 +17,19 @@ interface XPParticle {
 }
 
 let particleIdCounter = 0;
+let lastXPSoundTime = 0;
 
 // Global event system for spawning XP particles from anywhere
 const listeners: Set<(p: XPParticle) => void> = new Set();
 
 export function spawnXP(amount: number, x?: number, y?: number) {
+  const now = Date.now();
+  // Throttle audio so burst events don't clip audio channels
+  if (now - lastXPSoundTime > 120) {
+    playXP();
+    lastXPSoundTime = now;
+  }
+
   const particle: XPParticle = {
     id: ++particleIdCounter,
     amount,

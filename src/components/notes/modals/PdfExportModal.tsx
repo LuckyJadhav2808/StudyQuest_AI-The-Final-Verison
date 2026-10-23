@@ -1435,28 +1435,56 @@ export default function PdfExportModal({
 
           if (srcH <= 0) continue;
 
-          const sliceCanvas = document.createElement('canvas');
-          sliceCanvas.width = renderWidth;
-          sliceCanvas.height = srcH;
-          const sliceCtx = sliceCanvas.getContext('2d');
-          if (sliceCtx) {
-            // Pre-fill entire slice surface with theme background to prevent JPEG transparent black-border bleeding
-            sliceCtx.fillStyle = themeBg;
-            sliceCtx.fillRect(0, 0, renderWidth, srcH);
-            sliceCtx.imageSmoothingEnabled = true;
-            sliceCtx.imageSmoothingQuality = 'high';
-            sliceCtx.drawImage(chunkCanvas, 0, pageStartY, renderWidth, srcH, 0, 0, renderWidth, srcH);
+          // 3. Hardware-Accelerated Slice Rasterization (OffscreenCanvas with DOM Canvas fallback)
+          let sliceData: string = '';
+          if (typeof OffscreenCanvas !== 'undefined') {
+            try {
+              const offscreen = new OffscreenCanvas(renderWidth, srcH);
+              const offCtx = offscreen.getContext('2d');
+              if (offCtx) {
+                offCtx.fillStyle = themeBg;
+                offCtx.fillRect(0, 0, renderWidth, srcH);
+                offCtx.imageSmoothingEnabled = true;
+                offCtx.imageSmoothingQuality = 'high';
+                offCtx.drawImage(chunkCanvas, 0, pageStartY, renderWidth, srcH, 0, 0, renderWidth, srcH);
+              }
+              const blob = await offscreen.convertToBlob({ type: 'image/jpeg', quality: jpegQuality });
+              sliceData = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(blob);
+              });
+            } catch (offErr) {
+              console.warn('[PdfExportModal] OffscreenCanvas fallback:', offErr);
+            }
           }
 
-          // 3. Hardware SIMD JPEG encoding (libjpeg-turbo): 50x faster than single-threaded CPU PNG
-          let sliceData: string;
-          try {
-            sliceData = sliceCanvas.toDataURL('image/jpeg', jpegQuality);
-          } catch (taintErr) {
-            console.warn('[PdfExportModal] Canvas export fallback on taint:', taintErr);
-            sliceCtx?.fillRect(0, 0, renderWidth, srcH);
-            sliceData = sliceCanvas.toDataURL('image/jpeg', 0.85);
+          if (!sliceData) {
+            const sliceCanvas = document.createElement('canvas');
+            sliceCanvas.width = renderWidth;
+            sliceCanvas.height = srcH;
+            const sliceCtx = sliceCanvas.getContext('2d');
+            if (sliceCtx) {
+              // Pre-fill entire slice surface with theme background to prevent JPEG transparent black-border bleeding
+              sliceCtx.fillStyle = themeBg;
+              sliceCtx.fillRect(0, 0, renderWidth, srcH);
+              sliceCtx.imageSmoothingEnabled = true;
+              sliceCtx.imageSmoothingQuality = 'high';
+              sliceCtx.drawImage(chunkCanvas, 0, pageStartY, renderWidth, srcH, 0, 0, renderWidth, srcH);
+            }
+
+            // Hardware SIMD JPEG encoding (libjpeg-turbo): 50x faster than single-threaded CPU PNG
+            try {
+              sliceData = sliceCanvas.toDataURL('image/jpeg', jpegQuality);
+            } catch (taintErr) {
+              console.warn('[PdfExportModal] Canvas export fallback on taint:', taintErr);
+              sliceCtx?.fillRect(0, 0, renderWidth, srcH);
+              sliceData = sliceCanvas.toDataURL('image/jpeg', 0.85);
+            }
+            sliceCanvas.width = 0;
+            sliceCanvas.height = 0;
           }
+
           const sliceHeight = (srcH * imgWidth) / renderWidth;
           // Direct zero-copy DCTDecode embedding into PDF stream
           pdf.addImage(sliceData, 'JPEG', margin, margin, imgWidth, sliceHeight, undefined, 'FAST');
@@ -1478,10 +1506,6 @@ export default function PdfExportModal({
             pdf.text(truncatedLeft, margin, footerY, { align: 'left' });
             pdf.text(`Page ${globalPage + 1} of ${totalPages}`, pageWidth - margin, footerY, { align: 'right' });
           }
-
-          // Free canvas buffer memory immediately to prevent heap spikes on long documents
-          sliceCanvas.width = 0;
-          sliceCanvas.height = 0;
         }
 
         // Free chunk canvas immediately before processing next chunk

@@ -914,6 +914,64 @@ h4 { font-size: 1.125rem; }
   margin: 12px 0;
 }
 
+/* Notion-Style Callouts in live editor */
+.quill-wrapper .ql-editor .studyquest-callout {
+  margin: 14px 0;
+  padding: 12px 16px;
+  border-radius: 14px;
+  border-left: 4px solid var(--color-primary);
+  background: rgba(124, 58, 237, 0.08);
+}
+.quill-wrapper .ql-editor .studyquest-callout-tip {
+  border-left-color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+}
+.quill-wrapper .ql-editor .studyquest-callout-warning {
+  border-left-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+}
+.quill-wrapper .ql-editor .studyquest-callout-important {
+  border-left-color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.08);
+}
+.quill-wrapper .ql-editor .studyquest-callout-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.quill-wrapper .ql-editor .studyquest-callout-content p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Notion-Style Data Tables in live editor */
+.quill-wrapper .ql-editor .studyquest-table-wrapper {
+  margin: 14px 0;
+  overflow-x: auto;
+}
+.quill-wrapper .ql-editor .studyquest-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.quill-wrapper .ql-editor .studyquest-table th,
+.quill-wrapper .ql-editor .studyquest-table td {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 8px 12px;
+}
+.quill-wrapper .ql-editor .studyquest-table th {
+  background: rgba(124, 58, 237, 0.15);
+  font-weight: 700;
+  text-align: left;
+}
+
 /* ============================================================
 /* ============================================================
    StudyQuest AI — 19-Feature Markdown Styling Suite

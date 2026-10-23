@@ -2,6 +2,17 @@ import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
 import JSZip from 'jszip';
 import jsPDF from 'jspdf';
+import {
+  Document,
+  Paragraph,
+  TextRun,
+  HeadingLevel,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType,
+  Packer,
+} from 'docx';
 import { ExcelWorkbookData, ExcelSheetData, WordDocData, PptxDeckData, PptxSlide } from './types';
 
 // ============================================================
@@ -154,6 +165,121 @@ export function exportHtmlToWordBlob(htmlContent: string, fileName: string): Blo
     </html>
   `;
   return new Blob([wordHtml], { type: 'application/msword' });
+}
+
+/**
+ * High-Fidelity Binary Microsoft Word (.docx) generator
+ * Serializes rich-text HTML into an authentic OpenXML .docx binary Blob using pure client-side docx.
+ */
+export async function exportHtmlToDocxBinary(htmlContent: string, fileName: string): Promise<Blob> {
+  if (typeof document === 'undefined') {
+    return exportHtmlToWordBlob(htmlContent, fileName);
+  }
+
+  try {
+    const parser = new DOMParser();
+    const docDom = parser.parseFromString(htmlContent, 'text/html');
+    const body = docDom.body;
+    const children: (Paragraph | Table)[] = [];
+
+    const processNode = (node: Node): TextRun[] => {
+      const runs: TextRun[] = [];
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent || '';
+        if (text) {
+          runs.push(new TextRun({ text, font: 'Calibri' }));
+        }
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as HTMLElement;
+        const tagName = el.tagName.toLowerCase();
+        const isBold = tagName === 'strong' || tagName === 'b';
+        const isItalic = tagName === 'em' || tagName === 'i';
+        const isUnderline = tagName === 'u';
+        const isCode = tagName === 'code';
+
+        for (let i = 0; i < el.childNodes.length; i++) {
+          const childRuns = processNode(el.childNodes[i]);
+          for (const cr of childRuns) {
+            runs.push(
+              new TextRun({
+                text: (cr as any).text || '',
+                bold: isBold,
+                italics: isItalic,
+                underline: isUnderline ? {} : undefined,
+                font: isCode ? 'Consolas' : 'Calibri',
+              })
+            );
+          }
+        }
+      }
+      return runs;
+    };
+
+    for (let i = 0; i < body.children.length; i++) {
+      const el = body.children[i] as HTMLElement;
+      const tag = el.tagName.toLowerCase();
+
+      if (tag === 'h1') {
+        children.push(new Paragraph({ text: el.textContent || '', heading: HeadingLevel.HEADING_1 }));
+      } else if (tag === 'h2') {
+        children.push(new Paragraph({ text: el.textContent || '', heading: HeadingLevel.HEADING_2 }));
+      } else if (tag === 'h3') {
+        children.push(new Paragraph({ text: el.textContent || '', heading: HeadingLevel.HEADING_3 }));
+      } else if (tag === 'table') {
+        const tableRows: TableRow[] = [];
+        const trs = el.querySelectorAll('tr');
+        trs.forEach((tr) => {
+          const cells: TableCell[] = [];
+          const tds = tr.querySelectorAll('th, td');
+          tds.forEach((td) => {
+            cells.push(
+              new TableCell({
+                children: [new Paragraph({ text: td.textContent || '' })],
+                width: { size: Math.round(100 / Math.max(1, tds.length)), type: WidthType.PERCENTAGE },
+              })
+            );
+          });
+          if (cells.length > 0) {
+            tableRows.push(new TableRow({ children: cells }));
+          }
+        });
+        if (tableRows.length > 0) {
+          children.push(new Table({ rows: tableRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+        }
+      } else if (tag === 'ul' || tag === 'ol') {
+        const lis = el.querySelectorAll('li');
+        lis.forEach((li) => {
+          children.push(
+            new Paragraph({
+              text: li.textContent || '',
+              bullet: { level: 0 },
+            })
+          );
+        });
+      } else {
+        const runs = processNode(el);
+        children.push(new Paragraph({ children: runs.length > 0 ? runs : [new TextRun(el.textContent || '')] }));
+      }
+    }
+
+    if (children.length === 0) {
+      children.push(new Paragraph({ text: body.textContent || 'Empty Document' }));
+    }
+
+    const docxFile = new Document({
+      sections: [
+        {
+          properties: {},
+          children,
+        },
+      ],
+    });
+
+    return await Packer.toBlob(docxFile);
+  } catch (err) {
+    console.warn('[officeEngine] Binary docx generation fallback to HTML .doc:', err);
+    return exportHtmlToWordBlob(htmlContent, fileName);
+  }
 }
 
 // ============================================================
@@ -380,4 +506,52 @@ export function compilePptxToStudyPdf(deck: PptxDeckData): Promise<Blob> {
       reject(err);
     }
   });
+}
+
+/**
+ * Creates and appends a new blank slide to a PowerPoint deck
+ */
+export function createNewPptxSlide(deck: PptxDeckData, title = 'New Slide'): PptxDeckData {
+  const newSlideNum = deck.slides.length + 1;
+  const newSlide: PptxSlide = {
+    slideNumber: newSlideNum,
+    title,
+    bulletPoints: ['Click to edit bullet points', 'Add key study concepts or lecture takeaways'],
+    speakerNotes: '',
+  };
+  return {
+    ...deck,
+    totalSlides: deck.totalSlides + 1,
+    slides: [...deck.slides, newSlide],
+  };
+}
+
+/**
+ * Updates a specific slide's title, bullets, or notes in the deck
+ */
+export function updatePptxSlide(
+  deck: PptxDeckData,
+  slideIdx: number,
+  updates: Partial<PptxSlide>
+): PptxDeckData {
+  const newSlides = deck.slides.map((s, idx) => (idx === slideIdx ? { ...s, ...updates } : s));
+  return {
+    ...deck,
+    slides: newSlides,
+  };
+}
+
+/**
+ * Deletes a slide from the deck and re-indexes remaining slide numbers
+ */
+export function deletePptxSlide(deck: PptxDeckData, slideIdx: number): PptxDeckData {
+  if (deck.slides.length <= 1) return deck;
+  const newSlides = deck.slides
+    .filter((_, idx) => idx !== slideIdx)
+    .map((s, idx) => ({ ...s, slideNumber: idx + 1 }));
+  return {
+    ...deck,
+    totalSlides: newSlides.length,
+    slides: newSlides,
+  };
 }
