@@ -89,7 +89,7 @@ function MainContent({ children }: { children: React.ReactNode }) {
   }, []);
 
   const sidebarMargin = focusMode || isMobile ? 0 : collapsed ? 72 : 292;
-  const isNotesPage = pathname === '/notes';
+  const isWorkstationPage = pathname === '/notes' || pathname === '/reader' || pathname === '/whiteboard' || pathname === '/ide';
 
   return (
     <div
@@ -101,12 +101,12 @@ function MainContent({ children }: { children: React.ReactNode }) {
         className={`flex-1 relative z-10 ${
           focusMode
             ? 'p-1.5 md:p-2.5 overflow-hidden h-screen flex flex-col'
-            : isNotesPage
-            ? 'h-[calc(100vh-64px)] overflow-hidden flex flex-col p-2 md:p-3 pb-2'
+            : isWorkstationPage
+            ? 'h-[calc(100vh-64px)] overflow-hidden flex flex-col p-0'
             : 'overflow-y-auto p-4 md:p-6 pb-20 md:pb-6'
         }`}
       >
-        {!focusMode && !isNotesPage && <Breadcrumbs />}
+        {!focusMode && !isWorkstationPage && <Breadcrumbs />}
         {children}
       </main>
     </div>
@@ -116,6 +116,7 @@ function MainContent({ children }: { children: React.ReactNode }) {
 function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLoginPage = pathname === '/login';
+  const isWorkstationPage = pathname === '/notes' || pathname === '/reader' || pathname === '/whiteboard' || pathname === '/ide';
   const { focusMode } = useSidebar();
   const { reduceMotion } = useMotion();
   const { coins, addCoins } = useShop();
@@ -233,8 +234,8 @@ function AppShell({ children }: { children: React.ReactNode }) {
           {/* Global Pixel Pet Companion */}
           <PixelPet coins={coins} addCoins={addCoins} />
 
-          {/* Scroll to Top FAB */}
-          <ScrollToTop />
+          {/* Scroll to Top FAB (omitted on fixed workstation apps) */}
+          {!isWorkstationPage && <ScrollToTop />}
 
           {/* First Time User Onboarding Tour */}
           <OnboardingTour />

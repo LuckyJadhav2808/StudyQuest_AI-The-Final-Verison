@@ -29,7 +29,7 @@ import { marked } from 'marked';
 import katex from 'katex';
 import { ResizableSplitLayout } from '@/components/notes/MultitaskPanels';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
-import DocStudioHub from '@/components/docstudio/DocStudioHub';
+import DocStudioSuite from '@/components/docstudio/DocStudioSuite';
 
 type ReaderFileType = 'pdf' | 'image' | 'text' | 'markdown' | 'unknown';
 
@@ -620,43 +620,23 @@ export default function DocReader() {
   );
 
   return (
-    <div className="w-full flex flex-col h-[calc(100vh-100px)] relative overflow-hidden bg-[var(--background)]">
-      {/* Universal Mode Switcher Bar */}
-      <div className="flex items-center justify-between border-b border-[var(--card-border)]/80 px-4 py-2.5 bg-[var(--card-bg)] shadow-xs shrink-0 z-30">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center p-1 rounded-xl bg-muted/60 border border-[var(--card-border)]/60">
+    <div className="w-full flex-1 flex flex-col min-h-0 relative overflow-hidden bg-[var(--background)]">
+      {/* If in split reader mode, render compact split reader top bar with Return button */}
+      {studioMode === 'reader' && (
+        <div className="flex items-center justify-between border-b border-[var(--card-border)]/80 px-4 py-2 bg-[var(--card-bg)] shadow-xs shrink-0 z-30">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setStudioMode('studio')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                studioMode === 'studio'
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'text-[var(--muted-foreground)] hover:text-foreground'
-              }`}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-primary text-white shadow-xs hover:bg-primary/90 transition-all"
             >
               <HiLightningBolt className="w-3.5 h-3.5 text-amber-300" />
-              <span>Studio Toolkit</span>
+              <span>← Back to DocStudio Suite</span>
             </button>
-            <button
-              onClick={() => setStudioMode('reader')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                studioMode === 'reader'
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'text-[var(--muted-foreground)] hover:text-foreground'
-              }`}
-            >
-              <HiBookOpen className="w-3.5 h-3.5" />
-              <span>Split Reader</span>
-            </button>
+            <span className="text-xs font-semibold text-[var(--muted-foreground)] hidden sm:inline">
+              Multi-Pane Split Document Reader
+            </span>
           </div>
 
-          <span className="hidden md:inline-block text-[11px] text-[var(--muted-foreground)] font-medium">
-            {studioMode === 'studio'
-              ? 'CamScanner homework enhancer, PDF tools, image compressor & lab data table editor'
-              : 'Multi-pane PDF, markdown, and study document reader'}
-          </span>
-        </div>
-
-        {studioMode === 'reader' && (
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
@@ -677,13 +657,16 @@ export default function DocReader() {
               <HiTemplate size={14} /> {isSplit ? 'Single Screen' : 'Split Screen'}
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Main View Area */}
       {studioMode === 'studio' ? (
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 min-h-0 bg-[var(--background)]">
-          <DocStudioHub onOpenInReader={handleOpenInReader} onSendToNotes={handleSendToNotes} />
+        <div className="flex-1 min-h-0 bg-[var(--background)] overflow-hidden flex flex-col">
+          <DocStudioSuite
+            onSendToNotes={handleSendToNotes}
+            onOpenClassicReader={() => setStudioMode('reader')}
+          />
         </div>
       ) : (
         <div className="flex-1 flex min-h-0 relative overflow-hidden">
