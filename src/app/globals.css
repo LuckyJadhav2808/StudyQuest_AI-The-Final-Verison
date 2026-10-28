@@ -2642,6 +2642,9 @@ li .studyquest-math-embed {
    DOCSTUDIO: REALISTIC A4 WORD DOCUMENT SCREEN & EDITING STYLES
    ============================================================ */
 .word-editor-stage {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
   background-color: #cbd5e1;
 }
 .dark .word-editor-stage {
@@ -2650,6 +2653,9 @@ li .studyquest-math-embed {
 
 /* Authentic A4 Paper Sheet */
 .word-printable-stage {
+  align-self: flex-start !important;
+  height: auto !important;
+  min-height: 1123px !important;
   background-color: #ffffff !important;
   color: #0f172a !important;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.2) !important;
@@ -2675,7 +2681,18 @@ li .studyquest-math-embed {
 /* Quill editor container inside Word Paper Stage */
 .word-quill-stage {
   width: 100% !important;
-  flex: 1 1 auto !important;
+  height: auto !important;
+  flex: none !important;
+}
+
+/* Responsive Auto-Containment for Images in Word Documents */
+.word-quill-stage img,
+.word-printable-stage img {
+  max-width: 100% !important;
+  height: auto !important;
+  display: block !important;
+  margin: 12px auto !important;
+  border-radius: 4px;
 }
 
 .word-quill-stage .ql-container.ql-snow {

@@ -1061,7 +1061,7 @@ export default function WordStudioSuite({
       {/* -------------------------------------------------------------
           3. REALISTIC A4 PAPER WORKSPACE STAGE
       -------------------------------------------------------------- */}
-      <div className="flex-1 overflow-auto bg-slate-200/80 dark:bg-slate-950 p-4 md:p-8 flex justify-center relative word-editor-stage">
+      <div className="flex-1 overflow-auto bg-slate-200/80 dark:bg-slate-950 p-4 md:p-8 flex justify-center items-start relative word-editor-stage">
         {/* Printable/Exportable Paper Container */}
         <div
           ref={printContainerRef}
@@ -1073,7 +1073,7 @@ export default function WordStudioSuite({
             transformOrigin: 'top center',
             transition: 'transform 0.15s ease',
           }}
-          className={`bg-white text-slate-900 rounded-sm shadow-2xl transition-all relative flex flex-col word-printable-stage ${
+          className={`bg-white text-slate-900 rounded-sm shadow-2xl transition-all relative flex flex-col self-start word-printable-stage ${
             margins === 'narrow' ? 'p-8' : margins === 'wide' ? 'p-16' : 'p-12'
           }`}
         >
@@ -1084,7 +1084,7 @@ export default function WordStudioSuite({
           </div>
 
           {/* ReactQuill Editor mounted directly in A4 paper boundary */}
-          <div className="flex-1 text-slate-800 word-quill-stage">
+          <div className="w-full h-auto text-slate-800 word-quill-stage">
             <ReactQuill
               theme="snow"
               value={contentHtml}
