@@ -242,22 +242,22 @@ export default function DashboardBentoGrid() {
   };
 
   return (
-    <div className="w-full h-full flex flex-col gap-3 sm:gap-3.5 select-none overflow-y-auto pr-0.5">
+    <div className="w-full h-full flex flex-col gap-3 sm:gap-3.5 select-none overflow-y-auto pr-0.5 custom-scrollbar">
       {/* =========================================================================
           TOP ROW: 3 Modular Quest / Challenge Cards with Notched Bottom-Right CTAs
           ========================================================================= */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-3.5 flex-shrink-0">
-        {/* Card 1: Daily Focus Sprint */}
-        <div className="relative rounded-[24px] sm:rounded-[28px] bg-slate-900/80 dark:bg-white/[0.04] border border-slate-700/70 dark:border-white/10 p-4 sm:p-5 flex flex-col justify-between overflow-hidden shadow-sm hover:border-violet-500/50 transition-all group">
-          {/* Subtle Ambient Glow */}
-          <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-violet-600/10 blur-2xl pointer-events-none" />
+        {/* Card 1: Daily Focus Sprint (Primary Violet #7C3AED) */}
+        <div className="relative rounded-[26px] sm:rounded-[30px] bg-white dark:bg-[#111328] border border-indigo-100/90 dark:border-white/10 p-4 sm:p-5 flex flex-col justify-between overflow-hidden shadow-[0_4px_24px_-4px_rgba(124,58,237,0.08)] hover:shadow-[0_8px_32px_-4px_rgba(124,58,237,0.18)] hover:border-primary/50 transition-all group">
+          {/* Ambient Glow */}
+          <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-primary/15 blur-2xl pointer-events-none" />
 
           {/* Card Header & Badge */}
           <div className="flex items-center justify-between z-10">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-violet-400 font-mono">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-primary font-mono">
               ⚡ Challenge 01
             </span>
-            <span className="px-2 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/30 text-[10px] font-semibold text-violet-300">
+            <span className="px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/25 text-[10px] font-bold text-primary">
               Focus Sprint
             </span>
           </div>
@@ -266,28 +266,28 @@ export default function DashboardBentoGrid() {
           <div className="flex flex-col items-center justify-center my-3 sm:my-4 z-10 text-center">
             <motion.div
               whileHover={{ scale: 1.1, rotate: -4 }}
-              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-violet-600/30 to-indigo-500/20 border border-violet-500/30 flex items-center justify-center text-violet-400 text-2xl sm:text-3xl shadow-inner mb-2.5"
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-primary/10 border border-primary/25 flex items-center justify-center text-primary text-2xl sm:text-3xl shadow-inner mb-2.5"
             >
               ⏱️
             </motion.div>
-            <h3 className="text-sm sm:text-base font-bold text-white leading-tight">
+            <h3 className="text-sm sm:text-base font-heading font-black text-slate-900 dark:text-white leading-tight">
               25m Focus Block
             </h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">
+            <p className="text-[11px] text-[var(--muted-foreground)] mt-0.5">
               Deep work sprint with zero distractions
             </p>
           </div>
 
           {/* Custom Notched Bottom-Right Pill Action */}
-          <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 dark:border-white/5 z-10">
-            <span className="text-[11px] font-mono font-bold text-emerald-400">
+          <div className="flex items-center justify-between pt-2 border-t border-indigo-50 dark:border-white/5 z-10">
+            <span className="text-[11px] font-mono font-bold text-tertiary">
               +50 XP
             </span>
             <motion.button
               onClick={() => router.push('/timer')}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="px-3.5 py-1.5 rounded-full bg-violet-600 hover:bg-violet-500 text-white font-semibold text-xs flex items-center gap-1 shadow-md shadow-violet-600/20 cursor-pointer transition-colors"
+              className="px-3.5 py-1.5 rounded-full bg-primary hover:bg-primary-light text-white font-semibold text-xs flex items-center gap-1 shadow-md shadow-primary/25 cursor-pointer transition-colors"
             >
               <span>Start Quest</span>
               <HiChevronRight size={14} />
@@ -295,17 +295,17 @@ export default function DashboardBentoGrid() {
           </div>
         </div>
 
-        {/* Card 2: Note Mastery & Flashcards */}
-        <div className="relative rounded-[24px] sm:rounded-[28px] bg-slate-900/80 dark:bg-white/[0.04] border border-slate-700/70 dark:border-white/10 p-4 sm:p-5 flex flex-col justify-between overflow-hidden shadow-sm hover:border-amber-500/50 transition-all group">
-          {/* Subtle Ambient Glow */}
-          <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-amber-500/10 blur-2xl pointer-events-none" />
+        {/* Card 2: Note Mastery & Flashcards (Amber Gold #FFD166) */}
+        <div className="relative rounded-[26px] sm:rounded-[30px] bg-white dark:bg-[#111328] border border-indigo-100/90 dark:border-white/10 p-4 sm:p-5 flex flex-col justify-between overflow-hidden shadow-[0_4px_24px_-4px_rgba(124,58,237,0.08)] hover:shadow-[0_8px_32px_-4px_rgba(124,58,237,0.18)] hover:border-amber-400/50 transition-all group">
+          {/* Ambient Glow */}
+          <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-amber-500/15 blur-2xl pointer-events-none" />
 
           {/* Card Header & Badge */}
           <div className="flex items-center justify-between z-10">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 font-mono">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-500 font-mono">
               📜 Challenge 02
             </span>
-            <span className="px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-[10px] font-semibold text-amber-300">
+            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/25 text-[10px] font-bold text-amber-600 dark:text-amber-300">
               Scroll Mastery
             </span>
           </div>
@@ -314,28 +314,28 @@ export default function DashboardBentoGrid() {
           <div className="flex flex-col items-center justify-center my-3 sm:my-4 z-10 text-center">
             <motion.div
               whileHover={{ scale: 1.1, rotate: 4 }}
-              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-amber-500/30 to-orange-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 text-2xl sm:text-3xl shadow-inner mb-2.5"
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-500 text-2xl sm:text-3xl shadow-inner mb-2.5"
             >
               📖
             </motion.div>
-            <h3 className="text-sm sm:text-base font-bold text-white leading-tight">
+            <h3 className="text-sm sm:text-base font-heading font-black text-slate-900 dark:text-white leading-tight">
               Review Top Scrolls
             </h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">
+            <p className="text-[11px] text-[var(--muted-foreground)] mt-0.5">
               Active recall on today&apos;s lecture notes
             </p>
           </div>
 
           {/* Custom Notched Bottom-Right Pill Action */}
-          <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 dark:border-white/5 z-10">
-            <span className="text-[11px] font-mono font-bold text-amber-400">
+          <div className="flex items-center justify-between pt-2 border-t border-indigo-50 dark:border-white/5 z-10">
+            <span className="text-[11px] font-mono font-bold text-amber-500">
               +35 XP
             </span>
             <motion.button
               onClick={() => router.push('/notes')}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="px-3.5 py-1.5 rounded-full bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs flex items-center gap-1 shadow-md shadow-amber-600/20 cursor-pointer transition-colors"
+              className="px-3.5 py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-white font-semibold text-xs flex items-center gap-1 shadow-md shadow-amber-500/25 cursor-pointer transition-colors"
             >
               <span>Continue</span>
               <HiChevronRight size={14} />
@@ -343,17 +343,17 @@ export default function DashboardBentoGrid() {
           </div>
         </div>
 
-        {/* Card 3: Code Arena & DSA Dungeon */}
-        <div className="relative rounded-[24px] sm:rounded-[28px] bg-slate-900/80 dark:bg-white/[0.04] border border-slate-700/70 dark:border-white/10 p-4 sm:p-5 flex flex-col justify-between overflow-hidden shadow-sm hover:border-emerald-500/50 transition-all group">
-          {/* Subtle Ambient Glow */}
-          <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" />
+        {/* Card 3: Code Arena & DSA Dungeon (Teal / Emerald #06D6A0) */}
+        <div className="relative rounded-[26px] sm:rounded-[30px] bg-white dark:bg-[#111328] border border-indigo-100/90 dark:border-white/10 p-4 sm:p-5 flex flex-col justify-between overflow-hidden shadow-[0_4px_24px_-4px_rgba(124,58,237,0.08)] hover:shadow-[0_8px_32px_-4px_rgba(124,58,237,0.18)] hover:border-teal/50 transition-all group">
+          {/* Ambient Glow */}
+          <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-teal/15 blur-2xl pointer-events-none" />
 
           {/* Card Header & Badge */}
           <div className="flex items-center justify-between z-10">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 font-mono">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-teal font-mono">
               ⚔️ Challenge 03
             </span>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[10px] font-semibold text-emerald-300">
+            <span className="px-2.5 py-0.5 rounded-full bg-teal/10 border border-teal/25 text-[10px] font-bold text-teal">
               DSA Dungeon
             </span>
           </div>
@@ -362,28 +362,28 @@ export default function DashboardBentoGrid() {
           <div className="flex flex-col items-center justify-center my-3 sm:my-4 z-10 text-center">
             <motion.div
               whileHover={{ scale: 1.1, rotate: -4 }}
-              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-emerald-500/30 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-2xl sm:text-3xl shadow-inner mb-2.5"
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-teal/10 border border-teal/25 flex items-center justify-center text-teal text-2xl sm:text-3xl shadow-inner mb-2.5"
             >
               💻
             </motion.div>
-            <h3 className="text-sm sm:text-base font-bold text-white leading-tight">
+            <h3 className="text-sm sm:text-base font-heading font-black text-slate-900 dark:text-white leading-tight">
               Algorithm Raid
             </h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">
+            <p className="text-[11px] text-[var(--muted-foreground)] mt-0.5">
               Solve today&apos;s LeetCode boss battle
             </p>
           </div>
 
           {/* Custom Notched Bottom-Right Pill Action */}
-          <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 dark:border-white/5 z-10">
-            <span className="text-[11px] font-mono font-bold text-emerald-400">
+          <div className="flex items-center justify-between pt-2 border-t border-indigo-50 dark:border-white/5 z-10">
+            <span className="text-[11px] font-mono font-bold text-teal">
               +100 XP
             </span>
             <motion.button
               onClick={() => router.push('/dsa')}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="px-3.5 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1 shadow-md shadow-emerald-600/20 cursor-pointer transition-colors"
+              className="px-3.5 py-1.5 rounded-full bg-teal hover:bg-teal-dark text-white font-semibold text-xs flex items-center gap-1 shadow-md shadow-teal/25 cursor-pointer transition-colors"
             >
               <span>Enter Raid</span>
               <HiChevronRight size={14} />
@@ -401,16 +401,16 @@ export default function DashboardBentoGrid() {
             ===================================================================== */}
         <div className="lg:col-span-2 flex flex-col gap-3 sm:gap-3.5 h-full min-h-[360px]">
           {/* Main Display Card: Interactive Activity Canvas */}
-          <div className="flex-1 rounded-[26px] sm:rounded-[30px] bg-slate-900/80 dark:bg-white/[0.04] border border-slate-700/70 dark:border-white/10 p-4 sm:p-5 flex flex-col justify-between relative overflow-hidden shadow-sm">
+          <div className="flex-1 rounded-[26px] sm:rounded-[30px] bg-white dark:bg-[#111328] border border-indigo-100/90 dark:border-white/10 p-4 sm:p-5 flex flex-col justify-between relative overflow-hidden shadow-[0_4px_24px_-4px_rgba(124,58,237,0.08)]">
             {/* View Tab Switcher Header */}
-            <div className="flex items-center justify-between z-10 pb-3 border-b border-slate-800/80 dark:border-white/5">
-              <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-800/70 dark:bg-white/[0.05] border border-slate-700/60 dark:border-white/10">
+            <div className="flex items-center justify-between z-10 pb-3 border-b border-indigo-50 dark:border-white/5">
+              <div className="flex items-center gap-1.5 p-1 rounded-xl bg-indigo-50/60 dark:bg-white/[0.04] border border-indigo-100/80 dark:border-white/10">
                 <button
                   onClick={() => setActiveTab('task')}
                   className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     activeTab === 'task'
-                      ? 'bg-violet-600 text-white shadow-xs'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-primary text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-white'
                   }`}
                 >
                   ⚔️ Priority Quest
@@ -419,8 +419,8 @@ export default function DashboardBentoGrid() {
                   onClick={() => setActiveTab('timer')}
                   className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     activeTab === 'timer'
-                      ? 'bg-violet-600 text-white shadow-xs'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-primary text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-white'
                   }`}
                 >
                   ⏱️ Focus Sprint
@@ -429,17 +429,17 @@ export default function DashboardBentoGrid() {
                   onClick={() => setActiveTab('desk')}
                   className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     activeTab === 'desk'
-                      ? 'bg-violet-600 text-white shadow-xs'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-primary text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-white'
                   }`}
                 >
                   🌸 Lofi Sanctuary
                 </button>
               </div>
 
-              <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="hidden sm:inline">Active Session</span>
+              <div className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]">
+                <span className="w-2 h-2 rounded-full bg-tertiary animate-pulse" />
+                <span className="hidden sm:inline font-semibold">Active Session</span>
               </div>
             </div>
 
@@ -452,19 +452,19 @@ export default function DashboardBentoGrid() {
                   animate={{ opacity: 1, scale: 1 }}
                   className="flex flex-col items-center max-w-md w-full"
                 >
-                  <div className="w-16 h-16 rounded-2xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-3xl mb-3 shadow-inner">
+                  <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-3xl mb-3 shadow-inner">
                     🎯
                   </div>
                   {topTask ? (
-                    <div className="w-full p-4 rounded-2xl bg-slate-800/60 dark:bg-white/[0.03] border border-slate-700/70 dark:border-white/10 flex items-center justify-between gap-3 text-left">
+                    <div className="w-full p-4 rounded-2xl bg-indigo-50/40 dark:bg-white/[0.03] border border-indigo-100/90 dark:border-white/10 flex items-center justify-between gap-3 text-left">
                       <div className="min-w-0 flex-1">
-                        <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-[10px] font-bold text-amber-300 uppercase tracking-wide">
+                        <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-[10px] font-bold text-amber-600 dark:text-amber-300 uppercase tracking-wide">
                           {topTask.priority || 'High Priority'}
                         </span>
-                        <h4 className="text-sm font-bold text-white truncate mt-1">
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate mt-1">
                           {topTask.title}
                         </h4>
-                        <p className="text-[11px] text-slate-400 truncate">
+                        <p className="text-[11px] text-[var(--muted-foreground)] truncate">
                           {topTask.description || 'Complete this task to advance your daily quest streak'}
                         </p>
                       </div>
@@ -472,7 +472,7 @@ export default function DashboardBentoGrid() {
                         onClick={handleCompleteTask}
                         whileHover={{ scale: 1.08 }}
                         whileTap={{ scale: 0.92 }}
-                        className="w-10 h-10 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-md shadow-emerald-600/30 cursor-pointer flex-shrink-0"
+                        className="w-10 h-10 rounded-xl bg-tertiary hover:bg-tertiary-dark text-white flex items-center justify-center shadow-md shadow-tertiary/30 cursor-pointer flex-shrink-0"
                         title="Mark Completed"
                       >
                         <HiCheck size={20} />
@@ -480,11 +480,11 @@ export default function DashboardBentoGrid() {
                     </div>
                   ) : (
                     <div className="flex flex-col items-center">
-                      <p className="text-sm font-bold text-white">All Quests Completed!</p>
-                      <p className="text-xs text-slate-400 mt-1">Add a new task or embark on a raid</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white font-heading">All Quests Completed!</p>
+                      <p className="text-xs text-[var(--muted-foreground)] mt-1">Add a new task or embark on a dungeon raid</p>
                       <button
                         onClick={() => router.push('/tasks')}
-                        className="mt-3 px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                        className="mt-3 px-3 py-1.5 rounded-xl bg-primary hover:bg-primary-light text-white text-xs font-semibold flex items-center gap-1 cursor-pointer shadow-sm"
                       >
                         <HiPlus size={14} /> Add Quest
                       </button>
@@ -500,10 +500,10 @@ export default function DashboardBentoGrid() {
                   animate={{ opacity: 1, scale: 1 }}
                   className="flex flex-col items-center"
                 >
-                  <div className="text-4xl sm:text-5xl font-mono font-black tracking-widest text-white tabular-nums drop-shadow-md">
+                  <div className="text-4xl sm:text-5xl font-mono font-black tracking-widest text-slate-900 dark:text-white tabular-nums drop-shadow-sm">
                     {formatTime(timerSeconds)}
                   </div>
-                  <p className="text-xs text-violet-400 mt-1 font-semibold uppercase tracking-wider">
+                  <p className="text-xs text-primary mt-1 font-semibold uppercase tracking-wider">
                     {isTimerRunning ? '⚡ Focus Mode Active' : 'Idle — Ready to Sprint'}
                   </p>
                   <div className="flex items-center gap-2 mt-4">
@@ -513,8 +513,8 @@ export default function DashboardBentoGrid() {
                       whileTap={{ scale: 0.95 }}
                       className={`px-5 py-2 rounded-full font-bold text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition-all ${
                         isTimerRunning
-                          ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/20'
-                          : 'bg-violet-600 hover:bg-violet-500 text-white shadow-violet-600/30'
+                          ? 'bg-amber-500 hover:bg-amber-400 text-white shadow-amber-500/20'
+                          : 'bg-primary hover:bg-primary-light text-white shadow-primary/30'
                       }`}
                     >
                       {isTimerRunning ? <HiPause size={15} /> : <HiPlay size={15} />}
@@ -525,7 +525,7 @@ export default function DashboardBentoGrid() {
                         setIsTimerRunning(false);
                         setTimerSeconds(25 * 60);
                       }}
-                      className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
+                      className="p-2 rounded-full bg-indigo-50 dark:bg-white/10 hover:bg-indigo-100 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
                       title="Reset 25m Timer"
                     >
                       <HiRefresh size={16} />
@@ -542,13 +542,13 @@ export default function DashboardBentoGrid() {
                   className="flex flex-col items-center max-w-sm"
                 >
                   <div className="text-4xl mb-2">🏮</div>
-                  <h4 className="text-sm font-bold text-white">Lofi Study Sanctuary</h4>
-                  <p className="text-xs text-slate-400 mt-1">
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white font-heading">Lofi Study Sanctuary</h4>
+                  <p className="text-xs text-[var(--muted-foreground)] mt-1">
                     Ambient lighting, binaural tones, and peaceful lo-fi beats
                   </p>
                   <button
                     onClick={() => router.push('/reader')}
-                    className="mt-3 px-4 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-sm"
+                    className="mt-3 px-4 py-1.5 rounded-full bg-secondary hover:bg-secondary-dark text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-sm"
                   >
                     <span>Open Fullscreen Sanctuary</span>
                     <HiExternalLink size={13} />
@@ -558,9 +558,9 @@ export default function DashboardBentoGrid() {
             </div>
 
             {/* Bottom Card Footer */}
-            <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800/80 dark:border-white/5 z-10">
+            <div className="flex items-center justify-between text-[11px] text-[var(--muted-foreground)] pt-2 border-t border-indigo-50 dark:border-white/5 z-10 font-mono">
               <span>StudyQuest AI Focus Engine</span>
-              <span className="font-mono text-violet-400">60 FPS Smooth Canvas</span>
+              <span className="text-primary font-bold">60 FPS Smooth Canvas</span>
             </div>
           </div>
 
@@ -569,11 +569,11 @@ export default function DashboardBentoGrid() {
               ===================================================================== */}
           <div className="flex items-center gap-2.5 sm:gap-3 flex-shrink-0">
             {/* Audio Control Pill */}
-            <div className="flex-1 rounded-2xl sm:rounded-full bg-slate-900/90 dark:bg-white/[0.05] border border-slate-700/80 dark:border-white/12 p-2 sm:px-4 sm:py-2 flex items-center justify-between gap-3 shadow-sm select-none">
+            <div className="flex-1 rounded-2xl sm:rounded-full bg-white dark:bg-[#111328] border border-indigo-100/90 dark:border-white/10 p-2 sm:px-4 sm:py-2 flex items-center justify-between gap-3 shadow-sm select-none">
               {/* Left: Spinning Vinyl / Artwork Thumbnail */}
               <div className="flex items-center gap-2.5 min-w-0">
                 <div
-                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-violet-600/20 border border-violet-500/40 flex-shrink-0 flex items-center justify-center ${
+                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-primary/20 border border-primary/40 flex-shrink-0 flex items-center justify-center ${
                     isPlaying ? 'animate-spin' : ''
                   }`}
                   style={{ animationDuration: '6s' }}
@@ -586,10 +586,10 @@ export default function DashboardBentoGrid() {
                 </div>
 
                 <div className="flex flex-col truncate min-w-0">
-                  <span className="text-xs font-bold text-white truncate leading-tight">
+                  <span className="text-xs font-bold text-slate-900 dark:text-white truncate leading-tight">
                     {currentTrack?.name || 'Lofi Chill Study Beats'}
                   </span>
-                  <span className="text-[10px] text-slate-400 truncate">
+                  <span className="text-[10px] text-[var(--muted-foreground)] truncate">
                     {currentTrack?.artists || 'StudyQuest Ambient Audio'}
                   </span>
                 </div>
@@ -600,7 +600,7 @@ export default function DashboardBentoGrid() {
                 <div className="flex items-center gap-2 mb-1">
                   <button
                     onClick={prevTrack}
-                    className="p-1 rounded-full text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    className="p-1 rounded-full text-slate-500 hover:text-primary transition-colors cursor-pointer"
                     title="Previous Track"
                   >
                     <HiRewind size={15} />
@@ -609,14 +609,14 @@ export default function DashboardBentoGrid() {
                     onClick={togglePlayPause}
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
-                    className="w-7 h-7 rounded-full bg-violet-600 hover:bg-violet-500 text-white flex items-center justify-center shadow-md shadow-violet-600/30 cursor-pointer"
+                    className="w-7 h-7 rounded-full bg-primary hover:bg-primary-light text-white flex items-center justify-center shadow-md shadow-primary/25 cursor-pointer"
                     title={isPlaying ? 'Pause' : 'Play'}
                   >
                     {isPlaying ? <HiPause size={14} /> : <HiPlay size={14} className="ml-0.5" />}
                   </motion.button>
                   <button
                     onClick={nextTrack}
-                    className="p-1 rounded-full text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    className="p-1 rounded-full text-slate-500 hover:text-primary transition-colors cursor-pointer"
                     title="Next Track"
                   >
                     <HiFastForward size={15} />
@@ -624,7 +624,7 @@ export default function DashboardBentoGrid() {
                 </div>
 
                 {/* Progress Scrub Bar */}
-                <div className="w-full flex items-center gap-1.5 text-[9px] font-mono text-slate-400">
+                <div className="w-full flex items-center gap-1.5 text-[9px] font-mono text-[var(--muted-foreground)]">
                   <span>{formatTime(currentTime || 0)}</span>
                   <div
                     onClick={(e) => {
@@ -632,10 +632,10 @@ export default function DashboardBentoGrid() {
                       const pos = (e.clientX - rect.left) / rect.width;
                       if (seek && duration) seek(pos * duration);
                     }}
-                    className="flex-1 h-1 bg-slate-700/80 rounded-full overflow-hidden cursor-pointer relative group"
+                    className="flex-1 h-1 bg-indigo-100 dark:bg-white/10 rounded-full overflow-hidden cursor-pointer relative group"
                   >
                     <div
-                      className="h-full bg-violet-500 rounded-full"
+                      className="h-full bg-primary rounded-full"
                       style={{
                         width: `${duration > 0 ? (currentTime / duration) * 100 : 35}%`,
                       }}
@@ -650,7 +650,7 @@ export default function DashboardBentoGrid() {
                 <motion.button
                   onClick={togglePlayPause}
                   whileTap={{ scale: 0.9 }}
-                  className="w-8 h-8 rounded-full bg-violet-600 text-white flex items-center justify-center"
+                  className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center shadow-xs"
                 >
                   {isPlaying ? <HiPause size={16} /> : <HiPlay size={16} className="ml-0.5" />}
                 </motion.button>
@@ -660,7 +660,7 @@ export default function DashboardBentoGrid() {
               <div className="hidden md:flex items-center gap-1.5 flex-shrink-0">
                 <button
                   onClick={toggleMute}
-                  className="p-1 rounded-full text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  className="p-1 rounded-full text-slate-500 hover:text-primary transition-colors cursor-pointer"
                   title={isMuted ? 'Unmute' : 'Mute'}
                 >
                   {isMuted || volume === 0 ? <HiVolumeOff size={15} /> : <HiVolumeUp size={15} />}
@@ -671,38 +671,38 @@ export default function DashboardBentoGrid() {
                   max={100}
                   value={isMuted ? 0 : volume}
                   onChange={(e) => setVolume(parseInt(e.target.value, 10))}
-                  className="w-16 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-violet-500"
+                  className="w-16 h-1 bg-indigo-100 dark:bg-white/15 rounded-lg appearance-none cursor-pointer accent-primary"
                   title={`Volume: ${volume}%`}
                 />
               </div>
             </div>
 
             {/* Accompanying Vertical Utility Slot / Ambient Soundscape Action Pill */}
-            <div className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-2xl sm:rounded-full bg-slate-900/90 dark:bg-white/[0.05] border border-slate-700/80 dark:border-white/12 shadow-sm">
+            <div className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-2xl sm:rounded-full bg-white dark:bg-[#111328] border border-indigo-100/90 dark:border-white/10 shadow-sm">
               <button
                 onClick={() => toggleAmbientSound('rain')}
                 className={`p-1.5 rounded-xl text-xs flex items-center gap-1 transition-all cursor-pointer ${
                   ambientSound === 'rain'
                     ? 'bg-sky-500 text-white shadow-xs'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-primary hover:bg-indigo-50 dark:hover:bg-white/5'
                 }`}
                 title="Toggle Ambient Rain Soundscape"
               >
                 <span>🌧️</span>
-                <span className="hidden xl:inline text-[10px] font-semibold">Rain</span>
+                <span className="hidden xl:inline text-[10px] font-bold">Rain</span>
               </button>
 
               <button
                 onClick={() => toggleAmbientSound('binaural')}
                 className={`p-1.5 rounded-xl text-xs flex items-center gap-1 transition-all cursor-pointer ${
                   ambientSound === 'binaural'
-                    ? 'bg-purple-600 text-white shadow-xs'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    ? 'bg-primary text-white shadow-xs'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-primary hover:bg-indigo-50 dark:hover:bg-white/5'
                 }`}
                 title="Toggle 40Hz Binaural Gamma Focus Waves"
               >
                 <span>🎧</span>
-                <span className="hidden xl:inline text-[10px] font-semibold">40Hz</span>
+                <span className="hidden xl:inline text-[10px] font-bold">40Hz</span>
               </button>
             </div>
           </div>
@@ -714,13 +714,13 @@ export default function DashboardBentoGrid() {
         <div
           onMouseEnter={() => setIsNotesFanned(true)}
           onMouseLeave={() => setIsNotesFanned(false)}
-          className="lg:col-span-1 rounded-[26px] sm:rounded-[30px] bg-slate-900/80 dark:bg-white/[0.04] border border-slate-700/70 dark:border-white/10 p-4 sm:p-5 flex flex-col justify-between relative overflow-hidden shadow-sm group"
+          className="lg:col-span-1 rounded-[26px] sm:rounded-[30px] bg-white dark:bg-[#111328] border border-indigo-100/90 dark:border-white/10 p-4 sm:p-5 flex flex-col justify-between relative overflow-hidden shadow-[0_4px_24px_-4px_rgba(124,58,237,0.08)] group"
         >
           {/* Header with Title and Add Button */}
-          <div className="flex items-center justify-between pb-3 border-b border-slate-800/80 dark:border-white/5 z-20">
+          <div className="flex items-center justify-between pb-3 border-b border-indigo-50 dark:border-white/5 z-20">
             <div className="flex items-center gap-2">
               <span className="text-base">📑</span>
-              <h3 className="text-sm sm:text-base font-bold text-white tracking-wide">
+              <h3 className="text-sm sm:text-base font-heading font-black text-slate-900 dark:text-white tracking-wide">
                 Top 3 Notes
               </h3>
             </div>
@@ -728,14 +728,14 @@ export default function DashboardBentoGrid() {
             <div className="flex items-center gap-1">
               <button
                 onClick={() => router.push('/notes')}
-                className="p-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                className="p-1.5 rounded-xl bg-indigo-50 dark:bg-white/5 hover:bg-indigo-100 text-slate-600 dark:text-slate-300 hover:text-primary transition-colors cursor-pointer"
                 title="View All Notes"
               >
                 <HiSearch size={14} />
               </button>
               <button
                 onClick={() => router.push('/notes')}
-                className="p-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white transition-colors cursor-pointer"
+                className="p-1.5 rounded-xl bg-primary hover:bg-primary-light text-white transition-colors cursor-pointer shadow-xs"
                 title="Create New Note"
               >
                 <HiPlus size={14} />
@@ -776,33 +776,33 @@ export default function DashboardBentoGrid() {
                   }}
                   className={`absolute w-11/12 max-w-[280px] p-3.5 rounded-2xl border transition-all cursor-pointer select-none shadow-xl ${
                     index === 2
-                      ? 'bg-slate-800 border-violet-500/50 text-white'
+                      ? 'bg-white dark:bg-[#111328] border-2 border-primary/50 text-slate-900 dark:text-white shadow-primary/10'
                       : index === 1
-                      ? 'bg-slate-850 border-slate-700 text-slate-200'
-                      : 'bg-slate-900 border-slate-800 text-slate-300'
+                      ? 'bg-slate-50 dark:bg-[#161936] border border-indigo-100 dark:border-white/10 text-slate-800 dark:text-slate-200'
+                      : 'bg-slate-100/80 dark:bg-[#1e2244] border border-indigo-100/60 dark:border-white/10 text-slate-700 dark:text-slate-300'
                   }`}
                   style={{ zIndex }}
                 >
                   <div className="flex items-center justify-between gap-1 mb-1.5">
-                    <span className="px-2 py-0.5 rounded-md bg-violet-500/20 text-violet-300 font-mono text-[9px] uppercase font-bold">
+                    <span className="px-2 py-0.5 rounded-md bg-primary/15 text-primary dark:text-primary-light font-mono text-[9px] uppercase font-bold">
                       {note.tags?.[0] ? `#${note.tags[0]}` : '#study'}
                     </span>
-                    <span className="text-[9px] text-slate-400 font-mono">
+                    <span className="text-[9px] text-[var(--muted-foreground)] font-mono">
                       Card 0{index + 1}
                     </span>
                   </div>
 
-                  <h4 className="text-xs font-bold text-white line-clamp-1 leading-snug">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1 leading-snug">
                     {note.title || 'Untitled Scroll'}
                   </h4>
 
-                  <p className="text-[10px] text-slate-400 line-clamp-2 mt-1 leading-relaxed">
+                  <p className="text-[10px] text-[var(--muted-foreground)] line-clamp-2 mt-1 leading-relaxed">
                     {note.content?.replace(/<[^>]+>/g, '') || 'Tap to read full study note...'}
                   </p>
 
-                  <div className="mt-2.5 pt-1.5 border-t border-slate-700/40 flex items-center justify-between text-[9px] text-slate-400 font-mono">
+                  <div className="mt-2.5 pt-1.5 border-t border-indigo-50 dark:border-white/5 flex items-center justify-between text-[9px] text-[var(--muted-foreground)] font-mono">
                     <span>Click to open</span>
-                    <HiChevronRight size={11} className="text-violet-400" />
+                    <HiChevronRight size={11} className="text-primary" />
                   </div>
                 </motion.div>
               );
@@ -810,11 +810,11 @@ export default function DashboardBentoGrid() {
           </div>
 
           {/* Footer Hint */}
-          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800/80 dark:border-white/5 z-20">
+          <div className="flex items-center justify-between text-[11px] text-[var(--muted-foreground)] pt-2 border-t border-indigo-50 dark:border-white/5 z-20">
             <span className="italic text-[10px]">Hover to fan out cards</span>
             <Link
               href="/notes"
-              className="text-violet-400 hover:text-violet-300 font-semibold flex items-center gap-0.5 text-[11px]"
+              className="text-primary hover:text-primary-light font-semibold flex items-center gap-0.5 text-[11px]"
             >
               <span>Notes Studio</span>
               <HiChevronRight size={12} />

@@ -54,13 +54,13 @@ export default function Header() {
             onClick={() => router.push('/')}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
-            className="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl sm:rounded-full bg-slate-900/90 dark:bg-white/[0.06] hover:bg-slate-800 dark:hover:bg-white/[0.1] border border-slate-700/80 dark:border-white/15 shadow-sm cursor-pointer transition-all group"
+            className="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl sm:rounded-full bg-white dark:bg-[#111328] hover:bg-indigo-50/60 dark:hover:bg-white/[0.08] border border-indigo-100/90 dark:border-white/12 shadow-sm cursor-pointer transition-all group"
             title="StudyQuest Dashboard"
           >
-            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-400 flex items-center justify-center text-white shadow-xs">
+            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-gradient-to-tr from-primary to-secondary flex items-center justify-center text-white shadow-xs">
               <HiSparkles size={13} className="group-hover:rotate-12 transition-transform duration-300" />
             </div>
-            <span className="text-xs sm:text-sm font-heading font-black tracking-wide text-white dark:text-slate-100 whitespace-nowrap">
+            <span className="text-xs sm:text-sm font-heading font-black tracking-wide text-gradient whitespace-nowrap">
               StudyQuest
             </span>
           </motion.div>
@@ -68,12 +68,12 @@ export default function Header() {
           {/* Quick Search Shortcut Pill (Desktop) */}
           <button
             onClick={openCommandPalette}
-            className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-700/60 dark:border-white/10 bg-slate-900/60 dark:bg-white/[0.03] hover:border-violet-500/50 hover:bg-violet-500/5 text-[11px] text-slate-400 dark:text-slate-400 hover:text-white transition-all cursor-pointer"
+            className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-indigo-100/90 dark:border-white/10 bg-white dark:bg-[#111328] hover:border-primary/50 hover:bg-primary/5 text-[11px] text-[var(--muted-foreground)] hover:text-primary transition-all cursor-pointer shadow-2xs"
             title="Search or Ask Questie (Ctrl+K)"
           >
-            <HiSearch size={12} />
+            <HiSearch size={12} className="text-primary/70" />
             <span>Search...</span>
-            <kbd className="px-1.5 py-0.2 rounded bg-slate-800 dark:bg-white/10 text-[9px] font-mono border border-slate-700 dark:border-white/10">
+            <kbd className="px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-white/10 text-[9px] font-mono border border-indigo-100 dark:border-white/10 text-[var(--muted-foreground)]">
               ⌘K
             </kbd>
           </button>
@@ -86,7 +86,7 @@ export default function Header() {
               onClick={() => setShowChestModal(true)}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
-              className="flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-2xl sm:rounded-full bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 text-amber-300 dark:text-amber-200 shadow-md shadow-amber-500/10 cursor-pointer animate-pulse transition-all"
+              className="flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-2xl sm:rounded-full bg-gradient-to-r from-amber-500/20 via-primary/20 to-secondary/20 hover:from-amber-500/30 hover:to-secondary/30 border border-amber-400/40 text-amber-700 dark:text-amber-200 shadow-md shadow-amber-500/10 cursor-pointer animate-pulse transition-all"
               title="Click to claim your daily treasure chest!"
             >
               <span className="text-sm sm:text-base">🎁</span>
@@ -99,14 +99,14 @@ export default function Header() {
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               onClick={() => setShowChestModal(true)}
-              className="flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-2xl sm:rounded-full bg-slate-900/70 dark:bg-white/[0.04] border border-slate-700/70 dark:border-white/10 text-slate-300 dark:text-slate-300 hover:border-violet-500/40 cursor-pointer transition-all shadow-xs truncate"
+              className="flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-2xl sm:rounded-full bg-white dark:bg-[#111328] border border-indigo-100/90 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:border-primary/40 cursor-pointer transition-all shadow-xs truncate"
               title="Daily status and rewards"
             >
               <span className="text-xs sm:text-sm">{greeting.emoji}</span>
-              <span className="text-[11px] sm:text-xs font-medium text-slate-300 dark:text-slate-200 truncate">
+              <span className="text-[11px] sm:text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
                 {greeting.text}, Adventurer
               </span>
-              <span className="hidden md:inline-block text-[10px] text-slate-400 dark:text-slate-400 font-normal">
+              <span className="hidden md:inline-block text-[10px] text-[var(--muted-foreground)] font-normal">
                 • Stay focused
               </span>
             </motion.div>
@@ -116,13 +116,13 @@ export default function Header() {
         {/* Right Pill/Cluster: Streak, XP, Coins, Theme, Fullscreen, Notifications */}
         <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
           {/* Status HUD Pill (Streak, Coins, XP) */}
-          <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-2xl sm:rounded-full bg-slate-900/90 dark:bg-white/[0.05] border border-slate-700/80 dark:border-white/12 shadow-xs">
+          <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-2xl sm:rounded-full bg-white dark:bg-[#111328] border border-indigo-100/90 dark:border-white/12 shadow-xs">
             {/* Streak Counter */}
             {gamification && (
               <StreakCounter streak={gamification.streak} size="sm" />
             )}
 
-            <div className="h-3 w-[1px] bg-slate-700 dark:bg-white/15 hidden sm:block" />
+            <div className="h-3 w-[1px] bg-indigo-100 dark:bg-white/15 hidden sm:block" />
 
             {/* Coins Balance */}
             <motion.button
@@ -133,7 +133,7 @@ export default function Header() {
               title="Quest Coins (Click to visit Item Shop)"
             >
               <span className="text-xs">🪙</span>
-              <span className="text-[11px] font-bold text-amber-400 font-mono tabular-nums">
+              <span className="text-[11px] font-bold text-amber-500 dark:text-amber-400 font-mono tabular-nums">
                 {typeof coins === 'number'
                   ? coins
                   : typeof coins === 'object' && coins && 'bc' in (coins as any)
@@ -142,14 +142,14 @@ export default function Header() {
               </span>
             </motion.button>
 
-            <div className="h-3 w-[1px] bg-slate-700 dark:bg-white/15 hidden sm:block" />
+            <div className="h-3 w-[1px] bg-indigo-100 dark:bg-white/15 hidden sm:block" />
 
             {/* XP / Level Indicator */}
             {gamification && (
               <motion.div
                 onClick={() => router.push('/analytics')}
                 whileHover={{ scale: 1.05 }}
-                className="flex items-center gap-1 text-[11px] font-bold text-indigo-400 dark:text-indigo-300 font-mono tabular-nums cursor-pointer"
+                className="flex items-center gap-1 text-[11px] font-bold text-primary dark:text-primary-light font-mono tabular-nums cursor-pointer"
                 title={`Level ${gamification.level} (${gamification.xp?.toLocaleString() || 0} XP)`}
               >
                 <span className="text-amber-400">⚡</span>
@@ -168,7 +168,7 @@ export default function Header() {
             onClick={toggleTheme}
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-900/90 dark:bg-white/[0.05] hover:bg-slate-800 dark:hover:bg-white/[0.1] border border-slate-700/80 dark:border-white/12 flex items-center justify-center text-slate-300 dark:text-slate-300 hover:text-white transition-all cursor-pointer shadow-xs"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white dark:bg-[#111328] hover:bg-indigo-50/70 dark:hover:bg-white/[0.08] border border-indigo-100/90 dark:border-white/12 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-primary transition-all cursor-pointer shadow-xs"
             title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             aria-label="Toggle theme"
           >
@@ -181,7 +181,7 @@ export default function Header() {
               onClick={toggleFullscreen}
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.92 }}
-              className="hidden md:flex w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-900/90 dark:bg-white/[0.05] hover:bg-slate-800 dark:hover:bg-white/[0.1] border border-slate-700/80 dark:border-white/12 items-center justify-center text-slate-300 dark:text-slate-300 hover:text-white transition-all cursor-pointer shadow-xs"
+              className="hidden md:flex w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white dark:bg-[#111328] hover:bg-indigo-50/70 dark:hover:bg-white/[0.08] border border-indigo-100/90 dark:border-white/12 items-center justify-center text-slate-700 dark:text-slate-300 hover:text-primary transition-all cursor-pointer shadow-xs"
               title={isFullscreen ? 'Exit Immersion Mode' : 'Enter Immersion Mode'}
               aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
             >
@@ -194,13 +194,13 @@ export default function Header() {
             onClick={() => router.push('/')}
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
-            className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-900/90 dark:bg-white/[0.05] hover:bg-slate-800 dark:hover:bg-white/[0.1] border border-slate-700/80 dark:border-white/12 flex items-center justify-center text-slate-300 dark:text-slate-300 hover:text-white transition-all cursor-pointer shadow-xs"
+            className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white dark:bg-[#111328] hover:bg-indigo-50/70 dark:hover:bg-white/[0.08] border border-indigo-100/90 dark:border-white/12 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-primary transition-all cursor-pointer shadow-xs"
             title="Notifications & Friends"
             aria-label="Notifications"
           >
             <HiBell size={15} />
             {incomingRequests.length > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-rose-500 text-white text-[8px] font-bold flex items-center justify-center shadow-xs">
+              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-coral text-white text-[8px] font-bold flex items-center justify-center shadow-xs">
                 {incomingRequests.length}
               </span>
             )}
