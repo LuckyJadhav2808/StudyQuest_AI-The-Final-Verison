@@ -44,7 +44,7 @@ export default function Header() {
   };
 
   return (
-    <header className="h-14 sm:h-16 pt-[env(safe-area-inset-top,0px)] bg-white/90 dark:bg-[var(--card-bg)]/85 backdrop-blur-xl border-b border-indigo-100/80 dark:border-[var(--card-border)] shadow-[0_2px_12px_-2px_rgba(124,58,237,0.04)] dark:shadow-none flex items-center justify-between px-3.5 sm:px-6 sticky top-0 z-30">
+    <header className="flex-shrink-0 h-14 sm:h-16 pt-[env(safe-area-inset-top,0px)] bg-white/90 dark:bg-[var(--card-bg)]/85 backdrop-blur-xl border-b border-indigo-100/80 dark:border-[var(--card-border)] shadow-[0_2px_12px_-2px_rgba(124,58,237,0.04)] dark:shadow-none flex items-center justify-between px-3.5 sm:px-6 sticky top-0 z-30">
       {/* Left — Brand Logo (Guaranteed Full Width, Zero Truncation) */}
       <div className="flex items-center gap-2.5 sm:gap-3 flex-shrink-0">
         <motion.h1

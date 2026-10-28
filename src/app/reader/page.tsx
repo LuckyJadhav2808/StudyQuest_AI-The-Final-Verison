@@ -6,7 +6,7 @@ import PageTransition from '@/components/layout/PageTransition';
 
 export default function ReaderPage() {
   return (
-    <PageTransition>
+    <PageTransition className="h-full flex flex-col min-h-0">
       <DocReader />
     </PageTransition>
   );

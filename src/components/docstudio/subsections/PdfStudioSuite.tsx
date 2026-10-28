@@ -758,8 +758,45 @@ export default function PdfStudioSuite({
       -------------------------------------------------------------- */}
       <header className="flex-shrink-0 bg-[var(--card-bg)] border-b border-[var(--card-border)] px-3 sm:px-4 py-2 z-20 min-w-0 shadow-2xs">
         <div className="flex items-center justify-between gap-2 sm:gap-3 min-w-0">
-          {/* Left: Document Metadata or Quick Open */}
-          <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
+          {/* Left: Quick Suite Switcher & Document Metadata */}
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-shrink-0">
+            {onSwitchStudio && (
+              <div className="flex items-center bg-slate-100 dark:bg-slate-900/80 p-0.5 rounded-lg border border-[var(--card-border)] flex-shrink-0 mr-0.5">
+                <button
+                  type="button"
+                  onClick={() => onSwitchStudio('pdf')}
+                  className="px-1.5 py-0.5 rounded text-[11px] font-bold bg-rose-600 text-white shadow-2xs"
+                  title="PDF Studio (Active)"
+                >
+                  📕
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSwitchStudio('word')}
+                  className="px-1.5 py-0.5 rounded text-[11px] font-bold text-[var(--muted-foreground)] hover:text-blue-500 hover:bg-blue-500/10 transition-colors"
+                  title="Switch to Word Office Suite"
+                >
+                  📝
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSwitchStudio('pptx')}
+                  className="px-1.5 py-0.5 rounded text-[11px] font-bold text-[var(--muted-foreground)] hover:text-orange-500 hover:bg-orange-500/10 transition-colors"
+                  title="Switch to PowerPoint Presentation Suite"
+                >
+                  📊
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSwitchStudio('xlsx')}
+                  className="px-1.5 py-0.5 rounded text-[11px] font-bold text-[var(--muted-foreground)] hover:text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+                  title="Switch to Excel Spreadsheet Suite"
+                >
+                  📈
+                </button>
+              </div>
+            )}
+
             {doc ? (
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-xs font-bold truncate max-w-[140px] sm:max-w-[220px] md:max-w-[320px]">

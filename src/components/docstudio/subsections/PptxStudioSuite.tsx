@@ -400,7 +400,45 @@ export default function PptxStudioSuite({
       -------------------------------------------------------------- */}
       <div className="flex-shrink-0 bg-orange-700 dark:bg-orange-900 text-white px-3 py-1.5 flex items-center justify-between text-xs border-b border-orange-800 z-30 shadow-xs">
         {/* Left: App Logo & Filename */}
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+          {/* Quick Suite Switcher (Failsafe) */}
+          {onSwitchStudio && (
+            <div className="flex items-center bg-orange-900/80 p-0.5 rounded border border-orange-600/50 mr-1 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => onSwitchStudio('pdf')}
+                className="px-1 py-0.5 rounded text-[10px] hover:bg-orange-600/80 transition-colors"
+                title="Switch to PDF Studio"
+              >
+                📕
+              </button>
+              <button
+                type="button"
+                onClick={() => onSwitchStudio('word')}
+                className="px-1 py-0.5 rounded text-[10px] hover:bg-orange-600/80 transition-colors"
+                title="Switch to Word Office Suite"
+              >
+                📝
+              </button>
+              <button
+                type="button"
+                onClick={() => onSwitchStudio('pptx')}
+                className="px-1 py-0.5 rounded text-[10px] bg-orange-600 font-bold shadow-2xs"
+                title="PowerPoint Studio (Active)"
+              >
+                📊
+              </button>
+              <button
+                type="button"
+                onClick={() => onSwitchStudio('xlsx')}
+                className="px-1 py-0.5 rounded text-[10px] hover:bg-orange-600/80 transition-colors"
+                title="Switch to Excel Spreadsheet Suite"
+              >
+                📈
+              </button>
+            </div>
+          )}
+
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-orange-800/80 font-bold">
             <span className="text-base">📊</span>
             <span className="font-heading tracking-wider hidden sm:inline">POWERPOINT</span>
