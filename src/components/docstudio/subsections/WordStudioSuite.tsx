@@ -182,7 +182,7 @@ export default function WordStudioSuite({
   // Compute live reading telemetry
   const telemetry = useMemo(() => {
     if (typeof document === 'undefined') {
-      return { words: 0, characters: 0, readingMinutes: 1 };
+      return { words: 0, characters: 0, readingMinutes: 1, totalPages: 1 };
     }
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = contentHtml;
@@ -191,11 +191,13 @@ export default function WordStudioSuite({
     const wordCount = words.length;
     const characterCount = text.length;
     const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
+    const totalPages = Math.max(1, Math.ceil(wordCount / 350));
 
     return {
       words: wordCount,
       characters: characterCount,
       readingMinutes,
+      totalPages,
     };
   }, [contentHtml]);
 
@@ -1096,7 +1098,7 @@ export default function WordStudioSuite({
 
           {/* Bottom Paper Footer Guide */}
           <div className="pt-6 mt-8 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-400 font-serif select-none">
-            <span>Page 1</span>
+            <span>Page 1 – {telemetry.totalPages}</span>
             <span>StudyQuest AI Document Studio</span>
           </div>
         </div>
@@ -1108,7 +1110,7 @@ export default function WordStudioSuite({
       <footer className="flex-shrink-0 bg-blue-700 dark:bg-blue-900 text-white px-3 sm:px-4 py-1.5 pr-28 sm:pr-32 md:pr-36 flex items-center justify-between text-[11px] border-t border-blue-800 z-30 select-none min-w-0 word-status-bar">
         {/* Left: Document Telemetry */}
         <div className="flex items-center gap-2 sm:gap-3 truncate min-w-0">
-          <span className="font-semibold whitespace-nowrap">Page 1 of 1</span>
+          <span className="font-semibold whitespace-nowrap">Page 1 of {telemetry.totalPages}</span>
           <span className="h-3 w-[1px] bg-blue-500/50 flex-shrink-0" />
           <span className="whitespace-nowrap">{telemetry.words.toLocaleString()} words</span>
           <span className="h-3 w-[1px] bg-blue-500/50 hidden sm:inline flex-shrink-0" />

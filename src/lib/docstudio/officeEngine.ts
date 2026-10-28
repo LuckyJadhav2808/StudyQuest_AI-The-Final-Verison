@@ -444,33 +444,34 @@ export function compilePptxToStudyPdf(deck: PptxDeckData): Promise<Blob> {
 
         // Header Card / Slide Header
         pdf.setFillColor(243, 244, 246);
-        pdf.roundedRect(margin, margin, pageWidth - margin * 2, 22, 3, 3, 'F');
+        pdf.roundedRect(margin, margin, pageWidth - margin * 2, 24, 3, 3, 'F');
 
         pdf.setFontSize(10);
-        pdf.setTextColor(99, 102, 241);
-        pdf.text(`SLIDE ${slide.slideNumber} OF ${deck.totalSlides}`, margin + 5, margin + 7);
+        pdf.setTextColor(234, 88, 12); // Orange theme
+        pdf.text(`SLIDE ${slide.slideNumber} OF ${deck.totalSlides}`, margin + 6, margin + 7);
 
-        pdf.setFontSize(14);
+        pdf.setFontSize(13);
         pdf.setTextColor(17, 24, 39);
-        pdf.text(slide.title.substring(0, 60), margin + 5, margin + 16);
+        const titleLines = pdf.splitTextToSize(slide.title, pageWidth - margin * 2 - 12);
+        pdf.text(titleLines.slice(0, 2), margin + 6, margin + 16);
 
         // Slide Bullet Points
-        let currentY = margin + 32;
+        let currentY = margin + 34;
         pdf.setFontSize(11);
         pdf.setTextColor(55, 65, 81);
 
         if (slide.bulletPoints.length > 0) {
-          slide.bulletPoints.slice(0, 10).forEach((bullet) => {
-            pdf.setFillColor(99, 102, 241);
-            pdf.circle(margin + 4, currentY - 1.5, 1.2, 'F');
+          slide.bulletPoints.slice(0, 12).forEach((bullet) => {
+            pdf.setFillColor(234, 88, 12); // Orange bullets
+            pdf.circle(margin + 5, currentY - 1.5, 1.2, 'F');
 
-            const splitLines = pdf.splitTextToSize(bullet, pageWidth - margin * 2 - 15);
-            pdf.text(splitLines, margin + 8, currentY);
-            currentY += splitLines.length * 6.5;
+            const splitLines = pdf.splitTextToSize(bullet, pageWidth - margin * 2 - 18);
+            pdf.text(splitLines, margin + 9, currentY);
+            currentY += Math.max(splitLines.length * 6, 7.5);
           });
         } else {
           pdf.setTextColor(156, 163, 175);
-          pdf.text('(No text content on this slide)', margin + 5, currentY);
+          pdf.text('(No text content on this slide)', margin + 6, currentY);
           currentY += 10;
         }
 

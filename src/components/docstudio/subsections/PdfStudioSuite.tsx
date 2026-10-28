@@ -1187,7 +1187,7 @@ export default function PdfStudioSuite({
               )}
 
               {/* Central Scrollable Canvas Stage */}
-              <div className="flex-1 overflow-auto flex items-center justify-center p-4 md:p-8 relative">
+              <div className="flex-1 overflow-auto flex items-center justify-center p-2 sm:p-4 md:p-6 relative">
                 {isRenderingPage && (
                   <div className="absolute top-4 right-4 z-20 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur text-white text-[10px] font-mono flex items-center gap-1.5 shadow-lg">
                     <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping" />

@@ -11,7 +11,6 @@ import {
   HiSparkles,
   HiExternalLink,
   HiTemplate,
-  HiOutlineViewGrid,
   HiQuestionMarkCircle,
   HiX,
 } from 'react-icons/hi';
@@ -20,10 +19,9 @@ import PdfStudioSuite from './subsections/PdfStudioSuite';
 import WordStudioSuite from './subsections/WordStudioSuite';
 import PptxStudioSuite from './subsections/PptxStudioSuite';
 import XlsxStudioSuite from './subsections/XlsxStudioSuite';
-import DocStudioHub from './DocStudioHub';
 import { formatBytes } from '@/lib/docstudio/compressor';
 
-export type StudioAppTab = 'pdf' | 'word' | 'pptx' | 'xlsx' | 'classic_hub';
+export type StudioAppTab = 'pdf' | 'word' | 'pptx' | 'xlsx';
 
 interface RecentDocItem {
   id: string;
@@ -267,20 +265,6 @@ export default function DocStudioSuite({
               <span>📈</span>
               <span>Excel<span className="hidden sm:inline"> Grid</span></span>
             </button>
-
-            {/* 5. Classic Tools Hub */}
-            <button
-              onClick={() => setActiveApp('classic_hub')}
-              className={`h-7 sm:h-8 px-2 sm:px-2.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 whitespace-nowrap ${
-                activeApp === 'classic_hub'
-                  ? 'bg-slate-700 text-white shadow-xs'
-                  : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--card-border)]/50'
-              }`}
-              title="All 8 Standalone Student Utility Tools"
-            >
-              <HiOutlineViewGrid size={14} />
-              <span className="hidden md:inline">Tools</span>
-            </button>
           </div>
         </div>
 
@@ -437,21 +421,6 @@ export default function DocStudioSuite({
             }}
             onSwitchStudio={(target) => setActiveApp(target)}
           />
-        )}
-
-        {/* SUBSECTION 5: CLASSIC TOOLS HUB */}
-        {activeApp === 'classic_hub' && (
-          <div className="h-full overflow-y-auto p-4 md:p-6 bg-[var(--background)]">
-            <DocStudioHub
-              onOpenInReader={(f) => {
-                // If it is a PDF or other file, route into suite
-                setActiveApp('pdf');
-              }}
-              onSendToNotes={(content, title) => {
-                if (onSendToNotes) onSendToNotes(content, title);
-              }}
-            />
-          </div>
         )}
       </main>
     </div>

@@ -118,7 +118,7 @@ export default function PptxStudioSuite({
   const [activeSlideIdx, setActiveSlideIdx] = useState<number>(0);
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '4:3'>('16:9');
   const [showFilmstrip, setShowFilmstrip] = useState<boolean>(true);
-  const [showNotes, setShowNotes] = useState<boolean>(true);
+  const [showNotes, setShowNotes] = useState<boolean>(false);
   const [isFullScreen, setIsFullScreen] = useState<boolean>(false);
   const [laserPointer, setLaserPointer] = useState<boolean>(false);
   const [laserPos, setLaserPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -474,7 +474,7 @@ export default function PptxStudioSuite({
           </span>
         </div>
 
-        {/* Right: Presentation Mode F5 & Open */}
+        {/* Right: Export PDF, Presentation Mode F5 & Open */}
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => fileInputRef.current?.click()}
@@ -482,6 +482,16 @@ export default function PptxStudioSuite({
           >
             <HiFolderOpen size={13} />
             <span className="hidden sm:inline">Open PPTX</span>
+          </button>
+
+          <button
+            onClick={handleExportStudyHandouts}
+            disabled={isProcessing}
+            className="px-2.5 sm:px-3 py-1 rounded bg-rose-600 hover:bg-rose-500 text-white font-bold text-[11px] transition-colors flex items-center gap-1.5 shadow-xs active:scale-95 whitespace-nowrap"
+            title="Export Presentation to Landscape Handout PDF"
+          >
+            <HiPrinter size={13} />
+            <span className="hidden sm:inline">Export PDF</span>
           </button>
 
           <button
@@ -607,11 +617,12 @@ export default function PptxStudioSuite({
                 <button
                   onClick={handleExportStudyHandouts}
                   disabled={isProcessing}
-                  className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/30 font-bold flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                  className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-1.5 shadow-xs transition-all active:scale-95 whitespace-nowrap"
+                  title="Export Presentation to Landscape Handout PDF"
                 >
                   <HiPrinter size={14} />
-                  <span className="hidden sm:inline">Handout PDF</span>
-                  <span className="sm:hidden">Handout</span>
+                  <span className="hidden sm:inline">Export PDF</span>
+                  <span className="sm:hidden">PDF</span>
                 </button>
 
                 <button
@@ -741,7 +752,7 @@ export default function PptxStudioSuite({
           )}
 
           {/* 16:9 Presentation Stage Container */}
-          <div className="flex-1 overflow-auto flex items-center justify-center p-4 md:p-8 relative">
+          <div className="flex-1 min-h-0 min-w-0 overflow-hidden flex items-center justify-center p-3 sm:p-5 md:p-8 relative">
             {isProcessing && (
               <div className="absolute top-4 right-4 z-20 px-3 py-1.5 rounded-full bg-black/80 backdrop-blur text-white text-xs font-mono flex items-center gap-2 shadow-xl">
                 <span className="w-2 h-2 rounded-full bg-orange-400 animate-ping" />
@@ -752,57 +763,69 @@ export default function PptxStudioSuite({
             {/* 16:9 Presentation Slide Canvas */}
             <div
               style={{
+                aspectRatio: aspectRatio === '16:9' ? '16 / 9' : '4 / 3',
                 transform: `rotate(${slideRotation}deg)`,
                 transition: 'transform 0.2s ease',
               }}
-              className={`w-full max-w-4xl ${
-                aspectRatio === '16:9' ? 'aspect-video' : 'aspect-[4/3]'
-              } bg-slate-900 text-white rounded-2xl shadow-2xl border-2 border-slate-700/80 p-8 md:p-12 flex flex-col justify-between relative overflow-hidden select-text`}
+              className="h-full w-auto max-h-full max-w-full aspect-video bg-slate-900 text-white rounded-xl sm:rounded-2xl shadow-2xl border-2 border-slate-700/80 p-5 sm:p-7 md:p-9 flex flex-col justify-between relative overflow-hidden select-text"
             >
               {/* Top Accent Strip */}
-              <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-orange-500 via-amber-500 to-rose-500" />
+              <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-orange-500 via-amber-500 to-rose-500 flex-shrink-0" />
 
               {/* Slide Content Header */}
-              <div>
-                <span className="text-xs font-mono font-bold uppercase tracking-widest text-orange-400 mb-2 block">
+              <div className="min-w-0 min-h-0 flex-1 overflow-hidden flex flex-col justify-center">
+                <span className="text-[10px] sm:text-xs font-mono font-bold uppercase tracking-widest text-orange-400 mb-1 sm:mb-2 block flex-shrink-0">
                   SLIDE {activeSlide.slideNumber} OF {deck.totalSlides}
                 </span>
 
-                <h1 className="text-2xl md:text-4xl font-heading font-black text-white tracking-tight leading-snug">
+                <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-heading font-black text-white tracking-tight leading-snug line-clamp-2 flex-shrink-0">
                   {activeSlide.title}
                 </h1>
-                <div className="w-24 h-1 bg-orange-500 rounded-full mt-3 mb-6" />
+                <div className="w-16 sm:w-24 h-1 bg-orange-500 rounded-full mt-2 mb-3 sm:mb-4 flex-shrink-0" />
 
                 {/* Bullet Points */}
-                <div className="space-y-3 md:space-y-4">
+                <div className="space-y-1.5 sm:space-y-2.5 md:space-y-3.5 overflow-y-auto pr-1">
                   {activeSlide.bulletPoints.map((bp, bIdx) => (
-                    <div key={bIdx} className="flex items-start gap-3 text-slate-200 text-sm md:text-lg">
-                      <span className="w-2 h-2 rounded-full bg-orange-400 mt-2 flex-shrink-0" />
-                      <span className="leading-relaxed">{bp}</span>
+                    <div key={bIdx} className="flex items-start gap-2 sm:gap-3 text-slate-200 text-xs sm:text-sm md:text-base">
+                      <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-orange-400 mt-1.5 flex-shrink-0" />
+                      <span className="leading-snug">{bp}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Slide Footer */}
-              <div className="pt-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400 font-mono">
-                <span>{deck.fileName}</span>
+              <div className="pt-2 sm:pt-3 border-t border-slate-800 flex items-center justify-between text-[10px] sm:text-xs text-slate-400 font-mono flex-shrink-0">
+                <span className="truncate max-w-[200px]">{deck.fileName}</span>
                 <span>StudyQuest Academic Stage</span>
               </div>
             </div>
           </div>
 
           {/* COLLAPSIBLE SPEAKER NOTES DRAWER */}
-          <div className="flex-shrink-0 border-t border-[var(--card-border)] bg-[var(--card-bg)] px-4 py-2">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs font-bold font-heading text-orange-500 flex items-center gap-1.5">
-                <span>📝</span> Speaker & Professor Notes
-              </span>
+          <div className="flex-shrink-0 border-t border-[var(--card-border)] bg-[var(--card-bg)] px-3 sm:px-4 py-1.5 transition-all">
+            <div className="flex items-center justify-between">
               <button
+                type="button"
                 onClick={() => setShowNotes((n) => !n)}
-                className="text-[11px] text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                className="text-xs font-bold font-heading text-orange-500 hover:text-orange-400 flex items-center gap-1.5 transition-colors"
               >
-                {showNotes ? 'Collapse Notes' : 'Expand Notes'}
+                <span>📝</span>
+                <span>Speaker & Professor Notes</span>
+                <span className="text-[10px] text-[var(--muted-foreground)] font-normal hidden sm:inline">
+                  {showNotes
+                    ? '(Click to collapse)'
+                    : activeSlide.speakerNotes
+                    ? '(Notes available — click to view)'
+                    : '(Click to expand)'}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowNotes((n) => !n)}
+                className="text-[11px] font-semibold text-[var(--muted-foreground)] hover:text-orange-500 transition-colors flex items-center gap-1"
+              >
+                {showNotes ? '▲ Collapse' : '▼ Expand'}
               </button>
             </div>
 
@@ -817,7 +840,7 @@ export default function PptxStudioSuite({
                   setDeck(updated);
                 }}
                 placeholder="Add lecture annotations or key exam hints for this slide..."
-                className="w-full px-3 py-1.5 text-xs rounded-xl bg-[var(--background)] border border-[var(--card-border)] outline-none focus:border-orange-500 text-[var(--foreground)] resize-none"
+                className="w-full mt-2 px-3 py-1.5 text-xs rounded-xl bg-[var(--background)] border border-[var(--card-border)] outline-none focus:border-orange-500 text-[var(--foreground)] resize-none"
               />
             )}
           </div>
@@ -857,7 +880,7 @@ export default function PptxStudioSuite({
                 title="Download Landscape Handout PDF"
               >
                 <HiPrinter size={13} />
-                <span>Handouts</span>
+                <span>Export PDF</span>
               </button>
 
               <button

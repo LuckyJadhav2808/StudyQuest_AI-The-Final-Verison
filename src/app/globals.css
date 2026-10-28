@@ -2639,6 +2639,157 @@ li .studyquest-math-embed {
 }
 
 /* ============================================================
+   DOCSTUDIO: REALISTIC A4 WORD DOCUMENT SCREEN & EDITING STYLES
+   ============================================================ */
+.word-editor-stage {
+  background-color: #cbd5e1;
+}
+.dark .word-editor-stage {
+  background-color: #0b0f19;
+}
+
+/* Authentic A4 Paper Sheet */
+.word-printable-stage {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.2) !important;
+  /* Subtle page-break guideline repeating every 1123px (A4 page height) */
+  background-image: linear-gradient(
+    to bottom,
+    transparent 1119px,
+    #e2e8f0 1120px,
+    #cbd5e1 1121px,
+    #e2e8f0 1122px,
+    transparent 1123px
+  ) !important;
+  background-size: 100% 1123px !important;
+  background-repeat: repeat-y !important;
+}
+
+/* Force light-mode text & background on all descendants of the paper stage */
+.word-printable-stage,
+.word-printable-stage * {
+  color: #0f172a;
+}
+
+/* Quill editor container inside Word Paper Stage */
+.word-quill-stage {
+  width: 100% !important;
+  flex: 1 1 auto !important;
+}
+
+.word-quill-stage .ql-container.ql-snow {
+  border: none !important;
+  height: auto !important;
+  overflow: visible !important;
+  font-family: inherit !important;
+  font-size: 15px !important;
+  line-height: 1.7 !important;
+}
+
+.word-quill-stage .ql-editor {
+  border: none !important;
+  height: auto !important;
+  min-height: 900px !important;
+  overflow: visible !important;
+  padding: 0 !important;
+  color: #0f172a !important;
+  background-color: transparent !important;
+}
+
+/* Word Document Content Formatting: Headings, Paragraphs, Lists */
+.word-quill-stage .ql-editor h1 {
+  font-size: 24pt !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  margin-top: 18px !important;
+  margin-bottom: 8px !important;
+  line-height: 1.25 !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  padding-bottom: 6px !important;
+}
+
+.word-quill-stage .ql-editor h2 {
+  font-size: 18pt !important;
+  font-weight: 700 !important;
+  color: #1e293b !important;
+  margin-top: 16px !important;
+  margin-bottom: 6px !important;
+  line-height: 1.3 !important;
+}
+
+.word-quill-stage .ql-editor h3 {
+  font-size: 14pt !important;
+  font-weight: 600 !important;
+  color: #334155 !important;
+  margin-top: 14px !important;
+  margin-bottom: 4px !important;
+}
+
+.word-quill-stage .ql-editor p {
+  color: #1e293b !important;
+  margin-bottom: 10px !important;
+  line-height: 1.65 !important;
+}
+
+/* Tables (imported from Mammoth DOCX or created by user) */
+.word-quill-stage .ql-editor table,
+.word-printable-stage table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin: 14px 0 !important;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+.word-quill-stage .ql-editor th,
+.word-printable-stage th {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  border: 1px solid #94a3b8 !important;
+  padding: 8px 12px !important;
+  font-weight: 700 !important;
+  text-align: left !important;
+}
+
+.word-quill-stage .ql-editor td,
+.word-printable-stage td {
+  border: 1px solid #cbd5e1 !important;
+  padding: 8px 12px !important;
+  color: #1e293b !important;
+  background-color: #ffffff !important;
+}
+
+.word-quill-stage .ql-editor tr:nth-child(even) td,
+.word-printable-stage tr:nth-child(even) td {
+  background-color: #f8fafc !important;
+}
+
+/* Blockquotes & Code Blocks */
+.word-quill-stage .ql-editor blockquote {
+  border-left: 4px solid #3b82f6 !important;
+  padding-left: 14px !important;
+  margin: 12px 0 !important;
+  color: #475569 !important;
+  font-style: italic !important;
+  background-color: #f8fafc !important;
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+}
+
+.word-quill-stage .ql-editor pre {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  padding: 10px 14px !important;
+  border-radius: 4px !important;
+  border: 1px solid #e2e8f0 !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 13px !important;
+  overflow-x: auto !important;
+}
+
+/* ============================================================
    Print / PDF Export Media Styles
    Expands collapsible sections (<details>) so full content is visible
    and cleanly isolates Word Office Document pages for printing
