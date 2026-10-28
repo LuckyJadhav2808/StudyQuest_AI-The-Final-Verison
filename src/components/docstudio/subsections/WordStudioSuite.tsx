@@ -25,6 +25,7 @@ import {
   HiEye,
   HiCode,
   HiMinus,
+  HiPlus,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import katex from 'katex';
@@ -200,6 +201,25 @@ export default function WordStudioSuite({
       totalPages,
     };
   }, [contentHtml]);
+
+  // Standard physical Word Document paper dimensions (at 96 DPI: A4 is 794x1123, Letter is 816x1056)
+  const standardPaperDimensions = useMemo(() => {
+    if (pageSize === 'letter') {
+      return pageOrientation === 'portrait'
+        ? { width: '816px', minHeight: '1056px' }
+        : { width: '1056px', minHeight: '816px' };
+    }
+    return pageOrientation === 'portrait'
+      ? { width: '794px', minHeight: '1123px' }
+      : { width: '1123px', minHeight: '794px' };
+  }, [pageSize, pageOrientation]);
+
+  // Create an authentic new blank Word Document
+  const handleNewDocument = () => {
+    setContentHtml('<p><br></p>');
+    setDocName('Untitled Document.docx');
+    toast.success('Created new blank Word document');
+  };
 
   // Render KaTeX preview live
   useEffect(() => {
@@ -613,6 +633,15 @@ export default function WordStudioSuite({
         {/* Right: Quick Action Controls */}
         <div className="flex items-center gap-1.5">
           <button
+            onClick={handleNewDocument}
+            className="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white font-semibold text-[11px] transition-colors flex items-center gap-1 shadow-xs"
+            title="Create a new blank Word document"
+          >
+            <HiPlus size={13} />
+            <span className="hidden sm:inline">New</span>
+          </button>
+
+          <button
             onClick={() => fileInputRef.current?.click()}
             className="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white font-semibold text-[11px] transition-colors flex items-center gap-1 shadow-xs"
           >
@@ -912,6 +941,17 @@ export default function WordStudioSuite({
               <div className="h-4 w-[1px] bg-[var(--card-border)] mx-1" />
 
               <button
+                onClick={() => {
+                  insertHtmlIntoEditor('<hr class="page-break" /><p><br></p>');
+                  toast.success('Inserted Word Page Break');
+                }}
+                className="px-2.5 py-1.5 rounded-lg hover:bg-[var(--card-border)]/40 font-medium text-xs flex items-center gap-1"
+                title="Insert explicit Word Page Break"
+              >
+                <span>📄</span> Page Break
+              </button>
+
+              <button
                 onClick={() => insertHtmlIntoEditor('<hr style="margin: 20px 0; border: none; border-top: 2px dashed #CBD5E1;" /><p><br></p>')}
                 className="px-2.5 py-1.5 rounded-lg hover:bg-[var(--card-border)]/40 font-medium text-xs flex items-center gap-1"
                 title="Insert Horizontal Divider"
@@ -1067,14 +1107,14 @@ export default function WordStudioSuite({
           ref={printContainerRef}
           id="word-printable-stage"
           style={{
-            width: viewMode === 'print' ? (pageOrientation === 'portrait' ? '794px' : '1123px') : '100%',
-            minHeight: viewMode === 'print' ? '1123px' : 'auto',
+            width: viewMode === 'print' ? standardPaperDimensions.width : '100%',
+            minHeight: viewMode === 'print' ? standardPaperDimensions.minHeight : 'auto',
             transform: `scale(${zoom / 100})`,
             transformOrigin: 'top center',
             transition: 'transform 0.15s ease',
           }}
-          className={`bg-white text-slate-900 rounded-sm shadow-2xl transition-all relative flex flex-col self-start word-printable-stage ${
-            margins === 'narrow' ? 'p-8' : margins === 'wide' ? 'p-16' : 'p-12'
+          className={`bg-white text-slate-900 rounded-sm shadow-xl transition-all relative flex flex-col self-start word-printable-stage ${
+            margins === 'narrow' ? 'p-8 sm:p-10' : margins === 'wide' ? 'p-16 sm:p-20' : 'p-12 sm:p-16'
           }`}
         >
           {/* Top Paper Header Guide */}

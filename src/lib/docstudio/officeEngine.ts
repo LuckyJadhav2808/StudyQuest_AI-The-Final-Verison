@@ -111,7 +111,12 @@ export function exportExcelWorkbook(workbook: ExcelWorkbookData): Uint8Array {
  * Converts a Word (.docx) document ArrayBuffer into clean HTML and extracts statistics
  */
 export async function readWordDocument(buffer: ArrayBuffer, fileName: string): Promise<WordDocData> {
-  const result = await mammoth.convertToHtml({ arrayBuffer: buffer });
+  const options = {
+    styleMap: [
+      "br[type='page'] => hr.page-break:fresh",
+    ],
+  };
+  const result = await mammoth.convertToHtml({ arrayBuffer: buffer }, options);
   const htmlContent = result.value || '<p>No readable content found in document.</p>';
 
   // Strip tags to get raw text for telemetry safely

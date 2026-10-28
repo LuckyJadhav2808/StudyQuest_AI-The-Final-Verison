@@ -2651,25 +2651,49 @@ li .studyquest-math-embed {
   background-color: #0b0f19;
 }
 
-/* Authentic A4 Paper Sheet */
+/* Authentic A4 / Letter Paper Sheet */
 .word-printable-stage {
   align-self: flex-start !important;
   height: auto !important;
   min-height: 1123px !important;
   background-color: #ffffff !important;
+  background-image: none !important;
   color: #0f172a !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.2) !important;
-  /* Subtle page-break guideline repeating every 1123px (A4 page height) */
-  background-image: linear-gradient(
-    to bottom,
-    transparent 1119px,
-    #e2e8f0 1120px,
-    #cbd5e1 1121px,
-    #e2e8f0 1122px,
-    transparent 1123px
-  ) !important;
-  background-size: 100% 1123px !important;
-  background-repeat: repeat-y !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.12), 0 2px 6px -1px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04) !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+/* Real Document Page Breaks (Explicit page breaks from DOCX or user-inserted) */
+.word-quill-stage .page-break,
+.word-quill-stage hr.page-break,
+.word-printable-stage .page-break,
+.word-printable-stage hr.page-break {
+  border: none !important;
+  border-top: 1px dashed #cbd5e1 !important;
+  margin: 32px 0 !important;
+  position: relative !important;
+  text-align: center !important;
+  height: 20px !important;
+  break-after: page !important;
+  page-break-after: always !important;
+}
+
+.word-quill-stage .page-break::after,
+.word-printable-stage .page-break::after {
+  content: 'PAGE BREAK';
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 10px;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 700;
+  padding: 0 10px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  letter-spacing: 0.08em;
 }
 
 /* Force light-mode text & background on all descendants of the paper stage */
@@ -2944,6 +2968,22 @@ div:has(> [role="status"]) {
     border: 1px solid #cbd5e1 !important;
     padding: 6px 10px !important;
     color: #1e293b !important;
+  }
+
+  /* Real Page Breaks in Print / PDF Mode */
+  .word-printable-stage .page-break,
+  .word-printable-stage hr.page-break {
+    break-after: page !important;
+    page-break-after: always !important;
+    border: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    visibility: hidden !important;
+  }
+
+  .word-printable-stage .page-break::after {
+    display: none !important;
   }
 
   /* Prevent awkward page cutoffs */
