@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
-  HiSun, HiMoon, HiBell, HiSearch, HiSparkles,
+  HiSun, HiMoon, HiBell, HiSearch, HiSparkles, HiLightningBolt
 } from 'react-icons/hi';
 import { HiArrowsPointingOut, HiArrowsPointingIn } from 'react-icons/hi2';
 import { useTheme } from '@/context/ThemeContext';
@@ -12,7 +12,6 @@ import { useFriends } from '@/hooks/useFriends';
 import { useShop } from '@/hooks/useShop';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import StreakCounter from '@/components/gamification/StreakCounter';
-import LevelBadge from '@/components/gamification/LevelBadge';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
@@ -20,13 +19,24 @@ const TreasureChestModal = dynamic(() => import('@/components/dashboard/Treasure
   ssr: false,
 });
 
+// Clean SVG Coin Icon
+function CoinIcon({ className = 'w-3.5 h-3.5 text-amber-500' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 6v12" />
+      <path d="M15 9.5a2.5 2.5 0 0 0-5 0c0 2.5 5 1.5 5 4a2.5 2.5 0 0 1-5 0" />
+    </svg>
+  );
+}
+
 // Time-of-day greeting generator
 function getGreeting() {
   const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12) return { text: 'Good Morning', emoji: '🌅' };
-  if (hour >= 12 && hour < 17) return { text: 'Good Afternoon', emoji: '☀️' };
-  if (hour >= 17 && hour < 21) return { text: 'Good Evening', emoji: '🌆' };
-  return { text: 'Night Owl Mode', emoji: '🌙' };
+  if (hour >= 5 && hour < 12) return { text: 'Good Morning', icon: HiSun, iconColor: 'text-amber-500' };
+  if (hour >= 12 && hour < 17) return { text: 'Good Afternoon', icon: HiSun, iconColor: 'text-amber-400' };
+  if (hour >= 17 && hour < 21) return { text: 'Good Evening', icon: HiMoon, iconColor: 'text-indigo-400' };
+  return { text: 'Night Owl Mode', icon: HiMoon, iconColor: 'text-violet-400' };
 }
 
 export default function Header() {
@@ -40,6 +50,7 @@ export default function Header() {
 
   const chestAvailable = canClaimTreasureChest ? canClaimTreasureChest() : false;
   const greeting = getGreeting();
+  const GreetingIcon = greeting.icon;
 
   const openCommandPalette = () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
@@ -74,7 +85,7 @@ export default function Header() {
             <HiSearch size={12} className="text-primary/70" />
             <span>Search...</span>
             <kbd className="px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-white/10 text-[9px] font-mono border border-indigo-100 dark:border-white/10 text-[var(--muted-foreground)]">
-              ⌘K
+              Ctrl+K
             </kbd>
           </button>
         </div>
@@ -87,11 +98,13 @@ export default function Header() {
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               className="flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-2xl sm:rounded-full bg-gradient-to-r from-amber-500/20 via-primary/20 to-secondary/20 hover:from-amber-500/30 hover:to-secondary/30 border border-amber-400/40 text-amber-700 dark:text-amber-200 shadow-md shadow-amber-500/10 cursor-pointer animate-pulse transition-all"
-              title="Click to claim your daily treasure chest!"
+              title="Click to claim your daily treasure chest"
             >
-              <span className="text-sm sm:text-base">🎁</span>
+              <div className="w-4 h-4 rounded-full bg-amber-400/20 flex items-center justify-center text-amber-500">
+                <HiSparkles size={12} />
+              </div>
               <span className="text-[11px] sm:text-xs font-bold tracking-wide truncate">
-                Daily Chest Ready — Claim Reward!
+                Daily Chest Ready — Claim Reward
               </span>
             </motion.button>
           ) : (
@@ -102,7 +115,7 @@ export default function Header() {
               className="flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-2xl sm:rounded-full bg-white dark:bg-[#111328] border border-indigo-100/90 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:border-primary/40 cursor-pointer transition-all shadow-xs truncate"
               title="Daily status and rewards"
             >
-              <span className="text-xs sm:text-sm">{greeting.emoji}</span>
+              <GreetingIcon size={14} className={greeting.iconColor} />
               <span className="text-[11px] sm:text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
                 {greeting.text}, Adventurer
               </span>
@@ -132,7 +145,7 @@ export default function Header() {
               className="flex items-center gap-1 hover:opacity-80 transition-opacity cursor-pointer"
               title="Quest Coins (Click to visit Item Shop)"
             >
-              <span className="text-xs">🪙</span>
+              <CoinIcon className="w-3.5 h-3.5 text-amber-500" />
               <span className="text-[11px] font-bold text-amber-500 dark:text-amber-400 font-mono tabular-nums">
                 {typeof coins === 'number'
                   ? coins
@@ -152,7 +165,7 @@ export default function Header() {
                 className="flex items-center gap-1 text-[11px] font-bold text-primary dark:text-primary-light font-mono tabular-nums cursor-pointer"
                 title={`Level ${gamification.level} (${gamification.xp?.toLocaleString() || 0} XP)`}
               >
-                <span className="text-amber-400">⚡</span>
+                <HiLightningBolt size={13} className="text-amber-400" />
                 <span className="hidden sm:inline">
                   {typeof gamification.xp === 'number' ? gamification.xp.toLocaleString() : '0'} XP
                 </span>

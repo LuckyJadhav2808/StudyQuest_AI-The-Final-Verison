@@ -1,827 +1,646 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   HiPlay, HiPause, HiFastForward, HiRewind, HiVolumeUp, HiVolumeOff,
   HiClock, HiPencilAlt, HiLightningBolt, HiCheck, HiPlus,
-  HiChevronRight, HiSparkles, HiFire, HiBookmark, HiCode,
-  HiCollection, HiRefresh, HiSearch, HiExternalLink,
+  HiChevronRight, HiSparkles, HiAcademicCap, HiClipboardCheck,
+  HiMusicNote, HiExternalLink,
 } from 'react-icons/hi';
 import { useAuthContext } from '@/context/AuthContext';
 import { useGamification } from '@/hooks/useGamification';
 import { useTasksStore } from '@/lib/stores/useTasksStore';
 import { useDailyQuests } from '@/hooks/useDailyQuests';
 import { useNotes } from '@/hooks/useNotes';
+import { useExams } from '@/hooks/useExams';
 import { useMusic } from '@/context/MusicContext';
+import { XP_AWARDS } from '@/lib/constants';
 import { playClick, playSuccess, playXP } from '@/lib/sounds';
 import toast from 'react-hot-toast';
+import StudyDeskWidget from '@/components/dashboard/StudyDeskWidget';
+import BinauralFocusModal from '@/components/music/BinauralFocusModal';
 
-// Sound generator using Web Audio API for ambient background layers
-class AmbientSoundEngine {
-  private ctx: AudioContext | null = null;
-  private noiseNode: AudioNode | null = null;
-  private gainNode: GainNode | null = null;
-  private osc1: OscillatorNode | null = null;
-  private osc2: OscillatorNode | null = null;
-
-  private initCtx() {
-    if (!this.ctx) {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      this.ctx = new AudioCtx();
-    }
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
-    }
-  }
-
-  playRain(volume = 0.15) {
-    this.stop();
-    this.initCtx();
-    if (!this.ctx) return;
-
-    // Create pink-filtered white noise buffer for rain simulation
-    const bufferSize = this.ctx.sampleRate * 2;
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    let b0 = 0, b1 = 0, b2 = 0;
-    for (let i = 0; i < bufferSize; i++) {
-      const white = Math.random() * 2 - 1;
-      b0 = 0.99886 * b0 + white * 0.0555179;
-      b1 = 0.99332 * b1 + white * 0.0750759;
-      b2 = 0.96900 * b2 + white * 0.1538520;
-      data[i] = (b0 + b1 + b2) * 0.11;
-    }
-
-    const noise = this.ctx.createBufferSource();
-    noise.buffer = buffer;
-    noise.loop = true;
-
-    // Lowpass filter to simulate gentle rain
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 1000;
-
-    this.gainNode = this.ctx.createGain();
-    this.gainNode.gain.setValueAtTime(volume, this.ctx.currentTime);
-
-    noise.connect(filter);
-    filter.connect(this.gainNode);
-    this.gainNode.connect(this.ctx.destination);
-
-    noise.start();
-    this.noiseNode = noise;
-  }
-
-  playBinaural(volume = 0.1) {
-    this.stop();
-    this.initCtx();
-    if (!this.ctx) return;
-
-    // 40Hz Gamma Focus Frequency: Left ear 200Hz, Right ear 240Hz
-    this.osc1 = this.ctx.createOscillator();
-    this.osc2 = this.ctx.createOscillator();
-
-    this.osc1.type = 'sine';
-    this.osc1.frequency.value = 200;
-
-    this.osc2.type = 'sine';
-    this.osc2.frequency.value = 240;
-
-    this.gainNode = this.ctx.createGain();
-    this.gainNode.gain.setValueAtTime(volume, this.ctx.currentTime);
-
-    this.osc1.connect(this.gainNode);
-    this.osc2.connect(this.gainNode);
-    this.gainNode.connect(this.ctx.destination);
-
-    this.osc1.start();
-    this.osc2.start();
-  }
-
-  stop() {
-    try {
-      if (this.noiseNode && 'stop' in this.noiseNode) {
-        (this.noiseNode as AudioBufferSourceNode).stop();
-      }
-      if (this.osc1) this.osc1.stop();
-      if (this.osc2) this.osc2.stop();
-      this.noiseNode = null;
-      this.osc1 = null;
-      this.osc2 = null;
-    } catch {
-      // Audio already stopped
-    }
-  }
+function formatTime(seconds: number): string {
+  if (isNaN(seconds) || seconds < 0) return '0:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
-
-const ambientEngine = new AmbientSoundEngine();
-
-// Sample notes when user notes are empty
-const SAMPLE_NOTES = [
-  {
-    id: 'sample-1',
-    title: 'Algorithms & Complexity: Master Class',
-    content: 'Dynamic Programming, asymptotic bounds, Dijkstra, and greedy amortized complexity analysis.',
-    tags: ['algorithms', 'cs'],
-    updatedAt: Date.now() - 3600000,
-  },
-  {
-    id: 'sample-2',
-    title: 'Neural Networks & Deep Learning',
-    content: 'Backpropagation gradient calculus, transformer self-attention tensors, and AdamW optimization.',
-    tags: ['ai', 'math'],
-    updatedAt: Date.now() - 86400000,
-  },
-  {
-    id: 'sample-3',
-    title: 'Calculus III & Differential Geometry',
-    content: 'Stokes theorem, divergence vector calculus, line integrals, and multi-variable optimization.',
-    tags: ['calculus', 'physics'],
-    updatedAt: Date.now() - 172800000,
-  },
-];
 
 export default function DashboardBentoGrid() {
   const router = useRouter();
   const { user } = useAuthContext();
-  const { gamification, awardXP } = useGamification();
+  const { awardXP } = useGamification();
+
+  // ── Authentic Stores & Hooks ─────────────────────────────────
+  const { quests, toggleQuest, addQuest, todayCompleted, todayTotal } = useDailyQuests();
   const tasks = useTasksStore((state) => state.tasks);
   const moveTask = useTasksStore((state) => state.moveTask);
-  const { quests, toggleQuest } = useDailyQuests();
   const { notes } = useNotes();
+  const { exams } = useExams();
   const {
     currentTrack,
     isPlaying,
+    progress,
+    currentTime,
+    duration,
+    isMuted,
     togglePlayPause,
     nextTrack,
     prevTrack,
-    currentTime,
-    duration,
-    seek,
-    volume,
-    setVolume,
-    isMuted,
     toggleMute,
+    seek,
+    setIsPlayerOpen,
   } = useMusic();
 
-  // Active activity tab state: 'timer' | 'task' | 'desk'
-  const [activeTab, setActiveTab] = useState<'timer' | 'task' | 'desk'>('task');
+  const [showBinaural, setShowBinaural] = useState(false);
+  const [quickQuestText, setQuickQuestText] = useState('');
+  const [showAddQuestInput, setShowAddQuestInput] = useState(false);
 
-  // Ambient soundscape active state: 'none' | 'rain' | 'binaural'
-  const [ambientSound, setAmbientSound] = useState<'none' | 'rain' | 'binaural'>('none');
-
-  // In-card focus sprint timer state
-  const [timerSeconds, setTimerSeconds] = useState(25 * 60);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
-
-  // Fanned notes card hover state
-  const [isNotesFanned, setIsNotesFanned] = useState(false);
-
-  // Handle ambient sound toggle
-  const toggleAmbientSound = (type: 'rain' | 'binaural') => {
-    playClick();
-    if (ambientSound === type) {
-      ambientEngine.stop();
-      setAmbientSound('none');
-      toast('Ambient sound paused', { icon: '🔇' });
-    } else {
-      if (type === 'rain') ambientEngine.playRain();
-      if (type === 'binaural') ambientEngine.playBinaural();
-      setAmbientSound(type);
-      toast.success(type === 'rain' ? '🌧️ Rain soundscape active' : '🎧 40Hz Focus waves active');
-    }
-  };
-
-  // Timer tick effect
-  useEffect(() => {
-    let interval: any = null;
-    if (isTimerRunning && timerSeconds > 0) {
-      interval = setInterval(() => {
-        setTimerSeconds((prev) => prev - 1);
-      }, 1000);
-    } else if (timerSeconds === 0 && isTimerRunning) {
-      setIsTimerRunning(false);
-      playSuccess();
-      toast.success('🎉 Focus Sprint Complete! +50 XP awarded!');
-      if (awardXP) awardXP(50, 'Focus Sprint Completed');
-    }
-    return () => clearInterval(interval);
-  }, [isTimerRunning, timerSeconds, awardXP]);
-
-  // Format seconds to mm:ss
-  const formatTime = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
-
-  // Top 3 notes to display in the fanned deck
-  const displayNotes = useMemo(() => {
-    if (notes && notes.length > 0) {
-      return notes.slice(0, 3);
-    }
-    return SAMPLE_NOTES;
+  // ── Top 3 Real Notes ─────────────────────────────────────────
+  const topNotes = useMemo(() => {
+    return [...notes]
+      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+      .slice(0, 3);
   }, [notes]);
 
-  // Top pending task
-  const topTask = useMemo(() => {
-    const pending = tasks.filter((t) => t.status !== 'done');
-    return pending[0] || null;
+  // ── Top 3 Real Active Tasks ──────────────────────────────────
+  const activeTasks = useMemo(() => {
+    return tasks
+      .filter((t) => t.status !== 'done')
+      .slice(0, 3);
   }, [tasks]);
 
-  // Complete top task action
-  const handleCompleteTask = async () => {
-    if (!topTask || !user?.uid) return;
-    playXP();
-    await moveTask(user.uid, topTask.id, 'done');
-    toast.success('Task finished! +35 XP awarded!');
-    if (awardXP) awardXP(35, 'Task Finished');
+  // ── Nearest Real Upcoming Exam / Milestone ───────────────────
+  const nextExam = useMemo(() => {
+    if (!exams || exams.length === 0) return null;
+    const sorted = [...exams].sort((a, b) => a.date - b.date);
+    return sorted[0];
+  }, [exams]);
+
+  // ── Handlers ────────────────────────────────────────────────
+  const handleToggleQuest = async (id: string, wasCompleted: boolean) => {
+    try {
+      await toggleQuest(id);
+      if (!wasCompleted) {
+        await awardXP(XP_AWARDS.TASK_COMPLETE, 'Daily quest completed');
+        playSuccess();
+        toast.success('+25 XP! Quest complete!');
+      } else {
+        playClick();
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleAddQuickQuest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickQuestText.trim()) return;
+    try {
+      await addQuest(quickQuestText.trim());
+      setQuickQuestText('');
+      setShowAddQuestInput(false);
+      playXP();
+      toast.success('Quest added!');
+    } catch {
+      toast.error('Failed to add quest');
+    }
+  };
+
+  const handleCompleteTask = async (taskId: string) => {
+    if (!user) return;
+    try {
+      await moveTask(user.uid, taskId, 'done');
+      await awardXP(50, 'Task completed');
+      playSuccess();
+      toast.success('+50 XP! Task completed!');
+    } catch {
+      toast.error('Failed to update task');
+    }
   };
 
   return (
-    <div className="w-full h-full flex flex-col gap-3 sm:gap-3.5 select-none overflow-y-auto pr-0.5 custom-scrollbar">
-      {/* =========================================================================
-          TOP ROW: 3 Modular Quest / Challenge Cards with Notched Bottom-Right CTAs
-          ========================================================================= */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-3.5 flex-shrink-0">
-        {/* Card 1: Daily Focus Sprint (Primary Violet #7C3AED) */}
-        <div className="relative rounded-[26px] sm:rounded-[30px] bg-white dark:bg-[#111328] border border-indigo-100/90 dark:border-white/10 p-4 sm:p-5 flex flex-col justify-between overflow-hidden shadow-[0_4px_24px_-4px_rgba(124,58,237,0.08)] hover:shadow-[0_8px_32px_-4px_rgba(124,58,237,0.18)] hover:border-primary/50 transition-all group">
-          {/* Ambient Glow */}
-          <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-primary/15 blur-2xl pointer-events-none" />
+    <>
+      <div className="w-full flex flex-col gap-4 sm:gap-5 pb-6">
+        {/* ============================================================
+            TOP ROW: 3 Modular Cards with Notched Bottom-Right Action Buttons
+            ============================================================ */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+          {/* ── CARD 1: Real Daily Quests ────────────────────────────── */}
+          <div className="relative overflow-hidden rounded-[26px] bg-white/95 dark:bg-[#111328]/95 border border-indigo-100/90 dark:border-white/10 shadow-[0_4px_20px_-4px_rgba(124,58,237,0.08)] p-4 sm:p-5 flex flex-col justify-between min-h-[220px]">
+            <div>
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-indigo-100/80 dark:border-white/10">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-xl bg-amber-500/15 flex items-center justify-center text-amber-500">
+                    <HiLightningBolt size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-heading font-black tracking-wide text-slate-900 dark:text-white">
+                      Daily Quests
+                    </h3>
+                    <p className="text-[10px] text-[var(--muted-foreground)]">
+                      Sync discipline & gain XP
+                    </p>
+                  </div>
+                </div>
 
-          {/* Card Header & Badge */}
-          <div className="flex items-center justify-between z-10">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-primary font-mono">
-              ⚡ Challenge 01
-            </span>
-            <span className="px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/25 text-[10px] font-bold text-primary">
-              Focus Sprint
-            </span>
-          </div>
-
-          {/* Centered Media / Icon Graphic */}
-          <div className="flex flex-col items-center justify-center my-3 sm:my-4 z-10 text-center">
-            <motion.div
-              whileHover={{ scale: 1.1, rotate: -4 }}
-              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-primary/10 border border-primary/25 flex items-center justify-center text-primary text-2xl sm:text-3xl shadow-inner mb-2.5"
-            >
-              ⏱️
-            </motion.div>
-            <h3 className="text-sm sm:text-base font-heading font-black text-slate-900 dark:text-white leading-tight">
-              25m Focus Block
-            </h3>
-            <p className="text-[11px] text-[var(--muted-foreground)] mt-0.5">
-              Deep work sprint with zero distractions
-            </p>
-          </div>
-
-          {/* Custom Notched Bottom-Right Pill Action */}
-          <div className="flex items-center justify-between pt-2 border-t border-indigo-50 dark:border-white/5 z-10">
-            <span className="text-[11px] font-mono font-bold text-tertiary">
-              +50 XP
-            </span>
-            <motion.button
-              onClick={() => router.push('/timer')}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="px-3.5 py-1.5 rounded-full bg-primary hover:bg-primary-light text-white font-semibold text-xs flex items-center gap-1 shadow-md shadow-primary/25 cursor-pointer transition-colors"
-            >
-              <span>Start Quest</span>
-              <HiChevronRight size={14} />
-            </motion.button>
-          </div>
-        </div>
-
-        {/* Card 2: Note Mastery & Flashcards (Amber Gold #FFD166) */}
-        <div className="relative rounded-[26px] sm:rounded-[30px] bg-white dark:bg-[#111328] border border-indigo-100/90 dark:border-white/10 p-4 sm:p-5 flex flex-col justify-between overflow-hidden shadow-[0_4px_24px_-4px_rgba(124,58,237,0.08)] hover:shadow-[0_8px_32px_-4px_rgba(124,58,237,0.18)] hover:border-amber-400/50 transition-all group">
-          {/* Ambient Glow */}
-          <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-amber-500/15 blur-2xl pointer-events-none" />
-
-          {/* Card Header & Badge */}
-          <div className="flex items-center justify-between z-10">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-500 font-mono">
-              📜 Challenge 02
-            </span>
-            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/25 text-[10px] font-bold text-amber-600 dark:text-amber-300">
-              Scroll Mastery
-            </span>
-          </div>
-
-          {/* Centered Media / Icon Graphic */}
-          <div className="flex flex-col items-center justify-center my-3 sm:my-4 z-10 text-center">
-            <motion.div
-              whileHover={{ scale: 1.1, rotate: 4 }}
-              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-500 text-2xl sm:text-3xl shadow-inner mb-2.5"
-            >
-              📖
-            </motion.div>
-            <h3 className="text-sm sm:text-base font-heading font-black text-slate-900 dark:text-white leading-tight">
-              Review Top Scrolls
-            </h3>
-            <p className="text-[11px] text-[var(--muted-foreground)] mt-0.5">
-              Active recall on today&apos;s lecture notes
-            </p>
-          </div>
-
-          {/* Custom Notched Bottom-Right Pill Action */}
-          <div className="flex items-center justify-between pt-2 border-t border-indigo-50 dark:border-white/5 z-10">
-            <span className="text-[11px] font-mono font-bold text-amber-500">
-              +35 XP
-            </span>
-            <motion.button
-              onClick={() => router.push('/notes')}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="px-3.5 py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-white font-semibold text-xs flex items-center gap-1 shadow-md shadow-amber-500/25 cursor-pointer transition-colors"
-            >
-              <span>Continue</span>
-              <HiChevronRight size={14} />
-            </motion.button>
-          </div>
-        </div>
-
-        {/* Card 3: Code Arena & DSA Dungeon (Teal / Emerald #06D6A0) */}
-        <div className="relative rounded-[26px] sm:rounded-[30px] bg-white dark:bg-[#111328] border border-indigo-100/90 dark:border-white/10 p-4 sm:p-5 flex flex-col justify-between overflow-hidden shadow-[0_4px_24px_-4px_rgba(124,58,237,0.08)] hover:shadow-[0_8px_32px_-4px_rgba(124,58,237,0.18)] hover:border-teal/50 transition-all group">
-          {/* Ambient Glow */}
-          <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-teal/15 blur-2xl pointer-events-none" />
-
-          {/* Card Header & Badge */}
-          <div className="flex items-center justify-between z-10">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-teal font-mono">
-              ⚔️ Challenge 03
-            </span>
-            <span className="px-2.5 py-0.5 rounded-full bg-teal/10 border border-teal/25 text-[10px] font-bold text-teal">
-              DSA Dungeon
-            </span>
-          </div>
-
-          {/* Centered Media / Icon Graphic */}
-          <div className="flex flex-col items-center justify-center my-3 sm:my-4 z-10 text-center">
-            <motion.div
-              whileHover={{ scale: 1.1, rotate: -4 }}
-              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-teal/10 border border-teal/25 flex items-center justify-center text-teal text-2xl sm:text-3xl shadow-inner mb-2.5"
-            >
-              💻
-            </motion.div>
-            <h3 className="text-sm sm:text-base font-heading font-black text-slate-900 dark:text-white leading-tight">
-              Algorithm Raid
-            </h3>
-            <p className="text-[11px] text-[var(--muted-foreground)] mt-0.5">
-              Solve today&apos;s LeetCode boss battle
-            </p>
-          </div>
-
-          {/* Custom Notched Bottom-Right Pill Action */}
-          <div className="flex items-center justify-between pt-2 border-t border-indigo-50 dark:border-white/5 z-10">
-            <span className="text-[11px] font-mono font-bold text-teal">
-              +100 XP
-            </span>
-            <motion.button
-              onClick={() => router.push('/dsa')}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="px-3.5 py-1.5 rounded-full bg-teal hover:bg-teal-dark text-white font-semibold text-xs flex items-center gap-1 shadow-md shadow-teal/25 cursor-pointer transition-colors"
-            >
-              <span>Enter Raid</span>
-              <HiChevronRight size={14} />
-            </motion.button>
-          </div>
-        </div>
-      </div>
-
-      {/* =========================================================================
-          BOTTOM ROW: Left (Main Activity + Slotted Music Dock) & Right (Top 3 Notes)
-          ========================================================================= */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-3.5 flex-1 min-h-0">
-        {/* =====================================================================
-            BOTTOM LEFT: Main Activity Canvas + Slotted Music Dock (Spans 2 cols)
-            ===================================================================== */}
-        <div className="lg:col-span-2 flex flex-col gap-3 sm:gap-3.5 h-full min-h-[360px]">
-          {/* Main Display Card: Interactive Activity Canvas */}
-          <div className="flex-1 rounded-[26px] sm:rounded-[30px] bg-white dark:bg-[#111328] border border-indigo-100/90 dark:border-white/10 p-4 sm:p-5 flex flex-col justify-between relative overflow-hidden shadow-[0_4px_24px_-4px_rgba(124,58,237,0.08)]">
-            {/* View Tab Switcher Header */}
-            <div className="flex items-center justify-between z-10 pb-3 border-b border-indigo-50 dark:border-white/5">
-              <div className="flex items-center gap-1.5 p-1 rounded-xl bg-indigo-50/60 dark:bg-white/[0.04] border border-indigo-100/80 dark:border-white/10">
-                <button
-                  onClick={() => setActiveTab('task')}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    activeTab === 'task'
-                      ? 'bg-primary text-white shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-white'
-                  }`}
-                >
-                  ⚔️ Priority Quest
-                </button>
-                <button
-                  onClick={() => setActiveTab('timer')}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    activeTab === 'timer'
-                      ? 'bg-primary text-white shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-white'
-                  }`}
-                >
-                  ⏱️ Focus Sprint
-                </button>
-                <button
-                  onClick={() => setActiveTab('desk')}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    activeTab === 'desk'
-                      ? 'bg-primary text-white shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-white'
-                  }`}
-                >
-                  🌸 Lofi Sanctuary
-                </button>
+                <div className="px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-300 font-mono text-[10px] font-bold">
+                  {todayTotal > 0 ? `${todayCompleted}/${todayTotal}` : 'Ready'}
+                </div>
               </div>
 
-              <div className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]">
-                <span className="w-2 h-2 rounded-full bg-tertiary animate-pulse" />
-                <span className="hidden sm:inline font-semibold">Active Session</span>
-              </div>
-            </div>
-
-            {/* Dynamic View Canvas */}
-            <div className="flex-1 flex flex-col items-center justify-center my-3 text-center z-10">
-              {activeTab === 'task' && (
-                <motion.div
-                  key="task"
-                  initial={{ opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="flex flex-col items-center max-w-md w-full"
-                >
-                  <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-3xl mb-3 shadow-inner">
-                    🎯
-                  </div>
-                  {topTask ? (
-                    <div className="w-full p-4 rounded-2xl bg-indigo-50/40 dark:bg-white/[0.03] border border-indigo-100/90 dark:border-white/10 flex items-center justify-between gap-3 text-left">
-                      <div className="min-w-0 flex-1">
-                        <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-[10px] font-bold text-amber-600 dark:text-amber-300 uppercase tracking-wide">
-                          {topTask.priority || 'High Priority'}
-                        </span>
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate mt-1">
-                          {topTask.title}
-                        </h4>
-                        <p className="text-[11px] text-[var(--muted-foreground)] truncate">
-                          {topTask.description || 'Complete this task to advance your daily quest streak'}
-                        </p>
-                      </div>
-                      <motion.button
-                        onClick={handleCompleteTask}
-                        whileHover={{ scale: 1.08 }}
-                        whileTap={{ scale: 0.92 }}
-                        className="w-10 h-10 rounded-xl bg-tertiary hover:bg-tertiary-dark text-white flex items-center justify-center shadow-md shadow-tertiary/30 cursor-pointer flex-shrink-0"
-                        title="Mark Completed"
-                      >
-                        <HiCheck size={20} />
-                      </motion.button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center">
-                      <p className="text-sm font-bold text-slate-900 dark:text-white font-heading">All Quests Completed!</p>
-                      <p className="text-xs text-[var(--muted-foreground)] mt-1">Add a new task or embark on a dungeon raid</p>
-                      <button
-                        onClick={() => router.push('/tasks')}
-                        className="mt-3 px-3 py-1.5 rounded-xl bg-primary hover:bg-primary-light text-white text-xs font-semibold flex items-center gap-1 cursor-pointer shadow-sm"
-                      >
-                        <HiPlus size={14} /> Add Quest
-                      </button>
-                    </div>
-                  )}
-                </motion.div>
-              )}
-
-              {activeTab === 'timer' && (
-                <motion.div
-                  key="timer"
-                  initial={{ opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="flex flex-col items-center"
-                >
-                  <div className="text-4xl sm:text-5xl font-mono font-black tracking-widest text-slate-900 dark:text-white tabular-nums drop-shadow-sm">
-                    {formatTime(timerSeconds)}
-                  </div>
-                  <p className="text-xs text-primary mt-1 font-semibold uppercase tracking-wider">
-                    {isTimerRunning ? '⚡ Focus Mode Active' : 'Idle — Ready to Sprint'}
-                  </p>
-                  <div className="flex items-center gap-2 mt-4">
-                    <motion.button
-                      onClick={() => setIsTimerRunning((prev) => !prev)}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className={`px-5 py-2 rounded-full font-bold text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition-all ${
-                        isTimerRunning
-                          ? 'bg-amber-500 hover:bg-amber-400 text-white shadow-amber-500/20'
-                          : 'bg-primary hover:bg-primary-light text-white shadow-primary/30'
-                      }`}
-                    >
-                      {isTimerRunning ? <HiPause size={15} /> : <HiPlay size={15} />}
-                      <span>{isTimerRunning ? 'Pause' : 'Start Sprint'}</span>
-                    </motion.button>
+              {/* Quest List */}
+              <div className="mt-3 space-y-2">
+                {showAddQuestInput ? (
+                  <form onSubmit={handleAddQuickQuest} className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={quickQuestText}
+                      onChange={(e) => setQuickQuestText(e.target.value)}
+                      placeholder="Add quest title..."
+                      autoFocus
+                      className="flex-1 px-3 py-1.5 text-xs rounded-xl bg-indigo-50/50 dark:bg-white/5 border border-indigo-100 dark:border-white/10 text-slate-900 dark:text-white focus:outline-none focus:border-primary"
+                    />
                     <button
-                      onClick={() => {
-                        setIsTimerRunning(false);
-                        setTimerSeconds(25 * 60);
-                      }}
-                      className="p-2 rounded-full bg-indigo-50 dark:bg-white/10 hover:bg-indigo-100 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
-                      title="Reset 25m Timer"
+                      type="submit"
+                      className="px-2.5 py-1.5 text-xs font-bold bg-primary text-white rounded-xl cursor-pointer hover:bg-primary-hover"
                     >
-                      <HiRefresh size={16} />
+                      Add
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddQuestInput(false)}
+                      className="px-2 py-1.5 text-xs text-slate-500 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </form>
+                ) : quests.length > 0 ? (
+                  quests.slice(0, 3).map((q) => (
+                    <div
+                      key={q.id}
+                      onClick={() => handleToggleQuest(q.id, q.completed)}
+                      className="flex items-center justify-between p-2 rounded-xl bg-indigo-50/40 dark:bg-white/[0.04] border border-indigo-100/60 dark:border-white/5 hover:border-primary/40 transition-all cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div
+                          className={`w-4 h-4 rounded-md border flex items-center justify-center transition-colors ${
+                            q.completed
+                              ? 'bg-emerald-500 border-emerald-500 text-white'
+                              : 'border-slate-400/60 dark:border-white/20 group-hover:border-primary'
+                          }`}
+                        >
+                          {q.completed && <HiCheck size={12} />}
+                        </div>
+                        <span
+                          className={`text-[11px] truncate ${
+                            q.completed
+                              ? 'line-through text-slate-400 dark:text-slate-500'
+                              : 'text-slate-700 dark:text-slate-200 group-hover:text-primary font-medium'
+                          }`}
+                        >
+                          {q.title}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-amber-500 font-bold ml-2 shrink-0">
+                        +25 XP
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-4 text-center">
+                    <p className="text-[11px] text-[var(--muted-foreground)]">
+                      No daily quests yet today.
+                    </p>
                   </div>
-                </motion.div>
-              )}
-
-              {activeTab === 'desk' && (
-                <motion.div
-                  key="desk"
-                  initial={{ opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="flex flex-col items-center max-w-sm"
-                >
-                  <div className="text-4xl mb-2">🏮</div>
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white font-heading">Lofi Study Sanctuary</h4>
-                  <p className="text-xs text-[var(--muted-foreground)] mt-1">
-                    Ambient lighting, binaural tones, and peaceful lo-fi beats
-                  </p>
-                  <button
-                    onClick={() => router.push('/reader')}
-                    className="mt-3 px-4 py-1.5 rounded-full bg-secondary hover:bg-secondary-dark text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-sm"
-                  >
-                    <span>Open Fullscreen Sanctuary</span>
-                    <HiExternalLink size={13} />
-                  </button>
-                </motion.div>
-              )}
+                )}
+              </div>
             </div>
 
-            {/* Bottom Card Footer */}
-            <div className="flex items-center justify-between text-[11px] text-[var(--muted-foreground)] pt-2 border-t border-indigo-50 dark:border-white/5 z-10 font-mono">
-              <span>StudyQuest AI Focus Engine</span>
-              <span className="text-primary font-bold">60 FPS Smooth Canvas</span>
+            {/* Notched Bottom-Right Action Button */}
+            <div className="mt-4 flex justify-end">
+              <motion.button
+                onClick={() => {
+                  if (!showAddQuestInput) {
+                    setShowAddQuestInput(true);
+                  } else {
+                    router.push('/habits');
+                  }
+                }}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.96 }}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl sm:rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-[11px] font-bold tracking-wide transition-all cursor-pointer shadow-xs"
+              >
+                <HiPlus size={13} />
+                <span>Add Quest</span>
+              </motion.button>
             </div>
           </div>
 
-          {/* =====================================================================
-              MUSIC PLAYER DOCK (Directly slotted underneath the main activity)
-              ===================================================================== */}
-          <div className="flex items-center gap-2.5 sm:gap-3 flex-shrink-0">
-            {/* Audio Control Pill */}
-            <div className="flex-1 rounded-2xl sm:rounded-full bg-white dark:bg-[#111328] border border-indigo-100/90 dark:border-white/10 p-2 sm:px-4 sm:py-2 flex items-center justify-between gap-3 shadow-sm select-none">
-              {/* Left: Spinning Vinyl / Artwork Thumbnail */}
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div
-                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-primary/20 border border-primary/40 flex-shrink-0 flex items-center justify-center ${
-                    isPlaying ? 'animate-spin' : ''
-                  }`}
-                  style={{ animationDuration: '6s' }}
-                >
-                  {currentTrack?.image ? (
-                    <img src={currentTrack.image} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-base">🎵</span>
-                  )}
+          {/* ── CARD 2: Real Active Tasks / Study Focus Sprint ────────── */}
+          <div className="relative overflow-hidden rounded-[26px] bg-white/95 dark:bg-[#111328]/95 border border-indigo-100/90 dark:border-white/10 shadow-[0_4px_20px_-4px_rgba(124,58,237,0.08)] p-4 sm:p-5 flex flex-col justify-between min-h-[220px]">
+            <div>
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-indigo-100/80 dark:border-white/10">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-xl bg-violet-500/15 flex items-center justify-center text-violet-500">
+                    <HiClipboardCheck size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-heading font-black tracking-wide text-slate-900 dark:text-white">
+                      Active Quests
+                    </h3>
+                    <p className="text-[10px] text-[var(--muted-foreground)]">
+                      Priority tasks in progress
+                    </p>
+                  </div>
                 </div>
 
-                <div className="flex flex-col truncate min-w-0">
-                  <span className="text-xs font-bold text-slate-900 dark:text-white truncate leading-tight">
-                    {currentTrack?.name || 'Lofi Chill Study Beats'}
-                  </span>
-                  <span className="text-[10px] text-[var(--muted-foreground)] truncate">
-                    {currentTrack?.artists || 'StudyQuest Ambient Audio'}
-                  </span>
+                <div className="px-2.5 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-300 font-mono text-[10px] font-bold">
+                  {tasks.filter((t) => t.status === 'done').length}/{tasks.length} Done
                 </div>
               </div>
 
-              {/* Center: Playback Controls & Interactive Scrub Bar */}
-              <div className="hidden sm:flex flex-col items-center flex-1 max-w-xs mx-2">
-                <div className="flex items-center gap-2 mb-1">
+              {/* Tasks List */}
+              <div className="mt-3 space-y-2">
+                {activeTasks.length > 0 ? (
+                  activeTasks.map((t) => (
+                    <div
+                      key={t.id}
+                      onClick={() => handleCompleteTask(t.id)}
+                      className="flex items-center justify-between p-2 rounded-xl bg-indigo-50/40 dark:bg-white/[0.04] border border-indigo-100/60 dark:border-white/5 hover:border-violet-500/40 transition-all cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-4 h-4 rounded-md border border-slate-400/60 dark:border-white/20 group-hover:border-violet-500 flex items-center justify-center transition-colors">
+                          <HiCheck size={12} className="opacity-0 group-hover:opacity-100 text-violet-500" />
+                        </div>
+                        <span className="text-[11px] truncate text-slate-700 dark:text-slate-200 font-medium group-hover:text-violet-400">
+                          {t.title}
+                        </span>
+                      </div>
+                      <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-violet-500/15 text-violet-600 dark:text-violet-300 font-bold uppercase shrink-0">
+                        {t.priority}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-4 text-center">
+                    <p className="text-[11px] text-[var(--muted-foreground)]">
+                      All active quests completed!
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Notched Bottom-Right Action Button */}
+            <div className="mt-4 flex justify-end">
+              <motion.button
+                onClick={() => router.push('/tasks')}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.96 }}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl sm:rounded-2xl bg-violet-500/15 hover:bg-violet-500/25 border border-violet-500/30 text-violet-700 dark:text-violet-300 text-[11px] font-bold tracking-wide transition-all cursor-pointer shadow-xs"
+              >
+                <span>Quest Log</span>
+                <HiChevronRight size={13} />
+              </motion.button>
+            </div>
+          </div>
+
+          {/* ── CARD 3: Target Milestone / Exam Countdown ─────────────── */}
+          <div className="relative overflow-hidden rounded-[26px] bg-white/95 dark:bg-[#111328]/95 border border-indigo-100/90 dark:border-white/10 shadow-[0_4px_20px_-4px_rgba(124,58,237,0.08)] p-4 sm:p-5 flex flex-col justify-between min-h-[220px]">
+            <div>
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-indigo-100/80 dark:border-white/10">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-xl bg-sky-500/15 flex items-center justify-center text-sky-500">
+                    <HiAcademicCap size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-heading font-black tracking-wide text-slate-900 dark:text-white">
+                      Target Milestone
+                    </h3>
+                    <p className="text-[10px] text-[var(--muted-foreground)]">
+                      Upcoming exams & goals
+                    </p>
+                  </div>
+                </div>
+
+                <div className="px-2.5 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-300 font-mono text-[10px] font-bold">
+                  {nextExam ? 'Scheduled' : 'Arena Ready'}
+                </div>
+              </div>
+
+              {/* Milestone Details */}
+              <div className="mt-3">
+                {nextExam ? (
+                  <div className="p-3 rounded-2xl bg-sky-50/40 dark:bg-sky-500/5 border border-sky-100 dark:border-sky-500/20 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 uppercase tracking-wider">
+                        {nextExam.subject || 'Academic Target'}
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-500 font-medium">
+                        {new Date(nextExam.date).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                      {nextExam.title}
+                    </p>
+                    <div className="flex items-center gap-1.5 pt-1 text-[11px] font-semibold text-sky-600 dark:text-sky-300">
+                      <HiClock size={13} />
+                      <span>
+                        {Math.max(0, Math.ceil((nextExam.date - Date.now()) / (1000 * 60 * 60 * 24)))}{' '}
+                        Days Remaining
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-2xl bg-indigo-50/40 dark:bg-white/[0.04] border border-indigo-100/60 dark:border-white/5 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-primary uppercase tracking-wider">
+                        Code Arena Challenge
+                      </span>
+                      <span className="text-[10px] font-mono text-emerald-500 font-bold">
+                        Active
+                      </span>
+                    </div>
+                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                      DSA & Algorithmic Puzzles
+                    </p>
+                    <p className="text-[11px] text-[var(--muted-foreground)]">
+                      Sharpen problem-solving and test your code live.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Notched Bottom-Right Action Button */}
+            <div className="mt-4 flex justify-end">
+              <motion.button
+                onClick={() => router.push(nextExam ? '/exams' : '/ide')}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.96 }}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl sm:rounded-2xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 text-sky-700 dark:text-sky-300 text-[11px] font-bold tracking-wide transition-all cursor-pointer shadow-xs"
+              >
+                <span>{nextExam ? 'Exam Radar' : 'Code Arena'}</span>
+                <HiChevronRight size={13} />
+              </motion.button>
+            </div>
+          </div>
+        </div>
+
+        {/* ============================================================
+            BOTTOM ROW: Main Activity + Music Dock (Left) & Top 3 Notes (Right)
+            ============================================================ */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
+          {/* ── LEFT AREA (8 cols): Main Interactive Sanctuary + Music Dock ── */}
+          <div className="lg:col-span-8 flex flex-col gap-4">
+            {/* Main Interactive Companion Display */}
+            <div className="rounded-[28px] sm:rounded-[32px] bg-white/95 dark:bg-[#111328]/95 border border-indigo-100/90 dark:border-white/10 shadow-[0_4px_24px_-4px_rgba(124,58,237,0.12)] p-4 sm:p-6 overflow-hidden relative">
+              <StudyDeskWidget />
+            </div>
+
+            {/* Docked Music Player Directly Below Sanctuary Canvas */}
+            <div className="flex flex-col sm:flex-row items-stretch gap-2.5 p-2 sm:p-2.5 rounded-[24px] sm:rounded-[28px] bg-white/95 dark:bg-[#111328]/95 border border-indigo-100/90 dark:border-white/10 shadow-md">
+              {/* Music Player Strip (Connected to useMusic) */}
+              <div className="flex-1 flex flex-col sm:flex-row items-center gap-3 px-3 py-2 rounded-2xl bg-indigo-50/50 dark:bg-white/[0.04] border border-indigo-100/70 dark:border-white/5">
+                {/* Vinyl Album Artwork */}
+                <div
+                  onClick={() => setIsPlayerOpen(true)}
+                  className="relative w-11 h-11 rounded-full overflow-hidden shrink-0 shadow-md cursor-pointer group"
+                  title="Open StudyQuest Music Studio"
+                >
+                  <motion.div
+                    className="w-full h-full relative"
+                    animate={{ rotate: isPlaying ? 360 : 0 }}
+                    transition={{ duration: 5, repeat: isPlaying ? Infinity : 0, ease: 'linear' }}
+                  >
+                    {currentTrack?.image ? (
+                      <img src={currentTrack.image} alt="Vinyl" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-tr from-primary to-secondary flex items-center justify-center text-white">
+                        <HiMusicNote size={18} />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 m-auto w-3.5 h-3.5 rounded-full bg-slate-900 border border-white/30" />
+                  </motion.div>
+                </div>
+
+                {/* Track Details & Scrubber */}
+                <div className="flex-1 min-w-0 w-full">
+                  <div className="flex items-center justify-between gap-2">
+                    <p
+                      onClick={() => setIsPlayerOpen(true)}
+                      className="text-xs font-bold text-slate-900 dark:text-white truncate cursor-pointer hover:text-primary transition-colors"
+                    >
+                      {currentTrack ? currentTrack.name : 'Lo-Fi Study Sanctuary'}
+                    </p>
+                    <span className="text-[10px] font-mono text-[var(--muted-foreground)] shrink-0">
+                      {formatTime(currentTime)} / {formatTime(duration)}
+                    </span>
+                  </div>
+
+                  <p className="text-[10px] text-[var(--muted-foreground)] truncate">
+                    {currentTrack ? currentTrack.artists : 'Offline Binaural & Study Beats'}
+                  </p>
+
+                  {/* Scrub Bar */}
+                  <div
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const clickPos = (e.clientX - rect.left) / rect.width;
+                      seek(clickPos * duration);
+                    }}
+                    className="w-full h-1.5 mt-1.5 rounded-full bg-slate-200 dark:bg-white/10 cursor-pointer overflow-hidden relative group"
+                  >
+                    <div
+                      className="h-full bg-gradient-to-r from-primary to-secondary rounded-full relative"
+                      style={{ width: `${Math.min(100, Math.max(0, progress || 0))}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Playback Controls */}
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     onClick={prevTrack}
-                    className="p-1 rounded-full text-slate-500 hover:text-primary transition-colors cursor-pointer"
+                    className="p-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                     title="Previous Track"
                   >
                     <HiRewind size={15} />
                   </button>
-                  <motion.button
+
+                  <button
                     onClick={togglePlayPause}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    className="w-7 h-7 rounded-full bg-primary hover:bg-primary-light text-white flex items-center justify-center shadow-md shadow-primary/25 cursor-pointer"
+                    className="w-8 h-8 rounded-full bg-primary hover:bg-primary-hover text-white flex items-center justify-center shadow-md transition-transform active:scale-95 cursor-pointer"
                     title={isPlaying ? 'Pause' : 'Play'}
                   >
                     {isPlaying ? <HiPause size={14} /> : <HiPlay size={14} className="ml-0.5" />}
-                  </motion.button>
+                  </button>
+
                   <button
                     onClick={nextTrack}
-                    className="p-1 rounded-full text-slate-500 hover:text-primary transition-colors cursor-pointer"
+                    className="p-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                     title="Next Track"
                   >
                     <HiFastForward size={15} />
                   </button>
-                </div>
 
-                {/* Progress Scrub Bar */}
-                <div className="w-full flex items-center gap-1.5 text-[9px] font-mono text-[var(--muted-foreground)]">
-                  <span>{formatTime(currentTime || 0)}</span>
-                  <div
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const pos = (e.clientX - rect.left) / rect.width;
-                      if (seek && duration) seek(pos * duration);
-                    }}
-                    className="flex-1 h-1 bg-indigo-100 dark:bg-white/10 rounded-full overflow-hidden cursor-pointer relative group"
+                  <button
+                    onClick={toggleMute}
+                    className="p-1.5 rounded-xl text-slate-500 hover:text-primary transition-colors cursor-pointer"
+                    title={isMuted ? 'Unmute' : 'Mute'}
                   >
-                    <div
-                      className="h-full bg-primary rounded-full"
-                      style={{
-                        width: `${duration > 0 ? (currentTime / duration) * 100 : 35}%`,
-                      }}
-                    />
-                  </div>
-                  <span>{formatTime(duration || 180)}</span>
+                    {isMuted ? <HiVolumeOff size={15} /> : <HiVolumeUp size={15} />}
+                  </button>
                 </div>
               </div>
 
-              {/* Mobile Play Button */}
-              <div className="sm:hidden flex items-center">
-                <motion.button
-                  onClick={togglePlayPause}
-                  whileTap={{ scale: 0.9 }}
-                  className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center shadow-xs"
+              {/* Accompanying Vertical Utility Slot / Action Pill */}
+              <div className="flex sm:flex-col items-center justify-center gap-1.5 px-1.5 py-1 sm:py-0 shrink-0">
+                <button
+                  onClick={() => setShowBinaural(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/25 transition-all cursor-pointer whitespace-nowrap shadow-2xs"
+                  title="Open Binaural Brainwaves"
                 >
-                  {isPlaying ? <HiPause size={16} /> : <HiPlay size={16} className="ml-0.5" />}
+                  <HiLightningBolt size={12} />
+                  <span>Waves</span>
+                </button>
+
+                <button
+                  onClick={() => setIsPlayerOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold text-slate-700 dark:text-slate-200 bg-indigo-50/70 dark:bg-white/[0.06] hover:bg-primary/10 hover:text-primary border border-indigo-100 dark:border-white/10 transition-all cursor-pointer whitespace-nowrap shadow-2xs"
+                  title="Launch StudyQuest Music Studio"
+                >
+                  <HiMusicNote size={12} />
+                  <span>Studio</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ── RIGHT AREA (4 cols): Top 3 Notes Fanned Stack ────────── */}
+          <div className="lg:col-span-4 rounded-[28px] sm:rounded-[32px] bg-white/95 dark:bg-[#111328]/95 border border-indigo-100/90 dark:border-white/10 shadow-[0_4px_24px_-4px_rgba(124,58,237,0.12)] p-4 sm:p-5 flex flex-col justify-between min-h-[440px]">
+            <div>
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-indigo-100/80 dark:border-white/10">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-xl bg-pink-500/15 flex items-center justify-center text-pink-500">
+                    <HiPencilAlt size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-heading font-black tracking-wide text-slate-900 dark:text-white">
+                      Top 3 Notes
+                    </h3>
+                    <p className="text-[10px] text-[var(--muted-foreground)]">
+                      Quick recall & study scrolls
+                    </p>
+                  </div>
+                </div>
+
+                {/* Add / Explore Notes Button */}
+                <motion.button
+                  onClick={() => router.push('/notes')}
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.94 }}
+                  className="w-7 h-7 rounded-xl bg-pink-500/10 hover:bg-pink-500/20 text-pink-600 dark:text-pink-300 border border-pink-500/25 flex items-center justify-center cursor-pointer transition-colors shadow-2xs"
+                  title="Create or View Notes"
+                >
+                  <HiPlus size={14} />
                 </motion.button>
               </div>
 
-              {/* Right: Volume & Mute Toggle */}
-              <div className="hidden md:flex items-center gap-1.5 flex-shrink-0">
-                <button
-                  onClick={toggleMute}
-                  className="p-1 rounded-full text-slate-500 hover:text-primary transition-colors cursor-pointer"
-                  title={isMuted ? 'Unmute' : 'Mute'}
-                >
-                  {isMuted || volume === 0 ? <HiVolumeOff size={15} /> : <HiVolumeUp size={15} />}
-                </button>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={isMuted ? 0 : volume}
-                  onChange={(e) => setVolume(parseInt(e.target.value, 10))}
-                  className="w-16 h-1 bg-indigo-100 dark:bg-white/15 rounded-lg appearance-none cursor-pointer accent-primary"
-                  title={`Volume: ${volume}%`}
-                />
+              {/* Stacked / Fanned Preview Cards Effect */}
+              <div className="mt-5 relative h-72 w-full flex items-center justify-center group select-none">
+                {topNotes.length > 0 ? (
+                  topNotes.map((note, index) => {
+                    // Slight fanning rotation angles
+                    const rotation = index === 0 ? '-rotate-3' : index === 1 ? 'rotate-2' : '-rotate-1';
+                    const zIndex = 30 - index * 10;
+                    const translateY = index * 14;
+
+                    return (
+                      <motion.div
+                        key={note.id}
+                        onClick={() => router.push(`/notes?id=${note.id}`)}
+                        whileHover={{ scale: 1.04, y: -8, zIndex: 50 }}
+                        className={`absolute w-full p-4 rounded-2xl bg-white dark:bg-[#161936] border border-indigo-100 dark:border-white/15 shadow-xl cursor-pointer transition-all ${rotation}`}
+                        style={{
+                          top: `${translateY}px`,
+                          zIndex: zIndex,
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-pink-500/10 border border-pink-500/20 text-pink-600 dark:text-pink-300 font-bold uppercase truncate max-w-[120px]">
+                            {note.tags?.[0] || 'Scroll'}
+                          </span>
+                          <span className="text-[9px] font-mono text-[var(--muted-foreground)]">
+                            {note.updatedAt
+                              ? new Date(note.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                              : 'Recent'}
+                          </span>
+                        </div>
+
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                          {note.title || 'Untitled Note'}
+                        </h4>
+
+                        <p className="text-[11px] text-[var(--muted-foreground)] mt-1.5 line-clamp-2 leading-relaxed">
+                          {note.content
+                            ? note.content.replace(/<[^>]+>/g, '').slice(0, 90)
+                            : 'No preview available.'}
+                        </p>
+                      </motion.div>
+                    );
+                  })
+                ) : (
+                  <div
+                    onClick={() => router.push('/notes')}
+                    className="w-full p-6 rounded-2xl border-2 border-dashed border-indigo-100 dark:border-white/10 flex flex-col items-center justify-center text-center cursor-pointer hover:border-primary/50 transition-colors"
+                  >
+                    <div className="w-10 h-10 rounded-2xl bg-pink-500/10 flex items-center justify-center text-pink-500 mb-2">
+                      <HiPencilAlt size={20} />
+                    </div>
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      No notes created yet
+                    </p>
+                    <p className="text-[10px] text-[var(--muted-foreground)] mt-1">
+                      Click to craft your first study scroll
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Accompanying Vertical Utility Slot / Ambient Soundscape Action Pill */}
-            <div className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-2xl sm:rounded-full bg-white dark:bg-[#111328] border border-indigo-100/90 dark:border-white/10 shadow-sm">
-              <button
-                onClick={() => toggleAmbientSound('rain')}
-                className={`p-1.5 rounded-xl text-xs flex items-center gap-1 transition-all cursor-pointer ${
-                  ambientSound === 'rain'
-                    ? 'bg-sky-500 text-white shadow-xs'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-primary hover:bg-indigo-50 dark:hover:bg-white/5'
-                }`}
-                title="Toggle Ambient Rain Soundscape"
-              >
-                <span>🌧️</span>
-                <span className="hidden xl:inline text-[10px] font-bold">Rain</span>
-              </button>
-
-              <button
-                onClick={() => toggleAmbientSound('binaural')}
-                className={`p-1.5 rounded-xl text-xs flex items-center gap-1 transition-all cursor-pointer ${
-                  ambientSound === 'binaural'
-                    ? 'bg-primary text-white shadow-xs'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-primary hover:bg-indigo-50 dark:hover:bg-white/5'
-                }`}
-                title="Toggle 40Hz Binaural Gamma Focus Waves"
-              >
-                <span>🎧</span>
-                <span className="hidden xl:inline text-[10px] font-bold">40Hz</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* =====================================================================
-            BOTTOM RIGHT: "Top 3 Notes" Card with Stacked / Fanned Deck Effect
-            ===================================================================== */}
-        <div
-          onMouseEnter={() => setIsNotesFanned(true)}
-          onMouseLeave={() => setIsNotesFanned(false)}
-          className="lg:col-span-1 rounded-[26px] sm:rounded-[30px] bg-white dark:bg-[#111328] border border-indigo-100/90 dark:border-white/10 p-4 sm:p-5 flex flex-col justify-between relative overflow-hidden shadow-[0_4px_24px_-4px_rgba(124,58,237,0.08)] group"
-        >
-          {/* Header with Title and Add Button */}
-          <div className="flex items-center justify-between pb-3 border-b border-indigo-50 dark:border-white/5 z-20">
-            <div className="flex items-center gap-2">
-              <span className="text-base">📑</span>
-              <h3 className="text-sm sm:text-base font-heading font-black text-slate-900 dark:text-white tracking-wide">
-                Top 3 Notes
-              </h3>
-            </div>
-
-            <div className="flex items-center gap-1">
+            {/* Bottom Link to Full Notes Library */}
+            <div className="pt-3 border-t border-indigo-100/80 dark:border-white/10 flex items-center justify-between">
+              <span className="text-[10px] font-mono text-[var(--muted-foreground)]">
+                {notes.length} Total Scrolls
+              </span>
               <button
                 onClick={() => router.push('/notes')}
-                className="p-1.5 rounded-xl bg-indigo-50 dark:bg-white/5 hover:bg-indigo-100 text-slate-600 dark:text-slate-300 hover:text-primary transition-colors cursor-pointer"
-                title="View All Notes"
+                className="flex items-center gap-1 text-[11px] font-bold text-pink-600 dark:text-pink-400 hover:underline cursor-pointer"
               >
-                <HiSearch size={14} />
-              </button>
-              <button
-                onClick={() => router.push('/notes')}
-                className="p-1.5 rounded-xl bg-primary hover:bg-primary-light text-white transition-colors cursor-pointer shadow-xs"
-                title="Create New Note"
-              >
-                <HiPlus size={14} />
+                <span>All Notes</span>
+                <HiChevronRight size={12} />
               </button>
             </div>
-          </div>
-
-          {/* Interactive Stacked / Fanned Card Deck Canvas */}
-          <div className="relative flex-1 my-4 flex items-center justify-center min-h-[200px] z-10">
-            {displayNotes.map((note, index) => {
-              // Rotation angles and offsets for fanned card deck
-              const rotations = [-6, 0, 6];
-              const fannedRotations = [-12, 0, 12];
-              const fannedY = [-20, 0, 20];
-              const fannedX = [-15, 0, 15];
-
-              const currentRotation = isNotesFanned
-                ? fannedRotations[index] || 0
-                : rotations[index] || 0;
-              const currentY = isNotesFanned ? fannedY[index] || 0 : index * 8;
-              const currentX = isNotesFanned ? fannedX[index] || 0 : 0;
-              const zIndex = index + 1;
-
-              return (
-                <motion.div
-                  key={note.id || index}
-                  onClick={() => router.push(`/notes?id=${note.id}`)}
-                  animate={{
-                    rotate: currentRotation,
-                    y: currentY,
-                    x: currentX,
-                    scale: isNotesFanned ? 1.02 : 1 - (2 - index) * 0.03,
-                  }}
-                  transition={{
-                    type: 'spring',
-                    stiffness: 260,
-                    damping: 20,
-                  }}
-                  className={`absolute w-11/12 max-w-[280px] p-3.5 rounded-2xl border transition-all cursor-pointer select-none shadow-xl ${
-                    index === 2
-                      ? 'bg-white dark:bg-[#111328] border-2 border-primary/50 text-slate-900 dark:text-white shadow-primary/10'
-                      : index === 1
-                      ? 'bg-slate-50 dark:bg-[#161936] border border-indigo-100 dark:border-white/10 text-slate-800 dark:text-slate-200'
-                      : 'bg-slate-100/80 dark:bg-[#1e2244] border border-indigo-100/60 dark:border-white/10 text-slate-700 dark:text-slate-300'
-                  }`}
-                  style={{ zIndex }}
-                >
-                  <div className="flex items-center justify-between gap-1 mb-1.5">
-                    <span className="px-2 py-0.5 rounded-md bg-primary/15 text-primary dark:text-primary-light font-mono text-[9px] uppercase font-bold">
-                      {note.tags?.[0] ? `#${note.tags[0]}` : '#study'}
-                    </span>
-                    <span className="text-[9px] text-[var(--muted-foreground)] font-mono">
-                      Card 0{index + 1}
-                    </span>
-                  </div>
-
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1 leading-snug">
-                    {note.title || 'Untitled Scroll'}
-                  </h4>
-
-                  <p className="text-[10px] text-[var(--muted-foreground)] line-clamp-2 mt-1 leading-relaxed">
-                    {note.content?.replace(/<[^>]+>/g, '') || 'Tap to read full study note...'}
-                  </p>
-
-                  <div className="mt-2.5 pt-1.5 border-t border-indigo-50 dark:border-white/5 flex items-center justify-between text-[9px] text-[var(--muted-foreground)] font-mono">
-                    <span>Click to open</span>
-                    <HiChevronRight size={11} className="text-primary" />
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-
-          {/* Footer Hint */}
-          <div className="flex items-center justify-between text-[11px] text-[var(--muted-foreground)] pt-2 border-t border-indigo-50 dark:border-white/5 z-20">
-            <span className="italic text-[10px]">Hover to fan out cards</span>
-            <Link
-              href="/notes"
-              className="text-primary hover:text-primary-light font-semibold flex items-center gap-0.5 text-[11px]"
-            >
-              <span>Notes Studio</span>
-              <HiChevronRight size={12} />
-            </Link>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Binaural Focus Modal */}
+      {showBinaural && (
+        <BinauralFocusModal
+          isOpen={showBinaural}
+          onClose={() => setShowBinaural(false)}
+        />
+      )}
+    </>
   );
 }

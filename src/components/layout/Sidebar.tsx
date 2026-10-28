@@ -8,92 +8,41 @@ import {
   HiHome, HiClipboardCheck, HiPencilAlt, HiLightningBolt,
   HiClock, HiCalendar, HiChatAlt2, HiChartBar,
   HiUserGroup, HiDatabase, HiCode, HiCubeTransparent,
-  HiBookmark, HiCog, HiChevronLeft, HiChevronRight,
-  HiLogout, HiSparkles, HiCollection, HiTerminal,
+  HiBookmark, HiCog, HiLogout, HiSparkles,
   HiAcademicCap, HiPencil, HiHeart, HiShoppingCart,
-  HiBeaker, HiShieldCheck, HiBookOpen, HiDotsHorizontal,
-  HiX,
+  HiShieldCheck, HiBookOpen, HiTerminal,
 } from 'react-icons/hi';
 import { useAuthContext } from '@/context/AuthContext';
 import { useGamification } from '@/hooks/useGamification';
-import { useSidebar } from '@/context/SidebarContext';
 import { getAvatarUrl, ADMIN_EMAILS } from '@/lib/constants';
 import QuestieMascot from '@/components/gamification/QuestieMascot';
 
-const iconMap: Record<string, React.ComponentType<{ className?: string; size?: number }>> = {
-  HiHome, HiClipboardCheck, HiPencilAlt, HiLightningBolt,
-  HiClock, HiCalendar, HiChatAlt2, HiChartBar,
-  HiUserGroup, HiDatabase, HiCode, HiCubeTransparent,
-  HiBookmark, HiCog, HiSparkles, HiCollection, HiTerminal,
-  HiAcademicCap, HiPencil, HiHeart, HiShoppingCart,
-  HiBeaker, HiShieldCheck, HiBookOpen,
-};
+interface NavItem {
+  label: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string; size?: number }>;
+  category: string;
+  adminOnly?: boolean;
+}
 
-const SECTION_META: Record<string, { emoji: string; short: string; color: string }> = {
-  'Adventure': { emoji: '⚔️', short: 'Adventure', color: 'text-violet-500' },
-  'Study Sanctuary': { emoji: '📚', short: 'Sanctuary', color: 'text-indigo-500' },
-  'Companions': { emoji: '🐾', short: 'Companions', color: 'text-pink-500' },
-  'Forge': { emoji: '⚡', short: 'Forge', color: 'text-emerald-500' },
-  'Admin': { emoji: '🛡️', short: 'Admin', color: 'text-amber-500' },
-};
-
-const NAV_SECTIONS = [
-  {
-    title: 'Adventure',
-    items: [
-      { label: 'Dashboard', href: '/', icon: 'HiHome' },
-      { label: 'Syllabus Tracker', href: '/tracker', icon: 'HiAcademicCap' },
-      { label: 'Quest Log', href: '/tasks', icon: 'HiClipboardCheck' },
-      { label: 'Notes & Scrolls', href: '/notes', icon: 'HiPencilAlt' },
-      { label: 'Daily Quests', href: '/habits', icon: 'HiLightningBolt' },
-      { label: 'Exam Countdown', href: '/exams', icon: 'HiAcademicCap' },
-    ],
-  },
-  {
-    title: 'Study Sanctuary',
-    items: [
-      { label: 'Focus Timer', href: '/timer', icon: 'HiClock' },
-      { label: 'Timetable', href: '/timetable', icon: 'HiCalendar' },
-      { label: 'Resources', href: '/resources', icon: 'HiCollection' },
-      { label: 'Doc Studio & Reader', href: '/reader', icon: 'HiBookOpen' },
-      { label: 'Whiteboard', href: '/whiteboard', icon: 'HiPencil' },
-      { label: 'Questie Chat', href: '/chat', icon: 'HiChatAlt2' },
-      { label: 'Hall of Fame', href: '/analytics', icon: 'HiChartBar' },
-    ],
-  },
-  {
-    title: 'Companions',
-    items: [
-      { label: 'My Pet', href: '/pets', icon: 'HiHeart' },
-      { label: 'Item Shop', href: '/shop', icon: 'HiShoppingCart' },
-      { label: 'Alchemy Lab', href: '/alchemy', icon: 'HiBeaker' },
-      { label: 'Skill Tree', href: '/skills', icon: 'HiSparkles' },
-      { label: 'Study Groups', href: '/groups', icon: 'HiUserGroup' },
-    ],
-  },
-  {
-    title: 'Forge',
-    items: [
-      { label: 'ML Academy', href: '/ml', icon: 'HiAcademicCap' },
-      { label: 'Data Forge (Colab)', href: '/notebook', icon: 'HiTerminal' },
-      { label: 'SQL Lab', href: '/sql', icon: 'HiDatabase' },
-      { label: 'Code Runner', href: '/code', icon: 'HiCode' },
-      { label: 'Code Arena IDE', href: '/ide', icon: 'HiTerminal' },
-      { label: 'DSA Dungeon', href: '/dsa', icon: 'HiCubeTransparent' },
-      { label: 'Spell Book', href: '/snippets', icon: 'HiBookmark' },
-      { label: 'Typing Arcade', href: '/arcade', icon: 'HiSparkles' },
-    ],
-  },
-  {
-    title: 'Admin',
-    items: [
-      { label: 'Admin Panel', href: '/admin', icon: 'HiShieldCheck' },
-    ],
-  },
+const PRIMARY_NAV_ITEMS: NavItem[] = [
+  { label: 'Dashboard', href: '/', icon: HiHome, category: 'Main' },
+  { label: 'Quest Log', href: '/tasks', icon: HiClipboardCheck, category: 'Quests' },
+  { label: 'Notes & Scrolls', href: '/notes', icon: HiPencilAlt, category: 'Study' },
+  { label: 'Daily Habits', href: '/habits', icon: HiLightningBolt, category: 'Habits' },
+  { label: 'Focus Timer', href: '/timer', icon: HiClock, category: 'Focus' },
+  { label: 'Doc Studio & Reader', href: '/reader', icon: HiBookOpen, category: 'Study' },
+  { label: 'Whiteboard', href: '/whiteboard', icon: HiPencil, category: 'Creative' },
+  { label: 'Questie AI Chat', href: '/chat', icon: HiChatAlt2, category: 'AI' },
+  { label: 'Hall of Fame & Stats', href: '/analytics', icon: HiChartBar, category: 'Stats' },
+  { label: 'Item Shop', href: '/shop', icon: HiShoppingCart, category: 'Shop' },
+  { label: 'Companion Pet', href: '/pets', icon: HiHeart, category: 'Pet' },
+  { label: 'Code Arena & IDE', href: '/ide', icon: HiTerminal, category: 'Forge' },
+  { label: 'Syllabus Tracker', href: '/tracker', icon: HiAcademicCap, category: 'Study' },
+  { label: 'Admin Panel', href: '/admin', icon: HiShieldCheck, category: 'Admin', adminOnly: true },
 ];
 
 export default function Sidebar() {
-  const { collapsed, setCollapsed } = useSidebar();
   const pathname = usePathname();
   const router = useRouter();
   const { profile, signOut } = useAuthContext();
@@ -108,8 +57,8 @@ export default function Sidebar() {
 
   const isAdmin = profile?.email && ADMIN_EMAILS.includes(profile.email);
 
-  const visibleSections = useMemo(() => {
-    return isAdmin ? NAV_SECTIONS : NAV_SECTIONS.filter((s) => s.title !== 'Admin');
+  const visibleItems = useMemo(() => {
+    return PRIMARY_NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin);
   }, [isAdmin]);
 
   // Close profile menu on outside click
@@ -127,99 +76,80 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`h-full flex flex-col justify-between py-2 sm:py-3 rounded-[26px] sm:rounded-[30px] bg-white/95 dark:bg-[#111328]/95 border border-indigo-100/90 dark:border-white/10 shadow-[0_4px_24px_-4px_rgba(124,58,237,0.12)] select-none relative z-20 transition-all duration-200 overflow-hidden ${
-        collapsed ? 'w-14 sm:w-16 px-1.5' : 'w-60 sm:w-64 px-3'
-      }`}
+      className="w-14 sm:w-16 h-full flex flex-col justify-between py-2 sm:py-3 px-1.5 rounded-[26px] sm:rounded-[30px] bg-white/95 dark:bg-[#111328]/95 border border-indigo-100/90 dark:border-white/10 shadow-[0_4px_24px_-4px_rgba(124,58,237,0.12)] select-none relative z-30 transition-all duration-200"
+      aria-label="Navigation Rail"
     >
       {/* Top: Questie Mascot (Living Owl Companion) */}
       <div className="flex flex-col items-center flex-shrink-0 pb-2 border-b border-indigo-100/80 dark:border-white/10">
-        <QuestieMascot collapsed={collapsed} />
+        <QuestieMascot collapsed={true} />
       </div>
 
-      {/* Middle: Structured Navigation with all 4 authentic sections */}
-      <div className="flex-1 min-h-0 overflow-y-auto py-2 space-y-3 pr-0.5 custom-scrollbar">
-        {visibleSections.map((sec) => {
-          const meta = SECTION_META[sec.title] || { emoji: '📌', short: sec.title, color: 'text-primary' };
+      {/* Middle: Pure Icon Rail with Hover Tooltip Placeholders (No expanding boxes/names) */}
+      <div className="flex-1 min-h-0 overflow-y-auto py-2 space-y-1.5 custom-scrollbar flex flex-col items-center">
+        {visibleItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = pathname === item.href;
+
           return (
-            <div key={sec.title} className="space-y-1">
-              {/* Section Header */}
-              {!collapsed ? (
-                <div className="px-2 pt-1 pb-0.5 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[var(--muted-foreground)]">
-                  <span className="flex items-center gap-1.5">
-                    <span>{meta.emoji}</span>
-                    <span>{sec.title}</span>
-                  </span>
-                  <span className="text-[9px] opacity-60 font-mono">{sec.items.length}</span>
-                </div>
-              ) : (
-                <div className="flex justify-center py-1">
-                  <span className="text-[11px]" title={sec.title}>{meta.emoji}</span>
-                </div>
-              )}
+            <div key={item.href} className="relative group flex items-center justify-center w-full">
+              <Link
+                href={item.href}
+                className={`relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl transition-all cursor-pointer ${
+                  isActive
+                    ? 'bg-primary text-white shadow-md shadow-primary/30 font-bold'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white hover:bg-indigo-50/70 dark:hover:bg-white/[0.08]'
+                }`}
+                aria-label={item.label}
+              >
+                <Icon size={19} className="transition-transform group-hover:scale-110" />
 
-              {/* Section Items */}
-              <div className="space-y-1">
-                {sec.items.map((item) => {
-                  const Icon = iconMap[item.icon] || HiSparkles;
-                  const isActive = pathname === item.href;
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`relative flex items-center gap-2.5 px-2.5 py-1.5 sm:py-2 rounded-xl text-xs font-semibold transition-all group cursor-pointer ${
-                        isActive
-                          ? 'bg-primary text-white shadow-md shadow-primary/25 font-bold'
-                          : 'text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white hover:bg-indigo-50/70 dark:hover:bg-white/[0.06]'
-                      } ${collapsed ? 'justify-center px-0' : ''}`}
-                      title={collapsed ? `${meta.emoji} ${item.label}` : undefined}
-                    >
-                      <Icon size={17} className="flex-shrink-0 transition-transform group-hover:scale-110" />
+                {/* Active indicator dot */}
+                {isActive && (
+                  <span className="absolute -left-1 w-1 h-3.5 rounded-r-full bg-white shadow-xs" />
+                )}
+              </Link>
 
-                      {!collapsed && (
-                        <span className="truncate text-[11px] sm:text-xs">
-                          {item.label}
-                        </span>
-                      )}
-
-                      {/* Tooltip on collapsed rail */}
-                      {collapsed && (
-                        <span className="pointer-events-none absolute left-full ml-3 px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-700 text-white text-[11px] font-semibold tracking-wide whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-xl z-50 hidden sm:inline-block">
-                          {meta.emoji} {item.label}
-                        </span>
-                      )}
-
-                      {/* Active indicator dot */}
-                      {isActive && (
-                        <span className="absolute -left-1 w-1 h-3.5 rounded-r-full bg-white shadow-xs" />
-                      )}
-                    </Link>
-                  );
-                })}
+              {/* Floating Hover Tooltip / Placeholder (Shown on Hover only, No Emojis) */}
+              <div
+                role="tooltip"
+                className="pointer-events-none absolute left-full ml-3 px-3 py-1.5 rounded-xl bg-slate-900/95 dark:bg-[#161936]/95 border border-slate-700/80 dark:border-white/15 text-white text-[11px] font-semibold tracking-wide whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-150 shadow-2xl backdrop-blur-md z-50 hidden sm:flex items-center gap-2"
+              >
+                <span>{item.label}</span>
+                <span className="text-[9px] font-medium text-slate-400 font-mono uppercase tracking-wider">
+                  {item.category}
+                </span>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Bottom Area: Expand/Collapse Rail Toggle & Circular Profile Button */}
+      {/* Bottom Area: Circular Profile Avatar & Settings Quick Trigger */}
       <div className="pt-2 border-t border-indigo-100/80 dark:border-white/10 flex flex-col items-center gap-2 flex-shrink-0">
-        {/* Toggle Expand / Collapse Rail */}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="w-full py-1 rounded-xl text-slate-500 hover:text-primary dark:text-slate-400 dark:hover:text-white hover:bg-indigo-50/60 dark:hover:bg-white/[0.06] flex items-center justify-center gap-1 transition-colors cursor-pointer text-[10px] font-semibold"
-          title={collapsed ? 'Expand Sidebar' : 'Collapse Sidebar to Rail'}
-        >
-          {collapsed ? (
-            <HiChevronRight size={16} />
-          ) : (
-            <span className="flex items-center gap-1">
-              <HiChevronLeft size={16} />
-              <span>Collapse Rail</span>
-            </span>
-          )}
-        </button>
+        {/* Settings Icon Button */}
+        <div className="relative group flex items-center justify-center w-full">
+          <Link
+            href="/settings"
+            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+              pathname === '/settings'
+                ? 'bg-primary text-white shadow-md shadow-primary/25'
+                : 'text-slate-500 dark:text-slate-400 hover:text-primary dark:hover:text-white hover:bg-indigo-50/70 dark:hover:bg-white/[0.08]'
+            }`}
+            aria-label="Settings"
+          >
+            <HiCog size={18} className="transition-transform group-hover:rotate-45" />
+          </Link>
 
-        {/* Circular Profile Avatar & Settings Button (rounded-full) */}
+          {/* Settings Tooltip */}
+          <div
+            role="tooltip"
+            className="pointer-events-none absolute left-full ml-3 px-2.5 py-1 rounded-xl bg-slate-900/95 dark:bg-[#161936]/95 border border-slate-700/80 dark:border-white/15 text-white text-[11px] font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-xl z-50 hidden sm:block"
+          >
+            Settings
+          </div>
+        </div>
+
+        {/* Circular Profile Avatar (rounded-full) */}
         <div className="relative w-full flex justify-center" ref={profileMenuRef}>
           <motion.button
             onClick={() => setShowProfileMenu((prev) => !prev)}
@@ -227,6 +157,7 @@ export default function Sidebar() {
             whileTap={{ scale: 0.94 }}
             className="w-10 h-10 sm:w-11 sm:h-11 rounded-full p-0.5 border-2 border-primary/80 hover:border-primary overflow-hidden bg-white dark:bg-[#111328] flex items-center justify-center cursor-pointer shadow-md transition-all group"
             title="User Profile & Settings"
+            aria-label="Open profile menu"
           >
             {avatarUrl ? (
               <img
@@ -271,7 +202,7 @@ export default function Sidebar() {
 
                 {/* Level / Title Capsule */}
                 <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-indigo-50/50 dark:bg-white/[0.04] border border-indigo-100 dark:border-white/10 text-[11px]">
-                  <span className="font-semibold text-amber-500">⚡ Level {gamification?.level || 1}</span>
+                  <span className="font-semibold text-amber-500">Level {gamification?.level || 1}</span>
                   <span className="text-[var(--muted-foreground)] font-mono">{gamification?.xp?.toLocaleString() || 0} XP</span>
                 </div>
 
