@@ -31,7 +31,7 @@ import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import { readWordDocument, exportHtmlToDocxBinary, exportHtmlToWordBlob } from '@/lib/docstudio/officeEngine';
 import { compileWordHtmlToPdf } from '@/lib/docstudio/wordToPdf';
-import { formatBytes } from '@/lib/docstudio/compressor';
+import { formatBytes, formatToastFileName } from '@/lib/docstudio/compressor';
 
 // Dynamic import for ReactQuill to prevent SSR window issues
 const ReactQuill = dynamic(() => import('react-quill-new'), {
@@ -240,7 +240,7 @@ export default function WordStudioSuite({
       const result = await readWordDocument(buffer, file.name);
       setContentHtml(result.htmlContent);
       setDocName(file.name);
-      toast.success(`Opened "${file.name}" (${result.wordCount} words)`);
+      toast.success(`Opened "${formatToastFileName(file.name)}" (${result.wordCount} words)`);
     } catch (err) {
       console.error(err);
       toast.error('Failed to parse .docx file. The document may be encrypted.');

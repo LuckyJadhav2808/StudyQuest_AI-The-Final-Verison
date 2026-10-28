@@ -37,7 +37,7 @@ import {
 } from '@/lib/docstudio/officeEngine';
 import { PptxDeckData, PptxSlide } from '@/lib/docstudio/types';
 import { compileImagesToPptx } from '@/lib/docstudio/pptxCompiler';
-import { formatBytes } from '@/lib/docstudio/compressor';
+import { formatBytes, formatToastFileName } from '@/lib/docstudio/compressor';
 
 interface PptxStudioSuiteProps {
   initialFile?: File | null;
@@ -152,7 +152,7 @@ export default function PptxStudioSuite({
       const parsedDeck = await readPptxDeck(buffer, file.name);
       setDeck(parsedDeck);
       setActiveSlideIdx(0);
-      toast.success(`Loaded "${file.name}" (${parsedDeck.totalSlides} slides)`);
+      toast.success(`Loaded "${formatToastFileName(file.name)}" (${parsedDeck.totalSlides} slides)`);
     } catch (err) {
       console.error(err);
       toast.error('Could not parse PPTX. Using structured presentation viewer.');

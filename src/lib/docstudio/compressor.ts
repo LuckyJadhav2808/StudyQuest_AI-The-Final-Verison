@@ -11,6 +11,21 @@ export function formatBytes(bytes: number, decimals: number = 1): string {
 }
 
 /**
+ * Safely truncates a long file name for toast notifications, preserving extension
+ * e.g. "Operating_Systems_Lecture_4_Notes_v2_Final_Revision.docx" -> "Operating_Systems...Revision.docx"
+ */
+export function formatToastFileName(fileName: string, maxLength: number = 28): string {
+  if (!fileName || fileName.length <= maxLength) return fileName;
+  const lastDot = fileName.lastIndexOf('.');
+  const ext = lastDot !== -1 ? fileName.substring(lastDot) : '';
+  const base = lastDot !== -1 ? fileName.substring(0, lastDot) : fileName;
+  const keepChars = Math.max(4, Math.floor((maxLength - ext.length - 3) / 2));
+  const head = base.substring(0, keepChars);
+  const tail = base.substring(base.length - keepChars);
+  return `${head}...${tail}${ext}`;
+}
+
+/**
  * Converts a canvas to a Blob with specified format and quality
  */
 export function canvasToBlob(

@@ -19,7 +19,7 @@ import PdfStudioSuite from './subsections/PdfStudioSuite';
 import WordStudioSuite from './subsections/WordStudioSuite';
 import PptxStudioSuite from './subsections/PptxStudioSuite';
 import XlsxStudioSuite from './subsections/XlsxStudioSuite';
-import { formatBytes } from '@/lib/docstudio/compressor';
+import { formatBytes, formatToastFileName } from '@/lib/docstudio/compressor';
 
 export type StudioAppTab = 'pdf' | 'word' | 'pptx' | 'xlsx';
 
@@ -91,12 +91,13 @@ export default function DocStudioSuite({
   // Automatic file type sniffer
   const routeAndOpenFile = (file: File) => {
     const name = file.name.toLowerCase();
+    const shortName = formatToastFileName(file.name);
 
     if (name.endsWith('.pdf') || file.type === 'application/pdf') {
       setActiveApp('pdf');
       setDroppedFile(file);
       saveRecent(file.name, file.size, 'pdf');
-      toast.success(`Opening "${file.name}" in PDF Studio`);
+      toast.success(`Opening ${shortName} in PDF Studio`);
     } else if (
       name.endsWith('.docx') ||
       name.endsWith('.doc') ||
@@ -106,12 +107,10 @@ export default function DocStudioSuite({
       setActiveApp('word');
       setDroppedFile(file);
       saveRecent(file.name, file.size, 'word');
-      toast.success(`Routing "${file.name}" to Word Office Suite`);
     } else if (name.endsWith('.pptx') || name.endsWith('.ppt')) {
       setActiveApp('pptx');
       setDroppedFile(file);
       saveRecent(file.name, file.size, 'pptx');
-      toast.success(`Routing "${file.name}" to PowerPoint Presentation Stage`);
     } else if (
       name.endsWith('.xlsx') ||
       name.endsWith('.xls') ||
@@ -121,7 +120,6 @@ export default function DocStudioSuite({
       setActiveApp('xlsx');
       setDroppedFile(file);
       saveRecent(file.name, file.size, 'xlsx');
-      toast.success(`Routing "${file.name}" to Excel Formula Grid`);
     } else if (file.type.startsWith('image/')) {
       setActiveApp('pdf');
       setDroppedFile(file);

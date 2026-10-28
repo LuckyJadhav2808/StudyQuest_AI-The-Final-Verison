@@ -31,7 +31,7 @@ import { readExcelWorkbook, exportExcelWorkbook } from '@/lib/docstudio/officeEn
 import { generateTablePdf } from '@/lib/docstudio/csvEngine';
 import { evaluateFormula, columnIndexToLetter, columnLetterToIndex, SheetGridData } from '@/lib/docstudio/formulaEngine';
 import { ExcelWorkbookData, ExcelSheetData } from '@/lib/docstudio/types';
-import { formatBytes } from '@/lib/docstudio/compressor';
+import { formatBytes, formatToastFileName } from '@/lib/docstudio/compressor';
 
 interface XlsxStudioSuiteProps {
   initialFile?: File | null;
@@ -118,7 +118,7 @@ export default function XlsxStudioSuite({
       setWorkbook(parsed);
       setActiveSheetName(parsed.sheetNames[0]);
       setSelectedCell({ rIdx: 0, cIdx: 0 });
-      toast.success(`Loaded "${file.name}" (${parsed.sheetNames.length} sheet${parsed.sheetNames.length > 1 ? 's' : ''})`);
+      toast.success(`Loaded "${formatToastFileName(file.name)}" (${parsed.sheetNames.length} sheet${parsed.sheetNames.length > 1 ? 's' : ''})`);
     } catch (err) {
       console.error(err);
       toast.error('Failed reading spreadsheet file.');

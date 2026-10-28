@@ -271,6 +271,13 @@ function QueueToaster() {
   return (
     <Toaster
       position={position}
+      gutter={8}
+      containerStyle={{
+        top: 20,
+        right: 20,
+        bottom: 20,
+        left: 20,
+      }}
       toastOptions={{
         duration: 3500,
         style: {
@@ -282,7 +289,12 @@ function QueueToaster() {
           fontWeight: 700,
           fontFamily: 'var(--font-heading)',
           boxShadow: '0 12px 30px rgba(124, 58, 237, 0.15)',
-          padding: '12px 20px',
+          padding: '12px 18px',
+          maxWidth: 'min(460px, calc(100vw - 32px))',
+          wordBreak: 'break-word',
+          overflowWrap: 'anywhere',
+          lineHeight: '1.45',
+          overflow: 'hidden',
           zIndex: 99999,
         },
         success: { iconTheme: { primary: '#10B981', secondary: '#fff' } },

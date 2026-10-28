@@ -30,7 +30,7 @@ import toast from 'react-hot-toast';
 import { PDFDocument, degrees } from 'pdf-lib';
 import JSZip from 'jszip';
 import { renderPdfThumbnails } from '@/lib/docstudio/pdfThumbnail';
-import { formatBytes } from '@/lib/docstudio/compressor';
+import { formatBytes, formatToastFileName } from '@/lib/docstudio/compressor';
 import { mergePdfDocuments, splitAndExtractPages, compileScanPagesToPdf } from '@/lib/docstudio/pdfEngine';
 import { compressPdf } from '@/lib/docstudio/universalCompressor';
 import { convertDocument } from '@/lib/docstudio/universalConverter';
@@ -160,7 +160,7 @@ export default function PdfStudioSuite({
         setThumbnails(map);
       });
 
-      toast.success(`Loaded "${file.name}" (${count} pages)`);
+      toast.success(`Loaded "${formatToastFileName(file.name)}" (${count} pages)`);
     } catch (err: unknown) {
       console.error('Failed to load PDF file:', err);
       toast.error('Could not load PDF. It may be password-protected or corrupted.');
