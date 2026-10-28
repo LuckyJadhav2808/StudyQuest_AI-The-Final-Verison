@@ -2641,9 +2641,116 @@ li .studyquest-math-embed {
 /* ============================================================
    Print / PDF Export Media Styles
    Expands collapsible sections (<details>) so full content is visible
+   and cleanly isolates Word Office Document pages for printing
    ============================================================ */
 
 @media print {
+  @page {
+    size: auto;
+    margin: 15mm 20mm;
+  }
+
+  /* 1. Hide All Website Chrome, Sidebars, Navbars, Companions & Floating Overlays */
+  header,
+  nav,
+  aside,
+  footer:not(.word-page-footer),
+  .no-print,
+  [class*="Header"],
+  [class*="Sidebar"],
+  [class*="MobileNav"],
+  [class*="PixelPet"],
+  [class*="FloatingXP"],
+  [class*="CommandPalette"],
+  [class*="StickyNotes"],
+  [class*="Onboarding"],
+  [class*="ParticleBackground"],
+  [class*="AnimatedGrid"],
+  [class*="ScrollToTop"],
+  .word-title-bar,
+  .word-ribbon-bar,
+  .word-status-bar,
+  .word-quill-toolbar,
+  .ql-toolbar,
+  button,
+  input[type="range"] {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* 2. Unlock Ancestor Viewports so Browser Print Engine Can Paginate Naturally */
+  html,
+  body,
+  #__next,
+  div.flex.h-screen,
+  div[class*="MainContent"],
+  main,
+  .word-editor-stage,
+  .word-quill-stage {
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    position: static !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* 3. Authentic Word Document Print Styling */
+  .word-printable-stage {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    transform: none !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  .word-printable-stage h1,
+  .word-printable-stage h2,
+  .word-printable-stage h3,
+  .word-printable-stage h4 {
+    break-after: avoid;
+    page-break-after: avoid;
+    color: #0f172a !important;
+  }
+
+  .word-printable-stage table,
+  .word-printable-stage tr,
+  .word-printable-stage blockquote,
+  .word-printable-stage pre,
+  .word-printable-stage figure,
+  .word-printable-stage img,
+  .word-printable-stage .katex-display {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .word-printable-stage table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin: 12px 0 !important;
+  }
+
+  .word-printable-stage th {
+    background-color: #f1f5f9 !important;
+    border: 1px solid #94a3b8 !important;
+    padding: 6px 10px !important;
+    color: #0f172a !important;
+  }
+
+  .word-printable-stage td {
+    border: 1px solid #cbd5e1 !important;
+    padding: 6px 10px !important;
+    color: #1e293b !important;
+  }
+
   /* Prevent awkward page cutoffs */
   .studyquest-details,
   .studyquest-markdown details,

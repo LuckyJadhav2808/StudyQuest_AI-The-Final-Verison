@@ -204,7 +204,7 @@ export default function DocStudioSuite({
       {/* -------------------------------------------------------------
           OFFICE 365 SUITE HEADER: APP SWITCHER PILLS & MASTER CONTROLS
       -------------------------------------------------------------- */}
-      <header className="flex-shrink-0 bg-[var(--card-bg)] border-b border-[var(--card-border)] px-3 sm:px-4 py-2 flex items-center justify-between gap-2 sm:gap-3 z-30 shadow-xs min-w-0">
+      <header className="flex-shrink-0 bg-[var(--card-bg)] border-b border-[var(--card-border)] px-3 sm:px-4 py-2 flex items-center justify-between gap-2 sm:gap-3 z-30 shadow-xs min-w-0 no-print">
         {/* Left: Suite Logo & App Switcher Tabs */}
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 min-w-0">
           <div className="flex items-center gap-1.5 pr-2 border-r border-[var(--card-border)] flex-shrink-0">

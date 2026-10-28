@@ -30,6 +30,7 @@ import toast from 'react-hot-toast';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import { readWordDocument, exportHtmlToDocxBinary, exportHtmlToWordBlob } from '@/lib/docstudio/officeEngine';
+import { compileWordHtmlToPdf } from '@/lib/docstudio/wordToPdf';
 import { formatBytes } from '@/lib/docstudio/compressor';
 
 // Dynamic import for ReactQuill to prevent SSR window issues
@@ -119,6 +120,7 @@ export default function WordStudioSuite({
   const [pageOrientation, setPageOrientation] = useState<'portrait' | 'landscape'>('portrait');
   const [margins, setMargins] = useState<'normal' | 'narrow' | 'wide'>('normal');
   const [isRibbonCollapsed, setIsRibbonCollapsed] = useState<boolean>(false);
+  const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
 
   // Keyboard shortcut: Ctrl+F1 or Cmd+F1 to toggle ribbon tools
   useEffect(() => {
@@ -272,8 +274,38 @@ export default function WordStudioSuite({
     }
   };
 
-  // Export to High-Resolution Print PDF
+  // Export directly to pure academic PDF (Vector / High-DPI A4)
+  const handleDirectExportPdf = async () => {
+    if (isExportingPdf) return;
+    setIsExportingPdf(true);
+    const toastId = toast.loading('Compiling academic PDF...');
+    try {
+      const pdfBlob = await compileWordHtmlToPdf(contentHtml, docName, {
+        pageSize,
+        orientation: pageOrientation,
+        margins,
+        includeHeaderFooter: true,
+      });
+
+      const cleanDocName = docName.replace(/\.docx?$/i, '');
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${cleanDocName}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Downloaded "${cleanDocName}.pdf"! 📜`, { id: toastId });
+    } catch (err) {
+      console.error('[WordStudio] Direct PDF export failed:', err);
+      toast.error('Failed to generate PDF. You can also try Print to PDF.', { id: toastId });
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  // System Print Dialog (styled via @media print)
   const handlePrintPdf = () => {
+    toast('Opening clean print preview...', { icon: '🖨️' });
     window.print();
   };
 
@@ -486,7 +518,7 @@ export default function WordStudioSuite({
       {/* -------------------------------------------------------------
           1. MICROSOFT WORD TITLE BAR
       -------------------------------------------------------------- */}
-      <div className="flex-shrink-0 bg-blue-700 dark:bg-blue-900 text-white px-3 py-1.5 flex items-center justify-between text-xs border-b border-blue-800 z-30 shadow-xs">
+      <div className="flex-shrink-0 bg-blue-700 dark:bg-blue-900 text-white px-3 py-1.5 flex items-center justify-between text-xs border-b border-blue-800 z-30 shadow-xs word-title-bar">
         {/* Left: Quick Access Toolbar & Title */}
         <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
           {/* Quick Suite Switcher (Failsafe) */}
@@ -541,9 +573,21 @@ export default function WordStudioSuite({
             <HiDownload size={14} />
           </button>
           <button
+            onClick={handleDirectExportPdf}
+            disabled={isExportingPdf}
+            className="p-1 rounded hover:bg-blue-600/80 text-white/90 hover:text-white transition-colors disabled:opacity-50"
+            title="Export Clean Academic PDF (.pdf)"
+          >
+            {isExportingPdf ? (
+              <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
+            ) : (
+              <HiDocumentText size={14} />
+            )}
+          </button>
+          <button
             onClick={handlePrintPdf}
             className="p-1 rounded hover:bg-blue-600/80 text-white/90 hover:text-white transition-colors"
-            title="Print to PDF"
+            title="Print Document (Ctrl+P)"
           >
             <HiPrinter size={14} />
           </button>
@@ -581,13 +625,27 @@ export default function WordStudioSuite({
             <HiDownload size={13} />
             <span>Export DOCX</span>
           </button>
+
+          <button
+            onClick={handleDirectExportPdf}
+            disabled={isExportingPdf}
+            className="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-500 text-white font-bold text-[11px] transition-colors flex items-center gap-1 shadow-xs disabled:opacity-50"
+            title="Download formatted academic PDF"
+          >
+            {isExportingPdf ? (
+              <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <HiDocumentText size={13} />
+            )}
+            <span>Export PDF</span>
+          </button>
         </div>
       </div>
 
       {/* -------------------------------------------------------------
           2. MICROSOFT WORD RIBBON TABS (Home, Insert, Layout, Ref, View)
       -------------------------------------------------------------- */}
-      <div className="flex-shrink-0 bg-slate-100 dark:bg-slate-900 border-b border-[var(--card-border)] px-3 pt-1 z-20">
+      <div className="flex-shrink-0 bg-slate-100 dark:bg-slate-900 border-b border-[var(--card-border)] px-3 pt-1 z-20 word-ribbon-bar">
         {/* Ribbon Tab Header Switcher */}
         <div className="flex items-center gap-1 overflow-x-auto text-xs font-semibold py-0.5 min-w-0">
           <button
@@ -969,11 +1027,26 @@ export default function WordStudioSuite({
               </button>
 
               <button
+                onClick={handleDirectExportPdf}
+                disabled={isExportingPdf}
+                className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                title="Download formatted academic PDF"
+              >
+                {isExportingPdf ? (
+                  <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <HiDocumentText size={15} />
+                )}
+                <span>Export to PDF</span>
+              </button>
+
+              <button
                 onClick={handlePrintPdf}
                 className="px-3 py-1.5 rounded-lg border border-[var(--card-border)] hover:bg-[var(--card-border)]/40 font-semibold flex items-center gap-1.5"
+                title="Print Document to Printer or System Print Dialog (Ctrl+P)"
               >
                 <HiPrinter size={15} />
-                <span>Export Print PDF</span>
+                <span>Print Document</span>
               </button>
             </div>
           )}
@@ -986,10 +1059,11 @@ export default function WordStudioSuite({
       {/* -------------------------------------------------------------
           3. REALISTIC A4 PAPER WORKSPACE STAGE
       -------------------------------------------------------------- */}
-      <div className="flex-1 overflow-auto bg-slate-200/80 dark:bg-slate-950 p-4 md:p-8 flex justify-center relative">
+      <div className="flex-1 overflow-auto bg-slate-200/80 dark:bg-slate-950 p-4 md:p-8 flex justify-center relative word-editor-stage">
         {/* Printable/Exportable Paper Container */}
         <div
           ref={printContainerRef}
+          id="word-printable-stage"
           style={{
             width: viewMode === 'print' ? (pageOrientation === 'portrait' ? '794px' : '1123px') : '100%',
             minHeight: viewMode === 'print' ? '1123px' : 'auto',
@@ -997,7 +1071,7 @@ export default function WordStudioSuite({
             transformOrigin: 'top center',
             transition: 'transform 0.15s ease',
           }}
-          className={`bg-white text-slate-900 rounded-sm shadow-2xl transition-all relative flex flex-col ${
+          className={`bg-white text-slate-900 rounded-sm shadow-2xl transition-all relative flex flex-col word-printable-stage ${
             margins === 'narrow' ? 'p-8' : margins === 'wide' ? 'p-16' : 'p-12'
           }`}
         >
@@ -1031,7 +1105,7 @@ export default function WordStudioSuite({
       {/* -------------------------------------------------------------
           4. MICROSOFT WORD STATUS BAR (Docked at Bottom)
       -------------------------------------------------------------- */}
-      <footer className="flex-shrink-0 bg-blue-700 dark:bg-blue-900 text-white px-3 sm:px-4 py-1.5 pr-28 sm:pr-32 md:pr-36 flex items-center justify-between text-[11px] border-t border-blue-800 z-30 select-none min-w-0">
+      <footer className="flex-shrink-0 bg-blue-700 dark:bg-blue-900 text-white px-3 sm:px-4 py-1.5 pr-28 sm:pr-32 md:pr-36 flex items-center justify-between text-[11px] border-t border-blue-800 z-30 select-none min-w-0 word-status-bar">
         {/* Left: Document Telemetry */}
         <div className="flex items-center gap-2 sm:gap-3 truncate min-w-0">
           <span className="font-semibold whitespace-nowrap">Page 1 of 1</span>
