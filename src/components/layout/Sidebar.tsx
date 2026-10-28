@@ -149,28 +149,30 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* Circular Profile Avatar (rounded-full) */}
-        <div className="relative w-full flex justify-center" ref={profileMenuRef}>
-          <motion.button
-            onClick={() => setShowProfileMenu((prev) => !prev)}
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.94 }}
-            className="w-10 h-10 sm:w-11 sm:h-11 rounded-full p-0.5 border-2 border-primary/80 hover:border-primary overflow-hidden bg-white dark:bg-[#111328] flex items-center justify-center cursor-pointer shadow-md transition-all group"
-            title="User Profile & Settings"
-            aria-label="Open profile menu"
-          >
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt="Avatar"
-                className="w-full h-full rounded-full object-cover group-hover:scale-105 transition-transform"
-              />
-            ) : (
-              <span className="text-xs font-bold text-primary">
-                {profile?.displayName?.[0]?.toUpperCase() || 'U'}
-              </span>
-            )}
-          </motion.button>
+        {/* Circular Profile Avatar in Sculpted Circular Cradle */}
+        <div className="relative w-full flex justify-center py-0.5" ref={profileMenuRef}>
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full p-0.5 bg-indigo-100/60 dark:bg-white/[0.06] border-2 border-primary/30 flex items-center justify-center shadow-inner">
+            <motion.button
+              onClick={() => setShowProfileMenu((prev) => !prev)}
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.94 }}
+              className="w-full h-full rounded-full border-2 border-primary/80 hover:border-primary overflow-hidden bg-white dark:bg-[#111328] flex items-center justify-center cursor-pointer shadow-md transition-all group"
+              title="User Profile & Settings"
+              aria-label="Open profile menu"
+            >
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt="Avatar"
+                  className="w-full h-full rounded-full object-cover group-hover:scale-105 transition-transform"
+                />
+              ) : (
+                <span className="text-xs font-bold text-primary">
+                  {profile?.displayName?.[0]?.toUpperCase() || 'U'}
+                </span>
+              )}
+            </motion.button>
+          </div>
 
           {/* Profile Quick Menu Popover */}
           <AnimatePresence>
