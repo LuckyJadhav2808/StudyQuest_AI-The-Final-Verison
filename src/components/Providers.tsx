@@ -76,40 +76,42 @@ const AnimatedGrid = React.memo(function AnimatedGrid() {
 });
 
 function MainContent({ children }: { children: React.ReactNode }) {
-  const { collapsed, focusMode } = useSidebar();
-  const { reduceMotion } = useMotion();
+  const { focusMode } = useSidebar();
   const pathname = usePathname();
-  const [isMobile, setIsMobile] = React.useState(false);
-
-  React.useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, []);
-
-  const sidebarMargin = focusMode || isMobile ? 0 : collapsed ? 72 : 292;
   const isWorkstationPage = pathname === '/notes' || pathname === '/reader' || pathname === '/whiteboard' || pathname === '/ide';
 
   return (
-    <div
-      className={`flex-1 flex flex-col h-screen max-h-screen overflow-hidden min-w-0 ${reduceMotion ? '' : 'transition-[margin-left] duration-250 ease-in-out'}`}
-      style={{ marginLeft: sidebarMargin }}
-    >
-      {!focusMode && <Header />}
-      <main
-        onScroll={isWorkstationPage ? (e) => { if (e.currentTarget.scrollTop !== 0) e.currentTarget.scrollTop = 0; } : undefined}
-        className={`flex-1 relative z-10 ${
-          focusMode
-            ? 'p-1.5 md:p-2.5 overflow-hidden h-screen flex flex-col'
-            : isWorkstationPage
-            ? 'flex-1 min-h-0 overflow-hidden flex flex-col p-0'
-            : 'overflow-y-auto p-4 md:p-6 pb-20 md:pb-6'
-        }`}
-      >
-        {!focusMode && !isWorkstationPage && <Breadcrumbs />}
-        {children}
-      </main>
+    <div className="w-screen h-screen max-h-screen overflow-hidden relative flex flex-col items-center justify-center p-1.5 sm:p-2.5 md:p-3 bg-slate-950 dark:bg-[#07090e]">
+      {/* Outer App Shell: Central Framed Container with Large Outer Rounded Corners */}
+      <div className="w-full h-full max-h-[100dvh] flex flex-col rounded-[26px] sm:rounded-[32px] md:rounded-[36px] border-2 border-slate-700/60 dark:border-white/12 bg-slate-900/60 dark:bg-[#0f1118]/90 backdrop-blur-2xl shadow-2xl overflow-hidden p-2 sm:p-2.5 md:p-3 relative z-10 min-w-0">
+        {/* Persistent Top Header (Header Pill Bar) */}
+        {!focusMode && <Header />}
+
+        {/* Horizontal Row: Persistent Sidebar Rail + Main Content Viewport */}
+        <div className="flex-1 min-h-0 flex gap-2 sm:gap-2.5 md:gap-3 mt-1.5 sm:mt-2 overflow-hidden">
+          {/* Persistent Left Rail Sidebar (Desktop) */}
+          {!focusMode && (
+            <div className="hidden md:flex h-full flex-shrink-0">
+              <Sidebar />
+            </div>
+          )}
+
+          {/* Main Content Viewport */}
+          <main
+            onScroll={isWorkstationPage ? (e) => { if (e.currentTarget.scrollTop !== 0) e.currentTarget.scrollTop = 0; } : undefined}
+            className={`flex-1 min-w-0 h-full rounded-[20px] sm:rounded-[24px] md:rounded-[28px] border border-slate-700/50 dark:border-white/8 bg-slate-950/40 dark:bg-black/25 relative z-10 min-h-0 ${
+              focusMode
+                ? 'p-1.5 md:p-2.5 overflow-hidden flex flex-col'
+                : isWorkstationPage
+                ? 'flex-1 min-h-0 overflow-hidden flex flex-col p-0'
+                : 'overflow-y-auto p-2.5 sm:p-3.5 md:p-4 pb-20 md:pb-4'
+            }`}
+          >
+            {!focusMode && !isWorkstationPage && pathname !== '/' && <Breadcrumbs />}
+            {children}
+          </main>
+        </div>
+      </div>
     </div>
   );
 }
@@ -204,10 +206,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
           {/* Floating Particle Background */}
           <ParticleBackground />
 
-          {/* Sidebar (Desktop) — hidden in focus mode */}
-          {!focusMode && <Sidebar />}
-
-          {/* Main Content — margin adjusts with sidebar */}
+          {/* Main Content with Persistent Framed Shell (Header + Left Rail + Viewport) */}
           <MainContent>{children}</MainContent>
 
           {/* Mobile Nav — hidden in focus mode */}

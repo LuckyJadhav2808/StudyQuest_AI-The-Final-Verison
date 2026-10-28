@@ -1,10 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  HiSun, HiMoon, HiBell, HiSearch, HiPlay, HiPause, HiMusicNote,
-  HiFastForward, HiRewind, HiVolumeUp, HiVolumeOff, HiChevronUp
+  HiSun, HiMoon, HiBell, HiSearch, HiSparkles,
 } from 'react-icons/hi';
 import { HiArrowsPointingOut, HiArrowsPointingIn } from 'react-icons/hi2';
 import { useTheme } from '@/context/ThemeContext';
@@ -12,280 +11,210 @@ import { useGamification } from '@/hooks/useGamification';
 import { useFriends } from '@/hooks/useFriends';
 import { useShop } from '@/hooks/useShop';
 import { useFullscreen } from '@/hooks/useFullscreen';
-import { useMusic } from '@/context/MusicContext';
 import StreakCounter from '@/components/gamification/StreakCounter';
 import LevelBadge from '@/components/gamification/LevelBadge';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
+
+const TreasureChestModal = dynamic(() => import('@/components/dashboard/TreasureChestModal'), {
+  ssr: false,
+});
+
+// Time-of-day greeting generator
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return { text: 'Good Morning', emoji: '🌅' };
+  if (hour >= 12 && hour < 17) return { text: 'Good Afternoon', emoji: '☀️' };
+  if (hour >= 17 && hour < 21) return { text: 'Good Evening', emoji: '🌆' };
+  return { text: 'Night Owl Mode', emoji: '🌙' };
+}
 
 export default function Header() {
   const { theme, toggleTheme } = useTheme();
   const { gamification } = useGamification();
   const { incomingRequests } = useFriends();
-  const { coins } = useShop();
+  const { coins, canClaimTreasureChest } = useShop();
   const { isFullscreen, toggleFullscreen, isSupported } = useFullscreen();
-  const {
-    currentTrack,
-    isPlaying,
-    togglePlayPause,
-    nextTrack,
-    prevTrack,
-    volume,
-    setVolume,
-    isMuted,
-    toggleMute,
-    playlist,
-    setIsPlayerOpen,
-  } = useMusic();
-  const [showVolume, setShowVolume] = React.useState(false);
+  const [showChestModal, setShowChestModal] = useState(false);
   const router = useRouter();
+
+  const chestAvailable = canClaimTreasureChest ? canClaimTreasureChest() : false;
+  const greeting = getGreeting();
 
   const openCommandPalette = () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
   };
 
   return (
-    <header className="flex-shrink-0 h-14 sm:h-16 pt-[env(safe-area-inset-top,0px)] bg-white/90 dark:bg-[var(--card-bg)]/85 backdrop-blur-xl border-b border-indigo-100/80 dark:border-[var(--card-border)] shadow-[0_2px_12px_-2px_rgba(124,58,237,0.04)] dark:shadow-none flex items-center justify-between px-3.5 sm:px-6 sticky top-0 z-30">
-      {/* Left — Brand Logo (Guaranteed Full Width, Zero Truncation) */}
-      <div className="flex items-center gap-2.5 sm:gap-3 flex-shrink-0">
-        <motion.h1
-          className="text-base sm:text-xl font-heading font-black text-gradient whitespace-nowrap flex-shrink-0 select-none cursor-pointer"
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          onClick={() => router.push('/')}
-        >
-          StudyQuest
-        </motion.h1>
-
-        {/* Ctrl+K Search Hint (Desktop only) */}
-        <button
-          onClick={openCommandPalette}
-          className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-indigo-100/80 dark:border-[var(--card-border)] bg-indigo-50/40 dark:bg-transparent hover:border-primary/40 hover:bg-primary/5 transition-all group cursor-pointer"
-        >
-          <HiSearch size={13} className="text-[var(--muted-foreground)] group-hover:text-primary transition-colors" />
-          <span className="text-[11px] text-[var(--muted-foreground)] group-hover:text-[var(--foreground)] transition-colors">
-            Ask Questie...
-          </span>
-          <kbd className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-[var(--background)] border border-[var(--card-border)] text-[var(--muted-foreground)]">
-            Ctrl+K
-          </kbd>
-        </button>
-      </div>
-
-      {/* Center — BitChord Unified Music Capsule (Complete Media Controls) */}
-      <div 
-        className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border border-indigo-100/80 dark:border-[var(--card-border)] bg-indigo-50/50 dark:bg-white/[0.04] hover:border-primary/40 transition-all shadow-sm max-w-[150px] sm:max-w-[340px] md:max-w-[420px] relative group/capsule"
-      >
-        {/* Animated icon / spinning artwork thumbnail (Click opens Studio) */}
-        <div
-          onClick={() => setIsPlayerOpen(true)}
-          className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-primary/20 flex-shrink-0 flex items-center justify-center border border-white/15 cursor-pointer shadow-sm hover:scale-105 transition-transform"
-          title="Open StudyQuest Music Studio"
-        >
-          {currentTrack?.image ? (
-            <img
-              src={currentTrack.image}
-              alt=""
-              className={`w-full h-full object-cover ${isPlaying ? 'animate-spin' : ''}`}
-              style={{ animationDuration: '8s' }}
-            />
-          ) : (
-            <HiMusicNote size={14} className="text-primary" />
-          )}
-          {isPlaying && (
-            <span className="absolute bottom-0.5 right-0.5 flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-          )}
-        </div>
-
-        {/* Title & Artist (Click opens Studio) */}
-        <div
-          onClick={() => setIsPlayerOpen(true)}
-          className="flex flex-col truncate min-w-0 flex-1 cursor-pointer"
-          title={currentTrack ? `${currentTrack.name} — ${currentTrack.artists}` : 'Open Music Studio'}
-        >
-          <span className="text-[11px] sm:text-xs font-bold text-[var(--foreground)] truncate leading-tight group-hover/capsule:text-primary transition-colors">
-            {currentTrack ? currentTrack.name : 'Focus Studio'}
-          </span>
-          <span className="text-[9px] text-[var(--muted-foreground)] truncate hidden sm:block">
-            {currentTrack ? currentTrack.artists : 'Click to explore tracks'}
-          </span>
-        </div>
-
-        {/* Media Controls */}
-        <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
-          {/* Previous Track */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              prevTrack();
-            }}
-            disabled={playlist.length <= 1}
-            className="hidden sm:flex p-1 rounded-full text-[var(--muted-foreground)] hover:text-primary hover:bg-primary/10 transition-colors disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
-            title="Previous track"
-          >
-            <HiRewind size={14} />
-          </button>
-
-          {/* Play/Pause Button */}
-          <motion.button
-            onClick={(e) => {
-              e.stopPropagation();
-              togglePlayPause();
-            }}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-primary hover:bg-primary-light text-white flex items-center justify-center transition-all shadow-md shadow-primary/20 flex-shrink-0 cursor-pointer"
-            title={isPlaying ? 'Pause' : 'Play'}
-          >
-            {isPlaying ? <HiPause size={13} /> : <HiPlay size={13} className="ml-0.5" />}
-          </motion.button>
-
-          {/* Next Track */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              nextTrack();
-            }}
-            disabled={playlist.length <= 1}
-            className="hidden sm:flex p-1 rounded-full text-[var(--muted-foreground)] hover:text-primary hover:bg-primary/10 transition-colors disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
-            title="Next track"
-          >
-            <HiFastForward size={14} />
-          </button>
-
-          {/* Micro Volume Popover on Hover */}
-          <div
-            className="relative hidden md:flex items-center"
-            onMouseEnter={() => setShowVolume(true)}
-            onMouseLeave={() => setShowVolume(false)}
-          >
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleMute();
-              }}
-              className="p-1 rounded-full text-[var(--muted-foreground)] hover:text-primary transition-colors cursor-pointer"
-              title={isMuted || volume === 0 ? 'Unmute' : `Volume: ${volume}%`}
-            >
-              {isMuted || volume === 0 ? <HiVolumeOff size={13} /> : <HiVolumeUp size={13} />}
-            </button>
-
-            {/* Hover Volume Slider */}
-            <AnimatePresence>
-              {showVolume && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9, y: 4 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9, y: 4 }}
-                  className="absolute top-full -left-6 mt-1.5 p-2 rounded-xl bg-slate-900/95 backdrop-blur-xl border border-white/10 shadow-xl flex items-center gap-2 z-50 min-w-[120px]"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={isMuted ? 0 : volume}
-                    onChange={(e) => setVolume(parseInt(e.target.value, 10))}
-                    className="w-20 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-primary"
-                  />
-                  <span className="text-[10px] font-mono text-white/70 w-5 text-right">
-                    {isMuted ? 0 : volume}%
-                  </span>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Open Studio Expand Button */}
-          <button
-            onClick={() => setIsPlayerOpen(true)}
-            className="p-1 rounded-full text-[var(--muted-foreground)] hover:text-primary hover:bg-primary/10 transition-colors ml-0.5 cursor-pointer"
-            title="Expand Studio Modal"
-          >
-            <HiChevronUp size={14} />
-          </button>
-        </div>
-      </div>
-
-      {/* Right — Gamification HUD & Actions */}
-      <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-        {/* Streak Capsule */}
-        {gamification && (
-          <StreakCounter streak={gamification.streak} size="sm" />
-        )}
-
-        {/* Quest Coins */}
-        <motion.button
-          onClick={() => router.push('/shop')}
-          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 dark:bg-amber-400/10 border border-amber-500/25 dark:border-amber-400/20 hover:border-amber-500/40 transition-all"
-          whileHover={{ scale: 1.05 }}
-        >
-          <span className="text-xs">🪙</span>
-          <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 font-mono tabular-nums">
-            {typeof coins === 'number' ? coins : typeof coins === 'object' && coins && 'bc' in (coins as any) ? Number((coins as any).bc) || 0 : 0}
-          </span>
-        </motion.button>
-
-        {/* XP Badge */}
-        {gamification && (
+    <>
+      <header className="flex-shrink-0 w-full flex items-center justify-between gap-2 sm:gap-3 py-1.5 sm:py-2 px-1 z-30 select-none">
+        {/* Left Pill: StudyQuest Brand Badge */}
+        <div className="flex items-center gap-2 flex-shrink-0">
           <motion.div
-            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/25"
-            whileHover={{ scale: 1.05 }}
+            onClick={() => router.push('/')}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
+            className="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl sm:rounded-full bg-slate-900/90 dark:bg-white/[0.06] hover:bg-slate-800 dark:hover:bg-white/[0.1] border border-slate-700/80 dark:border-white/15 shadow-sm cursor-pointer transition-all group"
+            title="StudyQuest Dashboard"
           >
-            <span className="text-[11px] font-bold text-primary-700 dark:text-primary-light font-mono tabular-nums">
-              {typeof gamification.xp === 'number' ? gamification.xp.toLocaleString() : '0'} XP
+            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-400 flex items-center justify-center text-white shadow-xs">
+              <HiSparkles size={13} className="group-hover:rotate-12 transition-transform duration-300" />
+            </div>
+            <span className="text-xs sm:text-sm font-heading font-black tracking-wide text-white dark:text-slate-100 whitespace-nowrap">
+              StudyQuest
             </span>
           </motion.div>
-        )}
 
+          {/* Quick Search Shortcut Pill (Desktop) */}
+          <button
+            onClick={openCommandPalette}
+            className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-700/60 dark:border-white/10 bg-slate-900/60 dark:bg-white/[0.03] hover:border-violet-500/50 hover:bg-violet-500/5 text-[11px] text-slate-400 dark:text-slate-400 hover:text-white transition-all cursor-pointer"
+            title="Search or Ask Questie (Ctrl+K)"
+          >
+            <HiSearch size={12} />
+            <span>Search...</span>
+            <kbd className="px-1.5 py-0.2 rounded bg-slate-800 dark:bg-white/10 text-[9px] font-mono border border-slate-700 dark:border-white/10">
+              ⌘K
+            </kbd>
+          </button>
+        </div>
 
-        {/* Fullscreen / Immersion Mode Toggle (Hides PWA / Browser title bar) */}
-        {isSupported && (
+        {/* Center Area: Dynamic Greeting / Claimable Chest Pill */}
+        <div className="flex-1 flex items-center justify-center min-w-0 max-w-xl mx-2">
+          {chestAvailable ? (
+            <motion.button
+              onClick={() => setShowChestModal(true)}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              className="flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-2xl sm:rounded-full bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-500/40 text-amber-300 dark:text-amber-200 shadow-md shadow-amber-500/10 cursor-pointer animate-pulse transition-all"
+              title="Click to claim your daily treasure chest!"
+            >
+              <span className="text-sm sm:text-base">🎁</span>
+              <span className="text-[11px] sm:text-xs font-bold tracking-wide truncate">
+                Daily Chest Ready — Claim Reward!
+              </span>
+            </motion.button>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              onClick={() => setShowChestModal(true)}
+              className="flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-2xl sm:rounded-full bg-slate-900/70 dark:bg-white/[0.04] border border-slate-700/70 dark:border-white/10 text-slate-300 dark:text-slate-300 hover:border-violet-500/40 cursor-pointer transition-all shadow-xs truncate"
+              title="Daily status and rewards"
+            >
+              <span className="text-xs sm:text-sm">{greeting.emoji}</span>
+              <span className="text-[11px] sm:text-xs font-medium text-slate-300 dark:text-slate-200 truncate">
+                {greeting.text}, Adventurer
+              </span>
+              <span className="hidden md:inline-block text-[10px] text-slate-400 dark:text-slate-400 font-normal">
+                • Stay focused
+              </span>
+            </motion.div>
+          )}
+        </div>
+
+        {/* Right Pill/Cluster: Streak, XP, Coins, Theme, Fullscreen, Notifications */}
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+          {/* Status HUD Pill (Streak, Coins, XP) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-2xl sm:rounded-full bg-slate-900/90 dark:bg-white/[0.05] border border-slate-700/80 dark:border-white/12 shadow-xs">
+            {/* Streak Counter */}
+            {gamification && (
+              <StreakCounter streak={gamification.streak} size="sm" />
+            )}
+
+            <div className="h-3 w-[1px] bg-slate-700 dark:bg-white/15 hidden sm:block" />
+
+            {/* Coins Balance */}
+            <motion.button
+              onClick={() => router.push('/shop')}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex items-center gap-1 hover:opacity-80 transition-opacity cursor-pointer"
+              title="Quest Coins (Click to visit Item Shop)"
+            >
+              <span className="text-xs">🪙</span>
+              <span className="text-[11px] font-bold text-amber-400 font-mono tabular-nums">
+                {typeof coins === 'number'
+                  ? coins
+                  : typeof coins === 'object' && coins && 'bc' in (coins as any)
+                  ? Number((coins as any).bc) || 0
+                  : 0}
+              </span>
+            </motion.button>
+
+            <div className="h-3 w-[1px] bg-slate-700 dark:bg-white/15 hidden sm:block" />
+
+            {/* XP / Level Indicator */}
+            {gamification && (
+              <motion.div
+                onClick={() => router.push('/analytics')}
+                whileHover={{ scale: 1.05 }}
+                className="flex items-center gap-1 text-[11px] font-bold text-indigo-400 dark:text-indigo-300 font-mono tabular-nums cursor-pointer"
+                title={`Level ${gamification.level} (${gamification.xp?.toLocaleString() || 0} XP)`}
+              >
+                <span className="text-amber-400">⚡</span>
+                <span className="hidden sm:inline">
+                  {typeof gamification.xp === 'number' ? gamification.xp.toLocaleString() : '0'} XP
+                </span>
+                <span className="sm:hidden">
+                  Lv.{gamification.level}
+                </span>
+              </motion.div>
+            )}
+          </div>
+
+          {/* Action Button: Dark/Light Mode Toggle */}
           <motion.button
-            onClick={toggleFullscreen}
-            className="hidden sm:flex p-2 rounded-xl hover:bg-[var(--muted)]/30 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors cursor-pointer"
+            onClick={toggleTheme}
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
-            title={isFullscreen ? 'Exit Immersion Mode (Show Title Bar)' : 'Enter Immersion Mode (Hide Title Bar)'}
-            aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-900/90 dark:bg-white/[0.05] hover:bg-slate-800 dark:hover:bg-white/[0.1] border border-slate-700/80 dark:border-white/12 flex items-center justify-center text-slate-300 dark:text-slate-300 hover:text-white transition-all cursor-pointer shadow-xs"
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            aria-label="Toggle theme"
           >
-            {isFullscreen ? <HiArrowsPointingIn size={19} /> : <HiArrowsPointingOut size={19} />}
+            {theme === 'dark' ? <HiSun size={15} /> : <HiMoon size={15} />}
           </motion.button>
-        )}
 
-        {/* Theme Toggle (Desktop / Tablet) */}
-        <motion.button
-          onClick={toggleTheme}
-          className="hidden sm:flex p-2 rounded-xl hover:bg-[var(--muted)]/30 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors cursor-pointer"
-          whileHover={{ scale: 1.08 }}
-          whileTap={{ scale: 0.92 }}
-          aria-label="Toggle theme"
-        >
-          {theme === 'dark' ? <HiSun size={20} /> : <HiMoon size={20} />}
-        </motion.button>
-
-        {/* Notifications — navigates to Dashboard */}
-        <motion.button
-          onClick={() => router.push('/')}
-          className="p-1.5 sm:p-2 rounded-xl hover:bg-[var(--muted)]/30 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors relative"
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          aria-label="Notifications"
-        >
-          <HiBell size={18} className="sm:text-xl" />
-          {incomingRequests.length > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-coral text-white text-[8px] font-bold flex items-center justify-center">{incomingRequests.length}</span>
+          {/* Action Button: Fullscreen Toggle */}
+          {isSupported && (
+            <motion.button
+              onClick={toggleFullscreen}
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.92 }}
+              className="hidden md:flex w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-900/90 dark:bg-white/[0.05] hover:bg-slate-800 dark:hover:bg-white/[0.1] border border-slate-700/80 dark:border-white/12 items-center justify-center text-slate-300 dark:text-slate-300 hover:text-white transition-all cursor-pointer shadow-xs"
+              title={isFullscreen ? 'Exit Immersion Mode' : 'Enter Immersion Mode'}
+              aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+            >
+              {isFullscreen ? <HiArrowsPointingIn size={15} /> : <HiArrowsPointingOut size={15} />}
+            </motion.button>
           )}
-        </motion.button>
 
-        {/* Level Avatar Badge (Mobile + Desktop) */}
-        <div className="md:hidden">
-          {gamification && <LevelBadge level={gamification.level} size="sm" />}
+          {/* Action Button: Notifications */}
+          <motion.button
+            onClick={() => router.push('/')}
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.92 }}
+            className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-900/90 dark:bg-white/[0.05] hover:bg-slate-800 dark:hover:bg-white/[0.1] border border-slate-700/80 dark:border-white/12 flex items-center justify-center text-slate-300 dark:text-slate-300 hover:text-white transition-all cursor-pointer shadow-xs"
+            title="Notifications & Friends"
+            aria-label="Notifications"
+          >
+            <HiBell size={15} />
+            {incomingRequests.length > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-rose-500 text-white text-[8px] font-bold flex items-center justify-center shadow-xs">
+                {incomingRequests.length}
+              </span>
+            )}
+          </motion.button>
         </div>
-      </div>
-    </header>
+      </header>
 
+      {/* Daily Treasure Chest Reward Modal */}
+      {showChestModal && (
+        <TreasureChestModal
+          isOpen={showChestModal}
+          onClose={() => setShowChestModal(false)}
+        />
+      )}
+    </>
   );
 }
