@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import {
   HiPlay, HiPause, HiFastForward, HiRewind,
@@ -270,13 +270,17 @@ export default function DashboardBentoGrid() {
 
   return (
     <>
-      <div className="w-full h-full flex flex-col justify-between gap-2.5 sm:gap-3.5 select-none min-h-0">
+      <div className="w-full h-auto md:h-full flex flex-col justify-start md:justify-between gap-3 md:gap-2.5 sm:gap-3.5 select-none min-h-fit md:min-h-0">
         {/* ============================================================
             TOP ROW: 3 Streamlined Proportional Cards (flex-[4])
             ============================================================ */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 sm:gap-3.5 flex-[4] min-h-0">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-2.5 sm:gap-3.5 flex-none md:flex-[4] min-h-fit md:min-h-0">
           {/* ── CARD 1: Habit & Discipline Engine (Warm Amber Prismatic Glass) ── */}
-          <div className="relative rounded-[24px] sm:rounded-[26px] bg-gradient-to-br from-amber-500/[0.12] via-white/80 to-white/60 dark:from-amber-500/[0.12] dark:via-[#111328]/70 dark:to-[#161936]/70 backdrop-blur-2xl border-2 border-amber-500/40 hover:border-amber-500/60 shadow-[0_0_24px_-4px_rgba(245,158,11,0.2),inset_0_1px_1.5px_0_rgba(255,255,255,0.35)] p-3 sm:p-3.5 flex flex-col justify-between h-full min-h-0 transition-all overflow-hidden group">
+          <div className="relative rounded-[24px] sm:rounded-[26px] bg-white/80 dark:bg-[#0B0D1E]/80 backdrop-blur-2xl border border-amber-500/30 dark:border-white/[0.10] hover:border-amber-500/50 dark:hover:border-amber-400/40 shadow-[0_12px_36px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.20)] p-3 sm:p-3.5 flex flex-col justify-between h-auto md:h-full min-h-[145px] md:min-h-0 transition-all overflow-hidden group">
+            {/* Ambient Internal Jewel Bloom & Specular Sheen */}
+            <div className="absolute -top-12 -left-12 w-36 h-36 bg-amber-500/12 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/22 transition-all duration-500" />
+            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
             {/* Header */}
             <div className="flex items-center justify-between pb-2 border-b border-amber-500/25 dark:border-amber-500/20">
               <div className="flex items-center gap-2">
@@ -394,7 +398,11 @@ export default function DashboardBentoGrid() {
           </div>
 
           {/* ── CARD 2: Active Quests & Mission Sprint (Electric Violet Prismatic Glass) ── */}
-          <div className="relative rounded-[24px] sm:rounded-[26px] bg-gradient-to-br from-violet-500/[0.12] via-white/80 to-white/60 dark:from-violet-500/[0.12] dark:via-[#111328]/70 dark:to-[#161936]/70 backdrop-blur-2xl border-2 border-violet-500/40 hover:border-violet-500/60 shadow-[0_0_24px_-4px_rgba(124,58,237,0.2),inset_0_1px_1.5px_0_rgba(255,255,255,0.35)] p-3 sm:p-3.5 flex flex-col justify-between h-full min-h-0 transition-all overflow-hidden group">
+          <div className="relative rounded-[24px] sm:rounded-[26px] bg-white/80 dark:bg-[#0B0D1E]/80 backdrop-blur-2xl border border-violet-500/30 dark:border-white/[0.10] hover:border-violet-500/50 dark:hover:border-violet-400/40 shadow-[0_12px_36px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.20)] p-3 sm:p-3.5 flex flex-col justify-between h-auto md:h-full min-h-[145px] md:min-h-0 transition-all overflow-hidden group">
+            {/* Ambient Internal Jewel Bloom & Specular Sheen */}
+            <div className="absolute -top-12 -left-12 w-36 h-36 bg-violet-500/12 rounded-full blur-2xl pointer-events-none group-hover:bg-violet-500/22 transition-all duration-500" />
+            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
             {/* Header */}
             <div className="flex items-center justify-between pb-2 border-b border-violet-500/25 dark:border-violet-500/20">
               <div className="flex items-center gap-2">
@@ -492,7 +500,11 @@ export default function DashboardBentoGrid() {
           </div>
 
           {/* ── CARD 3: Target Milestone (Deep Sapphire & Cyan Prismatic Glass) ── */}
-          <div className="relative rounded-[24px] sm:rounded-[26px] bg-gradient-to-br from-cyan-500/[0.10] via-white/80 to-white/60 dark:from-[#091B29]/95 dark:via-[#0A1626]/90 dark:to-[#080E1C]/95 backdrop-blur-2xl border-2 border-cyan-500/35 hover:border-cyan-500/55 shadow-[0_0_24px_-4px_rgba(6,182,212,0.2),inset_0_1px_1.5px_0_rgba(255,255,255,0.25)] p-3 sm:p-3.5 flex flex-col justify-between h-full min-h-0 transition-all overflow-hidden group">
+          <div className="relative rounded-[24px] sm:rounded-[26px] bg-white/80 dark:bg-[#0B0D1E]/80 backdrop-blur-2xl border border-cyan-500/30 dark:border-white/[0.10] hover:border-cyan-500/50 dark:hover:border-cyan-400/40 shadow-[0_12px_36px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.20)] p-3 sm:p-3.5 flex flex-col justify-between h-auto md:h-full min-h-[145px] md:min-h-0 transition-all overflow-hidden group">
+            {/* Ambient Internal Jewel Bloom & Specular Sheen */}
+            <div className="absolute -top-12 -left-12 w-36 h-36 bg-cyan-500/12 rounded-full blur-2xl pointer-events-none group-hover:bg-cyan-500/22 transition-all duration-500" />
+            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
             {/* Header */}
             <div className="flex items-center justify-between pb-2 border-b border-cyan-500/25 dark:border-cyan-500/20">
               <div className="flex items-center gap-2">
@@ -575,15 +587,19 @@ export default function DashboardBentoGrid() {
             BOTTOM ROW: Wireframe Realization (Left Bay 8 cols | Right Bay 4 cols)
             Strict 100vh Zero-Scroll Height (flex-[5] min-h-0)
             ============================================================ */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-2.5 sm:gap-3.5 items-stretch flex-[5] min-h-0">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-3 md:gap-2.5 sm:gap-3.5 items-stretch flex-none md:flex-[5] min-h-fit md:min-h-0">
           {/* ==========================================================
               LEFT BAY (8 cols): Deep Work Cockpit (Top) + Study Jukebox (Bottom)
               ========================================================== */}
-          <div className="lg:col-span-8 flex flex-col justify-between gap-2 sm:gap-2.5 h-full min-h-0">
+          <div className="lg:col-span-8 flex flex-col justify-start md:justify-between gap-3 md:gap-2 sm:gap-2.5 h-auto md:h-full min-h-fit md:min-h-0">
             {/* ── UPPER DUAL-CHAMBER BENTO: 2 Golden-Ratio Cards (Flow Station + Study Velocity) ── */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 flex-1 min-h-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-2 sm:gap-2.5 flex-none md:flex-1 min-h-fit md:min-h-0">
               {/* ── CARD 4A: Compact Flow Station (Circular Countdown Ring + Stacked Presets) ── */}
-              <div className="rounded-[22px] sm:rounded-[24px] bg-gradient-to-br from-indigo-500/[0.12] via-white/80 to-white/65 dark:from-[#0E1024]/95 dark:via-[#0A0D1D]/90 dark:to-[#080A18]/95 backdrop-blur-2xl border-2 border-indigo-400/40 dark:border-[#23274D] p-3 sm:p-3.5 flex flex-col justify-between overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.1)] relative group transition-all">
+              <div className="relative rounded-[22px] sm:rounded-[24px] bg-white/80 dark:bg-[#0B0D1E]/80 backdrop-blur-2xl border border-indigo-500/30 dark:border-white/[0.10] hover:border-indigo-500/50 dark:hover:border-indigo-400/40 shadow-[0_12px_36px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.20)] p-3 sm:p-3.5 flex flex-col justify-between h-auto md:h-full min-h-[160px] md:min-h-0 overflow-hidden group transition-all">
+                {/* Ambient Internal Jewel Bloom & Specular Sheen */}
+                <div className="absolute -top-12 -left-12 w-36 h-36 bg-indigo-500/12 rounded-full blur-2xl pointer-events-none group-hover:bg-indigo-500/22 transition-all duration-500" />
+                <div className="absolute inset-0 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
                 {/* Header */}
                 <div className="flex items-center justify-between pb-1.5 border-b border-indigo-400/20 dark:border-[#1E2348] shrink-0">
                   <div className="flex items-center gap-2">
@@ -717,7 +733,11 @@ export default function DashboardBentoGrid() {
               </div>
 
               {/* ── CARD 4B: Weekly Study Velocity & Heatmap (7-Day Momentum Bar Chart) ── */}
-              <div className="rounded-[22px] sm:rounded-[24px] bg-gradient-to-br from-emerald-500/[0.12] via-white/80 to-white/65 dark:from-[#09171C]/95 dark:via-[#09141F]/90 dark:to-[#080A18]/95 backdrop-blur-2xl border-2 border-emerald-400/40 dark:border-[#163636] p-3 sm:p-3.5 flex flex-col justify-between overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.1)] relative group transition-all">
+              <div className="relative rounded-[22px] sm:rounded-[24px] bg-white/80 dark:bg-[#0B0D1E]/80 backdrop-blur-2xl border border-emerald-500/30 dark:border-white/[0.10] hover:border-emerald-500/50 dark:hover:border-emerald-400/40 shadow-[0_12px_36px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.20)] p-3 sm:p-3.5 flex flex-col justify-between h-auto md:h-full min-h-[175px] md:min-h-0 overflow-hidden group transition-all">
+                {/* Ambient Internal Jewel Bloom & Specular Sheen */}
+                <div className="absolute -top-12 -left-12 w-36 h-36 bg-emerald-500/12 rounded-full blur-2xl pointer-events-none group-hover:bg-emerald-500/22 transition-all duration-500" />
+                <div className="absolute inset-0 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
                 {/* Header */}
                 <div className="flex items-center justify-between pb-1.5 border-b border-emerald-400/20 dark:border-[#163636] shrink-0">
                   <div className="flex items-center gap-2">
@@ -795,12 +815,16 @@ export default function DashboardBentoGrid() {
               </div>
             </div>
 
-            {/* ── LOWER CHAMBER: Divided Jukebox (~58%) + Daily Treasure Vault (~42%) ── */}
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-2.5 shrink-0 h-[60px] sm:h-[64px]">
-              {/* ── CARD 5A: Compact Study Jukebox Console (7 cols / ~58% width) ── */}
-              <div className="sm:col-span-7 h-full rounded-[18px] sm:rounded-[20px] bg-gradient-to-r from-[#1C1F45]/90 via-[#131530]/85 to-[#0E1024]/95 backdrop-blur-2xl border-2 border-purple-500/45 hover:border-purple-500/65 shadow-[0_0_20px_-4px_rgba(168,85,247,0.25),inset_0_1px_1.5px_0_rgba(255,255,255,0.35)] px-2.5 py-1.5 sm:px-3 flex items-center justify-between gap-2 text-white transition-all overflow-hidden">
+            {/* ── LOWER CHAMBER: Divided Jukebox (50%) + Daily Treasure Vault (50%) ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 sm:gap-2.5 shrink-0 h-auto sm:h-[64px]">
+              {/* ── CARD 5A: Compact Study Jukebox Console (6 cols / 50% width) ── */}
+              <div className="relative sm:col-span-6 h-[58px] sm:h-full rounded-[18px] sm:rounded-[20px] bg-white/80 dark:bg-[#0B0D1E]/80 backdrop-blur-2xl border border-purple-500/30 dark:border-white/[0.10] hover:border-purple-500/50 dark:hover:border-purple-400/40 shadow-[0_12px_36px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.20)] px-2.5 py-1.5 sm:px-3 flex items-center justify-between gap-2 text-white transition-all overflow-hidden group">
+                {/* Ambient Internal Jewel Bloom & Specular Sheen */}
+                <div className="absolute -top-10 -left-10 w-28 h-28 bg-purple-500/15 rounded-full blur-2xl pointer-events-none group-hover:bg-purple-500/25 transition-all duration-500" />
+                <div className="absolute inset-0 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
                 {/* Left: Vinyl Disc + Track Name */}
-                <div className="flex items-center gap-2 min-w-0 max-w-[140px] sm:max-w-[170px] shrink-0">
+                <div className="flex items-center gap-2 min-w-0 max-w-[130px] sm:max-w-[150px] shrink-0">
                   <div
                     onClick={() => setIsPlayerOpen(true)}
                     className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden shrink-0 shadow-md cursor-pointer group"
@@ -845,7 +869,7 @@ export default function DashboardBentoGrid() {
                 </div>
 
                 {/* Center: Transport Controls & Mini Scrubber */}
-                <div className="flex-1 min-w-0 flex items-center gap-2 max-w-[220px]">
+                <div className="flex-1 min-w-0 flex items-center gap-1.5 sm:gap-2">
                   <div className="flex items-center gap-0.5 shrink-0">
                     <button
                       onClick={prevTrack}
@@ -908,28 +932,57 @@ export default function DashboardBentoGrid() {
                 </button>
               </div>
 
-              {/* ── CARD 5B: Daily Treasure Vault & Streak Shield (5 cols / ~42% width) ── */}
-              <div className="sm:col-span-5 h-full rounded-[18px] sm:rounded-[20px] bg-gradient-to-r from-amber-500/[0.12] via-white/80 to-white/65 dark:from-[#181406]/95 dark:via-[#131528]/90 dark:to-[#0E1024]/95 backdrop-blur-2xl border-2 border-amber-500/40 hover:border-amber-500/60 shadow-[0_0_20px_-4px_rgba(245,158,11,0.25),inset_0_1px_1.5px_0_rgba(255,255,255,0.35)] px-2.5 py-1.5 sm:px-3 flex items-center justify-between gap-2 text-slate-900 dark:text-white transition-all overflow-hidden">
-                {/* Left: Glowing Chest Jewel */}
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 flex items-center justify-center text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.5)] shrink-0 font-bold text-sm">
-                    🎁
+              {/* ── CARD 5B: Daily Treasure Vault & Streak Shield (6 cols / 50% width) ── */}
+              <div className="relative sm:col-span-6 h-[58px] sm:h-full rounded-[18px] sm:rounded-[20px] bg-white/80 dark:bg-[#0B0D1E]/80 backdrop-blur-2xl border border-amber-500/30 dark:border-white/[0.10] hover:border-amber-500/50 dark:hover:border-amber-400/40 shadow-[0_12px_36px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.20)] px-2.5 py-1.5 sm:px-3 flex items-center justify-between gap-2 text-slate-900 dark:text-white transition-all overflow-hidden group">
+                {/* Ambient Internal Jewel Bloom & Specular Sheen */}
+                <div className="absolute -top-10 -left-10 w-28 h-28 bg-amber-500/15 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/25 transition-all duration-500" />
+                <div className="absolute inset-0 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                {/* Left: Glowing Chest Jewel + Checkmark Overlay if Claimed */}
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <div className="relative shrink-0">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold transition-all ${
+                      canClaimChest
+                        ? 'bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 text-slate-950 shadow-[0_0_14px_rgba(245,158,11,0.55)] animate-pulse'
+                        : 'bg-gradient-to-tr from-amber-500/40 via-amber-400/30 to-yellow-300/20 text-slate-950/80 shadow-xs'
+                    }`}>
+                      🎁
+                    </div>
+                    {!canClaimChest && (
+                      <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center shadow-xs border border-white/40">
+                        <HiCheck size={9} strokeWidth={3} />
+                      </div>
+                    )}
                   </div>
-                  <div className="min-w-0">
+
+                  {/* Center: Unclippable Typography & Status Badge */}
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <h4 className="text-[11px] sm:text-xs font-heading font-black tracking-tight leading-tight truncate">
-                        Treasure Vault
+                        Daily Chest
                       </h4>
-                      <span className={`px-1.5 py-0.2 rounded-full font-mono text-[7px] uppercase font-bold tracking-wider border shrink-0 ${
+                      <span className={`px-1.5 py-0.5 rounded-full font-mono text-[7px] uppercase font-bold tracking-wider border shrink-0 flex items-center gap-0.5 ${
                         canClaimChest
-                          ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border-amber-500/40 animate-pulse'
-                          : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                          ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border-amber-500/40'
+                          : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
                       }`}>
-                        {canClaimChest ? 'Ready' : 'Shielded'}
+                        {canClaimChest ? (
+                          <>
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping inline-block" />
+                            <span>Ready</span>
+                          </>
+                        ) : (
+                          <>
+                            <HiCheck size={9} strokeWidth={3} />
+                            <span>Claimed</span>
+                          </>
+                        )}
                       </span>
                     </div>
-                    <p className="text-[8px] font-mono text-amber-700/80 dark:text-amber-300/80 font-bold truncate mt-0.5">
-                      {canClaimChest ? 'Daily loot roll waiting!' : `Streak Shield Active • Level ${gamification?.level || 1}`}
+                    <p className={`text-[8px] sm:text-[9px] font-mono truncate mt-0.5 font-bold ${
+                      canClaimChest ? 'text-amber-700/80 dark:text-amber-300/80' : 'text-slate-500 dark:text-emerald-400/80'
+                    }`}>
+                      {canClaimChest ? 'Free Daily Roll • Coins & XP' : 'Claimed today • Resets 00:00'}
                     </p>
                   </div>
                 </div>
@@ -942,12 +995,12 @@ export default function DashboardBentoGrid() {
                   className={`px-2.5 sm:px-3 py-1 rounded-full text-[9px] font-black tracking-wide shadow-xs transition-all cursor-pointer shrink-0 flex items-center gap-1 ${
                     canClaimChest
                       ? 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.5)] hover:brightness-110'
-                      : 'bg-amber-500/15 dark:bg-amber-500/10 text-amber-600 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/25'
+                      : 'bg-white/5 hover:bg-white/10 dark:bg-white/5 dark:hover:bg-white/10 text-slate-400 hover:text-slate-200 border border-white/10 hover:border-emerald-500/30'
                   }`}
-                  title="Open Daily Treasure Chest"
+                  title={canClaimChest ? 'Claim Daily Treasure Chest' : 'View Treasure Chest Loot'}
                 >
-                  <span>{canClaimChest ? 'Claim' : 'Vault'}</span>
-                  <span className="text-[10px]">✨</span>
+                  <span>{canClaimChest ? 'Claim' : 'Loot'}</span>
+                  {canClaimChest ? <span className="text-[10px]">✨</span> : <HiCheck size={10} className="text-emerald-400" />}
                 </motion.button>
               </div>
             </div>
@@ -956,7 +1009,11 @@ export default function DashboardBentoGrid() {
           {/* ==========================================================
               RIGHT BAY (4 cols): Full-Height Top 3 Notes (Diagonally Stacked)
               ========================================================== */}
-          <div className="lg:col-span-4 h-full min-h-0 rounded-[22px] sm:rounded-[24px] bg-gradient-to-br from-pink-500/[0.12] via-white/75 to-white/60 dark:from-pink-500/[0.12] dark:via-[#111328]/60 dark:to-[#161936]/60 backdrop-blur-2xl border-2 border-pink-500/40 hover:border-pink-500/60 shadow-[0_0_24px_-4px_rgba(236,72,153,0.2),inset_0_1px_1.5px_0_rgba(255,255,255,0.35)] p-3 sm:p-3.5 flex flex-col justify-between overflow-hidden transition-all relative">
+          <div className="relative lg:col-span-4 h-auto md:h-full min-h-[230px] md:min-h-0 rounded-[22px] sm:rounded-[24px] bg-white/80 dark:bg-[#0B0D1E]/80 backdrop-blur-2xl border border-pink-500/30 dark:border-white/[0.10] hover:border-pink-500/50 dark:hover:border-pink-400/40 shadow-[0_12px_36px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.20)] p-3 sm:p-3.5 flex flex-col justify-between overflow-hidden transition-all group">
+            {/* Ambient Internal Jewel Bloom & Specular Sheen */}
+            <div className="absolute -top-14 -left-14 w-40 h-40 bg-pink-500/12 rounded-full blur-2xl pointer-events-none group-hover:bg-pink-500/22 transition-all duration-500" />
+            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
             {/* Header */}
             <div className="flex items-center justify-between pb-1.5 border-b border-pink-500/20 dark:border-pink-500/15 z-20 shrink-0">
               <div className="flex items-center gap-1.5">
@@ -985,7 +1042,7 @@ export default function DashboardBentoGrid() {
             </div>
 
             {/* Middle Body: 3D Diagonally Stacked Cards Stage */}
-            <div className="relative flex-1 min-h-0 w-full overflow-hidden flex items-center justify-center py-1">
+            <div className="relative flex-1 min-h-[150px] md:min-h-0 w-full overflow-hidden flex items-center justify-center py-2 md:py-1">
               {(() => {
                 // Combine real notes with ghost starters to always guarantee 3 fanned cards
                 const displayItems = [

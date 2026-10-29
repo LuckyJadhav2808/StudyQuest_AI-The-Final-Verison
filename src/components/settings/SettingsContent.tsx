@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   HiUser, HiMail, HiKey, HiColorSwatch,
-  HiClipboardCopy, HiCheck, HiSave, HiShieldCheck, HiLockClosed, HiViewGrid, HiHome,
+  HiClipboardCopy, HiCheck, HiSave, HiShieldCheck, HiLockClosed, HiLogout,
   HiDownload, HiUpload, HiDatabase, HiExclamationCircle, HiFlag, HiTrash, HiSparkles,
   HiLightningBolt,
 } from 'react-icons/hi';
@@ -35,7 +36,9 @@ import {
 } from '@/lib/geminiNano';
 
 export default function SettingsContent() {
-  const { user, profile, deleteAccount } = useAuthContext();
+  const { user, profile, signOut, deleteAccount } = useAuthContext();
+  const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
   const { theme, setTheme, reduceMotion, setReduceMotion } = useTheme();
   const { gamification } = useGamification();
   const { addCoins } = useShop();
@@ -99,9 +102,6 @@ export default function SettingsContent() {
   const userLevel = gamification?.level || 0;
   const tier = getAvatarTier(userLevel);
 
-  // Dashboard mode preference
-  const [dashboardMode, setDashboardModeState] = useState<'classic' | 'lofi'>('classic');
-
   // Chrome Built-in AI (Gemini Nano) State
   const [nanoAvailability, setNanoAvailability] = useState<GeminiNanoAvailability>('unsupported');
   const [preferNano, setPreferNano] = useState<boolean>(false);
@@ -148,24 +148,16 @@ export default function SettingsContent() {
     }
   };
 
-  useEffect(() => {
-    if (!user?.uid) return;
-    const loadPrefs = async () => {
-      const prefsRef = doc(db, 'users', user.uid, 'data', 'preferences');
-      const snap = await getDoc(prefsRef);
-      if (snap.exists() && snap.data().dashboardMode) {
-        setDashboardModeState(snap.data().dashboardMode as 'classic' | 'lofi');
-      }
-    };
-    loadPrefs();
-  }, [user?.uid]);
-
-  const handleDashboardMode = async (mode: 'classic' | 'lofi') => {
-    setDashboardModeState(mode);
-    if (user?.uid) {
-      const prefsRef = doc(db, 'users', user.uid, 'data', 'preferences');
-      await setDoc(prefsRef, { dashboardMode: mode, updatedAt: Date.now() }, { merge: true });
-      toast.success(mode === 'lofi' ? '🏠 Lofi Room activated!' : '📊 Classic dashboard activated!');
+  const handleLogout = async () => {
+    try {
+      setLoggingOut(true);
+      await signOut();
+      toast.success('Signed out of StudyQuest. See you on your next quest! ⚔️');
+      router.push('/login');
+    } catch {
+      toast.error('Failed to sign out. Please try again.');
+    } finally {
+      setLoggingOut(false);
     }
   };
 
@@ -446,9 +438,21 @@ export default function SettingsContent() {
     <PageTransition>
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-heading font-bold">Settings</h1>
-          <p className="text-sm text-[var(--muted-foreground)]">Customize your StudyQuest experience.</p>
+        <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-white/10">
+          <div>
+            <h1 className="text-2xl font-heading font-black tracking-tight text-slate-900 dark:text-white">Settings</h1>
+            <p className="text-xs text-[var(--muted-foreground)]">Customize your StudyQuest experience.</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 dark:text-rose-400 text-xs font-heading font-bold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+            title="Sign out of your StudyQuest session"
+          >
+            <HiLogout size={15} />
+            <span>{loggingOut ? 'Signing Out...' : 'Sign Out'}</span>
+          </button>
         </div>
 
         {/* Profile Section */}
@@ -652,94 +656,6 @@ export default function SettingsContent() {
                 </motion.button>
               );
             })}
-          </div>
-        </Card>
-
-        {/* Dashboard Style */}
-        <Card padding="lg" hover={false}>
-          <h2 className="text-sm font-heading font-bold mb-2 flex items-center gap-2">
-            <HiHome className="text-primary" /> Dashboard Style
-          </h2>
-          <p className="text-xs text-[var(--muted-foreground)] mb-4">
-            Choose how your dashboard looks when you open StudyQuest.
-          </p>
-          <div className="grid grid-cols-2 gap-4">
-            {/* Classic */}
-            <motion.button
-              onClick={() => handleDashboardMode('classic')}
-              className={`relative p-4 rounded-2xl border-2 text-left transition-all ${
-                dashboardMode === 'classic'
-                  ? 'border-primary shadow-[0_0_16px_var(--color-primary-glow)]'
-                  : 'border-[var(--card-border)] hover:border-primary/30'
-              }`}
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              {/* Mini preview — grid of colored blocks */}
-              <div className="mb-3 p-3 rounded-xl bg-[var(--background)] border border-[var(--card-border)]">
-                <div className="space-y-1.5">
-                  <div className="h-3 rounded bg-primary/20 w-full" />
-                  <div className="grid grid-cols-3 gap-1">
-                    <div className="h-6 rounded bg-primary/15" />
-                    <div className="h-6 rounded bg-teal/15" />
-                    <div className="h-6 rounded bg-amber/15" />
-                  </div>
-                  <div className="h-4 rounded bg-[var(--card-border)]/40 w-full" />
-                  <div className="grid grid-cols-2 gap-1">
-                    <div className="h-5 rounded bg-primary/10" />
-                    <div className="h-5 rounded bg-coral/10" />
-                  </div>
-                </div>
-              </div>
-              <p className="text-sm font-heading font-bold flex items-center gap-1.5">
-                <HiViewGrid size={14} className="text-primary" /> Classic
-              </p>
-              <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5">
-                Widget grid with drag & drop
-              </p>
-              {dashboardMode === 'classic' && (
-                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                  <HiCheck size={12} className="text-white" />
-                </div>
-              )}
-            </motion.button>
-
-            {/* Lofi Room */}
-            <motion.button
-              onClick={() => handleDashboardMode('lofi')}
-              className={`relative p-4 rounded-2xl border-2 text-left transition-all ${
-                dashboardMode === 'lofi'
-                  ? 'border-primary shadow-[0_0_16px_var(--color-primary-glow)]'
-                  : 'border-[var(--card-border)] hover:border-primary/30'
-              }`}
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              {/* Mini preview — illustrated room */}
-              <div className="mb-3 p-3 rounded-xl border border-[var(--card-border)] overflow-hidden" style={{ background: 'linear-gradient(180deg, #2a1f3d 60%, #1a1428 100%)' }}>
-                <div className="relative h-14">
-                  {/* Mini window */}
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-5 rounded-sm border border-[#4a3a6a]" style={{ background: 'linear-gradient(180deg, #4FC3F7, #81D4FA)' }} />
-                  {/* Mini desk */}
-                  <div className="absolute bottom-1 left-1 w-12 h-1.5 rounded-sm bg-[#6d4c41]" />
-                  {/* Mini pet */}
-                  <div className="absolute bottom-2.5 left-2 text-[8px]">🦉</div>
-                  {/* Mini stat bubble */}
-                  <div className="absolute top-0.5 left-0.5 px-1 py-0.5 rounded bg-black/40 text-[5px] text-white font-bold">⭐ Lv.5</div>
-                </div>
-              </div>
-              <p className="text-sm font-heading font-bold flex items-center gap-1.5">
-                <span>🏠</span> Lofi Room
-              </p>
-              <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5">
-                Animated study room with your pet
-              </p>
-              {dashboardMode === 'lofi' && (
-                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                  <HiCheck size={12} className="text-white" />
-                </div>
-              )}
-            </motion.button>
           </div>
         </Card>
 
@@ -1252,6 +1168,33 @@ export default function SettingsContent() {
           >
             Rebuild Profile & XP from Logs
           </Button>
+        </Card>
+
+        {/* ── Account & Active Session Management ── */}
+        <Card padding="lg" hover={false} className="border-indigo-500/20 dark:border-white/10">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-sm font-heading font-bold mb-1 flex items-center gap-2 text-slate-900 dark:text-white">
+                <HiUser className="text-primary" /> Account &amp; Active Session
+              </h2>
+              <p className="text-xs text-[var(--muted-foreground)]">
+                Signed in as <strong className="text-slate-800 dark:text-slate-200">{user?.email || 'Scholar'}</strong>
+              </p>
+              <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5 font-mono">
+                UID: {user?.uid ? `${user.uid.slice(0, 18)}...` : 'Local Session'}
+              </p>
+            </div>
+            <Button
+              variant="coral"
+              size="sm"
+              icon={<HiLogout />}
+              onClick={handleLogout}
+              loading={loggingOut}
+              className="shrink-0 font-bold"
+            >
+              Sign Out of StudyQuest
+            </Button>
+          </div>
         </Card>
 
         {/* ── Danger Zone ── */}

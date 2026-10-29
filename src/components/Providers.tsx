@@ -110,7 +110,7 @@ function MainContent({ children }: { children: React.ReactNode }) {
                 : isWorkstationPage
                 ? 'flex-1 min-h-0 overflow-hidden flex flex-col p-0'
                 : pathname === '/'
-                ? 'md:overflow-hidden overflow-y-auto p-2 sm:p-2.5 md:p-3 flex flex-col justify-between pb-20 md:pb-2.5'
+                ? 'md:overflow-hidden overflow-y-auto p-2 sm:p-2.5 md:p-3 flex flex-col justify-start md:justify-between pb-28 md:pb-2.5'
                 : 'overflow-y-auto p-2.5 sm:p-3.5 md:p-4 pb-20 md:pb-4'
             }`}
           >

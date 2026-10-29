@@ -1,8 +1,10 @@
 'use client';
 
 // ============================================================
-// StudyQuest AI — Production-Grade Authentication Terminal
-// Designed with UI/UX Pro, Mobile Ergonomics & Mascot Engine
+// StudyQuest AI — Production-Grade Authentication & Landing Portal
+// Engineered under /senior-production-dev, /senior-frontend, & /ui-ux-pro-max
+// Benchmark Architecture: Smoked Obsidian Glass, 1px Specular Rims,
+// Interactive Mini-Cockpit Preview & Full Mobile Ergonomics
 // ============================================================
 
 import React, { useState, useMemo } from 'react';
@@ -19,23 +21,21 @@ import {
   HiCheck,
   HiXMark,
   HiShieldCheck,
+  HiClock,
+  HiBolt,
+  HiFire,
+  HiCodeBracket,
+  HiAcademicCap,
+  HiMusicalNote,
 } from 'react-icons/hi2';
 import { FcGoogle } from 'react-icons/fc';
 import { useAuthContext } from '@/context/AuthContext';
 import toast from 'react-hot-toast';
-import { playClick, playSuccess, playError } from '@/lib/sounds';
+import { playClick, playSuccess, playError, playXP } from '@/lib/sounds';
 import ExpressiveOwlMascot from '@/components/gamification/ExpressiveOwlMascot';
 import { MascotMood } from '@/components/gamification/QuestieMascot';
 
 type AuthMode = 'login' | 'register';
-
-const MASCOT_QUOTES = [
-  'Consistency is your greatest superpower, scholar! ✨',
-  'Ready to earn some XP and conquer today’s syllabus? 🚀',
-  'Every expert was once an adventurous beginner! 🦉',
-  'Your study streak is waiting for you. Let’s level up! 🔥',
-  'Small daily quests lead to legendary milestones! 💎',
-];
 
 export default function LoginPage() {
   const [mode, setMode] = useState<AuthMode>('login');
@@ -49,7 +49,10 @@ export default function LoginPage() {
   // Focus & Mascot emotional states
   const [focusedField, setFocusedField] = useState<'none' | 'name' | 'email' | 'password'>('none');
   const [mascotSquish, setMascotSquish] = useState(false);
-  const [customQuoteIdx, setCustomQuoteIdx] = useState(0);
+
+  // Interactive Mini-Cockpit preview state
+  const [demoTimerPlaying, setDemoTimerPlaying] = useState(false);
+  const [demoQuestDone, setDemoQuestDone] = useState(false);
 
   // Forgot password modal state
   const [forgotModalOpen, setForgotModalOpen] = useState(false);
@@ -83,30 +86,19 @@ export default function LoginPage() {
     }
   }, [password]);
 
-  // Mascot contextual speech text
-  const mascotSpeech = useMemo(() => {
-    if (loading) return 'Decrypting quest log... ⚡';
-    if (error) return 'Oops! Check your credentials and try again! 💡';
-    if (focusedField === 'password') return 'Shhh! Your secret key is encrypted & safe! 🙈';
-    if (focusedField === 'email') return 'Scanning student archives for your scroll... 📜';
-    if (focusedField === 'name') return 'Choose a legendary adventurer name! ⚔️';
-    if (mode === 'register') return 'Welcome, new recruit! Ready to embark on your quest? 🌟';
-    return MASCOT_QUOTES[customQuoteIdx % MASCOT_QUOTES.length];
-  }, [focusedField, loading, error, mode, customQuoteIdx]);
-
-  // Dynamic mascot mood tied to user interaction & time
+  // Dynamic mascot mood tied to user interaction & state
   const mascotMood = useMemo<MascotMood>(() => {
     if (loading) return 'celebration';
+    if (error) return 'sleeping';
     if (focusedField === 'password' || focusedField === 'email' || focusedField === 'name') return 'focus';
     const hour = new Date().getHours();
     if (hour >= 21 || hour < 5) return 'night-owl';
     return 'active';
-  }, [loading, focusedField]);
+  }, [loading, error, focusedField]);
 
   const handleMascotClick = () => {
     playClick();
     setMascotSquish(true);
-    setCustomQuoteIdx((prev) => prev + 1);
     setTimeout(() => setMascotSquish(false), 300);
   };
 
@@ -207,222 +199,260 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex bg-[#090D16] text-white selection:bg-indigo-500/30 selection:text-indigo-200 relative overflow-x-hidden">
-      {/* Dynamic Ambient Glows */}
+    <div className="min-h-screen w-full flex flex-col justify-center bg-[#F0EDF8] dark:bg-[#070913] text-slate-900 dark:text-white selection:bg-indigo-500/30 selection:text-indigo-200 relative overflow-x-hidden">
+      {/* ============================================================
+          LIVING ATMOSPHERIC AURORA MESH CANVAS (Unified with Dashboard)
+          ============================================================ */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
-        <div className="absolute top-[-10%] left-[-10%] w-[500px] sm:w-[700px] h-[500px] sm:h-[700px] rounded-full bg-indigo-600/15 blur-[120px] mix-blend-screen" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[450px] sm:w-[650px] h-[450px] sm:h-[650px] rounded-full bg-purple-600/15 blur-[130px] mix-blend-screen" />
-        <div className="absolute top-[40%] right-[30%] w-[350px] h-[350px] rounded-full bg-cyan-500/10 blur-[100px] mix-blend-screen" />
-        {/* Subtle Cyber Grid Overlay */}
+        <div className="absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-indigo-500/15 via-purple-500/10 to-transparent blur-[140px] animate-pulse [animation-duration:9s]" />
+        <div className="absolute top-1/3 -right-32 w-[520px] h-[520px] rounded-full bg-gradient-to-bl from-cyan-500/12 via-blue-500/8 to-transparent blur-[130px] animate-pulse [animation-duration:11s]" />
+        <div className="absolute -bottom-40 left-1/4 w-[650px] h-[450px] rounded-full bg-gradient-to-t from-emerald-500/10 via-teal-500/5 to-transparent blur-[150px] animate-pulse [animation-duration:13s]" />
+        {/* Subtle Precision Grid Matrix */}
         <div
-          className="absolute inset-0 opacity-[0.025]"
+          className="absolute inset-0 opacity-[0.035] dark:opacity-[0.02]"
           style={{
             backgroundImage:
-              'linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)',
-            backgroundSize: '48px 48px',
+              'linear-gradient(to right, #7C3AED 1px, transparent 1px), linear-gradient(to bottom, #7C3AED 1px, transparent 1px)',
+            backgroundSize: '40px 40px',
           }}
         />
       </div>
 
-      {/* ============================================================ */}
-      {/* DESKTOP LEFT COLUMN: CYBER-SCHOLAR BENTO SHOWCASE            */}
-      {/* ============================================================ */}
-      <div className="hidden lg:flex lg:w-1/2 relative z-10 flex-col justify-between p-12 xl:p-16 border-r border-white/10 bg-slate-950/40 backdrop-blur-xl">
-        {/* Top Branding Pill */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.5)] border border-white/20 overflow-hidden p-0.5">
-              <ExpressiveOwlMascot mood={mascotMood} size={32} />
-            </div>
-            <div>
-              <span className="font-heading font-black text-xl tracking-tight text-white flex items-center gap-1.5">
-                Study<span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-400">Quest</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono border border-indigo-500/30">
-                  v2.0
+      {/* Main Responsive Grid Container */}
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 flex flex-col lg:flex-row items-center justify-between gap-10 lg:gap-14">
+        {/* ============================================================
+            DESKTOP LEFT / MOBILE TOP: PRODUCT SHOWCASE & LIVE MINI-BENTO
+            ============================================================ */}
+        <div className="w-full lg:w-[55%] flex flex-col justify-between space-y-6 sm:space-y-8">
+          {/* Brand Anchor & Operational Status */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-primary via-indigo-600 to-secondary flex items-center justify-center text-white shadow-[0_0_24px_rgba(124,58,237,0.45)] border border-white/30">
+                <HiSparkles size={20} className="animate-pulse" />
+              </div>
+              <div>
+                <span className="font-heading font-black text-2xl tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
+                  Study<span className="text-gradient">Quest</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 font-mono font-bold border border-indigo-500/30">
+                    v2.5
+                  </span>
                 </span>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  The Gamified Deep Work &amp; Productivity OS
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/70 dark:bg-black/40 border border-emerald-500/30 shadow-xs text-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span className="font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
+                Free &amp; Open Tier
               </span>
-              <p className="text-[11px] text-slate-400 font-medium">RPG Learning & Study Command Center</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/80 border border-white/10 text-xs text-slate-300">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-            <span className="font-medium text-[11px]">Server Online</span>
-          </div>
-        </div>
-
-        {/* Center: Reactive Mascot Hero + Bento Widgets */}
-        <div className="my-auto space-y-8 max-w-lg">
-          {/* Reactive Mascot Companion */}
-          <div className="relative pt-6 flex flex-col items-center">
-            {/* Dynamic Interactive Speech Bubble */}
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={mascotSpeech}
-                initial={{ opacity: 0, y: 8, scale: 0.92 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -6, scale: 0.95 }}
-                transition={{ type: 'spring', stiffness: 380, damping: 26 }}
-                className="relative z-20 mb-4 px-4 py-2.5 rounded-2xl bg-slate-900/90 border border-indigo-500/30 shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl text-center max-w-xs"
-              >
-                <p className="text-xs font-medium text-slate-200 leading-snug">
-                  {mascotSpeech}
-                </p>
-                {/* Bubble Pointer Arrow */}
-                <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-900 border-b border-r border-indigo-500/30 rotate-45" />
-              </motion.div>
-            </AnimatePresence>
-
-            {/* Clickable Floating Expressive Questie Mascot */}
-            <motion.div
-              onClick={handleMascotClick}
-              whileHover={{ scale: 1.06, y: -4 }}
-              whileTap={{ scale: 0.94 }}
-              animate={mascotSquish ? { scale: [1, 0.86, 1.15, 1] } : { y: [0, -8, 0] }}
-              transition={
-                mascotSquish
-                  ? { duration: 0.3 }
-                  : { duration: 3.2, repeat: Infinity, ease: 'easeInOut' }
-              }
-              className="relative cursor-pointer group flex items-center justify-center"
-              title="Click Questie for study wisdom!"
-            >
-              {/* Soft Ambient Luminescence Halo */}
-              <div className="absolute inset-0 bg-indigo-500/25 rounded-full blur-3xl scale-125 group-hover:bg-purple-500/35 transition-colors" />
-              <ExpressiveOwlMascot
-                mood={mascotMood}
-                isSquishing={mascotSquish}
-                size={148}
-              />
-            </motion.div>
-            <p className="text-[10px] text-slate-400 font-mono mt-2 tracking-wide uppercase">
-              Questie • Study Companion
+          {/* Hero Statement */}
+          <div className="space-y-3">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-heading font-black tracking-tight text-slate-900 dark:text-white leading-[1.12]">
+              Master Your Syllabus.{' '}
+              <span className="text-gradient">Level Up Your Deep Work.</span>
+            </h1>
+            <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed max-w-xl font-medium">
+              Transform study hours, DSA coding challenges, and exam preparation into a rewarding RPG quest.
+              Compete, track velocity, and build unbreakable habits with zero distractions.
             </p>
           </div>
 
-          {/* Bento Feature Capability Cards (Authentic Platform Highlights) */}
-          <div className="grid grid-cols-2 gap-3.5">
-            {/* Bento Card 1: Gamified Learning & Quests */}
-            <div className="p-4 rounded-2xl bg-slate-900/70 border border-white/10 backdrop-blur-md shadow-lg flex flex-col justify-between hover:border-indigo-500/30 transition-colors">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-bold font-mono uppercase tracking-wider text-indigo-400 flex items-center gap-1">
-                    <HiSparkles size={12} /> Gamified Learning
-                  </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold">
-                    Quests & XP
-                  </span>
-                </div>
-                <p className="text-xs font-heading font-bold text-white mb-1.5">
-                  Turn studying into an RPG adventure
-                </p>
-                <p className="text-[11px] text-slate-400 leading-relaxed">
-                  Complete tasks, solve coding problems, and build your study streak to earn XP and unlock titles.
-                </p>
+          {/* ============================================================
+              INTERACTIVE MINI-COCKPIT PREVIEW (Linear & Raycast Benchmark)
+              A real, high-density teaser of the active 2x2 Bento Dashboard!
+              ============================================================ */}
+          <div className="rounded-[24px] sm:rounded-[28px] bg-white/80 dark:bg-[#0B0D1E]/80 backdrop-blur-2xl border border-indigo-500/25 dark:border-white/[0.10] shadow-[0_16px_48px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.20)] p-4 sm:p-5 space-y-3.5 relative overflow-hidden group">
+            {/* Specular Ambient Jewel Glow */}
+            <div className="absolute -top-16 -left-16 w-44 h-44 bg-indigo-500/12 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="flex items-center justify-between pb-2 border-b border-indigo-500/15 dark:border-white/10">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 inline-block" />
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 inline-block" />
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 inline-block" />
+                <span className="ml-2 text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider">
+                  Live Cockpit Preview
+                </span>
               </div>
-              <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center gap-2 text-[10px] text-indigo-300 font-mono">
-                <span>🎯 Daily Quests</span>
-                <span>•</span>
-                <span>⚔️ 2,360+ DSA Problems</span>
-              </div>
+              <span className="text-[10px] font-mono font-bold text-indigo-500 dark:text-indigo-400">
+                100vh Modular Bento
+              </span>
             </div>
 
-            {/* Bento Card 2: Companion & Focus */}
-            <div className="p-4 rounded-2xl bg-slate-900/70 border border-white/10 backdrop-blur-md shadow-lg flex flex-col justify-between hover:border-purple-500/30 transition-colors">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-bold font-mono uppercase tracking-wider text-purple-400 flex items-center gap-1">
-                    🦉 Study Companion
-                  </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-bold">
-                    Deep Work
-                  </span>
+            {/* Mini Bento Grid: 2 Columns */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Mini Card A: Flow Station */}
+              <div className="p-3 rounded-2xl bg-white/60 dark:bg-black/35 border border-indigo-500/20 dark:border-white/10 flex items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center gap-2.5">
+                  <div
+                    onClick={() => {
+                      playClick();
+                      setDemoTimerPlaying(!demoTimerPlaying);
+                    }}
+                    className="w-10 h-10 rounded-full bg-indigo-500/20 dark:bg-[#7C3AED]/25 border border-indigo-500/40 flex items-center justify-center text-indigo-500 dark:text-purple-300 cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+                    title="Click to preview timer"
+                  >
+                    <HiClock size={18} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-heading font-black text-slate-900 dark:text-white">
+                        Flow Station
+                      </span>
+                      <span className="px-1.5 py-0.2 rounded-full bg-indigo-500/15 text-[8px] font-mono font-bold text-indigo-500">
+                        {demoTimerPlaying ? '24:59' : '25m'}
+                      </span>
+                    </div>
+                    <p className="text-[9px] text-slate-500 dark:text-slate-400 font-mono">
+                      {demoTimerPlaying ? 'Focus Session Active' : 'Click to start focus'}
+                    </p>
+                  </div>
                 </div>
-                <p className="text-xs font-heading font-bold text-white mb-1.5">
-                  Stay accountable with your virtual pet
-                </p>
-                <p className="text-[11px] text-slate-400 leading-relaxed">
-                  Your companion levels up as you complete Pomodoro sessions, master syllabus units, and take notes.
-                </p>
+                <span className="text-xs">⏱️</span>
               </div>
-              <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center gap-2 text-[10px] text-purple-300 font-mono">
-                <span>⏱️ Pomodoro Timer</span>
-                <span>•</span>
-                <span>🛡️ Streak Shield</span>
+
+              {/* Mini Card B: Study Velocity Pillars */}
+              <div className="p-3 rounded-2xl bg-white/60 dark:bg-black/35 border border-emerald-500/20 dark:border-white/10 flex items-center justify-between gap-2 shadow-2xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-full bg-emerald-500/20 dark:bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center text-emerald-500">
+                    <HiFire size={18} className="text-amber-500" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-heading font-black text-slate-900 dark:text-white">
+                        Velocity
+                      </span>
+                      <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-[8px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                        3d Streak
+                      </span>
+                    </div>
+                    <p className="text-[9px] text-slate-500 dark:text-slate-400 font-mono">
+                      85% Consistency Active
+                    </p>
+                  </div>
+                </div>
+                {/* 5 Mini Slender Pillars */}
+                <div className="flex items-end gap-1 h-7">
+                  <span className="w-1.5 h-3 rounded-full bg-emerald-500/40" />
+                  <span className="w-1.5 h-4.5 rounded-full bg-emerald-500/60" />
+                  <span className="w-1.5 h-3.5 rounded-full bg-emerald-500/50" />
+                  <span className="w-1.5 h-6 rounded-full bg-emerald-500/90" />
+                  <span className="w-1.5 h-7 rounded-full bg-gradient-to-t from-emerald-500 to-teal-300 shadow-[0_0_6px_#10B981]" />
+                </div>
+              </div>
+
+              {/* Mini Card C: Interactive Daily Quest Bounty */}
+              <div
+                onClick={() => {
+                  playXP();
+                  setDemoQuestDone(!demoQuestDone);
+                }}
+                className="p-3 rounded-2xl bg-white/60 dark:bg-black/35 border border-amber-500/20 dark:border-white/10 flex items-center justify-between gap-3 shadow-2xs cursor-pointer hover:border-amber-500/40 transition-all group/quest"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all ${
+                      demoQuestDone
+                        ? 'bg-amber-500 border-amber-500 text-slate-950 shadow-[0_0_8px_rgba(245,158,11,0.5)]'
+                        : 'border-amber-500/40 text-transparent group-hover/quest:border-amber-400'
+                    }`}
+                  >
+                    <HiCheck size={14} strokeWidth={3} />
+                  </div>
+                  <div className="min-w-0">
+                    <p
+                      className={`text-xs font-bold truncate ${
+                        demoQuestDone ? 'line-through text-slate-400' : 'text-slate-800 dark:text-white'
+                      }`}
+                    >
+                      Solve 2 Graph Questions
+                    </p>
+                    <p className="text-[9px] font-mono text-amber-600 dark:text-amber-400 font-bold">
+                      {demoQuestDone ? '✓ Completed • +50 XP' : 'Daily Bounty • +50 XP'}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs">⚔️</span>
+              </div>
+
+              {/* Mini Card D: DSA Forge & Code Arena */}
+              <div className="p-3 rounded-2xl bg-white/60 dark:bg-black/35 border border-violet-500/20 dark:border-white/10 flex items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-10 h-10 rounded-full bg-violet-500/20 border border-violet-500/40 flex items-center justify-center text-violet-400 shrink-0">
+                    <HiCodeBracket size={18} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-heading font-black text-slate-900 dark:text-white">
+                        DSA Forge
+                      </span>
+                      <span className="px-1.5 py-0.2 rounded-full bg-violet-500/15 text-[8px] font-mono font-bold text-violet-400">
+                        Rank S
+                      </span>
+                    </div>
+                    <p className="text-[9px] text-slate-500 dark:text-slate-400 font-mono truncate">
+                      2,360+ Curated Problems
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs">💻</span>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Bottom Feature Pillars Strip (Honest & Authentic) */}
-        <div className="pt-6 border-t border-white/10 flex items-center justify-between text-xs text-slate-400">
-          <div className="flex items-center gap-2">
-            <HiShieldCheck className="text-emerald-400 shrink-0" size={16} />
-            <span className="text-[11px] font-medium text-slate-300">
-              Private, Local-First &amp; Cloud-Synced • Zero Ads • 100% Free
+          {/* Value Highlights Pill Strip */}
+          <div className="pt-2 flex flex-wrap items-center gap-2 text-xs">
+            <span className="px-3 py-1 rounded-full bg-white/60 dark:bg-black/35 border border-indigo-500/20 text-slate-700 dark:text-slate-300 font-medium flex items-center gap-1.5">
+              <HiShieldCheck className="text-emerald-500" size={14} /> Local-First &amp; Cloud-Synced
+            </span>
+            <span className="px-3 py-1 rounded-full bg-white/60 dark:bg-black/35 border border-indigo-500/20 text-slate-700 dark:text-slate-300 font-medium flex items-center gap-1.5">
+              <HiSparkles className="text-purple-400" size={14} /> Zero Distractions
+            </span>
+            <span className="px-3 py-1 rounded-full bg-white/60 dark:bg-black/35 border border-indigo-500/20 text-slate-700 dark:text-slate-300 font-medium flex items-center gap-1.5">
+              <HiMusicalNote className="text-pink-400" size={14} /> Integrated Lofi Jukebox
             </span>
           </div>
-          <span className="text-[10px] font-mono text-slate-400">SPPU &amp; Tech Interview Ready</span>
         </div>
-      </div>
 
-      {/* ============================================================ */}
-      {/* RIGHT COLUMN: PRODUCTION AUTH TERMINAL                      */}
-      {/* ============================================================ */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-between items-center p-5 sm:p-8 md:p-12 z-10 min-h-screen overflow-y-auto">
-        {/* Mobile-Only Top Header with Mini Questie Companion */}
-        <div className="w-full max-w-md lg:hidden pt-2 pb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2.5">
+        {/* ============================================================
+            RIGHT COLUMN: PRODUCTION AUTH TERMINAL (Smoked Obsidian Glass)
+            ============================================================ */}
+        <div className="w-full lg:w-[45%] flex flex-col items-center">
+          <div className="w-full max-w-md rounded-[28px] sm:rounded-[32px] bg-white/85 dark:bg-[#0B0D1E]/85 backdrop-blur-2xl border border-indigo-500/30 dark:border-white/[0.10] shadow-[0_20px_60px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.20)] p-6 sm:p-8 xl:p-9 relative overflow-hidden transition-all group">
+            {/* Specular Jewel Bloom */}
+            <div className="absolute -top-16 -right-16 w-44 h-44 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
+
+            {/* Header: Title + Reactive Companion Avatar */}
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-heading font-black tracking-tight text-slate-900 dark:text-white">
+                  {mode === 'login' ? 'Welcome Back' : 'Join the Guild'}
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  {mode === 'login'
+                    ? 'Resume your study quest and streak.'
+                    : 'Create your adventurer account to earn XP.'}
+                </p>
+              </div>
+
+              {/* Reactive Interactive Questie Companion Avatar */}
               <div
                 onClick={handleMascotClick}
-                className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 flex items-center justify-center shadow-lg border border-white/20 active:scale-95 transition-transform cursor-pointer overflow-hidden p-0.5"
-                title="Questie Companion"
+                className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500/20 via-purple-500/20 to-pink-500/20 border border-indigo-500/30 flex items-center justify-center cursor-pointer active:scale-95 transition-transform shadow-xs overflow-hidden p-1 shrink-0"
+                title="Questie Companion • Ready for work"
               >
-                <ExpressiveOwlMascot mood={mascotMood} isSquishing={mascotSquish} size={36} />
+                <ExpressiveOwlMascot mood={mascotMood} isSquishing={mascotSquish} size={40} />
               </div>
-              <div>
-                <h1 className="text-lg font-heading font-black tracking-tight text-white flex items-center gap-1">
-                  Study<span className="text-indigo-400">Quest</span>
-                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-mono">
-                    AI
-                  </span>
-                </h1>
-                <p className="text-[10px] text-slate-400">Level up your learning journey</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-900 border border-white/10 text-[10px] text-slate-300">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Free Tier</span>
-            </div>
-          </div>
-
-          {/* Mobile Mascot Speech Bubble */}
-          <div className="px-3 py-2 rounded-xl bg-slate-900/90 border border-indigo-500/20 text-xs text-slate-300 flex items-center gap-2">
-            <span className="text-base">✨</span>
-            <span className="text-[11px] font-medium leading-snug line-clamp-1">{mascotSpeech}</span>
-          </div>
-        </div>
-
-        {/* Main Glassmorphic Card Container */}
-        <div className="w-full max-w-md my-auto py-2">
-          {/* Card Frame */}
-          <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/70 border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.6)] backdrop-blur-2xl">
-            {/* Title & Subtitle */}
-            <div className="mb-6 text-center sm:text-left">
-              <h2 className="text-2xl sm:text-3xl font-heading font-black tracking-tight text-white">
-                {mode === 'login' ? 'Welcome Back!' : 'Join the Guild'}
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                {mode === 'login'
-                  ? 'Enter your credentials to resume your study quest.'
-                  : 'Create your adventurer account and start earning XP.'}
-              </p>
             </div>
 
             {/* Tactile Segmented Pill Mode Switcher */}
-            <div className="flex p-1 rounded-2xl bg-slate-950/80 border border-white/10 mb-6 relative">
+            <div className="flex p-1 rounded-2xl bg-slate-200/60 dark:bg-black/50 border border-slate-300/60 dark:border-white/10 mb-5 relative">
               {(['login', 'register'] as const).map((tab) => {
                 const isActive = mode === tab;
                 return (
@@ -434,8 +464,8 @@ export default function LoginPage() {
                       setMode(tab);
                       setError('');
                     }}
-                    className={`flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-heading font-bold transition-colors duration-200 relative z-10 uppercase tracking-wider min-h-[44px] flex items-center justify-center ${
-                      isActive ? 'text-white' : 'text-slate-400 hover:text-slate-200'
+                    className={`flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-heading font-bold transition-colors duration-200 relative z-10 uppercase tracking-wider min-h-[44px] flex items-center justify-center cursor-pointer ${
+                      isActive ? 'text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                     }`}
                   >
                     {isActive && (
@@ -446,37 +476,37 @@ export default function LoginPage() {
                       />
                     )}
                     <span className="relative z-10">
-                      {tab === 'login' ? 'Sign In' : 'Join Quest'}
+                      {tab === 'login' ? 'Sign In' : 'Join Guild'}
                     </span>
                   </button>
                 );
               })}
             </div>
 
-            {/* Google Fast Sign-In Button */}
+            {/* Fast 1-Click Google OAuth Button */}
             <motion.button
               type="button"
               onClick={handleGoogleSignIn}
               disabled={loading}
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.98 }}
-              className="w-full flex items-center justify-center gap-3 py-3.5 px-4 rounded-2xl border border-white/10 bg-slate-950/60 hover:bg-slate-900 hover:border-indigo-500/40 text-slate-200 text-xs sm:text-sm font-heading font-bold uppercase tracking-wider transition-all shadow-md min-h-[48px] cursor-pointer"
+              className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl border border-slate-300/80 dark:border-white/10 bg-white/70 dark:bg-black/40 hover:bg-white dark:hover:bg-white/[0.06] text-slate-800 dark:text-slate-200 text-xs sm:text-sm font-heading font-bold tracking-wide transition-all shadow-xs min-h-[48px] cursor-pointer"
             >
               <FcGoogle size={20} className="shrink-0" />
               <span>Continue with Google</span>
             </motion.button>
 
             {/* Dividing Rule */}
-            <div className="flex items-center gap-3 my-5">
-              <div className="flex-1 h-[1px] bg-white/10" />
-              <span className="text-[11px] uppercase tracking-widest text-slate-400 font-mono font-bold">
+            <div className="flex items-center gap-3 my-4">
+              <div className="flex-1 h-[1px] bg-slate-200 dark:bg-white/10" />
+              <span className="text-[10px] uppercase tracking-widest text-slate-400 font-mono font-bold">
                 or email
               </span>
-              <div className="flex-1 h-[1px] bg-white/10" />
+              <div className="flex-1 h-[1px] bg-slate-200 dark:bg-white/10" />
             </div>
 
             {/* Authentication Form */}
-            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            <form onSubmit={handleSubmit} className="space-y-3.5" noValidate>
               {/* Name Field (Register Mode Only) */}
               <AnimatePresence mode="wait">
                 {mode === 'register' && (
@@ -488,12 +518,12 @@ export default function LoginPage() {
                     transition={{ duration: 0.2 }}
                     className="overflow-hidden"
                   >
-                    <label className="block text-xs font-heading font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-[11px] font-heading font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                       Adventurer Name
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                        <HiUser size={18} />
+                        <HiUser size={17} />
                       </div>
                       <input
                         type="text"
@@ -505,21 +535,21 @@ export default function LoginPage() {
                         autoCapitalize="words"
                         enterKeyHint="next"
                         required
-                        className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-950/60 border border-white/10 text-white placeholder:text-slate-400 text-base md:text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all min-h-[48px]"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/60 dark:bg-black/40 border border-slate-300/80 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all min-h-[46px]"
                       />
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              {/* Email Address */}
+              {/* Email Address Field */}
               <div>
-                <label className="block text-xs font-heading font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                <label className="block text-[11px] font-heading font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                   Email Address
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <HiEnvelope size={18} />
+                    <HiEnvelope size={17} />
                   </div>
                   <input
                     type="email"
@@ -534,15 +564,15 @@ export default function LoginPage() {
                     autoCorrect="off"
                     enterKeyHint="next"
                     required
-                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-950/60 border border-white/10 text-white placeholder:text-slate-400 text-base md:text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all min-h-[48px]"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/60 dark:bg-black/40 border border-slate-300/80 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all min-h-[46px]"
                   />
                 </div>
               </div>
 
-              {/* Password */}
+              {/* Password Field */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-heading font-bold text-slate-300 uppercase tracking-wider">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-heading font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                     Password
                   </label>
                   {mode === 'login' && (
@@ -552,7 +582,7 @@ export default function LoginPage() {
                         playClick();
                         setForgotModalOpen(true);
                       }}
-                      className="text-xs text-indigo-400 hover:text-indigo-300 font-medium transition-colors cursor-pointer"
+                      className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 font-bold transition-colors cursor-pointer"
                     >
                       Forgot password?
                     </button>
@@ -560,7 +590,7 @@ export default function LoginPage() {
                 </div>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <HiLockClosed size={18} />
+                    <HiLockClosed size={17} />
                   </div>
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -572,7 +602,7 @@ export default function LoginPage() {
                     autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
                     enterKeyHint="go"
                     required
-                    className="w-full pl-10 pr-12 py-3 rounded-xl bg-slate-950/60 border border-white/10 text-white placeholder:text-slate-400 text-base md:text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all min-h-[48px]"
+                    className="w-full pl-10 pr-12 py-2.5 rounded-xl bg-white/60 dark:bg-black/40 border border-slate-300/80 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all min-h-[46px]"
                   />
                   {/* Password Visibility Toggle */}
                   <button
@@ -584,7 +614,7 @@ export default function LoginPage() {
                     className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-200 transition-colors cursor-pointer min-w-[44px] justify-center"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showPassword ? <HiEyeSlash size={18} /> : <HiEye size={18} />}
+                    {showPassword ? <HiEyeSlash size={17} /> : <HiEye size={17} />}
                   </button>
                 </div>
 
@@ -593,20 +623,20 @@ export default function LoginPage() {
                   <motion.div
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="mt-2.5 space-y-1.5"
+                    className="mt-2 space-y-1"
                   >
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-400">Security Strength:</span>
-                      <span className="font-bold text-slate-200">{passwordStrength.label}</span>
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="text-slate-400 font-mono">Security:</span>
+                      <span className="font-bold text-slate-200 font-mono">{passwordStrength.label}</span>
                     </div>
-                    <div className="grid grid-cols-4 gap-1.5 h-1.5">
+                    <div className="grid grid-cols-4 gap-1.5 h-1">
                       {[1, 2, 3, 4].map((step) => (
                         <div
                           key={step}
                           className={`h-full rounded-full transition-all duration-300 ${
                             passwordStrength.score >= step
                               ? passwordStrength.color
-                              : 'bg-slate-800'
+                              : 'bg-slate-300 dark:bg-slate-800'
                           }`}
                         />
                       ))}
@@ -622,7 +652,7 @@ export default function LoginPage() {
                     initial={{ opacity: 0, y: -6, scale: 0.98 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                    className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-medium flex items-start gap-2.5"
+                    className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-500 dark:text-rose-300 text-xs font-medium flex items-start gap-2.5"
                   >
                     <span className="text-sm shrink-0">⚠️</span>
                     <span className="flex-1 leading-snug">{error}</span>
@@ -643,27 +673,27 @@ export default function LoginPage() {
                 disabled={loading}
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.98 }}
-                className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white font-heading font-bold text-sm uppercase tracking-wider shadow-[0_8px_25px_rgba(99,102,241,0.35)] transition-all min-h-[48px] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white font-heading font-black text-xs sm:text-sm uppercase tracking-wider shadow-[0_8px_25px_rgba(99,102,241,0.35),inset_0_1px_0_rgba(255,255,255,0.30)] transition-all min-h-[48px] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed mt-2"
               >
                 {loading ? (
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Accessing Quest Log...</span>
+                    <span>Authorizing Session...</span>
                   </div>
                 ) : (
                   <>
-                    <span>{mode === 'login' ? 'Start Quest' : 'Begin Adventure'}</span>
-                    <HiArrowRight size={16} />
+                    <span>{mode === 'login' ? 'Launch StudyQuest' : 'Create Adventurer Account'}</span>
+                    <HiArrowRight size={15} />
                   </>
                 )}
               </motion.button>
             </form>
 
             {/* Switch Mode Prompt */}
-            <div className="mt-6 text-center text-xs text-slate-400">
+            <div className="mt-5 text-center text-xs text-slate-500 dark:text-slate-400">
               {mode === 'login' ? (
                 <p>
-                  New adventurer?{' '}
+                  New scholar?{' '}
                   <button
                     type="button"
                     onClick={() => {
@@ -671,9 +701,9 @@ export default function LoginPage() {
                       setMode('register');
                       setError('');
                     }}
-                    className="text-indigo-400 hover:text-indigo-300 font-bold underline underline-offset-4 cursor-pointer"
+                    className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 font-bold underline underline-offset-4 cursor-pointer"
                   >
-                    Join the quest! →
+                    Join the quest →
                   </button>
                 </p>
               ) : (
@@ -686,7 +716,7 @@ export default function LoginPage() {
                       setMode('login');
                       setError('');
                     }}
-                    className="text-indigo-400 hover:text-indigo-300 font-bold underline underline-offset-4 cursor-pointer"
+                    className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 font-bold underline underline-offset-4 cursor-pointer"
                   >
                     Sign in here →
                   </button>
@@ -695,16 +725,11 @@ export default function LoginPage() {
             </div>
           </div>
         </div>
-
-        {/* Mobile Safe Area Bottom Bar */}
-        <div className="w-full text-center text-[11px] text-slate-400 pb-[max(12px,env(safe-area-inset-bottom,12px))] pt-4">
-          <span>Protected by Firebase Auth • StudyQuest AI 2026</span>
-        </div>
       </div>
 
-      {/* ============================================================ */}
-      {/* FORGOT PASSWORD GLASSMORPHIC MODAL / MOBILE BOTTOM SHEET     */}
-      {/* ============================================================ */}
+      {/* ============================================================
+          FORGOT PASSWORD MODAL (Smoked Obsidian Glass)
+          ============================================================ */}
       <AnimatePresence>
         {forgotModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -717,16 +742,16 @@ export default function LoginPage() {
                 setForgotModalOpen(false);
                 setResetSuccess(false);
               }}
-              className="absolute inset-0 bg-black/70 backdrop-blur-md"
+              className="absolute inset-0 bg-black/75 backdrop-blur-md"
             />
 
             {/* Modal Dialog */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.92, y: 20 }}
+              initial={{ opacity: 0, scale: 0.94, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.92, y: 20 }}
+              exit={{ opacity: 0, scale: 0.94, y: 16 }}
               transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-              className="relative z-10 w-full max-w-md p-6 sm:p-8 rounded-3xl bg-slate-900 border border-white/15 shadow-2xl"
+              className="relative z-10 w-full max-w-md p-6 sm:p-8 rounded-[28px] bg-white/95 dark:bg-[#0B0D1E]/95 border border-indigo-500/30 dark:border-white/15 shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.20)] backdrop-blur-2xl text-slate-900 dark:text-white"
             >
               {/* Close Button */}
               <button
@@ -735,18 +760,18 @@ export default function LoginPage() {
                   setForgotModalOpen(false);
                   setResetSuccess(false);
                 }}
-                className="absolute top-4 right-4 text-slate-400 hover:text-white p-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
               >
                 <HiXMark size={20} />
               </button>
 
-              <div className="w-12 h-12 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-500 dark:text-indigo-400 mb-4 shadow-2xs">
                 <HiEnvelope size={24} />
               </div>
 
-              <h3 className="text-xl font-heading font-black text-white">Reset Your Password</h3>
-              <p className="text-xs text-slate-400 mt-1 mb-6">
-                Enter your account email and Questie will dispatch a magic recovery link to your inbox.
+              <h3 className="text-xl font-heading font-black">Reset Your Password</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-6">
+                Enter your account email and we will dispatch a secure recovery link to your inbox.
               </p>
 
               {resetSuccess ? (
@@ -754,8 +779,8 @@ export default function LoginPage() {
                   <div className="w-12 h-12 mx-auto rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
                     <HiCheck size={24} />
                   </div>
-                  <p className="text-sm font-medium text-emerald-300">
-                    Reset link sent! Please check your email inbox and spam folder.
+                  <p className="text-sm font-medium text-emerald-600 dark:text-emerald-300">
+                    Recovery link dispatched! Please check your email inbox and spam folder.
                   </p>
                   <button
                     type="button"
@@ -763,7 +788,7 @@ export default function LoginPage() {
                       setForgotModalOpen(false);
                       setResetSuccess(false);
                     }}
-                    className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-white text-xs font-bold uppercase tracking-wider"
+                    className="w-full py-3 rounded-xl bg-slate-900 dark:bg-white/10 hover:bg-slate-800 text-white text-xs font-bold uppercase tracking-wider cursor-pointer"
                   >
                     Back to Sign In
                   </button>
@@ -771,7 +796,7 @@ export default function LoginPage() {
               ) : (
                 <form onSubmit={handleSendResetLink} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-heading font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-heading font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
                       Registered Email
                     </label>
                     <input
@@ -781,7 +806,7 @@ export default function LoginPage() {
                       placeholder="scholar@university.edu"
                       inputMode="email"
                       required
-                      className="w-full px-4 py-3 rounded-xl bg-slate-950/80 border border-white/10 text-white placeholder:text-slate-400 text-base md:text-sm focus:outline-none focus:border-indigo-500 transition-all min-h-[48px]"
+                      className="w-full px-4 py-3 rounded-xl bg-white/60 dark:bg-black/40 border border-slate-300 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 text-sm focus:outline-none focus:border-indigo-500 transition-all min-h-[46px]"
                     />
                   </div>
 
@@ -789,14 +814,14 @@ export default function LoginPage() {
                     <button
                       type="button"
                       onClick={() => setForgotModalOpen(false)}
-                      className="flex-1 py-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-300 text-xs font-heading font-bold uppercase tracking-wider min-h-[44px]"
+                      className="flex-1 py-3 rounded-xl bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/15 text-slate-700 dark:text-slate-300 text-xs font-heading font-bold uppercase tracking-wider min-h-[44px] cursor-pointer"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={resetLoading}
-                      className="flex-1 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-heading font-bold uppercase tracking-wider shadow-lg transition-all min-h-[44px] disabled:opacity-50"
+                      className="flex-1 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-heading font-bold uppercase tracking-wider shadow-lg transition-all min-h-[44px] disabled:opacity-50 cursor-pointer"
                     >
                       {resetLoading ? 'Sending...' : 'Send Link'}
                     </button>

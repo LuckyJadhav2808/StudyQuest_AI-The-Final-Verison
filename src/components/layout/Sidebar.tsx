@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   HiCog, HiLogout, HiShieldCheck,
@@ -10,6 +10,8 @@ import {
 import { HiSquares2X2 } from 'react-icons/hi2';
 import { useAuthContext } from '@/context/AuthContext';
 import { useGamification } from '@/hooks/useGamification';
+import { useTasksStore } from '@/lib/stores/useTasksStore';
+import { playClick } from '@/lib/sounds';
 import { getAvatarUrl, ADMIN_EMAILS } from '@/lib/constants';
 import QuestieMascot from '@/components/gamification/QuestieMascot';
 import AllPagesModal, {
@@ -23,8 +25,14 @@ const PINNED_STORAGE_KEY = 'sq_pinned_nav_keys';
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { profile, signOut } = useAuthContext();
   const { gamification } = useGamification();
+
+  // Active tasks count for dynamic notification badge
+  const activeTasksCount = useTasksStore((state) =>
+    state.tasks.filter((t) => t.status !== 'done').length
+  );
 
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showAllPagesModal, setShowAllPagesModal] = useState(false);
@@ -98,6 +106,35 @@ export default function Sidebar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showProfileMenu]);
 
+  // Global 1–4 Hotkeys for rapid workstation navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable ||
+          target.closest('input, textarea, [contenteditable="true"], [role="dialog"]'))
+      ) {
+        return;
+      }
+
+      if (['1', '2', '3', '4'].includes(e.key)) {
+        const index = parseInt(e.key, 10) - 1;
+        if (pinnedItems[index]) {
+          e.preventDefault();
+          playClick();
+          router.push(pinnedItems[index].href);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pinnedItems, router]);
+
   return (
     <>
       <aside
@@ -111,9 +148,11 @@ export default function Sidebar() {
 
         {/* Middle: STRICT ZERO-SCROLL Pinned Rail with Safe-Bounds Dynamic Flexbox */}
         <div className="flex-1 min-h-0 flex flex-col items-center justify-start py-1.5 space-y-1 sm:space-y-1.5 overflow-y-auto no-scrollbar overflow-x-hidden">
-          {pinnedItems.map((item) => {
+          {pinnedItems.map((item, index) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
+            const isTasksItem = item.key === 'tasks' || item.href === '/tasks';
+            const shortcutNum = index < 4 ? index + 1 : null;
 
             return (
               <div key={item.key} className="relative group flex items-center justify-center w-full shrink-0">
@@ -127,9 +166,19 @@ export default function Sidebar() {
                   aria-label={item.label}
                 >
                   <Icon size={18} className="transition-transform group-hover:scale-110 shrink-0" />
+
+                  {/* Dynamic Active Sprint Tasks Counter Badge */}
+                  {isTasksItem && activeTasksCount > 0 && (
+                    <span
+                      className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-violet-600 dark:bg-violet-500 text-white text-[9px] font-mono font-black flex items-center justify-center shadow-md border-2 border-white dark:border-[#111328] pointer-events-none"
+                      title={`${activeTasksCount} Active Quests`}
+                    >
+                      {activeTasksCount > 99 ? '99+' : activeTasksCount}
+                    </span>
+                  )}
                 </Link>
 
-                {/* Precision Floating Hover Tooltip / Placeholder (Zero Jitter, No Emojis) */}
+                {/* Precision Floating Hover Tooltip with Hotkey Hint */}
                 <div
                   role="tooltip"
                   className="pointer-events-none absolute left-full ml-3 px-3 py-1.5 rounded-xl bg-slate-900/95 dark:bg-[#161936]/95 border border-slate-700/80 dark:border-white/15 text-white text-[11px] font-semibold tracking-wide whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-150 shadow-2xl backdrop-blur-md z-50 hidden sm:flex items-center gap-2"
@@ -138,6 +187,11 @@ export default function Sidebar() {
                   <span className="text-[9px] font-bold text-primary dark:text-primary-light font-mono uppercase tracking-wider px-1.5 py-0.2 rounded bg-primary/10">
                     {item.category}
                   </span>
+                  {shortcutNum && (
+                    <kbd className="px-1.5 py-0.5 rounded bg-white/10 border border-white/15 text-[9px] font-mono font-bold text-slate-300 dark:text-slate-300 shadow-2xs">
+                      {shortcutNum}
+                    </kbd>
+                  )}
                 </div>
               </div>
             );

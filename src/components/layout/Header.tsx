@@ -15,6 +15,7 @@ import { useFullscreen } from '@/hooks/useFullscreen';
 import StreakCounter from '@/components/gamification/StreakCounter';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import NotificationDrawer from '@/components/layout/NotificationDrawer';
 
 const TreasureChestModal = dynamic(() => import('@/components/dashboard/TreasureChestModal'), {
   ssr: false,
@@ -48,6 +49,7 @@ export default function Header() {
   const { coins, canClaimTreasureChest } = useShop();
   const { isFullscreen, toggleFullscreen, isSupported } = useFullscreen();
   const [showChestModal, setShowChestModal] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const router = useRouter();
 
   const username =
@@ -104,7 +106,7 @@ export default function Header() {
         {/* ============================================================
             BAY 2: DYNAMIC SANCTUARY & DAILY CHEST BAY (CENTER)
             ============================================================ */}
-        <div className="flex-1 flex items-center justify-center min-w-0 max-w-lg mx-1.5">
+        <div className="hidden sm:flex flex-1 items-center justify-center min-w-0 max-w-lg mx-1.5">
           {chestAvailable ? (
             <motion.button
               onClick={() => setShowChestModal(true)}
@@ -220,11 +222,11 @@ export default function Header() {
 
           {/* Action Socket 3: Notifications Bell */}
           <motion.button
-            onClick={() => router.push('/')}
+            onClick={() => setShowNotifications(true)}
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
             className="relative w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full bg-white/90 dark:bg-[#111328]/85 backdrop-blur-md hover:bg-indigo-50/70 dark:hover:bg-white/[0.08] border border-indigo-100 dark:border-white/10 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-primary transition-all cursor-pointer shadow-2xs"
-            title="Notifications & Friends"
+            title="Activity & Notifications"
             aria-label="Notifications"
           >
             <HiBell size={14} />
@@ -236,6 +238,13 @@ export default function Header() {
           </motion.button>
         </div>
       </header>
+
+      {/* Activity & Notification Center Slide-over Drawer */}
+      <NotificationDrawer
+        isOpen={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        onOpenTreasureChest={() => setShowChestModal(true)}
+      />
 
       {/* Daily Treasure Chest Reward Modal */}
       {showChestModal && (
