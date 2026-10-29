@@ -81,9 +81,14 @@ function MainContent({ children }: { children: React.ReactNode }) {
   const isWorkstationPage = pathname === '/notes' || pathname === '/reader' || pathname === '/whiteboard' || pathname === '/ide';
 
   return (
-    <div className="w-screen h-screen max-h-screen overflow-hidden relative flex flex-col items-center justify-center p-1.5 sm:p-2.5 md:p-3 bg-[#F0EDF8] dark:bg-[#0B0D17]">
+    <div className="w-screen h-screen max-h-screen overflow-hidden relative flex flex-col items-center justify-center p-1.5 sm:p-2.5 md:p-3 bg-[#F0EDF8] dark:bg-[#070913]">
+      {/* Ambient Chromatic Blooms for Prismatic Aura Glassmorphism */}
+      <div className="absolute top-[-10%] left-[8%] w-[520px] h-[520px] rounded-full bg-[radial-gradient(circle,_rgba(124,58,237,0.30)_0%,_transparent_68%)] filter blur-[60px] pointer-events-none opacity-60 dark:opacity-40 animate-pulse [animation-duration:11s] will-change-transform z-0" />
+      <div className="absolute bottom-[-10%] right-[8%] w-[480px] h-[480px] rounded-full bg-[radial-gradient(circle,_rgba(236,72,153,0.22)_0%,_transparent_68%)] filter blur-[65px] pointer-events-none opacity-50 dark:opacity-35 animate-pulse [animation-duration:15s] will-change-transform z-0" />
+      <div className="absolute top-[35%] left-[38%] w-[400px] h-[400px] rounded-full bg-[radial-gradient(circle,_rgba(6,182,212,0.18)_0%,_transparent_70%)] filter blur-[55px] pointer-events-none opacity-45 dark:opacity-30 animate-pulse [animation-duration:13s] will-change-transform z-0" />
+
       {/* Outer App Shell: Central Framed Container with Large Outer Rounded Corners */}
-      <div className="w-full h-full max-h-[100dvh] flex flex-col rounded-[26px] sm:rounded-[32px] md:rounded-[36px] border-2 border-indigo-200/90 dark:border-white/12 bg-white/90 dark:bg-[#111328]/95 backdrop-blur-2xl shadow-[0_16px_48px_-12px_rgba(124,58,237,0.18)] dark:shadow-[0_16px_48px_-12px_rgba(0,0,0,0.7)] overflow-hidden p-2 sm:p-2.5 md:p-3 relative z-10 min-w-0">
+      <div className="w-full h-full max-h-[100dvh] flex flex-col rounded-[26px] sm:rounded-[32px] md:rounded-[36px] border-2 border-indigo-200/90 dark:border-white/14 bg-white/75 dark:bg-[#0E1024]/65 backdrop-blur-2xl shadow-[0_16px_48px_-12px_rgba(124,58,237,0.22)] dark:shadow-[0_20px_50px_-10px_rgba(0,0,0,0.8)] overflow-hidden p-2 sm:p-2.5 md:p-3 relative z-10 min-w-0">
         {/* Persistent Top Header (Header Pill Bar) */}
         {!focusMode && <Header />}
 
@@ -99,11 +104,13 @@ function MainContent({ children }: { children: React.ReactNode }) {
           {/* Main Content Viewport */}
           <main
             onScroll={isWorkstationPage ? (e) => { if (e.currentTarget.scrollTop !== 0) e.currentTarget.scrollTop = 0; } : undefined}
-            className={`flex-1 min-w-0 h-full rounded-[20px] sm:rounded-[24px] md:rounded-[28px] border border-indigo-100/80 dark:border-white/8 bg-[#FAF8FE] dark:bg-[#0B0D17]/75 relative z-10 min-h-0 ${
+            className={`flex-1 min-w-0 h-full rounded-[20px] sm:rounded-[24px] md:rounded-[28px] border border-indigo-100/80 dark:border-white/10 bg-white/45 dark:bg-[#0B0D17]/45 backdrop-blur-md relative z-10 min-h-0 ${
               focusMode
                 ? 'p-1.5 md:p-2.5 overflow-hidden flex flex-col'
                 : isWorkstationPage
                 ? 'flex-1 min-h-0 overflow-hidden flex flex-col p-0'
+                : pathname === '/'
+                ? 'md:overflow-hidden overflow-y-auto p-2 sm:p-2.5 md:p-3 flex flex-col justify-between pb-20 md:pb-2.5'
                 : 'overflow-y-auto p-2.5 sm:p-3.5 md:p-4 pb-20 md:pb-4'
             }`}
           >

@@ -4,10 +4,10 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import {
-  HiPlay, HiPause, HiFastForward, HiRewind, HiVolumeUp, HiVolumeOff,
-  HiClock, HiPencilAlt, HiLightningBolt, HiCheck, HiPlus,
-  HiChevronRight, HiSparkles, HiAcademicCap, HiClipboardCheck,
-  HiMusicNote, HiOutlineSparkles,
+  HiPlay, HiPause, HiFastForward, HiRewind,
+  HiClock, HiLightningBolt, HiCheck, HiPlus,
+  HiChevronRight, HiAcademicCap, HiClipboardCheck,
+  HiMusicNote, HiSparkles, HiFire, HiPencilAlt
 } from 'react-icons/hi';
 import { useAuthContext } from '@/context/AuthContext';
 import { useGamification } from '@/hooks/useGamification';
@@ -16,11 +16,13 @@ import { useDailyQuests } from '@/hooks/useDailyQuests';
 import { useNotes } from '@/hooks/useNotes';
 import { useExams } from '@/hooks/useExams';
 import { useMusic } from '@/context/MusicContext';
+import { useTimerContext } from '@/context/TimerContext';
 import { XP_AWARDS } from '@/lib/constants';
 import { playClick, playSuccess, playXP } from '@/lib/sounds';
 import toast from 'react-hot-toast';
-import StudyDeskWidget from '@/components/dashboard/StudyDeskWidget';
 import BinauralFocusModal from '@/components/music/BinauralFocusModal';
+import { useShop } from '@/hooks/useShop';
+import TreasureChestModal from '@/components/dashboard/TreasureChestModal';
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds) || seconds < 0) return '0:00';
@@ -29,16 +31,22 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
 
+const GHOST_SCROLL_STARTERS = [
+  { id: 'ghost-1', title: 'Calculus III & Stokes Theorem', tag: 'Mathematics', desc: 'Vector surface integrals & flux divergence theorems' },
+  { id: 'ghost-2', title: 'Operating Systems & Concurrency', tag: 'Systems', desc: 'Deadlock avoidance, semaphores & virtual memory paging' },
+  { id: 'ghost-3', title: 'Algorithms & Dynamic Programming', tag: 'Computer Science', desc: 'Memoization tables, asymptotic bounds & recurrence trees' },
+];
+
 export default function DashboardBentoGrid() {
   const router = useRouter();
   const { user } = useAuthContext();
-  const { awardXP } = useGamification();
+  const { gamification, xpHistory, awardXP } = useGamification();
 
   // ── Authentic Stores & Hooks ─────────────────────────────────
   const { quests, toggleQuest, addQuest, todayCompleted, todayTotal } = useDailyQuests();
   const tasks = useTasksStore((state) => state.tasks);
   const moveTask = useTasksStore((state) => state.moveTask);
-  const { notes } = useNotes();
+  const { notes, addNote } = useNotes();
   const { exams } = useExams();
   const {
     currentTrack,
@@ -46,18 +54,98 @@ export default function DashboardBentoGrid() {
     progress,
     currentTime,
     duration,
-    isMuted,
     togglePlayPause,
     nextTrack,
     prevTrack,
-    toggleMute,
     seek,
     setIsPlayerOpen,
   } = useMusic();
 
+  const {
+    phase,
+    isRunning: isTimerRunning,
+    timeLeft,
+    totalTime,
+    totalFocusToday,
+    formattedFocusToday,
+    toggleTimer,
+    setDurations,
+    setTimeLeft,
+    setIsRunning: setIsTimerRunning,
+  } = useTimerContext();
+
   const [showBinaural, setShowBinaural] = useState(false);
   const [quickQuestText, setQuickQuestText] = useState('');
   const [showAddQuestInput, setShowAddQuestInput] = useState(false);
+  const [showTreasureChest, setShowTreasureChest] = useState(false);
+  const { canClaimTreasureChest } = useShop();
+  const canClaimChest = canClaimTreasureChest ? canClaimTreasureChest() : false;
+
+  // ── Streak Telemetry & XP Multiplier ────────────────────────
+  const streak = gamification?.streak || 1;
+  const streakMultiplier = streak > 1 ? (1 + Math.min(0.5, streak * 0.1)).toFixed(1) : null;
+
+  // ── 7-Day Study Velocity Telemetry (100% Dynamic from xpHistory & Focus) ─────
+  const { weeklyVelocity, activeDaysCount, consistencyPercent } = useMemo(() => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const today = new Date();
+    const result = [];
+    let activeDays = 0;
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const dayName = days[d.getDay()];
+      const isToday = i === 0;
+
+      // Local date string YYYY-MM-DD
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const date = String(d.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${date}`;
+
+      const xp = xpHistory?.[dateStr] || 0;
+      const isDayActive = isToday ? ((totalFocusToday || 0) > 0 || xp > 0) : xp > 0;
+      if (isDayActive) activeDays++;
+
+      // Authentic calculation of height and label (zero fake fallbacks)
+      let pct = 10; // sleek minimal baseline indicator
+      let label = '0h';
+
+      if (isToday) {
+        const todayMins = totalFocusToday || 0;
+        if (todayMins > 0) {
+          pct = Math.min(100, Math.max(18, Math.round((todayMins / 120) * 100)));
+          label = formattedFocusToday || `${todayMins}m`;
+        } else if (xp > 0) {
+          pct = Math.min(100, Math.max(18, Math.round((xp / 150) * 100)));
+          label = `${xp} XP`;
+        }
+      } else if (xp > 0) {
+        pct = Math.min(100, Math.max(18, Math.round((xp / 150) * 100)));
+        const estMinutes = Math.round(xp * 0.8);
+        label = estMinutes >= 60 ? `${(estMinutes / 60).toFixed(1)}h` : `${estMinutes}m`;
+      }
+
+      result.push({
+        id: `vel-${dateStr}`,
+        day: dayName,
+        fullDay: dayName,
+        isToday,
+        percent: pct,
+        label,
+        hasActivity: isDayActive,
+        xp,
+      });
+    }
+
+    const consistency = Math.round((activeDays / 7) * 100);
+    return {
+      weeklyVelocity: result,
+      activeDaysCount: activeDays,
+      consistencyPercent: consistency,
+    };
+  }, [xpHistory, totalFocusToday, formattedFocusToday]);
 
   // ── Top 3 Real Notes ─────────────────────────────────────────
   const topNotes = useMemo(() => {
@@ -76,14 +164,38 @@ export default function DashboardBentoGrid() {
   // ── Nearest Real Upcoming Exam / Milestone ───────────────────
   const nextExam = useMemo(() => {
     if (!exams || exams.length === 0) return null;
-    const sorted = [...exams].sort((a, b) => a.date - b.date);
-    return sorted[0];
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const upcoming = exams.filter((e) => {
+      const examTime = typeof e.date === 'number' ? e.date : new Date(e.date).getTime();
+      return examTime >= todayStart.getTime();
+    });
+
+    if (upcoming.length === 0) return null;
+    return [...upcoming].sort((a, b) => {
+      const aTime = typeof a.date === 'number' ? a.date : new Date(a.date).getTime();
+      const bTime = typeof b.date === 'number' ? b.date : new Date(b.date).getTime();
+      return aTime - bTime;
+    })[0];
   }, [exams]);
 
   const daysUntilExam = useMemo(() => {
     if (!nextExam) return null;
-    return Math.max(0, Math.ceil((nextExam.date - Date.now()) / (1000 * 60 * 60 * 24)));
+    const examTime = typeof nextExam.date === 'number' ? nextExam.date : new Date(nextExam.date).getTime();
+    return Math.max(0, Math.ceil((examTime - Date.now()) / (1000 * 60 * 60 * 24)));
   }, [nextExam]);
+
+  // Daily Quests completion percentage
+  const questProgressPercent = useMemo(() => {
+    if (todayTotal === 0) return 0;
+    return Math.round((todayCompleted / todayTotal) * 100);
+  }, [todayCompleted, todayTotal]);
+
+  // Daily Focus progress towards 120 mins
+  const focusGoalPercent = useMemo(() => {
+    return Math.min(100, Math.round(((totalFocusToday || 0) / 120) * 100));
+  }, [totalFocusToday]);
 
   // ── Handlers ────────────────────────────────────────────────
   const handleToggleQuest = async (id: string, wasCompleted: boolean) => {
@@ -127,544 +239,852 @@ export default function DashboardBentoGrid() {
     }
   };
 
+  const handleStartPreset = (minutes: number, label: string) => {
+    const seconds = minutes * 60;
+    setDurations((prev) => ({ ...prev, focus: seconds }));
+    setTimeLeft(seconds);
+    setIsTimerRunning(true);
+    playXP();
+    toast.success(`🚀 ${label} initiated! (${minutes} mins)`);
+  };
+
+  const handleCreateFromGhost = async (ghost: typeof GHOST_SCROLL_STARTERS[0]) => {
+    try {
+      const noteId = await addNote({
+        title: ghost.title,
+        content: `# ${ghost.title}\n\n*${ghost.desc}*\n\n## Core Concepts\n- Key principle 1\n- Formula reference\n- Exam high-yield summary\n`,
+        folder: 'General',
+        tags: [ghost.tag.toLowerCase()],
+      });
+      playXP();
+      toast.success('Study scroll crafted!');
+      if (noteId) {
+        router.push(`/notes?id=${noteId}`);
+      } else {
+        router.push('/notes');
+      }
+    } catch {
+      router.push('/notes');
+    }
+  };
+
   return (
     <>
-      <div className="w-full flex flex-col gap-4 sm:gap-5 pb-6 select-none">
+      <div className="w-full h-full flex flex-col justify-between gap-2.5 sm:gap-3.5 select-none min-h-0">
         {/* ============================================================
-            TOP ROW: 3 Modular Cards with Sculpted Overlapping Notches
-            & Distinct Section Personas (Amber / Violet / Cyan)
+            TOP ROW: 3 Streamlined Proportional Cards (flex-[4])
             ============================================================ */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
-          {/* ── CARD 1: Habit & Discipline Engine (Warm Amber Persona) ── */}
-          <div className="relative rounded-[28px] sm:rounded-[30px] bg-gradient-to-br from-amber-500/[0.07] via-white/95 to-white/90 dark:from-amber-500/[0.06] dark:via-[#111328]/95 dark:to-[#161936]/95 border-2 border-amber-500/30 dark:border-amber-500/25 shadow-[0_8px_30px_-6px_rgba(245,158,11,0.12)] p-4 sm:p-5 pb-9 sm:pb-10 flex flex-col justify-between min-h-[235px] transition-all hover:border-amber-500/40">
-            {/* Ambient Background Aura */}
-            <div className="pointer-events-none absolute -top-12 -left-12 w-32 h-32 rounded-full bg-amber-500/10 blur-2xl" />
-
-            <div>
-              {/* Header: Amber Icon, Title & Circular Progress Ring */}
-              <div className="flex items-center justify-between pb-3 border-b border-amber-500/20 dark:border-amber-500/15">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-500 shadow-sm">
-                    <HiLightningBolt size={18} />
-                  </div>
-                  <div>
-                    <h3 className="text-xs sm:text-sm font-heading font-black tracking-wide text-slate-900 dark:text-white flex items-center gap-1.5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 sm:gap-3.5 flex-[4] min-h-0">
+          {/* ── CARD 1: Habit & Discipline Engine (Warm Amber Prismatic Glass) ── */}
+          <div className="relative rounded-[24px] sm:rounded-[26px] bg-gradient-to-br from-amber-500/[0.12] via-white/80 to-white/60 dark:from-amber-500/[0.12] dark:via-[#111328]/70 dark:to-[#161936]/70 backdrop-blur-2xl border-2 border-amber-500/40 hover:border-amber-500/60 shadow-[0_0_24px_-4px_rgba(245,158,11,0.2),inset_0_1px_1.5px_0_rgba(255,255,255,0.35)] p-3 sm:p-3.5 flex flex-col justify-between h-full min-h-0 transition-all overflow-hidden group">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-2 border-b border-amber-500/25 dark:border-amber-500/20">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-500 shadow-2xs">
+                  <HiLightningBolt size={15} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-xs font-heading font-black tracking-wide text-slate-900 dark:text-white leading-tight">
                       Daily Quests
                     </h3>
-                    <p className="text-[10px] text-amber-700/80 dark:text-amber-400/80 font-medium">
-                      Habit & Discipline Engine
-                    </p>
+                    <span className="px-1.5 py-0.2 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-300 font-mono text-[8px] font-bold uppercase tracking-wider">
+                      Bounties
+                    </span>
                   </div>
-                </div>
-
-                {/* Habit Progress Pill */}
-                <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-300 font-mono text-[10px] font-bold shadow-xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                  <span>{todayTotal > 0 ? `${todayCompleted}/${todayTotal}` : 'Active'}</span>
+                  <p className="text-[9px] text-amber-700/80 dark:text-amber-400/80 font-medium">
+                    Habit & Discipline Engine
+                  </p>
                 </div>
               </div>
 
-              {/* Quest List Content */}
-              <div className="mt-3.5 space-y-2">
-                {showAddQuestInput ? (
-                  <form onSubmit={handleAddQuickQuest} className="flex items-center gap-1.5">
-                    <input
-                      type="text"
-                      value={quickQuestText}
-                      onChange={(e) => setQuickQuestText(e.target.value)}
-                      placeholder="Add quest title..."
-                      autoFocus
-                      className="flex-1 px-3 py-1.5 text-xs rounded-xl bg-amber-500/10 border border-amber-500/30 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
-                    />
-                    <button
-                      type="submit"
-                      className="px-2.5 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl cursor-pointer shadow-xs"
-                    >
-                      Add
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddQuestInput(false)}
-                      className="px-2 py-1.5 text-xs text-slate-500 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                  </form>
-                ) : quests.length > 0 ? (
-                  quests.slice(0, 3).map((q) => (
-                    <div
-                      key={q.id}
-                      onClick={() => handleToggleQuest(q.id, q.completed)}
-                      className="flex items-center justify-between p-2 rounded-xl bg-white/60 dark:bg-white/[0.04] border border-amber-500/20 dark:border-white/5 hover:border-amber-500/50 transition-all cursor-pointer group shadow-2xs"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div
-                          className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${
-                            q.completed
-                              ? 'bg-amber-500 border-amber-500 text-slate-950 font-black'
-                              : 'border-amber-500/40 dark:border-white/20 group-hover:border-amber-400'
-                          }`}
-                        >
-                          {q.completed && <HiCheck size={12} strokeWidth={2} />}
-                        </div>
-                        <span
-                          className={`text-[11px] truncate ${
-                            q.completed
-                              ? 'line-through text-slate-400 dark:text-slate-500'
-                              : 'text-slate-800 dark:text-slate-200 group-hover:text-amber-500 dark:group-hover:text-amber-400 font-medium'
-                          }`}
-                        >
-                          {q.title}
-                        </span>
-                      </div>
-                      <span className="text-[10px] font-mono text-amber-500 dark:text-amber-400 font-bold ml-2 shrink-0">
-                        +25 XP
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="py-3.5 text-center">
-                    <p className="text-[11px] text-[var(--muted-foreground)]">
-                      No daily quests active. Set your daily goals!
-                    </p>
-                  </div>
-                )}
+              {/* Progress Ring */}
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-300 font-mono text-[9px] font-bold">
+                <svg className="w-3.5 h-3.5 -rotate-90 shrink-0" viewBox="0 0 36 36">
+                  <path
+                    className="text-amber-500/25"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                    fill="none"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                  <path
+                    className="text-amber-500 transition-all duration-700 ease-out"
+                    strokeDasharray={`${questProgressPercent}, 100`}
+                    strokeLinecap="round"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                    fill="none"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                </svg>
+                <span>{todayTotal > 0 ? `${todayCompleted}/${todayTotal}` : 'Active'}</span>
               </div>
             </div>
 
-            {/* Sculpted Notched Overlapping Socket (Bottom Right) */}
-            <div className="absolute -bottom-3 right-4 z-20">
+            {/* Content List */}
+            <div className="min-w-0 flex-1 flex flex-col justify-center py-1.5 gap-1.5 overflow-hidden">
+              {showAddQuestInput ? (
+                <form onSubmit={handleAddQuickQuest} className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={quickQuestText}
+                    onChange={(e) => setQuickQuestText(e.target.value)}
+                    placeholder="New habit..."
+                    autoFocus
+                    className="flex-1 bg-white/70 dark:bg-black/30 border border-amber-500/40 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                  />
+                  <button type="submit" className="px-3 py-1.5 bg-amber-500 text-slate-950 rounded-lg text-[10px] font-bold shadow-xs cursor-pointer hover:bg-amber-400 transition-colors">
+                    Save
+                  </button>
+                </form>
+              ) : quests.length > 0 ? (
+                quests.slice(0, 2).map((quest) => (
+                  <div key={quest.id} className="flex items-center justify-between gap-2 p-1.5 sm:p-2 rounded-xl bg-white/60 dark:bg-black/30 border border-amber-500/25 dark:border-white/10 hover:border-amber-500/50 hover:bg-white/75 dark:hover:bg-black/45 shadow-[0_2px_8px_rgba(0,0,0,0.03),inset_0_1px_0_rgba(255,255,255,0.25)] transition-all">
+                    <span className={`text-[11px] font-bold truncate ${quest.completed ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-amber-100'}`}>
+                      {quest.title}
+                    </span>
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => handleToggleQuest(quest.id, quest.completed)}
+                      className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+                        quest.completed
+                          ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
+                          : 'border border-amber-500/40 hover:bg-amber-500/20 text-transparent'
+                      }`}
+                    >
+                      <HiCheck size={12} strokeWidth={3} />
+                    </motion.button>
+                  </div>
+                ))
+              ) : (
+                <div className="p-2 rounded-xl bg-white/40 dark:bg-black/20 border border-amber-500/20 dark:border-white/10">
+                  <p className="text-[11px] text-slate-600 dark:text-amber-200/80 font-medium truncate">
+                    No active daily quests. Set your habits!
+                  </p>
+                  <span className="text-[9px] text-amber-600/70 dark:text-amber-400/60 font-mono">
+                    Build habits • Earn +25 XP
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Notch Button & Telemetry */}
+            <div className="flex items-center justify-between pt-1 border-t border-amber-500/20">
+              <span className="text-[9px] font-mono text-amber-700/80 dark:text-amber-400/80 font-bold flex items-center gap-1.5">
+                <HiFire size={12} className="text-amber-500" />
+                <span>{streak}d streak</span>
+                {streakMultiplier && (
+                  <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-600 dark:text-amber-300 font-bold text-[8px]">
+                    {streakMultiplier}x XP
+                  </span>
+                )}
+              </span>
               <motion.button
-                onClick={() => {
-                  if (!showAddQuestInput) {
-                    setShowAddQuestInput(true);
-                  } else {
-                    router.push('/habits');
-                  }
-                }}
-                whileHover={{ scale: 1.05, y: -1 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-amber-500 text-slate-950 text-[11px] font-black tracking-wide shadow-md shadow-amber-500/25 border-2 border-white dark:border-[#0B0D17] transition-all cursor-pointer"
+                onClick={() => setShowAddQuestInput(!showAddQuestInput)}
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                className="flex items-center gap-1 px-3 py-1 rounded-full bg-amber-500 text-slate-950 text-[10px] font-black tracking-wide shadow-xs border border-white/60 dark:border-[#0B0D17] transition-all cursor-pointer hover:bg-amber-400"
               >
-                <HiPlus size={13} strokeWidth={2} />
-                <span>Add Quest</span>
+                <HiPlus size={11} strokeWidth={3} />
+                <span>{showAddQuestInput ? 'Close' : 'Add Quest'}</span>
               </motion.button>
             </div>
           </div>
 
-          {/* ── CARD 2: Mission Sprint Telemetry (Electric Violet Persona) ── */}
-          <div className="relative rounded-[28px] sm:rounded-[30px] bg-gradient-to-br from-violet-500/[0.07] via-white/95 to-white/90 dark:from-violet-500/[0.06] dark:via-[#111328]/95 dark:to-[#161936]/95 border-2 border-violet-500/30 dark:border-violet-500/25 shadow-[0_8px_30px_-6px_rgba(139,92,246,0.12)] p-4 sm:p-5 pb-9 sm:pb-10 flex flex-col justify-between min-h-[235px] transition-all hover:border-violet-500/40">
-            {/* Ambient Background Aura */}
-            <div className="pointer-events-none absolute -top-12 -left-12 w-32 h-32 rounded-full bg-violet-500/10 blur-2xl" />
-
-            <div>
-              {/* Header: Violet Icon, Title & Live Pulsing Telemetry Dot */}
-              <div className="flex items-center justify-between pb-3 border-b border-violet-500/20 dark:border-violet-500/15">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-violet-500/20 border border-violet-500/40 flex items-center justify-center text-violet-500 shadow-sm">
-                    <HiClipboardCheck size={18} />
-                  </div>
-                  <div>
-                    <h3 className="text-xs sm:text-sm font-heading font-black tracking-wide text-slate-900 dark:text-white flex items-center gap-1.5">
+          {/* ── CARD 2: Active Quests & Mission Sprint (Electric Violet Prismatic Glass) ── */}
+          <div className="relative rounded-[24px] sm:rounded-[26px] bg-gradient-to-br from-violet-500/[0.12] via-white/80 to-white/60 dark:from-violet-500/[0.12] dark:via-[#111328]/70 dark:to-[#161936]/70 backdrop-blur-2xl border-2 border-violet-500/40 hover:border-violet-500/60 shadow-[0_0_24px_-4px_rgba(124,58,237,0.2),inset_0_1px_1.5px_0_rgba(255,255,255,0.35)] p-3 sm:p-3.5 flex flex-col justify-between h-full min-h-0 transition-all overflow-hidden group">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-2 border-b border-violet-500/25 dark:border-violet-500/20">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-violet-500/20 border border-violet-500/40 flex items-center justify-center text-violet-400 shadow-2xs">
+                  <HiClipboardCheck size={15} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-xs font-heading font-black tracking-wide text-slate-900 dark:text-white leading-tight">
                       Active Quests
                     </h3>
-                    <p className="text-[10px] text-violet-700/80 dark:text-violet-400/80 font-medium">
-                      Mission Sprint Telemetry
-                    </p>
+                    <span className="px-1.5 py-0.2 rounded-full bg-violet-500/15 border border-violet-500/30 text-violet-600 dark:text-violet-300 font-mono text-[8px] font-bold uppercase tracking-wider">
+                      Sprints
+                    </span>
                   </div>
-                </div>
-
-                {/* Mission Status Badge */}
-                <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-violet-500/15 border border-violet-500/30 text-violet-600 dark:text-violet-300 font-mono text-[10px] font-bold shadow-xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>{tasks.filter((t) => t.status === 'done').length}/{tasks.length} Done</span>
+                  <p className="text-[9px] text-violet-700/80 dark:text-violet-400/80 font-medium">
+                    Mission Sprint Telemetry
+                  </p>
                 </div>
               </div>
 
-              {/* Tasks List */}
-              <div className="mt-3.5 space-y-2">
-                {activeTasks.length > 0 ? (
-                  activeTasks.map((t) => (
-                    <div
-                      key={t.id}
-                      onClick={() => handleCompleteTask(t.id)}
-                      className="flex items-center justify-between p-2 rounded-xl bg-white/60 dark:bg-white/[0.04] border border-violet-500/20 dark:border-white/5 hover:border-violet-500/50 transition-all cursor-pointer group shadow-2xs"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-4 h-4 rounded-md border border-violet-500/40 dark:border-white/20 group-hover:border-violet-400 flex items-center justify-center transition-all">
-                          <HiCheck size={12} className="opacity-0 group-hover:opacity-100 text-violet-500" strokeWidth={2} />
-                        </div>
-                        <span className="text-[11px] truncate text-slate-800 dark:text-slate-200 font-medium group-hover:text-violet-500 dark:group-hover:text-violet-400">
-                          {t.title}
-                        </span>
-                      </div>
-                      <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-violet-500/15 border border-violet-500/25 text-violet-600 dark:text-violet-300 font-bold uppercase shrink-0">
-                        {t.priority}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="py-3.5 text-center">
-                    <p className="text-[11px] text-[var(--muted-foreground)]">
-                      All mission sprints completed! Ready for new quests.
-                    </p>
-                  </div>
-                )}
+              {/* Status Dot */}
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/30 text-violet-600 dark:text-violet-300 font-mono text-[9px] font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
+                <span>{activeTasks.length} Active</span>
               </div>
             </div>
 
-            {/* Sculpted Notched Overlapping Socket (Bottom Right) */}
-            <div className="absolute -bottom-3 right-4 z-20">
+            {/* Content List */}
+            <div className="min-w-0 flex-1 flex flex-col justify-center py-1.5 gap-1.5 overflow-hidden">
+              {activeTasks.length > 0 ? (
+                activeTasks.slice(0, 2).map((task) => {
+                  const isHigh = task.priority === 'high';
+                  const isMedium = task.priority === 'medium';
+                  return (
+                    <div key={task.id} className="flex items-center justify-between gap-2 p-1.5 sm:p-2 rounded-xl bg-white/60 dark:bg-black/30 border border-violet-500/25 dark:border-white/10 hover:border-violet-500/50 hover:bg-white/75 dark:hover:bg-black/45 shadow-[0_2px_8px_rgba(0,0,0,0.03),inset_0_1px_0_rgba(255,255,255,0.25)] transition-all">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-bold text-slate-800 dark:text-white truncate">
+                          {task.title}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className={`text-[8px] font-mono uppercase tracking-wider font-extrabold px-1.5 py-0.2 rounded ${
+                            isHigh
+                              ? 'bg-rose-500/15 text-rose-500 border border-rose-500/30'
+                              : isMedium
+                              ? 'bg-violet-500/15 text-violet-400 border border-violet-500/30'
+                              : 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30'
+                          }`}>
+                            {isHigh ? 'RANK S' : isMedium ? 'RANK A' : 'RANK B'}
+                          </span>
+                          <span className="text-[8px] font-mono text-violet-400/80 font-bold">
+                            +50 XP
+                          </span>
+                        </div>
+                      </div>
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => handleCompleteTask(task.id)}
+                        className="w-5 h-5 rounded-md border border-violet-500/40 hover:bg-violet-500/20 flex items-center justify-center text-transparent hover:text-white transition-all shrink-0 cursor-pointer"
+                        title="Mark Done (+50 XP)"
+                      >
+                        <HiCheck size={12} strokeWidth={3} />
+                      </motion.button>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="p-2 rounded-xl bg-white/40 dark:bg-black/20 border border-violet-500/20 dark:border-white/10">
+                  <p className="text-[11px] text-slate-600 dark:text-violet-200/80 font-medium truncate">
+                    All mission sprints clear!
+                  </p>
+                  <span className="text-[9px] text-violet-600/70 dark:text-violet-400/60 font-mono">
+                    Ready for new tasks • +50 XP
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Notch Button & Telemetry */}
+            <div className="flex items-center justify-between pt-1 border-t border-violet-500/20">
+              <span className="text-[9px] font-mono text-violet-700/80 dark:text-violet-400/80 font-bold">
+                +50 XP per bounty
+              </span>
               <motion.button
                 onClick={() => router.push('/tasks')}
-                whileHover={{ scale: 1.05, y: -1 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-violet-600 text-white text-[11px] font-black tracking-wide shadow-md shadow-violet-600/25 border-2 border-white dark:border-[#0B0D17] transition-all cursor-pointer"
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                className="flex items-center gap-1 px-3 py-1 rounded-full bg-violet-600 text-white text-[10px] font-black tracking-wide shadow-xs border border-white/60 dark:border-[#0B0D17] transition-all cursor-pointer hover:bg-violet-500"
               >
                 <span>Quest Log</span>
-                <HiChevronRight size={13} strokeWidth={2} />
+                <HiChevronRight size={11} strokeWidth={3} />
               </motion.button>
             </div>
           </div>
 
-          {/* ── CARD 3: Exam & Horizon Radar (Cyber Cyan Persona) ────── */}
-          <div className="relative rounded-[28px] sm:rounded-[30px] bg-gradient-to-br from-sky-500/[0.07] via-white/95 to-white/90 dark:from-sky-500/[0.06] dark:via-[#111328]/95 dark:to-[#161936]/95 border-2 border-sky-500/30 dark:border-sky-500/25 shadow-[0_8px_30px_-6px_rgba(56,189,248,0.12)] p-4 sm:p-5 pb-9 sm:pb-10 flex flex-col justify-between min-h-[235px] transition-all hover:border-sky-500/40">
-            {/* Ambient Background Aura */}
-            <div className="pointer-events-none absolute -top-12 -left-12 w-32 h-32 rounded-full bg-sky-500/10 blur-2xl" />
-
-            <div>
-              {/* Header: Sky Cap Icon, Title & Radar Status */}
-              <div className="flex items-center justify-between pb-3 border-b border-sky-500/20 dark:border-sky-500/15">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-sky-500/20 border border-sky-500/40 flex items-center justify-center text-sky-500 shadow-sm">
-                    <HiAcademicCap size={18} />
-                  </div>
-                  <div>
-                    <h3 className="text-xs sm:text-sm font-heading font-black tracking-wide text-slate-900 dark:text-white flex items-center gap-1.5">
+          {/* ── CARD 3: Target Milestone (Deep Sapphire & Cyan Prismatic Glass) ── */}
+          <div className="relative rounded-[24px] sm:rounded-[26px] bg-gradient-to-br from-cyan-500/[0.10] via-white/80 to-white/60 dark:from-[#091B29]/95 dark:via-[#0A1626]/90 dark:to-[#080E1C]/95 backdrop-blur-2xl border-2 border-cyan-500/35 hover:border-cyan-500/55 shadow-[0_0_24px_-4px_rgba(6,182,212,0.2),inset_0_1px_1.5px_0_rgba(255,255,255,0.25)] p-3 sm:p-3.5 flex flex-col justify-between h-full min-h-0 transition-all overflow-hidden group">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-2 border-b border-cyan-500/25 dark:border-cyan-500/20">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 shadow-2xs">
+                  <HiAcademicCap size={15} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-xs font-heading font-black tracking-wide text-slate-900 dark:text-white leading-tight">
                       Target Milestone
                     </h3>
-                    <p className="text-[10px] text-sky-700/80 dark:text-sky-400/80 font-medium">
-                      Exam & Horizon Radar
-                    </p>
+                    <span className="px-1.5 py-0.2 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-600 dark:text-cyan-300 font-mono text-[8px] font-bold uppercase tracking-wider">
+                      Radar
+                    </span>
                   </div>
-                </div>
-
-                {/* Radar Active Badge */}
-                <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-600 dark:text-sky-300 font-mono text-[10px] font-bold shadow-xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping" />
-                  <span>{nextExam ? 'Locked' : 'Radar Ready'}</span>
+                  <p className="text-[9px] text-cyan-700/80 dark:text-cyan-400/80 font-medium">
+                    Exam & Horizon Radar
+                  </p>
                 </div>
               </div>
 
-              {/* Milestone Countdown Dial or Arena Challenge */}
-              <div className="mt-3.5">
-                {nextExam ? (
-                  <div className="p-3 rounded-2xl bg-white/60 dark:bg-sky-500/5 border border-sky-500/25 space-y-1.5 relative overflow-hidden">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 uppercase tracking-wider">
-                        {nextExam.subject || 'Target Milestone'}
-                      </span>
-                      <span className="text-[10px] font-mono text-slate-500 font-medium">
-                        {new Date(nextExam.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                      </span>
-                    </div>
-
-                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                      {nextExam.title}
-                    </p>
-
-                    <div className="flex items-center gap-2 pt-1">
-                      <div className="px-2 py-0.5 rounded-lg bg-sky-500/20 text-sky-600 dark:text-sky-300 font-mono text-xs font-black">
-                        {daysUntilExam} DAYS
-                      </div>
-                      <span className="text-[10px] text-[var(--muted-foreground)]">
-                        remaining to deadline
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-3 rounded-2xl bg-white/60 dark:bg-white/[0.04] border border-sky-500/20 dark:border-white/5 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 uppercase tracking-wider">
-                        Daily Code Arena
-                      </span>
-                      <span className="text-[10px] font-mono text-emerald-500 font-bold">
-                        Live Challenge
-                      </span>
-                    </div>
-
-                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                      Algorithmic Graph Traversals
-                    </p>
-
-                    <div className="flex items-center gap-2 pt-1">
-                      <div className="px-2 py-0.5 rounded-lg bg-sky-500/15 text-sky-600 dark:text-sky-300 font-mono text-[10px] font-bold">
-                        Medium • 30 Min Sprint
-                      </div>
-                    </div>
-                  </div>
-                )}
+              {/* Countdown Badge */}
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-600 dark:text-cyan-300 font-mono text-[9px] font-bold">
+                <span>{daysUntilExam !== null ? `${daysUntilExam}d Horizon` : 'All Clear'}</span>
               </div>
             </div>
 
-            {/* Sculpted Notched Overlapping Socket (Bottom Right) */}
-            <div className="absolute -bottom-3 right-4 z-20">
+            {/* Content Line */}
+            <div className="min-w-0 flex-1 flex flex-col justify-center py-1.5 overflow-hidden">
+              {nextExam ? (
+                <div className="p-2 sm:p-2.5 rounded-xl bg-white/60 dark:bg-black/35 border border-cyan-500/25 dark:border-white/10 space-y-1 shadow-[0_2px_8px_rgba(0,0,0,0.03),inset_0_1px_0_rgba(255,255,255,0.25)]">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-bold text-slate-800 dark:text-white truncate">
+                      {nextExam.subject || nextExam.title}
+                    </p>
+                    <span className="text-[9px] text-cyan-600 dark:text-cyan-300 font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-500/15 border border-cyan-500/30">
+                      {daysUntilExam !== null ? `${daysUntilExam}d left` : 'Upcoming'}
+                    </span>
+                  </div>
+                  <p className="text-[9px] text-cyan-600/80 dark:text-cyan-300/80 font-mono truncate">
+                    Exam Date: {new Date(nextExam.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
+                </div>
+              ) : (
+                <div className="p-2 sm:p-2.5 rounded-xl bg-white/60 dark:bg-black/35 border border-cyan-500/25 dark:border-white/10 space-y-1 shadow-[0_2px_8px_rgba(0,0,0,0.03),inset_0_1px_0_rgba(255,255,255,0.25)]">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-bold text-slate-800 dark:text-white truncate">
+                      All Targets Clear
+                    </p>
+                    <span className="text-[8px] font-mono uppercase text-cyan-600 dark:text-cyan-300 font-bold px-1.5 py-0.5 rounded bg-cyan-500/15 border border-cyan-500/30">
+                      Standby
+                    </span>
+                  </div>
+                  <span className="text-[9px] text-cyan-600/80 dark:text-cyan-300/80 font-mono truncate block">
+                    No upcoming exams on horizon • Schedule your next goal
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Notch Button & Telemetry */}
+            <div className="flex items-center justify-between pt-1 border-t border-cyan-500/20">
+              <span className="text-[9px] font-mono text-cyan-700/80 dark:text-cyan-400/80 font-bold">
+                {nextExam ? 'Target Horizon Active' : 'Exam Radar Ready'}
+              </span>
               <motion.button
-                onClick={() => router.push(nextExam ? '/exams' : '/ide')}
-                whileHover={{ scale: 1.05, y: -1 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-sky-500 text-slate-950 text-[11px] font-black tracking-wide shadow-md shadow-sky-500/25 border-2 border-white dark:border-[#0B0D17] transition-all cursor-pointer"
+                onClick={() => router.push('/exams')}
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                className="flex items-center gap-1 px-3 py-1 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 text-[10px] font-black tracking-wide shadow-xs border border-white/60 dark:border-[#0B0D17] transition-all cursor-pointer"
               >
-                <span>{nextExam ? 'Exam Radar' : 'Code Arena'}</span>
-                <HiChevronRight size={13} strokeWidth={2} />
+                <span>{nextExam ? 'Exam Radar' : '+ Add Exam'}</span>
+                <HiChevronRight size={11} strokeWidth={3} />
               </motion.button>
             </div>
           </div>
         </div>
 
         {/* ============================================================
-            BOTTOM ROW: Jigsaw-Docked Sanctuary & Music Player (Left)
-            & 3D Fanned Physical Card Deck (Right)
+            BOTTOM ROW: Wireframe Realization (Left Bay 8 cols | Right Bay 4 cols)
+            Strict 100vh Zero-Scroll Height (flex-[5] min-h-0)
             ============================================================ */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
-          {/* ── LEFT AREA (8 cols): Main Sanctuary Canvas + Interlocking Music Dock ── */}
-          <div className="lg:col-span-8 flex flex-col gap-3.5">
-            {/* Living Companion Sanctuary Canvas */}
-            <div className="rounded-[30px] sm:rounded-[34px] bg-gradient-to-b from-[#111328] via-[#0E1022] to-[#0A0C1A] border-2 border-indigo-400/25 dark:border-white/12 shadow-[0_16px_48px_-12px_rgba(124,58,237,0.18)] p-4 sm:p-6 overflow-hidden relative">
-              <StudyDeskWidget />
-            </div>
-
-            {/* Jigsaw Interlocking Music Player & Vertical Utility Module */}
-            <div className="flex flex-col sm:flex-row items-stretch gap-2.5 p-2 sm:p-2.5 rounded-[26px] sm:rounded-[28px] bg-white/95 dark:bg-[#111328]/95 border-2 border-indigo-200/80 dark:border-white/12 shadow-md">
-              {/* Audio Transport Console */}
-              <div className="flex-1 flex flex-col sm:flex-row items-center gap-3 px-3.5 py-2.5 rounded-2xl bg-indigo-50/60 dark:bg-white/[0.04] border border-indigo-100 dark:border-white/5">
-                {/* Vinyl Grooved Artwork */}
-                <div
-                  onClick={() => setIsPlayerOpen(true)}
-                  className="relative w-11 h-11 rounded-full overflow-hidden shrink-0 shadow-lg cursor-pointer group"
-                  title="Open StudyQuest Music Studio"
-                >
-                  <motion.div
-                    className="w-full h-full relative"
-                    animate={{ rotate: isPlaying ? 360 : 0 }}
-                    transition={{ duration: 4.5, repeat: isPlaying ? Infinity : 0, ease: 'linear' }}
-                  >
-                    {currentTrack?.image ? (
-                      <img src={currentTrack.image} alt="Vinyl" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-tr from-primary to-secondary flex items-center justify-center text-white">
-                        <HiMusicNote size={18} />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-2.5 sm:gap-3.5 items-stretch flex-[5] min-h-0">
+          {/* ==========================================================
+              LEFT BAY (8 cols): Deep Work Cockpit (Top) + Study Jukebox (Bottom)
+              ========================================================== */}
+          <div className="lg:col-span-8 flex flex-col justify-between gap-2 sm:gap-2.5 h-full min-h-0">
+            {/* ── UPPER DUAL-CHAMBER BENTO: 2 Golden-Ratio Cards (Flow Station + Study Velocity) ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 flex-1 min-h-0">
+              {/* ── CARD 4A: Compact Flow Station (Circular Countdown Ring + Stacked Presets) ── */}
+              <div className="rounded-[22px] sm:rounded-[24px] bg-gradient-to-br from-indigo-500/[0.12] via-white/80 to-white/65 dark:from-[#0E1024]/95 dark:via-[#0A0D1D]/90 dark:to-[#080A18]/95 backdrop-blur-2xl border-2 border-indigo-400/40 dark:border-[#23274D] p-3 sm:p-3.5 flex flex-col justify-between overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.1)] relative group transition-all">
+                {/* Header */}
+                <div className="flex items-center justify-between pb-1.5 border-b border-indigo-400/20 dark:border-[#1E2348] shrink-0">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full bg-[#7C3AED] flex items-center justify-center text-white shadow-[0_0_12px_rgba(124,58,237,0.5)] shrink-0">
+                      <HiClock size={15} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="text-xs font-heading font-black tracking-wide text-slate-900 dark:text-white leading-tight">
+                          Flow Station
+                        </h3>
+                        <span className="px-1.5 py-0.2 rounded-md bg-indigo-500/15 dark:bg-[#191D3C] text-indigo-600 dark:text-[#818CF8] font-mono text-[8px] uppercase font-bold tracking-widest border border-indigo-500/30 dark:border-[#3730A3]/60">
+                          {isTimerRunning ? 'Flow' : 'Ready'}
+                        </span>
                       </div>
-                    )}
-                    <div className="absolute inset-0 m-auto w-3.5 h-3.5 rounded-full bg-slate-950 border-2 border-white/40" />
-                  </motion.div>
-                </div>
-
-                {/* Track Title, Artist & Scrubber */}
-                <div className="flex-1 min-w-0 w-full">
-                  <div className="flex items-center justify-between gap-2">
-                    <p
-                      onClick={() => setIsPlayerOpen(true)}
-                      className="text-xs font-black text-slate-900 dark:text-white truncate cursor-pointer hover:text-primary transition-colors"
-                    >
-                      {currentTrack ? currentTrack.name : 'Lo-Fi Study Sanctuary'}
-                    </p>
-                    <span className="text-[10px] font-mono text-[var(--muted-foreground)] shrink-0 font-bold">
-                      {formatTime(currentTime)} / {formatTime(duration)}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 text-right">
+                    <span className="text-[10px] font-mono font-bold text-amber-500 dark:text-[#FBBF24]">
+                      {formattedFocusToday || '0m'}
                     </span>
-                  </div>
-
-                  <p className="text-[10px] text-[var(--muted-foreground)] truncate font-medium">
-                    {currentTrack ? currentTrack.artists : 'Offline Binaural & Lo-Fi Beats'}
-                  </p>
-
-                  {/* Interactive Scrub Bar */}
-                  <div
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const clickPos = (e.clientX - rect.left) / rect.width;
-                      seek(clickPos * duration);
-                    }}
-                    className="w-full h-1.5 mt-1.5 rounded-full bg-slate-200 dark:bg-white/10 cursor-pointer overflow-hidden relative group"
-                  >
-                    <div
-                      className="h-full bg-gradient-to-r from-primary to-secondary rounded-full"
-                      style={{ width: `${Math.min(100, Math.max(0, progress || 0))}%` }}
-                    />
+                    <span className="text-[8px] text-slate-400 font-mono"> / 120m</span>
                   </div>
                 </div>
 
-                {/* Transport Controls */}
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    onClick={prevTrack}
-                    className="p-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                    title="Previous Track"
-                  >
-                    <HiRewind size={15} />
-                  </button>
+                {/* Body: Circular Timer Ring (Left) + 3 Presets (Right) */}
+                <div className="flex items-center gap-2.5 py-1.5 flex-1 min-h-0">
+                  {/* Left: Interactive Circular Ring */}
+                  <div className="flex flex-col items-center justify-center shrink-0">
+                    <div
+                      onClick={toggleTimer}
+                      className="relative w-16 h-16 sm:w-18 sm:h-18 flex items-center justify-center cursor-pointer group/ring"
+                      title={isTimerRunning ? 'Pause Timer' : 'Start Focus Flow'}
+                    >
+                      <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                        <path
+                          className="text-indigo-500/20 dark:text-white/10"
+                          stroke="currentColor"
+                          strokeWidth="3.2"
+                          fill="none"
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        />
+                        <path
+                          className="text-indigo-500 dark:text-[#A855F7] transition-all duration-500 ease-out"
+                          strokeDasharray={`${isTimerRunning ? Math.round(((totalTime - timeLeft) / (totalTime || 1)) * 100) : focusGoalPercent}, 100`}
+                          strokeLinecap="round"
+                          stroke="currentColor"
+                          strokeWidth="3.2"
+                          fill="none"
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 m-auto flex flex-col items-center justify-center text-center">
+                        {isTimerRunning ? (
+                          <>
+                            <span className="text-[11px] font-mono font-black text-indigo-600 dark:text-white leading-tight">
+                              {formatTime(timeLeft)}
+                            </span>
+                            <span className="text-[7px] font-mono text-purple-400 uppercase tracking-widest font-bold">
+                              {phase === 'focus' ? 'FOCUS' : 'BREAK'}
+                            </span>
+                          </>
+                        ) : (
+                          <motion.div
+                            whileHover={{ scale: 1.15 }}
+                            whileTap={{ scale: 0.9 }}
+                            className="w-7 h-7 rounded-full bg-indigo-500 dark:bg-[#7C3AED] text-white flex items-center justify-center shadow-md shadow-indigo-500/30 pl-0.5"
+                          >
+                            <HiPlay size={13} />
+                          </motion.div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
-                  <button
-                    onClick={togglePlayPause}
-                    className="w-8 h-8 rounded-full bg-primary hover:bg-primary-hover text-white flex items-center justify-center shadow-md transition-transform active:scale-95 cursor-pointer"
-                    title={isPlaying ? 'Pause' : 'Play'}
-                  >
-                    {isPlaying ? <HiPause size={14} /> : <HiPlay size={14} className="ml-0.5" />}
-                  </button>
+                  {/* Right: 3 Stacked Preset Chips */}
+                  <div className="flex-1 min-w-0 flex flex-col justify-between gap-1 h-full py-0.5">
+                    <motion.button
+                      onClick={() => handleStartPreset(25, '25m Focus')}
+                      whileHover={{ scale: 1.02, x: 2 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="px-2 py-1 rounded-lg bg-white/70 dark:bg-[#080B1A]/85 hover:bg-white/90 dark:hover:bg-[#0D1126] border border-indigo-500/20 dark:border-[#1E2348] hover:border-indigo-500/50 flex items-center justify-between transition-all cursor-pointer shadow-2xs group"
+                    >
+                      <span className="text-[10px] font-black text-indigo-600 dark:text-[#60A5FA] group-hover:text-primary leading-none">
+                        25m Focus
+                      </span>
+                      <span className="text-[8px] text-slate-400 font-mono">5m Break</span>
+                    </motion.button>
 
-                  <button
-                    onClick={nextTrack}
-                    className="p-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                    title="Next Track"
-                  >
-                    <HiFastForward size={15} />
-                  </button>
+                    <motion.button
+                      onClick={() => handleStartPreset(50, '50m Deep')}
+                      whileHover={{ scale: 1.02, x: 2 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="px-2 py-1 rounded-lg bg-white/70 dark:bg-[#080B1A]/85 hover:bg-white/90 dark:hover:bg-[#0D1126] border border-purple-500/20 dark:border-[#1E2348] hover:border-purple-500/50 flex items-center justify-between transition-all cursor-pointer shadow-2xs group"
+                    >
+                      <span className="text-[10px] font-black text-purple-600 dark:text-[#C084FC] group-hover:text-primary leading-none">
+                        50m Deep
+                      </span>
+                      <span className="text-[8px] text-slate-400 font-mono">Flow State</span>
+                    </motion.button>
 
-                  <button
-                    onClick={toggleMute}
-                    className="p-1.5 rounded-xl text-slate-500 hover:text-primary transition-colors cursor-pointer"
-                    title={isMuted ? 'Unmute' : 'Mute'}
-                  >
-                    {isMuted ? <HiVolumeOff size={15} /> : <HiVolumeUp size={15} />}
-                  </button>
+                    <motion.button
+                      onClick={() => handleStartPreset(15, '15m Sprint')}
+                      whileHover={{ scale: 1.02, x: 2 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="px-2 py-1 rounded-lg bg-white/70 dark:bg-[#080B1A]/85 hover:bg-white/90 dark:hover:bg-[#0D1126] border border-pink-500/20 dark:border-[#1E2348] hover:border-pink-500/50 flex items-center justify-between transition-all cursor-pointer shadow-2xs group"
+                    >
+                      <span className="text-[10px] font-black text-pink-600 dark:text-[#F472B6] group-hover:text-pink-500 leading-none">
+                        15m Sprint
+                      </span>
+                      <span className="text-[8px] text-slate-400 font-mono">Revision</span>
+                    </motion.button>
+                  </div>
+                </div>
+
+                {/* Footer Progress Bar */}
+                <div className="space-y-1 pt-1 border-t border-indigo-400/15 dark:border-[#1E2348] shrink-0">
+                  <div className="flex justify-between items-center text-[8px] font-mono text-slate-500 dark:text-[#8A95C7]">
+                    <span>Daily Focus Goal</span>
+                    <span className="text-indigo-600 dark:text-indigo-300 font-bold">{focusGoalPercent}% • +150 XP</span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-[#080A16] overflow-hidden border border-indigo-100 dark:border-[#1E2348]/60 relative">
+                    <div
+                      className="h-full bg-gradient-to-r from-[#6366F1] via-[#A855F7] to-[#EC4899] rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(168,85,247,0.5)] relative"
+                      style={{ width: `${Math.max(4, focusGoalPercent)}%` }}
+                    >
+                      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_#EC4899]" />
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Accompanying Vertical Utility Module (Jigsaw Docked Beside Audio) */}
-              <div className="flex sm:flex-col items-center justify-center gap-1.5 px-2 py-1 sm:py-0 shrink-0">
+              {/* ── CARD 4B: Weekly Study Velocity & Heatmap (7-Day Momentum Bar Chart) ── */}
+              <div className="rounded-[22px] sm:rounded-[24px] bg-gradient-to-br from-emerald-500/[0.12] via-white/80 to-white/65 dark:from-[#09171C]/95 dark:via-[#09141F]/90 dark:to-[#080A18]/95 backdrop-blur-2xl border-2 border-emerald-400/40 dark:border-[#163636] p-3 sm:p-3.5 flex flex-col justify-between overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.1)] relative group transition-all">
+                {/* Header */}
+                <div className="flex items-center justify-between pb-1.5 border-b border-emerald-400/20 dark:border-[#163636] shrink-0">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 shadow-[0_0_12px_rgba(16,185,129,0.4)] shrink-0 font-bold">
+                      <HiSparkles size={14} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="text-xs font-heading font-black tracking-wide text-slate-900 dark:text-white leading-tight">
+                          Study Velocity
+                        </h3>
+                        <span className="px-1.5 py-0.2 rounded-md bg-emerald-500/15 dark:bg-[#0E2825] text-emerald-600 dark:text-emerald-400 font-mono text-[8px] uppercase font-bold tracking-wider border border-emerald-500/30">
+                          7D Momentum
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 text-[9px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                    <HiFire size={12} className="text-amber-500" />
+                    <span>{streak}d streak</span>
+                    {streakMultiplier && (
+                      <span className="px-1 py-0.2 rounded bg-amber-500/20 text-amber-600 dark:text-amber-300 font-bold text-[8px]">
+                        {streakMultiplier}x
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Body: 7-Day Velocity Bars */}
+                <div className="flex items-end justify-between gap-1.5 py-1.5 flex-1 min-h-0 px-1">
+                  {weeklyVelocity.map((col) => (
+                    <div key={col.id} className="relative flex flex-col items-center flex-1 h-full justify-end group/bar cursor-pointer">
+                      {/* Precision Floating Tooltip */}
+                      <div className="absolute -top-7 px-1.5 py-0.5 rounded-md bg-slate-950/95 border border-emerald-500/35 text-[8px] font-mono font-bold text-emerald-300 shadow-lg pointer-events-none z-30 transition-all duration-200 opacity-0 group-hover/bar:opacity-100 -translate-y-1 group-hover/bar:translate-y-0 whitespace-nowrap">
+                        {col.label}
+                      </div>
+
+                      {/* Slender Vertical Pillar Track */}
+                      <div className="w-3 sm:w-3.5 max-w-[14px] h-16 sm:h-20 rounded-full bg-slate-200/50 dark:bg-black/45 border border-emerald-500/20 dark:border-white/10 relative flex flex-col justify-end p-0.5 overflow-hidden transition-all group-hover/bar:border-emerald-400/50 group-hover/bar:shadow-[0_0_8px_rgba(16,185,129,0.25)] mx-auto">
+                        <div
+                          className={`w-full rounded-full transition-all duration-700 ${
+                            col.isToday
+                              ? 'bg-gradient-to-t from-emerald-500 via-teal-400 to-cyan-300 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
+                              : col.hasActivity
+                              ? 'bg-gradient-to-t from-emerald-500/80 to-teal-400/70'
+                              : 'bg-slate-400/25 dark:bg-white/10'
+                          }`}
+                          style={{ height: `${col.percent}%` }}
+                        >
+                          {col.isToday && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_6px_#10B981] mx-auto mb-0.5 animate-pulse" />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 3-Letter Day Label */}
+                      <span className={`text-[8px] font-mono font-bold mt-1.5 leading-none transition-colors ${
+                        col.isToday ? 'text-emerald-500 dark:text-teal-300' : 'text-slate-400 group-hover/bar:text-slate-200'
+                      }`}>
+                        {col.day}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Dynamic Telemetry Footer */}
+                <div className="flex items-center justify-between pt-1 border-t border-emerald-400/15 dark:border-[#163636] shrink-0 text-[8px] font-mono">
+                  <span className="text-slate-500 dark:text-emerald-200/80 font-medium">
+                    {formattedFocusToday || '0m'} today • Level {gamification?.level || 1}
+                  </span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                    {consistencyPercent}% Consistency • {activeDaysCount}/7 Days Active
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* ── LOWER CHAMBER: Divided Jukebox (~58%) + Daily Treasure Vault (~42%) ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-2.5 shrink-0 h-[60px] sm:h-[64px]">
+              {/* ── CARD 5A: Compact Study Jukebox Console (7 cols / ~58% width) ── */}
+              <div className="sm:col-span-7 h-full rounded-[18px] sm:rounded-[20px] bg-gradient-to-r from-[#1C1F45]/90 via-[#131530]/85 to-[#0E1024]/95 backdrop-blur-2xl border-2 border-purple-500/45 hover:border-purple-500/65 shadow-[0_0_20px_-4px_rgba(168,85,247,0.25),inset_0_1px_1.5px_0_rgba(255,255,255,0.35)] px-2.5 py-1.5 sm:px-3 flex items-center justify-between gap-2 text-white transition-all overflow-hidden">
+                {/* Left: Vinyl Disc + Track Name */}
+                <div className="flex items-center gap-2 min-w-0 max-w-[140px] sm:max-w-[170px] shrink-0">
+                  <div
+                    onClick={() => setIsPlayerOpen(true)}
+                    className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden shrink-0 shadow-md cursor-pointer group"
+                    title="Open Music Studio"
+                  >
+                    <motion.div
+                      className="w-full h-full relative"
+                      animate={{ rotate: isPlaying ? 360 : 0 }}
+                      transition={{ duration: 4.5, repeat: isPlaying ? Infinity : 0, ease: 'linear' }}
+                    >
+                      {currentTrack?.image ? (
+                        <img src={currentTrack.image} alt="Vinyl" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-tr from-primary to-secondary flex items-center justify-center text-white">
+                          <HiMusicNote size={13} />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 m-auto w-2 h-2 rounded-full bg-slate-950 border border-white/60 shadow-[inset_0_0_3px_rgba(255,255,255,0.8)]" />
+                    </motion.div>
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1">
+                      <p
+                        onClick={() => setIsPlayerOpen(true)}
+                        className="text-[11px] sm:text-xs font-bold text-white truncate cursor-pointer hover:text-primary transition-colors leading-tight"
+                      >
+                        {currentTrack ? currentTrack.name : 'Lo-Fi Sanctuary'}
+                      </p>
+                      {isPlaying && (
+                        <span className="flex items-end gap-0.5 h-2 shrink-0 text-pink-400">
+                          <span className="w-0.5 h-1.5 bg-pink-400 rounded-full animate-bounce" />
+                          <span className="w-0.5 h-2 bg-pink-400 rounded-full animate-bounce [animation-delay:0.15s]" />
+                          <span className="w-0.5 h-1 bg-pink-400 rounded-full animate-bounce [animation-delay:0.3s]" />
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[8px] text-purple-300/80 truncate leading-none mt-0.5">
+                      {currentTrack ? currentTrack.artists : 'Binaural Lo-Fi Beats'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Center: Transport Controls & Mini Scrubber */}
+                <div className="flex-1 min-w-0 flex items-center gap-2 max-w-[220px]">
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <button
+                      onClick={prevTrack}
+                      className="w-5 h-5 rounded-md flex items-center justify-center text-slate-400 hover:text-white transition-all cursor-pointer"
+                      title="Previous Track"
+                    >
+                      <HiRewind size={11} />
+                    </button>
+
+                    <motion.button
+                      onClick={togglePlayPause}
+                      whileHover={{ scale: 1.08 }}
+                      whileTap={{ scale: 0.92 }}
+                      className="w-6.5 h-6.5 rounded-full bg-primary text-white flex items-center justify-center shadow-md shadow-primary/30 transition-all cursor-pointer"
+                      title={isPlaying ? 'Pause' : 'Play'}
+                    >
+                      {isPlaying ? <HiPause size={11} /> : <HiPlay size={11} className="ml-0.5" />}
+                    </motion.button>
+
+                    <button
+                      onClick={nextTrack}
+                      className="w-5 h-5 rounded-md flex items-center justify-center text-slate-400 hover:text-white transition-all cursor-pointer"
+                      title="Next Track"
+                    >
+                      <HiFastForward size={11} />
+                    </button>
+                  </div>
+
+                  {/* Compact Scrubber slider bar */}
+                  <div className="flex-1 flex items-center gap-1.5 min-w-0">
+                    <div
+                      onClick={(e) => {
+                        if (duration <= 0) return;
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const clickX = e.clientX - rect.left;
+                        const newPercent = Math.max(0, Math.min(1, clickX / rect.width));
+                        seek(newPercent * duration);
+                      }}
+                      className="flex-1 h-1.5 bg-white/10 hover:h-2 rounded-full cursor-pointer relative transition-all group overflow-hidden"
+                    >
+                      <div
+                        className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                    <span className="text-[8px] font-mono text-slate-400 shrink-0">
+                      {formatTime(currentTime)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Right: Waves Pill */}
                 <button
                   onClick={() => setShowBinaural(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold text-primary bg-primary/15 hover:bg-primary/25 border border-primary/30 transition-all cursor-pointer whitespace-nowrap shadow-2xs"
-                  title="Open Binaural Brainwaves"
+                  className="px-2 py-1 rounded-lg text-[8px] font-bold text-purple-300 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 backdrop-blur-xs transition-all cursor-pointer flex items-center gap-1 shrink-0"
+                  title="Open Offline Binaural Waves"
                 >
-                  <HiLightningBolt size={12} />
-                  <span>Waves</span>
+                  <span>⚡</span>
+                  <span className="hidden sm:inline">Waves</span>
                 </button>
+              </div>
 
-                <button
-                  onClick={() => setIsPlayerOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold text-slate-700 dark:text-slate-200 bg-indigo-50/70 dark:bg-white/[0.06] hover:bg-primary/10 hover:text-primary border border-indigo-100 dark:border-white/10 transition-all cursor-pointer whitespace-nowrap shadow-2xs"
-                  title="Launch StudyQuest Music Studio"
+              {/* ── CARD 5B: Daily Treasure Vault & Streak Shield (5 cols / ~42% width) ── */}
+              <div className="sm:col-span-5 h-full rounded-[18px] sm:rounded-[20px] bg-gradient-to-r from-amber-500/[0.12] via-white/80 to-white/65 dark:from-[#181406]/95 dark:via-[#131528]/90 dark:to-[#0E1024]/95 backdrop-blur-2xl border-2 border-amber-500/40 hover:border-amber-500/60 shadow-[0_0_20px_-4px_rgba(245,158,11,0.25),inset_0_1px_1.5px_0_rgba(255,255,255,0.35)] px-2.5 py-1.5 sm:px-3 flex items-center justify-between gap-2 text-slate-900 dark:text-white transition-all overflow-hidden">
+                {/* Left: Glowing Chest Jewel */}
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 flex items-center justify-center text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.5)] shrink-0 font-bold text-sm">
+                    🎁
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <h4 className="text-[11px] sm:text-xs font-heading font-black tracking-tight leading-tight truncate">
+                        Treasure Vault
+                      </h4>
+                      <span className={`px-1.5 py-0.2 rounded-full font-mono text-[7px] uppercase font-bold tracking-wider border shrink-0 ${
+                        canClaimChest
+                          ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border-amber-500/40 animate-pulse'
+                          : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                      }`}>
+                        {canClaimChest ? 'Ready' : 'Shielded'}
+                      </span>
+                    </div>
+                    <p className="text-[8px] font-mono text-amber-700/80 dark:text-amber-300/80 font-bold truncate mt-0.5">
+                      {canClaimChest ? 'Daily loot roll waiting!' : `Streak Shield Active • Level ${gamification?.level || 1}`}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Right: Claim / View Loot Button */}
+                <motion.button
+                  onClick={() => setShowTreasureChest(true)}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className={`px-2.5 sm:px-3 py-1 rounded-full text-[9px] font-black tracking-wide shadow-xs transition-all cursor-pointer shrink-0 flex items-center gap-1 ${
+                    canClaimChest
+                      ? 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.5)] hover:brightness-110'
+                      : 'bg-amber-500/15 dark:bg-amber-500/10 text-amber-600 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/25'
+                  }`}
+                  title="Open Daily Treasure Chest"
                 >
-                  <HiMusicNote size={12} />
-                  <span>Studio</span>
-                </button>
+                  <span>{canClaimChest ? 'Claim' : 'Vault'}</span>
+                  <span className="text-[10px]">✨</span>
+                </motion.button>
               </div>
             </div>
           </div>
 
-          {/* ── RIGHT AREA (4 cols): Tactile 3D Fanned Notes Deck (Rose Persona) ── */}
-          <div className="lg:col-span-4 rounded-[30px] sm:rounded-[34px] bg-gradient-to-br from-pink-500/[0.06] via-white/95 to-white/90 dark:from-pink-500/[0.05] dark:via-[#111328]/95 dark:to-[#161936]/95 border-2 border-pink-500/30 dark:border-pink-500/25 shadow-[0_16px_48px_-12px_rgba(236,72,153,0.14)] p-4 sm:p-5 flex flex-col justify-between min-h-[460px] group transition-all">
-            <div>
-              {/* Header: Carved Title Pill and Circular '+' Button Socket */}
-              <div className="flex items-center justify-between pb-3.5 border-b border-pink-500/20 dark:border-pink-500/15">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-pink-500/20 border border-pink-500/40 flex items-center justify-center text-pink-500 shadow-sm">
-                    <HiPencilAlt size={18} />
-                  </div>
-                  <div>
-                    <h3 className="text-xs sm:text-sm font-heading font-black tracking-wide text-slate-900 dark:text-white flex items-center gap-1.5">
-                      Top 3 Notes
-                    </h3>
-                    <p className="text-[10px] text-pink-700/80 dark:text-pink-400/80 font-medium">
-                      Physical Fanned Deck
-                    </p>
-                  </div>
+          {/* ==========================================================
+              RIGHT BAY (4 cols): Full-Height Top 3 Notes (Diagonally Stacked)
+              ========================================================== */}
+          <div className="lg:col-span-4 h-full min-h-0 rounded-[22px] sm:rounded-[24px] bg-gradient-to-br from-pink-500/[0.12] via-white/75 to-white/60 dark:from-pink-500/[0.12] dark:via-[#111328]/60 dark:to-[#161936]/60 backdrop-blur-2xl border-2 border-pink-500/40 hover:border-pink-500/60 shadow-[0_0_24px_-4px_rgba(236,72,153,0.2),inset_0_1px_1.5px_0_rgba(255,255,255,0.35)] p-3 sm:p-3.5 flex flex-col justify-between overflow-hidden transition-all relative">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-1.5 border-b border-pink-500/20 dark:border-pink-500/15 z-20 shrink-0">
+              <div className="flex items-center gap-1.5">
+                <div className="w-6.5 h-6.5 rounded-lg bg-pink-500/20 border border-pink-500/40 flex items-center justify-center text-pink-400 shadow-2xs">
+                  <HiPencilAlt size={14} />
                 </div>
-
-                {/* Circular Socket '+' Button */}
-                <motion.button
-                  onClick={() => router.push('/notes')}
-                  whileHover={{ scale: 1.1, rotate: 90 }}
-                  whileTap={{ scale: 0.92 }}
-                  className="w-8 h-8 rounded-full bg-pink-500 text-white flex items-center justify-center cursor-pointer shadow-md shadow-pink-500/30 border-2 border-white dark:border-[#0B0D17] transition-all"
-                  title="Create New Note"
-                >
-                  <HiPlus size={15} strokeWidth={2} />
-                </motion.button>
+                <div>
+                  <h3 className="text-xs font-heading font-black tracking-wide text-slate-900 dark:text-white leading-tight">
+                    Top 3 Notes
+                  </h3>
+                  <p className="text-[9px] text-pink-700/80 dark:text-pink-400/80 font-medium">
+                    Diagonally Stacked Deck
+                  </p>
+                </div>
               </div>
 
-              {/* 3D Physical Fanned Card Deck (Spreads Out Organically on Hover) */}
-              <div className="mt-6 relative h-72 w-full flex items-center justify-center">
-                {topNotes.length > 0 ? (
-                  topNotes.map((note, index) => {
-                    // Staggered physical resting angles & offsets
-                    const defaultRotation = index === 0 ? -5 : index === 1 ? 1 : 6;
-                    const hoverRotation = index === 0 ? -9 : index === 1 ? 0 : 9;
-                    const translateY = index * 16;
-                    const hoverTranslateY = index * 26 - 10;
-                    const zIndex = 30 - index * 10;
-
-                    return (
-                      <motion.div
-                        key={note.id}
-                        onClick={() => router.push(`/notes?id=${note.id}`)}
-                        initial={{ rotate: defaultRotation, y: translateY }}
-                        whileHover={{
-                          scale: 1.05,
-                          y: hoverTranslateY - 10,
-                          zIndex: 50,
-                          transition: { type: 'spring', stiffness: 350, damping: 20 },
-                        }}
-                        className={`absolute w-full p-4 rounded-2xl bg-white dark:bg-[#181B3C] border-2 border-pink-500/30 dark:border-pink-500/25 shadow-2xl cursor-pointer transition-shadow`}
-                        style={{
-                          top: `${translateY}px`,
-                          zIndex: zIndex,
-                        }}
-                      >
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-pink-500/15 border border-pink-500/30 text-pink-600 dark:text-pink-300 font-bold uppercase truncate max-w-[120px]">
-                            {note.tags?.[0] || 'Study Note'}
-                          </span>
-                          <span className="text-[9px] font-mono text-[var(--muted-foreground)] font-bold">
-                            {note.updatedAt
-                              ? new Date(note.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-                              : 'Recent'}
-                          </span>
-                        </div>
-
-                        <h4 className="text-xs font-black text-slate-900 dark:text-white truncate">
-                          {note.title || 'Untitled Scroll'}
-                        </h4>
-
-                        <p className="text-[11px] text-[var(--muted-foreground)] mt-1.5 line-clamp-2 leading-relaxed font-medium">
-                          {note.content
-                            ? note.content.replace(/<[^>]+>/g, '').slice(0, 85)
-                            : 'Quick study notes and key formulas...'}
-                        </p>
-                      </motion.div>
-                    );
-                  })
-                ) : (
-                  <div
-                    onClick={() => router.push('/notes')}
-                    className="w-full p-6 rounded-2xl border-2 border-dashed border-pink-500/30 dark:border-pink-500/20 flex flex-col items-center justify-center text-center cursor-pointer hover:border-pink-500/60 transition-colors"
-                  >
-                    <div className="w-10 h-10 rounded-2xl bg-pink-500/15 border border-pink-500/30 flex items-center justify-center text-pink-500 mb-2">
-                      <HiPencilAlt size={20} />
-                    </div>
-                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                      No study scrolls yet
-                    </p>
-                    <p className="text-[10px] text-[var(--muted-foreground)] mt-1 font-medium">
-                      Click to craft your first note
-                    </p>
-                  </div>
-                )}
-              </div>
+              <motion.button
+                onClick={() => router.push('/notes')}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+                className="w-5.5 h-5.5 rounded-full bg-pink-500 text-white flex items-center justify-center shadow-xs cursor-pointer"
+                title="Create Note"
+              >
+                <HiPlus size={12} />
+              </motion.button>
             </div>
 
-            {/* Bottom Link to Notes Vault */}
-            <div className="pt-3.5 border-t border-pink-500/20 dark:border-pink-500/15 flex items-center justify-between">
-              <span className="text-[10px] font-mono text-[var(--muted-foreground)] font-bold">
-                {notes.length} Total Scrolls
+            {/* Middle Body: 3D Diagonally Stacked Cards Stage */}
+            <div className="relative flex-1 min-h-0 w-full overflow-hidden flex items-center justify-center py-1">
+              {(() => {
+                // Combine real notes with ghost starters to always guarantee 3 fanned cards
+                const displayItems = [
+                  ...topNotes.map((n) => ({
+                    id: n.id,
+                    title: n.title || 'Untitled Scroll',
+                    tag: n.folder || 'Vault',
+                    date: new Date(n.updatedAt || n.createdAt).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' }),
+                    isGhost: false,
+                    ghostData: null,
+                  })),
+                  ...GHOST_SCROLL_STARTERS.map((g) => ({
+                    id: g.id,
+                    title: g.title,
+                    tag: g.tag,
+                    date: 'Template',
+                    isGhost: true,
+                    ghostData: g,
+                  })),
+                ].slice(0, 3);
+
+                // Diagonal cascade positions (top-left to bottom-right fan)
+                const stackVariants = [
+                  {
+                    rest: { x: -28, y: -26, rotate: -8, scale: 0.92, zIndex: 10 },
+                    hover: { x: -28, y: -38, rotate: 0, scale: 1.05, zIndex: 45, transition: { type: 'spring' as const, stiffness: 350, damping: 25 } },
+                  },
+                  {
+                    rest: { x: -2, y: -2, rotate: -1, scale: 0.96, zIndex: 20 },
+                    hover: { x: -2, y: -16, rotate: 0, scale: 1.05, zIndex: 45, transition: { type: 'spring' as const, stiffness: 350, damping: 25 } },
+                  },
+                  {
+                    rest: { x: 24, y: 22, rotate: 6, scale: 1.0, zIndex: 30 },
+                    hover: { x: 24, y: 8, rotate: 0, scale: 1.05, zIndex: 45, transition: { type: 'spring' as const, stiffness: 350, damping: 25 } },
+                  },
+                ];
+
+                return (
+                  <div className="relative w-full h-full flex items-center justify-center">
+                    {displayItems.map((item, idx) => {
+                      const variant = stackVariants[idx] || stackVariants[2];
+
+                      return (
+                        <motion.div
+                          key={item.id}
+                          initial={variant.rest}
+                          animate={variant.rest}
+                          whileHover={variant.hover}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => {
+                            if (item.isGhost && item.ghostData) {
+                              handleCreateFromGhost(item.ghostData);
+                            } else {
+                              playClick();
+                              router.push(`/notes?id=${item.id}`);
+                            }
+                          }}
+                          className="absolute w-[84%] max-w-[250px] p-2.5 rounded-2xl bg-white/90 dark:bg-[#151733]/90 backdrop-blur-md border border-pink-400/40 dark:border-white/15 shadow-[0_8px_24px_rgba(0,0,0,0.14),inset_0_1px_1.5px_rgba(255,255,255,0.4)] hover:border-pink-500 hover:shadow-[0_12px_32px_rgba(236,72,153,0.35)] cursor-pointer transition-colors group select-none overflow-hidden"
+                          style={{ zIndex: variant.rest.zIndex }}
+                        >
+                          {/* Specular Holographic Sheen on Top-Left Corner */}
+                          <div className="absolute inset-0 pointer-events-none rounded-2xl bg-gradient-to-br from-white/25 via-transparent to-transparent opacity-80" />
+
+                          <div className="flex items-center justify-between gap-1 mb-1 relative z-10">
+                            <span className="text-[8px] font-mono uppercase font-black px-1.5 py-0.2 rounded bg-pink-500/15 text-pink-600 dark:text-pink-300 border border-pink-500/20">
+                              {item.tag}
+                            </span>
+                            <span className="text-[8px] font-mono text-slate-400 font-semibold">
+                              {item.date}
+                            </span>
+                          </div>
+
+                          <p className="text-[11px] font-heading font-black text-slate-900 dark:text-white truncate group-hover:text-pink-500 dark:group-hover:text-pink-300 transition-colors leading-snug relative z-10">
+                            {item.title}
+                          </p>
+
+                          <div className="flex items-center justify-between mt-1 text-[8px] font-mono text-slate-500 dark:text-slate-400 relative z-10">
+                            <span>{item.isGhost ? '+ Click to Start' : 'Scroll Vault'}</span>
+                            <span className="text-pink-500 font-bold group-hover:translate-x-0.5 transition-transform">➔</span>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Bottom Footer */}
+            <div className="flex items-center justify-between pt-1 border-t border-pink-500/20 dark:border-white/5 z-20 shrink-0">
+              <span className="text-[8px] font-mono text-slate-400">
+                {notes.length} Scrolls Available
               </span>
               <button
                 onClick={() => router.push('/notes')}
-                className="flex items-center gap-1 text-[11px] font-black text-pink-600 dark:text-pink-400 hover:underline cursor-pointer"
+                className="text-[8px] font-bold text-pink-500 dark:text-pink-300 hover:underline flex items-center gap-0.5 cursor-pointer"
               >
-                <span>View Library</span>
-                <HiChevronRight size={13} strokeWidth={2} />
+                <span>View All</span>
+                <HiChevronRight size={9} />
               </button>
             </div>
           </div>
@@ -676,6 +1096,14 @@ export default function DashboardBentoGrid() {
         <BinauralFocusModal
           isOpen={showBinaural}
           onClose={() => setShowBinaural(false)}
+        />
+      )}
+
+      {/* Daily Treasure Chest Modal */}
+      {showTreasureChest && (
+        <TreasureChestModal
+          isOpen={showTreasureChest}
+          onClose={() => setShowTreasureChest(false)}
         />
       )}
     </>

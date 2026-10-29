@@ -101,37 +101,32 @@ export default function Sidebar() {
   return (
     <>
       <aside
-        className="w-14 sm:w-16 h-full flex flex-col justify-between py-2 sm:py-3 px-1.5 rounded-[26px] sm:rounded-[30px] bg-white/95 dark:bg-[#111328]/95 border-2 border-indigo-200/90 dark:border-white/12 shadow-[0_4px_24px_-4px_rgba(124,58,237,0.12)] select-none relative z-30 overflow-hidden"
+        className="w-14 sm:w-16 h-full flex flex-col justify-between py-2 sm:py-2.5 px-1.5 rounded-[26px] sm:rounded-[28px] bg-white/75 dark:bg-[#111328]/70 backdrop-blur-2xl border-2 border-indigo-200/90 dark:border-white/14 shadow-[0_8px_32px_0_rgba(124,58,237,0.15),inset_0_1px_1.5px_0_rgba(255,255,255,0.3)] select-none relative z-30 overflow-hidden"
         aria-label="Navigation Rail"
       >
         {/* Top: Questie Mascot (Living Owl Companion) */}
-        <div className="flex flex-col items-center flex-shrink-0 pb-2 border-b border-indigo-100/80 dark:border-white/10">
+        <div className="flex flex-col items-center flex-shrink-0 pb-1.5 border-b border-indigo-100/80 dark:border-white/10">
           <QuestieMascot collapsed={true} />
         </div>
 
-        {/* Middle: STRICT ZERO-SCROLL Pinned Rail with Precision Hover Placeholders */}
-        <div className="flex-1 flex flex-col items-center justify-center gap-1.5 overflow-hidden">
+        {/* Middle: STRICT ZERO-SCROLL Pinned Rail with Safe-Bounds Dynamic Flexbox */}
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-start py-1.5 space-y-1 sm:space-y-1.5 overflow-y-auto no-scrollbar overflow-x-hidden">
           {pinnedItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
 
             return (
-              <div key={item.key} className="relative group flex items-center justify-center w-full">
+              <div key={item.key} className="relative group flex items-center justify-center w-full shrink-0">
                 <Link
                   href={item.href}
-                  className={`relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl transition-all cursor-pointer ${
+                  className={`relative flex items-center justify-center w-9 h-9 sm:w-9.5 sm:h-9.5 rounded-xl sm:rounded-2xl transition-all cursor-pointer shrink-0 ${
                     isActive
-                      ? 'bg-primary text-white shadow-md shadow-primary/30 font-bold'
+                      ? 'bg-primary text-white shadow-md shadow-primary/30 font-bold ring-2 ring-primary/40'
                       : 'text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white hover:bg-indigo-50/70 dark:hover:bg-white/[0.08]'
                   }`}
                   aria-label={item.label}
                 >
-                  <Icon size={19} className="transition-transform group-hover:scale-110" />
-
-                  {/* Active indicator dot */}
-                  {isActive && (
-                    <span className="absolute -left-1 w-1 h-3.5 rounded-r-full bg-white shadow-xs" />
-                  )}
+                  <Icon size={18} className="transition-transform group-hover:scale-110 shrink-0" />
                 </Link>
 
                 {/* Precision Floating Hover Tooltip / Placeholder (Zero Jitter, No Emojis) */}
@@ -149,14 +144,14 @@ export default function Sidebar() {
           })}
 
           {/* Dedicated "All Pages" App Hub Launcher Button */}
-          <div className="relative group flex items-center justify-center w-full pt-1 border-t border-indigo-100/60 dark:border-white/10 mt-0.5">
+          <div className="relative group flex items-center justify-center w-full pt-1.5 border-t border-indigo-100/60 dark:border-white/10 mt-0.5 shrink-0">
             <button
               onClick={() => setShowAllPagesModal(true)}
-              className="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-indigo-50/80 dark:bg-white/[0.06] text-primary dark:text-primary-light hover:bg-primary hover:text-white transition-all cursor-pointer shadow-xs group"
+              className="relative flex items-center justify-center w-9 h-9 sm:w-9.5 sm:h-9.5 rounded-xl sm:rounded-2xl bg-indigo-50/80 dark:bg-white/[0.06] text-primary dark:text-primary-light hover:bg-primary hover:text-white transition-all cursor-pointer shadow-xs group shrink-0"
               aria-label="All Pages & Apps"
               title="All Pages & Apps"
             >
-              <HiSquares2X2 size={19} className="transition-transform group-hover:rotate-90 duration-200" />
+              <HiSquares2X2 size={18} className="transition-transform group-hover:rotate-90 duration-200 shrink-0" />
             </button>
 
             {/* Tooltip for All Pages */}

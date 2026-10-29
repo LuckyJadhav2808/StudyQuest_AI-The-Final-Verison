@@ -7,6 +7,7 @@ import {
 } from 'react-icons/hi';
 import { HiArrowsPointingOut, HiArrowsPointingIn } from 'react-icons/hi2';
 import { useTheme } from '@/context/ThemeContext';
+import { useAuthContext } from '@/context/AuthContext';
 import { useGamification } from '@/hooks/useGamification';
 import { useFriends } from '@/hooks/useFriends';
 import { useShop } from '@/hooks/useShop';
@@ -41,12 +42,18 @@ function getGreeting() {
 
 export default function Header() {
   const { theme, toggleTheme } = useTheme();
+  const { user, profile } = useAuthContext();
   const { gamification } = useGamification();
   const { incomingRequests } = useFriends();
   const { coins, canClaimTreasureChest } = useShop();
   const { isFullscreen, toggleFullscreen, isSupported } = useFullscreen();
   const [showChestModal, setShowChestModal] = useState(false);
   const router = useRouter();
+
+  const username =
+    profile?.displayName?.trim()?.split(' ')[0] ||
+    user?.displayName?.trim()?.split(' ')[0] ||
+    (user?.email ? user.email.split('@')[0] : 'Scholar');
 
   const chestAvailable = canClaimTreasureChest ? canClaimTreasureChest() : false;
   const greeting = getGreeting();
@@ -58,23 +65,23 @@ export default function Header() {
 
   return (
     <>
-      <header className="flex-shrink-0 w-full flex items-center justify-between gap-2 sm:gap-3 py-1 sm:py-1.5 px-0.5 z-30 select-none">
+      <header className="flex-shrink-0 w-full flex items-center justify-between gap-1.5 sm:gap-2.5 py-0.5 px-0.5 h-10 sm:h-11 z-30 select-none">
         {/* ============================================================
             BAY 1: BRAND ANCHOR PILL (LEFT)
             ============================================================ */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <div className="flex items-center gap-1.5 p-1 rounded-2xl sm:rounded-full bg-white dark:bg-[#111328] border-2 border-indigo-200/90 dark:border-white/12 shadow-xs">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="flex items-center gap-1 p-0.5 sm:p-1 rounded-full bg-white/80 dark:bg-[#111328]/75 backdrop-blur-xl border-2 border-indigo-200/90 dark:border-white/14 shadow-[0_4px_16px_rgba(0,0,0,0.12),inset_0_1px_1px_rgba(255,255,255,0.25)]">
             <motion.div
               onClick={() => router.push('/')}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
-              className="flex items-center gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl sm:rounded-full hover:bg-indigo-50/60 dark:hover:bg-white/[0.08] cursor-pointer transition-all group"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full hover:bg-indigo-50/60 dark:hover:bg-white/[0.08] cursor-pointer transition-all group"
               title="StudyQuest Dashboard"
             >
-              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-gradient-to-tr from-primary to-secondary flex items-center justify-center text-white shadow-xs">
-                <HiSparkles size={13} className="group-hover:rotate-12 transition-transform duration-300" />
+              <div className="w-4.5 h-4.5 sm:w-5 sm:h-5 rounded-md bg-gradient-to-tr from-primary to-secondary flex items-center justify-center text-white shadow-2xs">
+                <HiSparkles size={11} className="group-hover:rotate-12 transition-transform duration-300" />
               </div>
-              <span className="text-xs sm:text-sm font-heading font-black tracking-wide text-gradient whitespace-nowrap">
+              <span className="text-xs font-heading font-black tracking-wide text-gradient whitespace-nowrap">
                 StudyQuest
               </span>
             </motion.div>
@@ -82,12 +89,12 @@ export default function Header() {
             {/* Quick Search Shortcut Pill */}
             <button
               onClick={openCommandPalette}
-              className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-indigo-100 dark:border-white/10 bg-indigo-50/50 dark:bg-white/[0.04] hover:border-primary/50 hover:bg-primary/5 text-[11px] text-[var(--muted-foreground)] hover:text-primary transition-all cursor-pointer shadow-2xs mr-1"
+              className="hidden xl:flex items-center gap-1 px-2 py-0.5 rounded-full border border-indigo-100 dark:border-white/10 bg-indigo-50/50 dark:bg-white/[0.04] hover:border-primary/50 hover:bg-primary/5 text-[10px] text-[var(--muted-foreground)] hover:text-primary transition-all cursor-pointer shadow-2xs mr-0.5"
               title="Search or Ask Questie (Ctrl+K)"
             >
-              <HiSearch size={12} className="text-primary/70" />
+              <HiSearch size={11} className="text-primary/70" />
               <span>Search</span>
-              <kbd className="px-1.5 py-0.2 rounded bg-white dark:bg-white/10 text-[9px] font-mono border border-indigo-100 dark:border-white/10 text-[var(--muted-foreground)]">
+              <kbd className="px-1 py-0.2 rounded bg-white dark:bg-white/10 text-[8px] font-mono border border-indigo-100 dark:border-white/10 text-[var(--muted-foreground)]">
                 Ctrl+K
               </kbd>
             </button>
@@ -97,19 +104,19 @@ export default function Header() {
         {/* ============================================================
             BAY 2: DYNAMIC SANCTUARY & DAILY CHEST BAY (CENTER)
             ============================================================ */}
-        <div className="flex-1 flex items-center justify-center min-w-0 max-w-xl mx-2">
+        <div className="flex-1 flex items-center justify-center min-w-0 max-w-lg mx-1.5">
           {chestAvailable ? (
             <motion.button
               onClick={() => setShowChestModal(true)}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
-              className="flex items-center gap-2 px-3.5 sm:px-4 py-1.5 rounded-2xl sm:rounded-full bg-gradient-to-r from-amber-500/20 via-primary/20 to-secondary/20 hover:from-amber-500/30 hover:to-secondary/30 border-2 border-amber-400/40 text-amber-700 dark:text-amber-200 shadow-md shadow-amber-500/10 cursor-pointer animate-pulse transition-all"
+              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1 rounded-full bg-gradient-to-r from-amber-500/20 via-primary/20 to-secondary/20 hover:from-amber-500/30 hover:to-secondary/30 border-2 border-amber-400/40 text-amber-700 dark:text-amber-200 shadow-xs cursor-pointer animate-pulse transition-all"
               title="Click to claim your daily treasure chest"
             >
-              <div className="w-4 h-4 rounded-full bg-amber-400/20 flex items-center justify-center text-amber-500">
-                <HiSparkles size={12} />
+              <div className="w-3.5 h-3.5 rounded-full bg-amber-400/20 flex items-center justify-center text-amber-500">
+                <HiSparkles size={10} />
               </div>
-              <span className="text-[11px] sm:text-xs font-bold tracking-wide truncate">
+              <span className="text-[10px] sm:text-[11px] font-bold tracking-wide truncate">
                 Daily Chest Ready — Claim Reward
               </span>
             </motion.button>
@@ -118,14 +125,14 @@ export default function Header() {
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               onClick={() => setShowChestModal(true)}
-              className="flex items-center gap-2 px-3.5 sm:px-4 py-1.5 rounded-2xl sm:rounded-full bg-white dark:bg-[#111328] border-2 border-indigo-200/90 dark:border-white/12 text-slate-700 dark:text-slate-200 hover:border-primary/40 cursor-pointer transition-all shadow-xs truncate"
+              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1 rounded-full bg-white dark:bg-[#111328] border-2 border-indigo-200/90 dark:border-white/12 text-slate-700 dark:text-slate-200 hover:border-primary/40 cursor-pointer transition-all shadow-xs truncate"
               title="Daily status and rewards"
             >
-              <GreetingIcon size={14} className={greeting.iconColor} />
-              <span className="text-[11px] sm:text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
-                {greeting.text}, Adventurer
+              <GreetingIcon size={12} className={greeting.iconColor} />
+              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-800 dark:text-slate-200 truncate">
+                {greeting.text}, {username}
               </span>
-              <span className="hidden md:inline-block text-[10px] text-[var(--muted-foreground)] font-normal">
+              <span className="hidden md:inline-block text-[9px] text-[var(--muted-foreground)] font-normal">
                 • Stay focused
               </span>
             </motion.div>
@@ -136,15 +143,15 @@ export default function Header() {
             BAY 3: UNIFIED COCKPIT CONTROL TRAY (RIGHT)
             Sculpted outer tray enclosing HUD pill and circular action buttons
             ============================================================ */}
-        <div className="flex items-center gap-1.5 p-1 sm:p-1.5 rounded-2xl sm:rounded-full bg-indigo-50/70 dark:bg-[#161936]/90 border-2 border-indigo-200/90 dark:border-white/12 shadow-sm flex-shrink-0">
+        <div className="flex items-center gap-1 p-0.5 sm:p-1 rounded-full bg-indigo-50/70 dark:bg-[#161838]/70 backdrop-blur-xl border-2 border-indigo-200/90 dark:border-white/14 shadow-[0_4px_16px_rgba(0,0,0,0.12),inset_0_1px_1px_rgba(255,255,255,0.25)] flex-shrink-0">
           {/* Elongated Status HUD Inner Pill (Streak, Coins, XP) */}
-          <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1 rounded-xl sm:rounded-full bg-white dark:bg-[#111328] border border-indigo-100 dark:border-white/10 shadow-2xs">
+          <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 rounded-full bg-white/90 dark:bg-[#111328]/85 backdrop-blur-md border border-indigo-100 dark:border-white/10 shadow-2xs">
             {/* Streak Counter */}
             {gamification && (
               <StreakCounter streak={gamification.streak} size="sm" />
             )}
 
-            <div className="h-3 w-[1px] bg-indigo-100 dark:bg-white/15 hidden sm:block" />
+            <div className="h-2.5 w-[1px] bg-indigo-100 dark:bg-white/15 hidden sm:block" />
 
             {/* Coins Balance */}
             <motion.button
@@ -154,8 +161,8 @@ export default function Header() {
               className="flex items-center gap-1 hover:opacity-80 transition-opacity cursor-pointer"
               title="Quest Coins (Click to visit Item Shop)"
             >
-              <CoinIcon className="w-3.5 h-3.5 text-amber-500" />
-              <span className="text-[11px] font-bold text-amber-500 dark:text-amber-400 font-mono tabular-nums">
+              <CoinIcon className="w-3 h-3 text-amber-500" />
+              <span className="text-[10px] font-bold text-amber-500 dark:text-amber-400 font-mono tabular-nums">
                 {typeof coins === 'number'
                   ? coins
                   : typeof coins === 'object' && coins && 'bc' in (coins as any)
@@ -164,17 +171,17 @@ export default function Header() {
               </span>
             </motion.button>
 
-            <div className="h-3 w-[1px] bg-indigo-100 dark:bg-white/15 hidden sm:block" />
+            <div className="h-2.5 w-[1px] bg-indigo-100 dark:bg-white/15 hidden sm:block" />
 
             {/* XP / Level Indicator */}
             {gamification && (
               <motion.div
                 onClick={() => router.push('/analytics')}
                 whileHover={{ scale: 1.05 }}
-                className="flex items-center gap-1 text-[11px] font-bold text-primary dark:text-primary-light font-mono tabular-nums cursor-pointer"
+                className="flex items-center gap-1 text-[10px] font-bold text-primary dark:text-primary-light font-mono tabular-nums cursor-pointer"
                 title={`Level ${gamification.level} (${gamification.xp?.toLocaleString() || 0} XP)`}
               >
-                <HiLightningBolt size={13} className="text-amber-400" />
+                <HiLightningBolt size={11} className="text-amber-400" />
                 <span className="hidden sm:inline">
                   {typeof gamification.xp === 'number' ? gamification.xp.toLocaleString() : '0'} XP
                 </span>
@@ -190,11 +197,11 @@ export default function Header() {
             onClick={toggleTheme}
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white dark:bg-[#111328] hover:bg-indigo-50/70 dark:hover:bg-white/[0.08] border border-indigo-100 dark:border-white/10 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-primary transition-all cursor-pointer shadow-2xs"
+            className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full bg-white/90 dark:bg-[#111328]/85 backdrop-blur-md hover:bg-indigo-50/70 dark:hover:bg-white/[0.08] border border-indigo-100 dark:border-white/10 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-primary transition-all cursor-pointer shadow-2xs"
             title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             aria-label="Toggle theme"
           >
-            {theme === 'dark' ? <HiSun size={14} /> : <HiMoon size={14} />}
+            {theme === 'dark' ? <HiSun size={12} /> : <HiMoon size={12} />}
           </motion.button>
 
           {/* Action Socket 2: Fullscreen Toggle */}
@@ -203,11 +210,11 @@ export default function Header() {
               onClick={toggleFullscreen}
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.92 }}
-              className="hidden md:flex w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white dark:bg-[#111328] hover:bg-indigo-50/70 dark:hover:bg-white/[0.08] border border-indigo-100 dark:border-white/10 items-center justify-center text-slate-700 dark:text-slate-300 hover:text-primary transition-all cursor-pointer shadow-2xs"
+              className="hidden md:flex w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full bg-white/90 dark:bg-[#111328]/85 backdrop-blur-md hover:bg-indigo-50/70 dark:hover:bg-white/[0.08] border border-indigo-100 dark:border-white/10 items-center justify-center text-slate-700 dark:text-slate-300 hover:text-primary transition-all cursor-pointer shadow-2xs"
               title={isFullscreen ? 'Exit Immersion Mode' : 'Enter Immersion Mode'}
               aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
             >
-              {isFullscreen ? <HiArrowsPointingIn size={14} /> : <HiArrowsPointingOut size={14} />}
+              {isFullscreen ? <HiArrowsPointingIn size={12} /> : <HiArrowsPointingOut size={12} />}
             </motion.button>
           )}
 
@@ -216,7 +223,7 @@ export default function Header() {
             onClick={() => router.push('/')}
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
-            className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white dark:bg-[#111328] hover:bg-indigo-50/70 dark:hover:bg-white/[0.08] border border-indigo-100 dark:border-white/10 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-primary transition-all cursor-pointer shadow-2xs"
+            className="relative w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full bg-white/90 dark:bg-[#111328]/85 backdrop-blur-md hover:bg-indigo-50/70 dark:hover:bg-white/[0.08] border border-indigo-100 dark:border-white/10 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-primary transition-all cursor-pointer shadow-2xs"
             title="Notifications & Friends"
             aria-label="Notifications"
           >
