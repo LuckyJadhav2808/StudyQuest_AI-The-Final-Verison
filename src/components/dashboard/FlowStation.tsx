@@ -85,17 +85,18 @@ export function FlowStation() {
         tag={stateLabel}
         tagAlways
         sub="Pomodoro engine · earn 2 XP / min"
+        size={30}
         right={
-          <div className="text-right text-xs sm:text-sm font-bold text-slate-200 font-mono">
-            <span className="text-[#c4b5fd] font-extrabold">{goalMinutes}m</span>{' '}
-            <span className="text-slate-400 font-normal">/ {DAILY_GOAL_MIN}m</span>
+          <div className="text-right text-xs sm:text-sm font-bold text-slate-200 font-mono tabular-nums">
+            <span className="text-[#c4b5fd] font-bold tabular-nums">{goalMinutes}m</span>{' '}
+            <span className="text-slate-400 font-normal tabular-nums">/ {DAILY_GOAL_MIN}m</span>
           </div>
         }
       />
 
       {/* 3D Orb Timer Section with Responsive Proportional Aspect */}
-      <div className="min-h-0 flex-1 flex items-center justify-center py-0.5 sm:py-1 relative overflow-visible">
-        <div className="relative aspect-square h-full max-h-[225px] sm:max-h-[265px] xl:max-h-[295px] w-auto flex items-center justify-center mx-auto">
+      <div className="min-h-0 flex-1 flex items-center justify-center py-0.5 sm:py-1 relative overflow-visible" style={{ containerType: 'inline-size' }}>
+        <div className="relative aspect-square w-full max-w-[clamp(200px,32vh,320px)] max-h-[clamp(200px,32vh,320px)] flex items-center justify-center mx-auto" style={{ containerType: 'inline-size' }}>
           {/* Soft Purple Aurora Glow behind ring */}
           <div
             className={`absolute inset-4 rounded-full bg-[#8b5cf6]/25 blur-3xl transition-opacity duration-700 pointer-events-none ${
@@ -172,24 +173,24 @@ export function FlowStation() {
             }}
           />
 
-          {/* Central 3D Spherical Orb */}
-          <div className="orb absolute inset-[13%] grid place-items-center text-center select-none shadow-[inset_0_2px_0_rgba(255,255,255,0.2),inset_0_-18px_40px_-16px_rgba(139,92,246,0.5),0_24px_50px_-18px_rgba(139,92,246,0.6)]">
-            <div className="flex flex-col items-center justify-center">
-              <div className="flex items-center justify-center gap-1.5 font-bold tracking-[0.2em] text-[#c4b5fd] uppercase text-[10px] sm:text-xs">
-                {isFocus ? <Brain size={13} className="text-[#c4b5fd]" /> : <Coffee size={13} className="text-[#34d399]" />}
+          {/* Central 3D Spherical Orb with Anti-Collision Fluid Scaling */}
+          <div className="orb absolute inset-[15%] grid place-items-center text-center select-none shadow-[inset_0_2px_0_rgba(255,255,255,0.2),inset_0_-18px_40px_-16px_rgba(139,92,246,0.5),0_24px_50px_-18px_rgba(139,92,246,0.6)]">
+            <div className="flex flex-col items-center justify-center gap-1 sm:gap-1.5 w-full px-2">
+              <div className="flex items-center justify-center gap-1.5 font-bold tracking-[0.2em] text-[#c4b5fd] uppercase text-[clamp(10px,3.8cqw,13px)] leading-none shrink-0">
+                {isFocus ? <Brain size={12} className="text-[#c4b5fd]" /> : <Coffee size={12} className="text-[#34d399]" />}
                 <span>{isFocus ? 'Deep focus' : 'Break time'}</span>
               </div>
               <div
-                className="font-mono tabular font-black leading-none text-white mt-0.5 sm:mt-1 tracking-tight text-3xl sm:text-4xl xl:text-5xl"
+                className="font-mono tabular-nums font-black leading-none text-white tracking-tight text-[clamp(34px,15cqw,54px)] shrink-0 my-0.5"
                 style={{
-                  textShadow: '0 0 32px rgba(139,92,246,0.65)',
+                  textShadow: '0 0 32px rgba(139,92,246,0.7)',
                 }}
               >
                 {mm}
                 <span className={isRunning ? 'animate-pulse text-[#a78bfa]' : ''}>:</span>
                 {ss}
               </div>
-              <div className="mt-1 text-slate-400 font-mono font-medium text-[10px] sm:text-xs">
+              <div className="text-slate-200 dark:text-slate-200 font-mono tabular-nums font-semibold text-[clamp(10px,3.4cqw,12.5px)] leading-none shrink-0 drop-shadow-xs">
                 {Math.round(progress * 100)}% complete
               </div>
             </div>
@@ -198,7 +199,7 @@ export function FlowStation() {
       </div>
 
       {/* Tactile Controls: Reset, 3D Candy Play/Pause, Swap Mode */}
-      <div className="flex shrink-0 items-center justify-center gap-3 sm:gap-4 py-0.5 sm:py-1">
+      <div className="flex shrink-0 items-center justify-center gap-2.5 sm:gap-3.5 py-0.5 sm:py-1">
         <button
           onClick={handleReset}
           aria-label="Reset Timer"
@@ -211,10 +212,10 @@ export function FlowStation() {
         <button
           onClick={handleTogglePlay}
           aria-label={isRunning ? 'Pause Flow' : 'Start Flow'}
-          className="btn tone-iris !h-12 !w-12 sm:!h-14 sm:!w-14 !rounded-full !p-0 shadow-[0_4px_0_#4c1d95,0_14px_26px_-6px_rgba(139,92,246,0.85)] cursor-pointer"
+          className="btn tone-iris !h-11 !w-11 sm:!h-13 sm:!w-13 !rounded-full !p-0 shadow-[0_4px_0_#4c1d95,0_14px_26px_-6px_rgba(139,92,246,0.85)] cursor-pointer"
           title={isRunning ? 'Pause' : 'Start'}
         >
-          {isRunning ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}
+          {isRunning ? <Pause size={19} fill="currentColor" /> : <Play size={19} fill="currentColor" className="ml-0.5" />}
         </button>
 
         <button
@@ -228,14 +229,14 @@ export function FlowStation() {
       </div>
 
       {/* 3 Preset Quick-Chips */}
-      <div className="grid shrink-0 grid-cols-3 gap-2">
+      <div className="grid shrink-0 grid-cols-3 gap-1.5 sm:gap-2">
         {PRESETS.map((p) => {
           const isActive = totalTime === p.f * 60;
           return (
             <button
               key={p.label}
               onClick={() => handleChoosePreset(p.f, p.label)}
-              className={`raised tone-iris rounded-2xl p-2 sm:p-2.5 text-left cursor-pointer transition-all ${
+              className={`raised tone-iris rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 text-left cursor-pointer transition-all ${
                 isActive ? 'is-active !border-[#a78bfa]/80 shadow-[0_0_16px_rgba(139,92,246,0.4)]' : ''
               }`}
             >
@@ -251,7 +252,7 @@ export function FlowStation() {
       </div>
 
       {/* Daily Focus Goal Bar with XP Chip */}
-      <div className="shrink-0 pt-1.5 border-t border-white/8">
+      <div className="shrink-0 pt-1 sm:pt-1.5 border-t border-white/8">
         <div className="mb-1 flex items-center justify-between text-[11px] font-semibold">
           <span className="text-slate-400 font-medium">Daily Focus Goal</span>
           <span className="flex items-center gap-1.5 text-slate-200 font-mono font-bold">

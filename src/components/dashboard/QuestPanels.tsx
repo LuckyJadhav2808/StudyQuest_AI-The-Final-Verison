@@ -77,9 +77,10 @@ export function DailyQuests({ onOpenAddModal }: { onOpenAddModal?: () => void })
         }
       />
 
-      <div className="no-scrollbar flex min-h-0 flex-1 flex-col justify-center gap-1.5 overflow-hidden">
+      {/* Scrollable list container between fixed Header and fixed Footer */}
+      <div className="thin-scroll flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pt-2 pb-1 pr-0.5">
         {quickInput && (
-          <form onSubmit={handleAddSubmit} className="flex items-center gap-1.5 p-1">
+          <form onSubmit={handleAddSubmit} className="flex items-center gap-1.5 p-1 shrink-0">
             <input
               type="text"
               autoFocus
@@ -90,45 +91,45 @@ export function DailyQuests({ onOpenAddModal }: { onOpenAddModal?: () => void })
             />
             <button
               type="submit"
-              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-[10px] shadow-xs cursor-pointer"
+              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-[10px] shadow-xs cursor-pointer shrink-0"
             >
               Add
             </button>
             <button
               type="button"
               onClick={() => setQuickInput(false)}
-              className="px-2 py-1.5 text-slate-400 hover:text-white text-xs cursor-pointer"
+              className="px-2 py-1.5 text-slate-400 hover:text-white text-xs cursor-pointer shrink-0"
             >
               ✕
             </button>
           </form>
         )}
 
-        {displayQuests.slice(0, 2).map((q) => (
+        {displayQuests.map((q) => (
           <button
             key={q.id}
             onClick={() => handleToggle(q.id, q.completed)}
-            className={`raised tone-solar flex w-full items-center gap-2.5 sm:gap-3 rounded-2xl px-3 py-2 text-left cursor-pointer transition-all ${
+            className={`raised tone-solar flex w-full shrink-0 items-center gap-2.5 sm:gap-3 rounded-2xl px-3 py-2.5 text-left cursor-pointer transition-all hover:scale-[1.01] hover:border-amber-400/50 hover:bg-white/[0.06] hover:shadow-[0_4px_16px_-4px_rgba(245,158,11,0.25)] ${
               q.completed ? 'is-active opacity-80' : ''
             }`}
           >
             <span
-              className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border transition-all ${
+              className={`grid h-5 w-5 shrink-0 place-items-center rounded-lg border transition-all ${
                 q.completed
                   ? 'border-amber-400 bg-gradient-to-b from-amber-300 to-amber-500 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.8)]'
-                  : 'border-white/15 bg-black/45 text-transparent'
+                  : 'border-amber-400/50 bg-black/55 hover:border-amber-400 text-transparent shadow-inner'
               }`}
             >
               <Check size={12} strokeWidth={3.5} />
             </span>
             <span
-              className={`flex-1 truncate text-xs sm:text-[13px] font-bold ${
+              className={`flex-1 truncate text-[clamp(11.5px,0.9vw,13.5px)] font-bold ${
                 q.completed ? 'text-slate-400 line-through' : 'text-slate-100'
               }`}
             >
               {q.title}
             </span>
-            <Chip tone={q.completed ? 'mint' : 'solar'}>
+            <Chip tone={q.completed ? 'mint' : 'solar'} className="shrink-0">
               {q.completed ? 'Claimed' : '+25 XP'}
             </Chip>
           </button>
@@ -174,18 +175,18 @@ export function ActiveQuests() {
     : DEFAULT_SPRINTS;
 
   return (
-    <Panel area="aq" tone="iris" delay={180} className="gap-1.5 sm:gap-2 justify-between h-full !py-2 sm:!py-2.5">
+    <Panel area="aq" tone="iris" delay={180} className="gap-2 justify-between h-full min-h-[115px] !py-2.5 sm:!py-3">
       <PanelHeader
         icon={ClipboardList}
         tone="iris"
         title="Active Quests"
         sub={`${displaySprints.length} Active · +50 XP per bounty`}
-        size={32}
+        size={30}
         right={
           <Btn
             tone="iris"
             onClick={() => router.push('/tasks')}
-            className="!px-3 !py-1 text-xs whitespace-nowrap"
+            className="!px-2.5 sm:!px-3 !py-1 text-xs whitespace-nowrap shrink-0"
           >
             <span>Quest Log</span>
             <ChevronRight size={13} strokeWidth={3} />
@@ -193,20 +194,22 @@ export function ActiveQuests() {
         }
       />
 
-      <div className="grid min-h-0 flex-1 grid-cols-2 gap-2 sm:gap-2.5 items-center">
+      <div className="grid min-h-0 flex-1 grid-cols-2 gap-2 sm:gap-2.5 items-center w-full">
         {displaySprints.map((s) => (
           <div
             key={s.id}
             onClick={() => router.push('/tasks')}
-            className="well flex min-w-0 flex-col justify-center gap-1 rounded-2xl p-2 sm:p-2.5 cursor-pointer hover:border-[#a78bfa]/50 transition-colors"
+            className="well flex min-w-0 flex-col justify-between gap-1.5 rounded-2xl p-2.5 sm:p-3.5 cursor-pointer hover:border-[#a78bfa]/60 transition-colors h-full shadow-inner"
           >
-            <div className="flex items-center justify-between gap-1 text-xs font-bold">
-              <span className="truncate text-slate-100">{s.name}</span>
-              <span className="text-[#c4b5fd] font-mono text-[11px] shrink-0">{s.progress}%</span>
+            <div className="flex items-center justify-between gap-1 min-w-0 text-[clamp(10.5px,0.88vw,12.5px)] font-bold">
+              <span className="truncate text-slate-100 flex-1 min-w-0">{s.name}</span>
+              <span className="text-white font-mono tabular-nums font-bold text-[10.5px] bg-white/10 px-1.5 py-0.5 rounded-md border border-white/10 shrink-0 ml-1">
+                {s.progress}%
+              </span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-black/40">
+            <div className="h-2.5 w-full overflow-hidden rounded-full bg-black/60 border border-white/10 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)] shrink-0">
               <div
-                className={`h-full rounded-full bg-gradient-to-r ${s.grad} shadow-[0_0_10px_rgba(139,92,246,0.8)] transition-all duration-500`}
+                className={`h-full rounded-full bg-gradient-to-r ${s.grad} shadow-[0_0_12px_rgba(139,92,246,0.9)] transition-all duration-500`}
                 style={{ width: `${s.progress}%` }}
               />
             </div>
@@ -252,19 +255,19 @@ export function TargetMilestone() {
         tone="aqua"
         title="Target Milestone"
         sub={nextExam ? "Target locked · radar active" : "Exam & Horizon Radar"}
-        size={32}
+        size={26}
         right={
           <Btn
             tone="aqua"
             onClick={() => router.push('/exams')}
-            className="!px-2.5 !py-1 text-xs shrink-0"
+            className="!px-2 !py-0.5 !text-[10.5px] !gap-1 !rounded-md shrink-0 whitespace-nowrap"
           >
-            {nextExam ? <Radar size={13} /> : <Plus size={13} strokeWidth={3} />}
+            {nextExam ? <Radar size={11} /> : <Plus size={11} strokeWidth={2.8} />}
             <span>{nextExam ? 'Edit' : 'Exam'}</span>
           </Btn>
         }
       />
-      <div className="flex min-h-0 flex-1 items-center gap-3">
+      <div className="flex min-h-0 flex-1 items-center gap-2.5 sm:gap-3 w-full min-w-0">
         {/* Radar scope animation matching Image 2 */}
         <div className="relative aspect-square h-full max-h-10 sm:max-h-11 shrink-0 overflow-hidden rounded-full border border-[#22d3ee]/40 bg-[radial-gradient(circle,rgba(34,211,238,0.18),transparent_70%)] shadow-[0_0_18px_-2px_rgba(34,211,238,0.5)]">
           <div className="absolute inset-[22%] rounded-full border border-[#22d3ee]/30" />
@@ -283,19 +286,19 @@ export function TargetMilestone() {
         <div className="min-w-0 flex-1">
           {nextExam ? (
             <>
-              <div className="font-heading truncate text-xs sm:text-sm font-bold text-white leading-tight">
+              <div className="font-heading truncate text-[clamp(11px,0.88vw,13.5px)] font-bold text-white leading-tight">
                 {nextExam.subject || nextExam.title}
               </div>
-              <div className="text-[10px] text-[#67e8f9] font-mono mt-0.5 whitespace-nowrap">
+              <div className="text-[clamp(8.5px,0.78vw,10.5px)] text-[#67e8f9] font-mono tabular-nums mt-0.5 whitespace-nowrap">
                 <b className="text-xs font-black text-white">{days}</b> days to go
               </div>
             </>
           ) : (
             <>
-              <div className="font-heading text-xs sm:text-sm font-bold text-white whitespace-nowrap leading-tight">
+              <div className="font-heading text-[clamp(11px,0.88vw,13.5px)] font-bold text-white truncate leading-tight">
                 All Targets Clear
               </div>
-              <div className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">No exams on the horizon</div>
+              <div className="text-[clamp(8.5px,0.78vw,10.5px)] text-slate-400 mt-0.5 truncate">No exams on the horizon</div>
             </>
           )}
         </div>

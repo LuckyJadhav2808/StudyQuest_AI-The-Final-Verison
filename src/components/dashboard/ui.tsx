@@ -71,7 +71,7 @@ export function PanelHeader({
   tag,
   sub,
   right,
-  size = 36,
+  size = 30,
   tagAlways,
 }: {
   icon: LucideIcon | React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
@@ -84,12 +84,12 @@ export function PanelHeader({
   tagAlways?: boolean;
 }) {
   return (
-    <header className="flex shrink-0 items-center justify-between gap-2">
-      <div className="flex items-center gap-2 min-w-0">
+    <header className="flex shrink-0 items-center justify-between gap-1.5 sm:gap-2 w-full min-w-0">
+      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
         <IconTile icon={icon} tone={tone} size={size} />
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <h2 className="font-heading whitespace-nowrap text-xs sm:text-sm font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+            <h2 className="font-heading text-[clamp(0.75rem,0.95vw,1.15rem)] font-bold tracking-tight text-slate-900 dark:text-white leading-tight truncate">
               {title}
             </h2>
             {tag && (
@@ -98,16 +98,16 @@ export function PanelHeader({
               </span>
             )}
           </div>
-          {sub && <p className="truncate text-[9px] sm:text-[10px] font-medium text-[var(--tone-text)] opacity-90 leading-none mt-0.5">{sub}</p>}
+          {sub && <p className="truncate text-[clamp(8px,0.72vw,10.5px)] font-normal text-slate-400 dark:text-slate-400/80 leading-none mt-0.5">{sub}</p>}
         </div>
       </div>
-      {right && <div className="shrink-0 flex items-center">{right}</div>}
+      {right && <div className="shrink-0 flex items-center ml-auto">{right}</div>}
     </header>
   );
 }
 
 export function Chip({ tone, children, className = "" }: { tone: Tone; children: ReactNode; className?: string }) {
-  return <span className={`chip tone-${tone} ${className}`}>{children}</span>;
+  return <span className={`chip tone-${tone} inline-flex items-center justify-center leading-none align-middle font-mono ${className}`}>{children}</span>;
 }
 
 export function Btn({

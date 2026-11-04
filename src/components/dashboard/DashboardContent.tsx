@@ -6,8 +6,8 @@ import DashboardBentoGrid from '@/components/dashboard/DashboardBentoGrid';
 
 export default function DashboardContent() {
   return (
-    <PageTransition className="w-full h-full flex flex-col min-h-0 relative overflow-hidden">
-      <div className="w-full h-full flex flex-col select-none min-h-0 overflow-hidden relative">
+    <PageTransition className="w-full min-h-full flex flex-col min-h-0 relative">
+      <div className="w-full min-h-full flex flex-col select-none min-h-0 relative">
         {/* Living Atmospheric Aurora Nebulas matching Image 2 & 3 */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10">
           {/* Top-Left & Flow Station Nebula (Deep Violet / Iris) */}

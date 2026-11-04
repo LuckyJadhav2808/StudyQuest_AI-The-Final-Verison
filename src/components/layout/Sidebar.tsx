@@ -138,16 +138,16 @@ export default function Sidebar() {
   return (
     <>
       <aside
-        className="glass-bar w-14 sm:w-16 h-full flex flex-col justify-between py-2 sm:py-2.5 px-1.5 rounded-[26px] select-none relative z-30 overflow-hidden"
+        className="glass-bar w-14 sm:w-16 h-full flex flex-col justify-between py-1.5 sm:py-2 px-1 sm:px-1.5 rounded-[26px] select-none relative z-30 overflow-hidden min-h-0 sticky top-0 shrink-0"
         aria-label="Navigation Rail"
       >
         {/* Top: Questie Mascot (Living Owl Companion) */}
-        <div className="flex flex-col items-center flex-shrink-0 pb-1.5 border-b border-slate-200/80 dark:border-white/8">
+        <div className="flex flex-col items-center flex-shrink-0 pb-1 border-b border-slate-200/80 dark:border-white/8">
           <QuestieMascot collapsed={true} />
         </div>
 
-        {/* Middle: STRICT ZERO-SCROLL Pinned Rail with Safe-Bounds Dynamic Flexbox */}
-        <div className="flex-1 min-h-0 flex flex-col items-center justify-start py-1.5 space-y-1 sm:space-y-1.5 overflow-y-auto no-scrollbar overflow-x-hidden">
+        {/* Middle: Pinned Rail with Safe-Bounds Dynamic Flexbox & Short-Viewport Scroll */}
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-start py-1 space-y-1 sm:space-y-1.5 overflow-y-auto thin-scroll overflow-x-hidden">
           {pinnedItems.map((item, index) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
@@ -158,10 +158,10 @@ export default function Sidebar() {
               <div key={item.key} className="relative group flex items-center justify-center w-full shrink-0">
                 <Link
                   href={item.href}
-                  className={`relative flex items-center justify-center w-9 h-9 sm:w-9.5 sm:h-9.5 rounded-xl sm:rounded-2xl transition-all cursor-pointer shrink-0 ${
+                  className={`relative flex items-center justify-center w-8.5 h-8.5 sm:w-9.5 sm:h-9.5 rounded-xl sm:rounded-2xl transition-all cursor-pointer shrink-0 ${
                     isActive
                       ? 'bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-[0_0_20px_rgba(37,99,235,0.55)] ring-1 ring-white/30 font-bold'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-white hover:bg-blue-500/10 dark:hover:bg-white/[0.08]'
+                      : 'text-slate-400 dark:text-slate-200/80 hover:text-blue-500 dark:hover:text-white hover:bg-blue-500/10 dark:hover:bg-white/[0.1]'
                   }`}
                   aria-label={item.label}
                 >
@@ -198,10 +198,10 @@ export default function Sidebar() {
           })}
 
           {/* Dedicated "All Pages" App Hub Launcher Button */}
-          <div className="relative group flex items-center justify-center w-full pt-1.5 border-t border-slate-200/80 dark:border-white/8 mt-0.5 shrink-0">
+          <div className="relative group flex items-center justify-center w-full pt-1 border-t border-slate-200/80 dark:border-white/8 mt-0.5 shrink-0">
             <button
               onClick={() => setShowAllPagesModal(true)}
-              className="relative flex items-center justify-center w-9 h-9 sm:w-9.5 sm:h-9.5 rounded-xl sm:rounded-2xl bg-slate-100/80 dark:bg-white/[0.06] text-blue-600 dark:text-blue-400 hover:bg-blue-600 hover:text-white transition-all cursor-pointer shadow-xs group shrink-0"
+              className="relative flex items-center justify-center w-8.5 h-8.5 sm:w-9.5 sm:h-9.5 rounded-xl sm:rounded-2xl bg-slate-100/80 dark:bg-white/[0.06] text-blue-600 dark:text-blue-400 hover:bg-blue-600 hover:text-white transition-all cursor-pointer shadow-xs group shrink-0"
               aria-label="All Pages & Apps"
               title="All Pages & Apps"
             >
@@ -222,19 +222,19 @@ export default function Sidebar() {
         </div>
 
         {/* Bottom Area: Circular Profile Avatar in Sculpted Cradle & Quick Settings */}
-        <div className="pt-2 border-t border-slate-200/80 dark:border-white/8 flex flex-col items-center gap-1.5 flex-shrink-0">
+        <div className="pt-1.5 border-t border-slate-200/80 dark:border-white/8 flex flex-col items-center gap-1 sm:gap-1.5 flex-shrink-0">
           {/* Settings Icon Button */}
           <div className="relative group flex items-center justify-center w-full">
             <Link
               href="/settings"
-              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+              className={`w-8.5 h-8.5 sm:w-9.5 sm:h-9.5 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                 pathname === '/settings'
                   ? 'bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-[0_0_20px_rgba(37,99,235,0.55)] ring-1 ring-white/30'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-white hover:bg-blue-500/10 dark:hover:bg-white/[0.08]'
+                  : 'text-slate-400 dark:text-slate-200/80 hover:text-blue-500 dark:hover:text-white hover:bg-blue-500/10 dark:hover:bg-white/[0.1]'
               }`}
               aria-label="Settings"
             >
-              <HiCog size={18} className="transition-transform group-hover:rotate-45" />
+              <HiCog size={17} className="transition-transform group-hover:rotate-45" />
             </Link>
 
             {/* Settings Tooltip */}
@@ -248,7 +248,7 @@ export default function Sidebar() {
 
           {/* Circular Profile Avatar in Sculpted Circular Cradle */}
           <div className="relative w-full flex justify-center py-0.5" ref={profileMenuRef}>
-            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full p-0.5 bg-slate-100 dark:bg-white/[0.06] border border-blue-500/30 dark:border-white/10 flex items-center justify-center shadow-inner">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full p-0.5 bg-slate-100 dark:bg-white/[0.06] border border-blue-500/30 dark:border-white/10 flex items-center justify-center shadow-inner">
               <motion.button
                 onClick={() => setShowProfileMenu((prev) => !prev)}
                 whileHover={{ scale: 1.08 }}

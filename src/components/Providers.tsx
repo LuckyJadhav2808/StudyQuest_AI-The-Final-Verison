@@ -98,12 +98,12 @@ function MainContent({ children }: { children: React.ReactNode }) {
         {/* Horizontal Row: Floating Left Dock + Main Bento Grid */}
         <div className="flex-1 min-h-0 flex gap-2 sm:gap-2.5 md:gap-3 mt-2 overflow-hidden relative z-10">
           {!focusMode && (
-            <div className="hidden md:flex h-full flex-shrink-0">
+            <div className="hidden md:flex h-full flex-shrink-0 sticky top-0">
               <Sidebar />
             </div>
           )}
 
-          <main className="flex-1 min-w-0 h-full overflow-hidden flex flex-col min-h-0 relative">
+          <main className="flex-1 min-w-0 h-full overflow-y-auto thin-scroll flex flex-col min-h-0 relative pb-6 sm:pb-8 pr-1">
             {children}
           </main>
         </div>

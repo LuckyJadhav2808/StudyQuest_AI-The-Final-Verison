@@ -102,9 +102,9 @@ export function LoFiStation() {
   const totalDisplayTime = isMusicPlaying ? fmt(musicDuration) : fmt(240);
 
   return (
-    <Panel area="lofi" tone="iris" delay={480} className="!justify-center !py-1.5 sm:!py-2 overflow-hidden h-full">
-      {/* 56-Bar Animated Equalizer Backdrop */}
-      <div className="pointer-events-none absolute inset-x-4 bottom-0 flex h-8 items-end gap-[2px] opacity-35">
+    <Panel area="lofi" tone="iris" delay={480} className="!justify-center !py-2 sm:!py-2.5 overflow-hidden h-full relative">
+      {/* 56-Bar Animated Equalizer Backdrop - safely contained inside padding */}
+      <div className="pointer-events-none absolute inset-x-5 bottom-1 flex h-6 items-end gap-[2px] opacity-25 overflow-hidden">
         {Array.from({ length: 56 }).map((_, k) => (
           <span
             key={k}
@@ -121,11 +121,11 @@ export function LoFiStation() {
         ))}
       </div>
 
-      <div className="relative flex items-center gap-3">
+      <div className="relative flex items-center gap-2.5 sm:gap-3 w-full min-w-0">
         {/* Spinning Vinyl Record Disc */}
         <div
           onClick={() => setIsPlayerOpen(true)}
-          className="relative h-10 w-10 sm:h-11 sm:w-11 shrink-0 cursor-pointer group"
+          className="relative h-9 w-9 sm:h-10 sm:w-10 shrink-0 cursor-pointer group"
           title="Open Music Player"
         >
           <div
@@ -149,10 +149,10 @@ export function LoFiStation() {
 
         {/* Track Info & Scrubber Bar */}
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 min-w-0">
             <h3
               onClick={() => setIsPlayerOpen(true)}
-              className="font-heading truncate text-xs sm:text-sm font-bold text-white cursor-pointer hover:text-[#c4b5fd] transition-colors"
+              className="font-heading truncate text-[clamp(11px,0.92vw,13.5px)] font-bold text-white cursor-pointer hover:text-[#c4b5fd] transition-colors"
             >
               {trackTitle}
             </h3>
@@ -160,12 +160,12 @@ export function LoFiStation() {
               {trackChip}
             </Chip>
           </div>
-          <p className="truncate text-[10px] font-medium text-[#c4b5fd]">
+          <p className="truncate text-[clamp(9px,0.8vw,10.5px)] font-medium text-[#c4b5fd] mt-0.5">
             {trackSub}
           </p>
 
           {/* Scrubber */}
-          <div className="mt-1 flex items-center gap-1.5 text-[9px] font-mono tabular text-slate-400">
+          <div className="mt-1 flex items-center gap-1.5 text-[clamp(8px,0.75vw,9.5px)] font-mono tabular-nums text-slate-400">
             <span>{currentDisplayTime}</span>
             <div
               onClick={(e) => {
@@ -187,36 +187,36 @@ export function LoFiStation() {
         </div>
 
         {/* Player Controls */}
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
           <button
             onClick={handlePrev}
             aria-label="Previous"
-            className="raised tone-iris grid h-8 w-8 place-items-center rounded-xl text-slate-400 hover:text-white cursor-pointer"
+            className="raised tone-iris grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-xl text-slate-400 hover:text-white cursor-pointer"
           >
-            <SkipBack size={13} fill="currentColor" />
+            <SkipBack size={12} fill="currentColor" />
           </button>
           <button
             onClick={handleToggle}
             aria-label={isPlaying ? 'Pause' : 'Play'}
-            className="btn tone-iris !h-10 !w-10 !rounded-full !p-0 cursor-pointer shadow-[0_4px_0_#4c1d95,0_10px_20px_-4px_rgba(139,92,246,0.8)]"
+            className="btn tone-iris !h-8.5 !w-8.5 sm:!h-9.5 sm:!w-9.5 !rounded-full !p-0 cursor-pointer shadow-[0_4px_0_#4c1d95,0_10px_20px_-4px_rgba(139,92,246,0.8)]"
           >
             {isPlaying ? (
-              <Pause size={15} fill="currentColor" />
+              <Pause size={14} fill="currentColor" />
             ) : (
-              <Play size={15} fill="currentColor" className="ml-0.5" />
+              <Play size={14} fill="currentColor" className="ml-0.5" />
             )}
           </button>
           <button
             onClick={handleNext}
             aria-label="Next"
-            className="raised tone-iris grid h-8 w-8 place-items-center rounded-xl text-slate-400 hover:text-white cursor-pointer"
+            className="raised tone-iris grid h-7 w-7 sm:h-8 sm:w-8 place-items-center rounded-xl text-slate-400 hover:text-white cursor-pointer"
           >
-            <SkipForward size={13} fill="currentColor" />
+            <SkipForward size={12} fill="currentColor" />
           </button>
         </div>
 
         {/* Volume Slider */}
-        <div className="hidden shrink-0 items-center gap-1 text-slate-400 xl:flex">
+        <div className="hidden shrink-0 items-center gap-1 text-slate-400 2xl:flex">
           <Volume2 size={13} />
           <input
             aria-label="Volume"
@@ -225,8 +225,8 @@ export function LoFiStation() {
             max={1}
             step={0.01}
             value={vol}
-            onChange={(e) => setVol(+e.target.value)}
-            className="slider w-12 cursor-pointer"
+            onChange={(e) => setVol(parseFloat(e.target.value))}
+            className="slider w-12 xl:w-16 cursor-pointer"
           />
         </div>
       </div>
