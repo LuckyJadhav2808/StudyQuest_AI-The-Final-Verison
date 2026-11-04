@@ -104,41 +104,27 @@ export default function Header() {
         </div>
 
         {/* ============================================================
-            BAY 2: DYNAMIC SANCTUARY & DAILY CHEST BAY (CENTER)
+            BAY 2: DYNAMIC SANCTUARY GREETING (CENTER)
             ============================================================ */}
         <div className="hidden sm:flex flex-1 items-center justify-center min-w-0 max-w-lg mx-1.5">
-          {chestAvailable ? (
-            <motion.button
-              onClick={() => setShowChestModal(true)}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1 rounded-full bg-gradient-to-r from-amber-500/20 via-blue-500/20 to-indigo-500/20 hover:from-amber-500/30 hover:to-indigo-500/30 border border-amber-400/40 text-amber-700 dark:text-amber-200 shadow-xs cursor-pointer animate-pulse transition-all"
-              title="Click to claim your daily treasure chest"
-            >
-              <div className="w-3.5 h-3.5 rounded-full bg-amber-400/20 flex items-center justify-center text-amber-500">
-                <HiSparkles size={10} />
-              </div>
-              <span className="text-[10px] sm:text-[11px] font-bold tracking-wide truncate">
-                Daily Chest Ready — Claim Reward
-              </span>
-            </motion.button>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              onClick={() => setShowChestModal(true)}
-              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1 rounded-full bg-white/80 dark:bg-[#0C1226]/85 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:border-blue-500/40 cursor-pointer transition-all shadow-xs truncate"
-              title="Daily status and rewards"
-            >
-              <GreetingIcon size={12} className={greeting.iconColor} />
-              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-800 dark:text-slate-200 truncate">
-                {greeting.text}, {username}
-              </span>
-              <span className="hidden md:inline-block text-[9px] text-[var(--muted-foreground)] font-normal">
-                • Stay focused
-              </span>
-            </motion.div>
-          )}
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            onClick={() => setShowChestModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white/80 dark:bg-[#0C1226]/85 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:border-blue-500/40 cursor-pointer transition-all shadow-xs truncate"
+            title="Daily status and rewards"
+          >
+            <GreetingIcon size={12} className={greeting.iconColor} />
+            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-800 dark:text-slate-200 truncate">
+              {greeting.text}, {username}
+            </span>
+            <span className="text-[9px] text-[var(--muted-foreground)] font-normal">
+              · Stay focused
+            </span>
+            {chestAvailable && (
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse ml-0.5" title="Daily Chest Ready" />
+            )}
+          </motion.div>
         </div>
 
         {/* ============================================================

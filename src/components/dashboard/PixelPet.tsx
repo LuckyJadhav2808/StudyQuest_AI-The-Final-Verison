@@ -624,7 +624,7 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
   return (
     <>
       {/* Global Viewport Pet Wrapper — Non-blocking click-through for site content underneath */}
-      {petVisible && (
+      {petVisible && pathname !== '/' && (
         <div 
           className="fixed transition-all duration-300 ease-out z-30 select-none pointer-events-none"
           style={{
@@ -699,19 +699,21 @@ export default function PixelPet({ coins, addCoins }: PixelPetProps) {
         </div>
       )}
 
-      {/* Floating Companion Hub Launcher Button */}
-      <div className="fixed bottom-24 md:bottom-20 right-4 z-30">
-        <motion.button 
-          onClick={() => { setHudOpen(true); playClick(); }}
-          className="w-12 h-12 rounded-2xl shadow-2xl flex items-center justify-center transition-all relative z-[1002] border border-white/20 cursor-pointer bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-[0_8px_20px_rgba(99,102,241,0.4)]"
-          whileHover={{ scale: 1.08 }}
-          whileTap={{ scale: 0.92 }}
-          transition={{ type: 'spring', stiffness: 450, damping: 22 }}
-          title="Open Companion Hub"
-        >
-          <span className="text-xl">🐾</span>
-        </motion.button>
-      </div>
+      {/* Floating Companion Hub Launcher Button (hidden on main dashboard to prevent card overlap) */}
+      {pathname !== '/' && (
+        <div className="fixed bottom-24 md:bottom-20 right-4 z-30">
+          <motion.button 
+            onClick={() => { setHudOpen(true); playClick(); }}
+            className="w-12 h-12 rounded-2xl shadow-2xl flex items-center justify-center transition-all relative z-[1002] border border-white/20 cursor-pointer bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-[0_8px_20px_rgba(99,102,241,0.4)]"
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.92 }}
+            transition={{ type: 'spring', stiffness: 450, damping: 22 }}
+            title="Open Companion Hub"
+          >
+            <span className="text-xl">🐾</span>
+          </motion.button>
+        </div>
+      )}
 
       {/* Production-Grade Companion iOS Drawer & Quick-Dock */}
       <CompanionDrawer open={hudOpen} onOpenChange={setHudOpen} />

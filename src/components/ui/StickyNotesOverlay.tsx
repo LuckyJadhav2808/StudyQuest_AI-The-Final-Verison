@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiPlus, HiX, HiViewList, HiTrash, HiPencil } from 'react-icons/hi';
 import { useStickies, STICKY_COLORS } from '@/hooks/useStickies';
@@ -101,6 +102,7 @@ function StickyNoteCard({
  * StickyNotesOverlay — Global overlay with FAB + management panel
  */
 export default function StickyNotesOverlay() {
+  const pathname = usePathname();
   const { user } = useAuthContext();
   const { stickies, addSticky, updateSticky, deleteSticky } = useStickies();
   const [showPanel, setShowPanel] = useState(false);
@@ -216,40 +218,42 @@ export default function StickyNotesOverlay() {
         )}
       </AnimatePresence>
 
-      {/* FAB Buttons */}
-      <div className="fixed bottom-20 md:bottom-6 right-4 z-30 flex flex-col gap-2 items-end">
-        {/* View all panel button */}
-        {stickies.length > 0 && (
-          <motion.button
-            onClick={() => setShowPanel(true)}
-            className="w-10 h-10 rounded-xl bg-[var(--card-bg)] border-2 border-[var(--card-border)] hover:border-primary/40 text-[var(--muted-foreground)] hover:text-primary shadow-md flex items-center justify-center transition-all"
-            whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-            title="View all notes"
-            initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 1.2 }}
-          >
-            <HiViewList size={18} />
-          </motion.button>
-        )}
-
-        {/* Create new FAB */}
-        <motion.button
-          onClick={() => addSticky()}
-          className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-400 text-white shadow-lg flex items-center justify-center group relative"
-          style={{ boxShadow: '0 4px 0 rgba(217,119,6,0.4), 0 8px 20px rgba(245,158,11,0.25)' }}
-          whileHover={{ scale: 1.1, y: -2 }}
-          whileTap={{ scale: 0.9, y: 2 }}
-          title="Add sticky note"
-          initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', delay: 1 }}
-        >
-          <HiPlus size={22} />
-          <span className="absolute right-full mr-3 px-2.5 py-1 rounded-lg bg-[var(--card-bg)] border border-[var(--card-border)] text-xs font-bold text-[var(--foreground)] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-md">📌 Quick Note</span>
+      {/* FAB Buttons (hidden on main dashboard to prevent card overlap) */}
+      {pathname !== '/' && (
+        <div className="fixed bottom-20 md:bottom-6 right-4 z-30 flex flex-col gap-2 items-end">
+          {/* View all panel button */}
           {stickies.length > 0 && (
-            <span className="absolute -top-2 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-white shadow-sm">
-              {stickies.length}
-            </span>
+            <motion.button
+              onClick={() => setShowPanel(true)}
+              className="w-10 h-10 rounded-xl bg-[var(--card-bg)] border-2 border-[var(--card-border)] hover:border-primary/40 text-[var(--muted-foreground)] hover:text-primary shadow-md flex items-center justify-center transition-all"
+              whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+              title="View all notes"
+              initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 1.2 }}
+            >
+              <HiViewList size={18} />
+            </motion.button>
           )}
-        </motion.button>
-      </div>
+
+          {/* Create new FAB */}
+          <motion.button
+            onClick={() => addSticky()}
+            className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-400 text-white shadow-lg flex items-center justify-center group relative"
+            style={{ boxShadow: '0 4px 0 rgba(217,119,6,0.4), 0 8px 20px rgba(245,158,11,0.25)' }}
+            whileHover={{ scale: 1.1, y: -2 }}
+            whileTap={{ scale: 0.9, y: 2 }}
+            title="Add sticky note"
+            initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', delay: 1 }}
+          >
+            <HiPlus size={22} />
+            <span className="absolute right-full mr-3 px-2.5 py-1 rounded-lg bg-[var(--card-bg)] border border-[var(--card-border)] text-xs font-bold text-[var(--foreground)] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-md">📌 Quick Note</span>
+            {stickies.length > 0 && (
+              <span className="absolute -top-2 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-white shadow-sm">
+                {stickies.length}
+              </span>
+            )}
+          </motion.button>
+        </div>
+      )}
     </>
   );
 }

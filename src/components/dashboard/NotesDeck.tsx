@@ -1,98 +1,54 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowUpRight, Plus, SquarePen } from 'lucide-react';
 import { Btn, Chip, Panel, PanelHeader } from './ui';
 import { useNotes } from '@/hooks/useNotes';
-import { playClick, playXP } from '@/lib/sounds';
-import toast from 'react-hot-toast';
+import { playClick } from '@/lib/sounds';
 
-const GHOST_SCROLL_STARTERS = [
-  { id: 'ghost-1', title: 'Calculus III & Stokes Theorem', tag: 'Mathematics', desc: 'Vector surface integrals & flux divergence theorems', tone: 'iris' as const },
-  { id: 'ghost-2', title: 'Operating Systems & Concurrency', tag: 'Systems', desc: 'Deadlock avoidance, semaphores & virtual memory', tone: 'aqua' as const },
-  { id: 'ghost-3', title: 'Algorithms & Dynamic Programming', tag: 'CS', desc: 'Memoization tables, asymptotic bounds & recurrence', tone: 'plasma' as const },
+const BENCHMARK_CARDS = [
+  { id: 'deck-1', tag: 'AI', score: '10/10', title: 'AI Unit Test QB', sub: 'Scroll Vault', grad: 'from-[#4c2d9e] via-[#351a75] to-[#140b30]' },
+  { id: 'deck-2', tag: 'GENERAL', score: '10/13', title: 'Thermodynamics Sheet', sub: 'Physics · Ch.6', grad: 'from-[#125868] via-[#0c404d] to-[#052026]' },
+  { id: 'deck-3', tag: 'CHEM', score: '9/12', title: 'Organic Reactions Map', sub: 'Reaction Lab', grad: 'from-[#6e1534] via-[#4d0c23] to-[#260511]' },
 ];
-
-const GRAD: Record<string, string> = {
-  iris: 'from-blue-600/80 via-indigo-600/50 to-[#0A1024]',
-  aqua: 'from-sky-500/80 via-blue-600/40 to-[#0A1024]',
-  plasma: 'from-cyan-500/80 via-indigo-600/45 to-[#0A1024]',
-  solar: 'from-amber-500/80 via-orange-600/40 to-[#0A1024]',
-  mint: 'from-emerald-500/80 via-teal-600/40 to-[#0A1024]',
-};
 
 export function NotesDeck() {
   const router = useRouter();
-  const { notes, addNote } = useNotes();
+  const { notes } = useNotes();
   const [hover, setHover] = useState(false);
-  const [rotatedOrder, setRotatedOrder] = useState<number[]>([0, 1, 2]);
+  const [cards, setCards] = useState(BENCHMARK_CARDS);
 
-  // Combine real notes with ghost starters
-  const displayItems = useMemo(() => {
-    const real = notes.map((n, i) => ({
-      id: n.id,
-      title: n.title || 'Untitled Scroll',
-      tag: n.folder || 'Vault',
-      sub: new Date(n.updatedAt || n.createdAt || Date.now()).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-      score: 'Vault',
-      isGhost: false,
-      ghostData: null,
-      tone: (['iris', 'plasma', 'aqua', 'mint', 'solar'] as const)[i % 5],
-    }));
+  // If real notes exist, blend them into the cards while preserving the benchmark look
+  const visibleCards = React.useMemo(() => {
+    if (!notes || notes.length === 0) return cards;
+    return cards.map((c, i) => {
+      const real = notes[i];
+      if (!real) return c;
+      return {
+        ...c,
+        title: real.title || c.title,
+        tag: real.folder || c.tag,
+        sub: new Date(real.updatedAt || Date.now()).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      };
+    });
+  }, [notes, cards]);
 
-    const ghosts = GHOST_SCROLL_STARTERS.map((g) => ({
-      id: g.id,
-      title: g.title,
-      tag: g.tag,
-      sub: 'Template Starter',
-      score: '10/10',
-      isGhost: true,
-      ghostData: g,
-      tone: g.tone,
-    }));
-
-    return [...real, ...ghosts].slice(0, 3);
-  }, [notes]);
-
-  // Handle card click
-  const handleCardClick = async (item: typeof displayItems[0], cardIdx: number) => {
+  const handlePick = (index: number) => {
     playClick();
-    if (cardIdx !== 0) {
-      // Bring clicked card to front
-      setRotatedOrder((prev) => {
-        const copy = [...prev];
-        const [picked] = copy.splice(cardIdx, 1);
-        return [picked, ...copy];
-      });
+    if (index === 0) {
+      router.push('/notes');
       return;
     }
-
-    if (item.isGhost && item.ghostData) {
-      try {
-        const newId = await addNote({
-          title: item.ghostData.title,
-          content: `# ${item.ghostData.title}\n\n*${item.ghostData.desc}*\n\n## Core Concepts\n- Key theorem\n- High-yield summary\n`,
-          folder: 'General',
-          tags: [item.ghostData.tag.toLowerCase()],
-        });
-        playXP();
-        toast.success('Study scroll crafted!');
-        if (newId) router.push(`/notes?id=${newId}`);
-        else router.push('/notes');
-      } catch {
-        router.push('/notes');
-      }
-    } else {
-      router.push(`/notes?id=${item.id}`);
-    }
+    setCards((prev) => {
+      const copy = [...prev];
+      const [picked] = copy.splice(index, 1);
+      return [picked, ...copy];
+    });
   };
 
-  // Reorder items according to rotatedOrder
-  const orderedItems = rotatedOrder.map((idx) => displayItems[idx % displayItems.length]);
-
   return (
-    <Panel area="notes" tone="plasma" delay={420} className="gap-2.5 justify-between">
+    <Panel area="notes" tone="plasma" delay={420} className="gap-2 sm:gap-2.5 justify-between h-full">
       <PanelHeader
         icon={SquarePen}
         tone="plasma"
@@ -110,31 +66,31 @@ export function NotesDeck() {
         }
       />
 
-      {/* 3D Diagonally Stacked Holographic Deck */}
+      {/* 3D Diagonally Stacked Holographic Deck matching Image 2 */}
       <div
-        className="relative min-h-[140px] sm:min-h-[160px] flex-1 overflow-hidden"
+        className="relative min-h-[145px] sm:min-h-[165px] flex-1 overflow-hidden"
         style={{ perspective: 900 }}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
       >
-        {[...orderedItems].reverse().map((item, ri) => {
-          const i = orderedItems.length - 1 - ri; // 0 = front card
+        {[...visibleCards].reverse().map((item, ri) => {
+          const i = visibleCards.length - 1 - ri; // 0 = front card
           const spread = hover ? 1.25 : 1;
-          const y = -i * 44 * spread;
-          const rot = -i * (hover ? 4.5 : 3);
+          const y = -i * 42 * spread;
+          const rot = -i * (hover ? 4.5 : 3.2);
           const x = i * (hover ? 10 : 5);
           const front = i === 0;
 
           return (
             <button
               key={item.id}
-              onClick={() => handleCardClick(item, i)}
-              className={`absolute inset-x-1 bottom-1 flex h-[min(48%,150px)] min-h-[105px] sm:min-h-[115px] flex-col justify-between overflow-hidden rounded-[20px] border bg-gradient-to-br p-3 sm:p-3.5 text-left transition-all ${
-                GRAD[item.tone] || GRAD.plasma
+              onClick={() => handlePick(i)}
+              className={`absolute inset-x-1 bottom-1 flex h-[min(48%,145px)] min-h-[105px] flex-col justify-between overflow-hidden rounded-[20px] border bg-gradient-to-br p-3.5 text-left transition-all ${
+                item.grad
               } ${
                 front
-                  ? 'cursor-pointer border-white/25 shadow-[0_18px_36px_-10px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.4)]'
-                  : 'cursor-pointer border-white/10 hover:border-white/30'
+                  ? 'cursor-pointer border-white/30 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.75),inset_0_1px_0_rgba(255,255,255,0.4)]'
+                  : 'cursor-pointer border-white/15 hover:border-white/35'
               }`}
               style={{
                 transform: `translate3d(${x}px, ${y}px, ${-i * 35}px) rotateX(14deg) rotateZ(${rot}deg) scale(${
@@ -142,15 +98,15 @@ export function NotesDeck() {
                 })`,
                 transformOrigin: '50% 100%',
                 transition: 'transform .55s cubic-bezier(.2,.9,.25,1.1), filter .3s, border-color .2s',
-                filter: front ? 'none' : `brightness(${1 - i * 0.14})`,
+                filter: front ? 'none' : `brightness(${1 - i * 0.15})`,
                 zIndex: 10 - i,
-                backgroundColor: '#0A1024',
+                backgroundColor: '#07091B',
               }}
             >
-              <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_0%,rgba(255,255,255,0.22),transparent_55%)]" />
+              <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_0%,rgba(255,255,255,0.24),transparent_55%)]" />
 
               <div className="relative flex items-center justify-between">
-                <span className="rounded-md border border-white/20 bg-black/40 px-2 py-0.5 text-[9px] font-bold tracking-wider text-white uppercase font-mono">
+                <span className="rounded-md border border-white/20 bg-black/45 px-2 py-0.5 text-[9px] font-bold tracking-wider text-white uppercase font-mono">
                   {item.tag}
                 </span>
                 <span className="text-[10px] font-mono font-bold text-white/80">{item.score}</span>
@@ -170,12 +126,12 @@ export function NotesDeck() {
         })}
       </div>
 
-      <footer className="flex shrink-0 items-center justify-between border-t border-slate-200/80 dark:border-white/8 pt-2">
-        <Chip tone="plasma">{notes.length} Scrolls Available</Chip>
+      <footer className="flex shrink-0 items-center justify-between border-t border-white/8 pt-2">
+        <Chip tone="plasma">{notes.length > 0 ? `${notes.length} SCROLLS AVAILABLE` : '6 SCROLLS AVAILABLE'}</Chip>
         <Btn
           tone="plasma"
           onClick={() => router.push('/notes')}
-          className="!px-2.5 !py-1 text-xs"
+          className="!px-3 !py-1 text-xs whitespace-nowrap"
         >
           <span>View All</span>
           <ArrowUpRight size={13} strokeWidth={3} />

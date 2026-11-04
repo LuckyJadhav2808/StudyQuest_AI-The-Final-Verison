@@ -3059,17 +3059,22 @@ div:has(> [role="status"]) {
   scrollbar-width: none !important;
 }
 
+/* Hide Next.js Dev Tool Portal Badge in UI Audits */
+nextjs-portal {
+  display: none !important;
+}
+
 /* ============================================================
    Modernized Dashboard Design System (Aurora Sapphire & Obsidian)
    12-Column × 5-Row Zero-Scroll Grid + Tactile 3D Glassmorphism
    ============================================================ */
 
-/* Tone definitions mapped to Electric Sapphire & Midnight Obsidian Glass */
-.tone-iris   { --tone: 37 99 235;  --on: #ffffff; --tone-text: #60a5fa; }
-.tone-plasma { --tone: 14 165 233;  --on: #ffffff; --tone-text: #38bdf8; }
-.tone-aqua   { --tone: 56 189 248;  --on: #03252e; --tone-text: #38bdf8; }
-.tone-solar  { --tone: 245 158 11;  --on: #2b1700; --tone-text: #fbbf24; }
-.tone-mint   { --tone: 16 185 129;  --on: #022a1d; --tone-text: #34d399; }
+/* Tone definitions mapped to Aurora Quest (Vivid Neon & Deep Space Void) */
+.tone-iris   { --tone: 139 92 246;  --on: #ffffff; --tone-text: #c4b5fd; --panel-bg: rgba(26, 16, 52, 0.82); }
+.tone-plasma { --tone: 236 72 153;  --on: #ffffff; --tone-text: #f9a8d4; --panel-bg: rgba(42, 14, 32, 0.82); }
+.tone-aqua   { --tone: 34 211 238;  --on: #03252e; --tone-text: #67e8f9; --panel-bg: rgba(8, 28, 40, 0.82); }
+.tone-solar  { --tone: 245 158 11;  --on: #2b1700; --tone-text: #fcd34d; --panel-bg: rgba(38, 22, 8, 0.82); }
+.tone-mint   { --tone: 16 185 129;  --on: #022a1d; --tone-text: #6ee7b7; --panel-bg: rgba(8, 30, 22, 0.82); }
 
 .thin-scroll {
   scrollbar-width: thin;
@@ -3127,16 +3132,16 @@ div:has(> [role="status"]) {
   position: relative;
   border-radius: 24px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   background:
-    radial-gradient(120% 90% at 0% 0%, rgb(var(--tone, 37 99 235) / 0.12), transparent 55%),
-    linear-gradient(145deg, rgba(15, 23, 46, 0.8), rgba(8, 13, 29, 0.88));
-  -webkit-backdrop-filter: blur(26px) saturate(160%);
-  backdrop-filter: blur(26px) saturate(160%);
+    radial-gradient(130% 95% at 0% 0%, rgb(var(--tone, 37 99 235) / 0.18), transparent 60%),
+    linear-gradient(145deg, var(--panel-bg, rgba(15, 23, 46, 0.82)), rgba(7, 10, 22, 0.92));
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  backdrop-filter: blur(28px) saturate(170%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    inset 0 -24px 44px -32px rgb(var(--tone, 37 99 235) / 0.35),
-    0 24px 48px -24px rgba(0, 0, 0, 0.6);
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -24px 44px -32px rgb(var(--tone, 37 99 235) / 0.4),
+    0 24px 48px -24px rgba(0, 0, 0, 0.65);
   transform: perspective(1500px) rotateX(var(--rx)) rotateY(var(--ry));
   transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.3s, box-shadow 0.3s;
 }
@@ -3177,12 +3182,12 @@ div:has(> [role="status"]) {
   content: "";
   position: absolute;
   top: 0;
-  left: 14%;
-  right: 14%;
-  height: 1.5px;
+  left: 10%;
+  right: 10%;
+  height: 2px;
   pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgb(var(--tone, 37 99 235) / 0.85), transparent);
-  opacity: 0.55;
+  background: linear-gradient(90deg, transparent, rgb(var(--tone, 37 99 235) / 0.9), transparent);
+  opacity: 0.75;
   filter: blur(0.3px);
   z-index: 1;
 }
@@ -3321,14 +3326,13 @@ div:has(> [role="status"]) {
 .orb {
   border-radius: 9999px;
   background:
-    radial-gradient(circle at 32% 22%, rgba(255, 255, 255, 0.22), transparent 38%),
-    radial-gradient(circle at 50% 120%, rgb(var(--tone, 37 99 235) / 0.35), transparent 60%),
-    linear-gradient(160deg, rgba(255, 255, 255, 0.08), rgba(4, 7, 18, 0.7));
-  border: 1px solid rgba(255, 255, 255, 0.1);
+    radial-gradient(circle at 35% 20%, rgba(255, 255, 255, 0.25), transparent 36%),
+    radial-gradient(circle at 50% 30%, #371b6d 0%, #1c0e3a 55%, #0b0618 100%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.15),
-    inset 0 -18px 40px -16px rgb(var(--tone, 37 99 235) / 0.5),
-    0 24px 50px -18px rgb(var(--tone, 37 99 235) / 0.55),
+    inset 0 2px 4px rgba(255, 255, 255, 0.35),
+    inset 0 -16px 36px rgba(139, 92, 246, 0.6),
+    0 24px 50px -15px rgba(139, 92, 246, 0.75),
     0 0 0 8px rgba(4, 7, 18, 0.5);
 }
 
