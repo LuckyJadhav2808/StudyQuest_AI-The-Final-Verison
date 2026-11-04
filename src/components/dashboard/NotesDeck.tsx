@@ -66,9 +66,9 @@ export function NotesDeck() {
         }
       />
 
-      {/* 3D Diagonally Stacked Holographic Deck matching Image 2 */}
+      {/* 3D Diagonally Stacked Holographic Deck matching Image 2 & 3 */}
       <div
-        className="relative min-h-[145px] sm:min-h-[165px] flex-1 overflow-hidden"
+        className="relative min-h-0 flex-1 overflow-hidden"
         style={{ perspective: 900 }}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}

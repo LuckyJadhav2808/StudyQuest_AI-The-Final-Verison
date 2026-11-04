@@ -83,9 +83,9 @@ export function StudyVelocity() {
       />
 
       {/* 7 Slender Vertical Pillars with Liquid Gradient Fill (Tall and Majestic like Image 2) */}
-      <div className="relative flex min-h-[90px] sm:min-h-[110px] flex-1 items-stretch justify-between gap-1.5 px-2 pt-3">
+      <div className="relative flex min-h-0 flex-1 items-stretch justify-between gap-1.5 px-2 pt-2">
         {/* Horizontal Dashed Goal Line */}
-        <div className="pointer-events-none absolute inset-x-2 top-[12%] border-t border-dashed border-[#10b981]/30">
+        <div className="pointer-events-none absolute inset-x-2 top-[10%] border-t border-dashed border-[#10b981]/30">
           <span className="absolute -top-2.5 right-1 rounded bg-[#10b981]/20 px-1.5 py-0.2 text-[8px] font-bold font-mono text-[#6ee7b7]">
             GOAL {DAILY_GOAL_MIN}m
           </span>
@@ -93,9 +93,9 @@ export function StudyVelocity() {
 
         {velocityData.map((col) => {
           return (
-            <div key={col.id} className="group relative flex min-w-0 flex-1 flex-col items-center justify-end gap-1.5">
+            <div key={col.id} className="group relative flex min-w-0 flex-1 flex-col items-center justify-end gap-1">
               {/* Slender Pillar Tube */}
-              <div className="well relative w-full max-w-[26px] h-full overflow-hidden rounded-full flex flex-col justify-end p-0.5">
+              <div className="well relative w-full max-w-[26px] flex-1 overflow-hidden rounded-full flex flex-col justify-end p-0.5">
                 <div
                   className={`w-full rounded-full transition-all duration-700 ${
                     col.mins === 0
@@ -115,7 +115,7 @@ export function StudyVelocity() {
 
               {/* Day Label */}
               <span
-                className={`text-[10px] font-bold font-mono ${
+                className={`text-[9px] sm:text-[10px] font-bold font-mono ${
                   col.isToday ? 'text-[#6ee7b7]' : 'text-slate-400'
                 }`}
               >
@@ -150,7 +150,7 @@ export function DailyChest() {
 
   return (
     <>
-      <Panel area="chest" tone="solar" delay={360} className="!justify-center py-2 sm:py-2.5 h-full">
+      <Panel area="chest" tone="solar" delay={360} className="!justify-center !py-1.5 sm:!py-2 h-full">
         <div className="flex items-center gap-3">
           <div className="relative shrink-0">
             {canClaim && (

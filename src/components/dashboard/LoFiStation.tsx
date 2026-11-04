@@ -102,7 +102,7 @@ export function LoFiStation() {
   const totalDisplayTime = isMusicPlaying ? fmt(musicDuration) : fmt(240);
 
   return (
-    <Panel area="lofi" tone="iris" delay={480} className="!justify-center py-2 sm:py-2.5 overflow-hidden h-full">
+    <Panel area="lofi" tone="iris" delay={480} className="!justify-center !py-1.5 sm:!py-2 overflow-hidden h-full">
       {/* 56-Bar Animated Equalizer Backdrop */}
       <div className="pointer-events-none absolute inset-x-4 bottom-0 flex h-8 items-end gap-[2px] opacity-35">
         {Array.from({ length: 56 }).map((_, k) => (
@@ -125,7 +125,7 @@ export function LoFiStation() {
         {/* Spinning Vinyl Record Disc */}
         <div
           onClick={() => setIsPlayerOpen(true)}
-          className="relative h-11 w-11 sm:h-12 sm:w-12 shrink-0 cursor-pointer group"
+          className="relative h-10 w-10 sm:h-11 sm:w-11 shrink-0 cursor-pointer group"
           title="Open Music Player"
         >
           <div

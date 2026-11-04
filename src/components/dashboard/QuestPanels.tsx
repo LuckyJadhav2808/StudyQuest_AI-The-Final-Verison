@@ -77,7 +77,7 @@ export function DailyQuests({ onOpenAddModal }: { onOpenAddModal?: () => void })
         }
       />
 
-      <div className="thin-scroll flex min-h-0 flex-1 flex-col justify-center gap-2 overflow-y-auto pr-0.5">
+      <div className="thin-scroll flex min-h-0 flex-1 flex-col justify-center gap-1.5 overflow-y-auto pr-0.5">
         {quickInput && (
           <form onSubmit={handleAddSubmit} className="flex items-center gap-1.5 p-1">
             <input
@@ -108,7 +108,7 @@ export function DailyQuests({ onOpenAddModal }: { onOpenAddModal?: () => void })
           <button
             key={q.id}
             onClick={() => handleToggle(q.id, q.completed)}
-            className={`raised tone-solar flex w-full items-center gap-3 rounded-2xl px-3.5 py-2.5 text-left cursor-pointer transition-all ${
+            className={`raised tone-solar flex w-full items-center gap-2.5 sm:gap-3 rounded-2xl px-3 py-2 text-left cursor-pointer transition-all ${
               q.completed ? 'is-active opacity-80' : ''
             }`}
           >
@@ -247,17 +247,17 @@ export function TargetMilestone() {
   }, [nextExam]);
 
   return (
-    <Panel area="tgt" tone="aqua" delay={300} className="gap-2 justify-between h-full">
+    <Panel area="tgt" tone="aqua" delay={300} className="gap-1.5 sm:gap-2 justify-between h-full !py-2 sm:!py-2.5">
       <PanelHeader
         icon={Crosshair}
         tone="aqua"
         title="Target Milestone"
         sub="Exam & Horizon Radar"
-        size={34}
+        size={32}
       />
-      <div className="flex min-h-0 flex-1 items-center gap-3">
+      <div className="flex min-h-0 flex-1 items-center gap-2.5">
         {/* Radar scope animation matching Image 2 */}
-        <div className="relative aspect-square h-full max-h-12 shrink-0 overflow-hidden rounded-full border border-[#22d3ee]/40 bg-[radial-gradient(circle,rgba(34,211,238,0.18),transparent_70%)] shadow-[0_0_18px_-2px_rgba(34,211,238,0.5)]">
+        <div className="relative aspect-square h-full max-h-10 sm:max-h-11 shrink-0 overflow-hidden rounded-full border border-[#22d3ee]/40 bg-[radial-gradient(circle,rgba(34,211,238,0.18),transparent_70%)] shadow-[0_0_18px_-2px_rgba(34,211,238,0.5)]">
           <div className="absolute inset-[22%] rounded-full border border-[#22d3ee]/30" />
           <div className="absolute inset-[42%] rounded-full border border-[#22d3ee]/30" />
           <div
@@ -274,19 +274,19 @@ export function TargetMilestone() {
         <div className="min-w-0 flex-1">
           {nextExam ? (
             <>
-              <div className="font-heading truncate text-xs sm:text-sm font-bold text-white">
+              <div className="font-heading truncate text-xs sm:text-sm font-bold text-white leading-tight">
                 {nextExam.subject || nextExam.title}
               </div>
-              <div className="text-[11px] text-[#67e8f9] font-mono">
-                <b className="text-sm font-black text-white">{days}</b> days to go
+              <div className="text-[10px] text-[#67e8f9] font-mono mt-0.5">
+                <b className="text-xs font-black text-white">{days}</b> days to go
               </div>
             </>
           ) : (
             <>
-              <div className="font-heading text-xs sm:text-sm font-bold text-white truncate">
+              <div className="font-heading text-xs sm:text-sm font-bold text-white truncate leading-tight">
                 All Targets Clear
               </div>
-              <div className="truncate text-[10px] text-slate-400">No exams on the horizon</div>
+              <div className="truncate text-[10px] text-slate-400 mt-0.5">No exams on the horizon</div>
             </>
           )}
         </div>

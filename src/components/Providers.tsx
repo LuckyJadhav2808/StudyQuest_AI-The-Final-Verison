@@ -80,6 +80,37 @@ function MainContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isWorkstationPage = pathname === '/notes' || pathname === '/reader' || pathname === '/whiteboard' || pathname === '/ide';
 
+  if (pathname === '/') {
+    return (
+      <div className="w-screen h-screen max-h-screen overflow-hidden relative flex flex-col p-2 sm:p-2.5 md:p-3 bg-gradient-to-b from-[#F0F4F8] via-[#E2E8F0] to-[#CBD5E1] dark:from-[#05060d] dark:via-[#090a18] dark:to-[#0f1126] select-none">
+        {/* Living atmospheric nebula blobs */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+          <div className="absolute -top-32 -left-20 h-[560px] w-[560px] rounded-full bg-[#8b5cf6]/28 blur-[95px] animate-pulse [animation-duration:9s]" />
+          <div className="absolute -top-24 left-[40%] h-[440px] w-[440px] rounded-full bg-[#f59e0b]/20 blur-[105px] animate-pulse [animation-duration:11s]" />
+          <div className="absolute -bottom-24 left-[35%] h-[480px] w-[480px] rounded-full bg-[#10b981]/22 blur-[105px] animate-pulse [animation-duration:8s]" />
+          <div className="absolute -top-16 -right-20 h-[520px] w-[520px] rounded-full bg-[#ec4899]/26 blur-[95px] animate-pulse [animation-duration:10s]" />
+          <div className="absolute -bottom-24 -right-20 h-[480px] w-[480px] rounded-full bg-[#22d3ee]/22 blur-[105px] animate-pulse [animation-duration:12s]" />
+        </div>
+
+        {/* Persistent Floating Top Header */}
+        {!focusMode && <Header />}
+
+        {/* Horizontal Row: Floating Left Dock + Main Bento Grid */}
+        <div className="flex-1 min-h-0 flex gap-2 sm:gap-2.5 md:gap-3 mt-2 overflow-hidden relative z-10">
+          {!focusMode && (
+            <div className="hidden md:flex h-full flex-shrink-0">
+              <Sidebar />
+            </div>
+          )}
+
+          <main className="flex-1 min-w-0 h-full overflow-hidden flex flex-col min-h-0 relative">
+            {children}
+          </main>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-screen h-screen max-h-screen overflow-hidden relative flex flex-col items-center justify-center p-1.5 sm:p-2.5 md:p-3 bg-gradient-to-b from-[#F0F4F8] via-[#E2E8F0] to-[#CBD5E1] dark:from-[#050811] dark:via-[#091124] dark:to-[#12162A]">
       {/* Twilight Horizon & Atmospheric Refraction (Reference Image Visual Canvas) */}

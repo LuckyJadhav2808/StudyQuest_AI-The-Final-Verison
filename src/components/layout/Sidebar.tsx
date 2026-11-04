@@ -138,7 +138,7 @@ export default function Sidebar() {
   return (
     <>
       <aside
-        className="w-14 sm:w-16 h-full flex flex-col justify-between py-2 sm:py-2.5 px-1.5 rounded-[26px] sm:rounded-[28px] bg-white/80 dark:bg-[#0A1023]/84 backdrop-blur-2xl border border-slate-300/80 dark:border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.15)] select-none relative z-30 overflow-hidden"
+        className="glass-bar w-14 sm:w-16 h-full flex flex-col justify-between py-2 sm:py-2.5 px-1.5 rounded-[26px] select-none relative z-30 overflow-hidden"
         aria-label="Navigation Rail"
       >
         {/* Top: Questie Mascot (Living Owl Companion) */}
