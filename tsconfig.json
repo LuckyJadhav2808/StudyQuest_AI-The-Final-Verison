@@ -39,6 +39,7 @@
   "exclude": [
     "node_modules",
     "scratch",
-    "src/data/datasets/**"
+    "src/data/datasets/**",
+    "modernize-dashboard-ui-and-ux"
   ]
 }
