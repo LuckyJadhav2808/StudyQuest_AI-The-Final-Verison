@@ -138,11 +138,11 @@ export default function Sidebar() {
   return (
     <>
       <aside
-        className="w-14 sm:w-16 h-full flex flex-col justify-between py-2 sm:py-2.5 px-1.5 rounded-[26px] sm:rounded-[28px] bg-white/75 dark:bg-[#111328]/70 backdrop-blur-2xl border-2 border-indigo-200/90 dark:border-white/14 shadow-[0_8px_32px_0_rgba(124,58,237,0.15),inset_0_1px_1.5px_0_rgba(255,255,255,0.3)] select-none relative z-30 overflow-hidden"
+        className="w-14 sm:w-16 h-full flex flex-col justify-between py-2 sm:py-2.5 px-1.5 rounded-[26px] sm:rounded-[28px] bg-white/80 dark:bg-[#0A1023]/84 backdrop-blur-2xl border border-slate-300/80 dark:border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.15)] select-none relative z-30 overflow-hidden"
         aria-label="Navigation Rail"
       >
         {/* Top: Questie Mascot (Living Owl Companion) */}
-        <div className="flex flex-col items-center flex-shrink-0 pb-1.5 border-b border-indigo-100/80 dark:border-white/10">
+        <div className="flex flex-col items-center flex-shrink-0 pb-1.5 border-b border-slate-200/80 dark:border-white/8">
           <QuestieMascot collapsed={true} />
         </div>
 
@@ -160,8 +160,8 @@ export default function Sidebar() {
                   href={item.href}
                   className={`relative flex items-center justify-center w-9 h-9 sm:w-9.5 sm:h-9.5 rounded-xl sm:rounded-2xl transition-all cursor-pointer shrink-0 ${
                     isActive
-                      ? 'bg-primary text-white shadow-md shadow-primary/30 font-bold ring-2 ring-primary/40'
-                      : 'text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-white hover:bg-indigo-50/70 dark:hover:bg-white/[0.08]'
+                      ? 'bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-[0_0_20px_rgba(37,99,235,0.55)] ring-1 ring-white/30 font-bold'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-white hover:bg-blue-500/10 dark:hover:bg-white/[0.08]'
                   }`}
                   aria-label={item.label}
                 >
@@ -170,7 +170,7 @@ export default function Sidebar() {
                   {/* Dynamic Active Sprint Tasks Counter Badge */}
                   {isTasksItem && activeTasksCount > 0 && (
                     <span
-                      className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-violet-600 dark:bg-violet-500 text-white text-[9px] font-mono font-black flex items-center justify-center shadow-md border-2 border-white dark:border-[#111328] pointer-events-none"
+                      className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-blue-600 text-white text-[9px] font-mono font-black flex items-center justify-center shadow-md border-2 border-white dark:border-[#0A1023] pointer-events-none"
                       title={`${activeTasksCount} Active Quests`}
                     >
                       {activeTasksCount > 99 ? '99+' : activeTasksCount}
@@ -181,10 +181,10 @@ export default function Sidebar() {
                 {/* Precision Floating Hover Tooltip with Hotkey Hint */}
                 <div
                   role="tooltip"
-                  className="pointer-events-none absolute left-full ml-3 px-3 py-1.5 rounded-xl bg-slate-900/95 dark:bg-[#161936]/95 border border-slate-700/80 dark:border-white/15 text-white text-[11px] font-semibold tracking-wide whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-150 shadow-2xl backdrop-blur-md z-50 hidden sm:flex items-center gap-2"
+                  className="pointer-events-none absolute left-full ml-3 px-3 py-1.5 rounded-xl bg-slate-900/95 dark:bg-[#0C1226]/95 border border-slate-700/80 dark:border-white/15 text-white text-[11px] font-semibold tracking-wide whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-150 shadow-2xl backdrop-blur-md z-50 hidden sm:flex items-center gap-2"
                 >
                   <span>{item.label}</span>
-                  <span className="text-[9px] font-bold text-primary dark:text-primary-light font-mono uppercase tracking-wider px-1.5 py-0.2 rounded bg-primary/10">
+                  <span className="text-[9px] font-bold text-blue-500 dark:text-blue-400 font-mono uppercase tracking-wider px-1.5 py-0.2 rounded bg-blue-500/10">
                     {item.category}
                   </span>
                   {shortcutNum && (
@@ -198,10 +198,10 @@ export default function Sidebar() {
           })}
 
           {/* Dedicated "All Pages" App Hub Launcher Button */}
-          <div className="relative group flex items-center justify-center w-full pt-1.5 border-t border-indigo-100/60 dark:border-white/10 mt-0.5 shrink-0">
+          <div className="relative group flex items-center justify-center w-full pt-1.5 border-t border-slate-200/80 dark:border-white/8 mt-0.5 shrink-0">
             <button
               onClick={() => setShowAllPagesModal(true)}
-              className="relative flex items-center justify-center w-9 h-9 sm:w-9.5 sm:h-9.5 rounded-xl sm:rounded-2xl bg-indigo-50/80 dark:bg-white/[0.06] text-primary dark:text-primary-light hover:bg-primary hover:text-white transition-all cursor-pointer shadow-xs group shrink-0"
+              className="relative flex items-center justify-center w-9 h-9 sm:w-9.5 sm:h-9.5 rounded-xl sm:rounded-2xl bg-slate-100/80 dark:bg-white/[0.06] text-blue-600 dark:text-blue-400 hover:bg-blue-600 hover:text-white transition-all cursor-pointer shadow-xs group shrink-0"
               aria-label="All Pages & Apps"
               title="All Pages & Apps"
             >
@@ -211,7 +211,7 @@ export default function Sidebar() {
             {/* Tooltip for All Pages */}
             <div
               role="tooltip"
-              className="pointer-events-none absolute left-full ml-3 px-3 py-1.5 rounded-xl bg-slate-900/95 dark:bg-[#161936]/95 border border-slate-700/80 dark:border-white/15 text-white text-[11px] font-semibold tracking-wide whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-150 shadow-2xl backdrop-blur-md z-50 hidden sm:flex items-center gap-2"
+              className="pointer-events-none absolute left-full ml-3 px-3 py-1.5 rounded-xl bg-slate-900/95 dark:bg-[#0C1226]/95 border border-slate-700/80 dark:border-white/15 text-white text-[11px] font-semibold tracking-wide whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-150 shadow-2xl backdrop-blur-md z-50 hidden sm:flex items-center gap-2"
             >
               <span>All Pages & Apps</span>
               <span className="text-[9px] font-mono text-emerald-400 font-bold uppercase">
@@ -222,15 +222,15 @@ export default function Sidebar() {
         </div>
 
         {/* Bottom Area: Circular Profile Avatar in Sculpted Cradle & Quick Settings */}
-        <div className="pt-2 border-t border-indigo-100/80 dark:border-white/10 flex flex-col items-center gap-1.5 flex-shrink-0">
+        <div className="pt-2 border-t border-slate-200/80 dark:border-white/8 flex flex-col items-center gap-1.5 flex-shrink-0">
           {/* Settings Icon Button */}
           <div className="relative group flex items-center justify-center w-full">
             <Link
               href="/settings"
               className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                 pathname === '/settings'
-                  ? 'bg-primary text-white shadow-md shadow-primary/25'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-primary dark:hover:text-white hover:bg-indigo-50/70 dark:hover:bg-white/[0.08]'
+                  ? 'bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-[0_0_20px_rgba(37,99,235,0.55)] ring-1 ring-white/30'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-white hover:bg-blue-500/10 dark:hover:bg-white/[0.08]'
               }`}
               aria-label="Settings"
             >
@@ -240,7 +240,7 @@ export default function Sidebar() {
             {/* Settings Tooltip */}
             <div
               role="tooltip"
-              className="pointer-events-none absolute left-full ml-3 px-2.5 py-1 rounded-xl bg-slate-900/95 dark:bg-[#161936]/95 border border-slate-700/80 dark:border-white/15 text-white text-[11px] font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-xl z-50 hidden sm:block"
+              className="pointer-events-none absolute left-full ml-3 px-2.5 py-1 rounded-xl bg-slate-900/95 dark:bg-[#0C1226]/95 border border-slate-700/80 dark:border-white/15 text-white text-[11px] font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-xl z-50 hidden sm:block"
             >
               Settings
             </div>
@@ -248,12 +248,12 @@ export default function Sidebar() {
 
           {/* Circular Profile Avatar in Sculpted Circular Cradle */}
           <div className="relative w-full flex justify-center py-0.5" ref={profileMenuRef}>
-            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full p-0.5 bg-indigo-100/60 dark:bg-white/[0.06] border-2 border-primary/30 flex items-center justify-center shadow-inner">
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full p-0.5 bg-slate-100 dark:bg-white/[0.06] border border-blue-500/30 dark:border-white/10 flex items-center justify-center shadow-inner">
               <motion.button
                 onClick={() => setShowProfileMenu((prev) => !prev)}
                 whileHover={{ scale: 1.08 }}
                 whileTap={{ scale: 0.94 }}
-                className="w-full h-full rounded-full border-2 border-primary/80 hover:border-primary overflow-hidden bg-white dark:bg-[#111328] flex items-center justify-center cursor-pointer shadow-md transition-all group"
+                className="w-full h-full rounded-full border border-blue-500/80 hover:border-blue-400 overflow-hidden bg-white dark:bg-[#0A1023] flex items-center justify-center cursor-pointer shadow-md transition-all group"
                 title="User Profile & Settings"
                 aria-label="Open profile menu"
               >
@@ -278,11 +278,11 @@ export default function Sidebar() {
                   initial={{ opacity: 0, scale: 0.9, x: 8 }}
                   animate={{ opacity: 1, scale: 1, x: 0 }}
                   exit={{ opacity: 0, scale: 0.9, x: 8 }}
-                  className="absolute bottom-0 left-full ml-3 w-56 p-3 rounded-2xl bg-white dark:bg-[#111328] border-2 border-indigo-100 dark:border-white/15 shadow-2xl backdrop-blur-xl z-50 flex flex-col gap-2.5 select-text"
+                  className="absolute bottom-0 left-full ml-3 w-56 p-3 rounded-2xl bg-white/95 dark:bg-[#0C1226]/95 border border-slate-200 dark:border-white/12 shadow-2xl backdrop-blur-xl z-50 flex flex-col gap-2.5 select-text"
                 >
                   {/* User Info Header */}
-                  <div className="flex items-center gap-2.5 pb-2 border-b border-indigo-100 dark:border-white/10">
-                    <div className="w-9 h-9 rounded-full overflow-hidden bg-primary flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                  <div className="flex items-center gap-2.5 pb-2 border-b border-slate-200/80 dark:border-white/10">
+                    <div className="w-9 h-9 rounded-full overflow-hidden bg-blue-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                       {avatarUrl ? (
                         <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                       ) : (
@@ -300,7 +300,7 @@ export default function Sidebar() {
                   </div>
 
                   {/* Level / Title Capsule */}
-                  <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-indigo-50/50 dark:bg-white/[0.04] border border-indigo-100 dark:border-white/10 text-[11px]">
+                  <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-slate-100/70 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/10 text-[11px]">
                     <span className="font-semibold text-amber-500">Level {gamification?.level || 1}</span>
                     <span className="text-[var(--muted-foreground)] font-mono">{gamification?.xp?.toLocaleString() || 0} XP</span>
                   </div>
@@ -312,7 +312,7 @@ export default function Sidebar() {
                         setShowProfileMenu(false);
                         setShowAllPagesModal(true);
                       }}
-                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-white hover:bg-indigo-50/70 dark:hover:bg-white/10 transition-colors text-left cursor-pointer"
+                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:text-blue-500 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/10 transition-colors text-left cursor-pointer"
                     >
                       <HiSquares2X2 size={15} />
                       <span>All Pages & Customizer</span>
@@ -321,7 +321,7 @@ export default function Sidebar() {
                     <Link
                       href="/settings"
                       onClick={() => setShowProfileMenu(false)}
-                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-white hover:bg-indigo-50/70 dark:hover:bg-white/10 transition-colors"
+                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 hover:text-blue-500 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/10 transition-colors"
                     >
                       <HiCog size={15} />
                       <span>Settings & Preferences</span>

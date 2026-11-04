@@ -72,15 +72,15 @@ export default function Header() {
             BAY 1: BRAND ANCHOR PILL (LEFT)
             ============================================================ */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <div className="flex items-center gap-1 p-0.5 sm:p-1 rounded-full bg-white/80 dark:bg-[#111328]/75 backdrop-blur-xl border-2 border-indigo-200/90 dark:border-white/14 shadow-[0_4px_16px_rgba(0,0,0,0.12),inset_0_1px_1px_rgba(255,255,255,0.25)]">
+          <div className="flex items-center gap-1 p-0.5 sm:p-1 rounded-full bg-white/80 dark:bg-[#0C1226]/85 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 shadow-[0_4px_16px_rgba(0,0,0,0.35),inset_0_1px_1px_rgba(255,255,255,0.14)]">
             <motion.div
               onClick={() => router.push('/')}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full hover:bg-indigo-50/60 dark:hover:bg-white/[0.08] cursor-pointer transition-all group"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full hover:bg-slate-100/70 dark:hover:bg-white/[0.08] cursor-pointer transition-all group"
               title="StudyQuest Dashboard"
             >
-              <div className="w-4.5 h-4.5 sm:w-5 sm:h-5 rounded-md bg-gradient-to-tr from-primary to-secondary flex items-center justify-center text-white shadow-2xs">
+              <div className="w-4.5 h-4.5 sm:w-5 sm:h-5 rounded-md bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-[0_0_12px_rgba(37,99,235,0.4)]">
                 <HiSparkles size={11} className="group-hover:rotate-12 transition-transform duration-300" />
               </div>
               <span className="text-xs font-heading font-black tracking-wide text-gradient whitespace-nowrap">
@@ -91,12 +91,12 @@ export default function Header() {
             {/* Quick Search Shortcut Pill */}
             <button
               onClick={openCommandPalette}
-              className="hidden xl:flex items-center gap-1 px-2 py-0.5 rounded-full border border-indigo-100 dark:border-white/10 bg-indigo-50/50 dark:bg-white/[0.04] hover:border-primary/50 hover:bg-primary/5 text-[10px] text-[var(--muted-foreground)] hover:text-primary transition-all cursor-pointer shadow-2xs mr-0.5"
+              className="hidden xl:flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200/80 dark:border-white/8 bg-slate-100/70 dark:bg-white/[0.04] hover:border-blue-500/50 hover:bg-blue-500/5 text-[10px] text-[var(--muted-foreground)] hover:text-blue-500 transition-all cursor-pointer shadow-2xs mr-0.5"
               title="Search or Ask Questie (Ctrl+K)"
             >
-              <HiSearch size={11} className="text-primary/70" />
+              <HiSearch size={11} className="text-blue-500/70" />
               <span>Search</span>
-              <kbd className="px-1 py-0.2 rounded bg-white dark:bg-white/10 text-[8px] font-mono border border-indigo-100 dark:border-white/10 text-[var(--muted-foreground)]">
+              <kbd className="px-1 py-0.2 rounded bg-white dark:bg-white/10 text-[8px] font-mono border border-slate-200/80 dark:border-white/8 text-[var(--muted-foreground)]">
                 Ctrl+K
               </kbd>
             </button>
@@ -112,7 +112,7 @@ export default function Header() {
               onClick={() => setShowChestModal(true)}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
-              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1 rounded-full bg-gradient-to-r from-amber-500/20 via-primary/20 to-secondary/20 hover:from-amber-500/30 hover:to-secondary/30 border-2 border-amber-400/40 text-amber-700 dark:text-amber-200 shadow-xs cursor-pointer animate-pulse transition-all"
+              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1 rounded-full bg-gradient-to-r from-amber-500/20 via-blue-500/20 to-indigo-500/20 hover:from-amber-500/30 hover:to-indigo-500/30 border border-amber-400/40 text-amber-700 dark:text-amber-200 shadow-xs cursor-pointer animate-pulse transition-all"
               title="Click to claim your daily treasure chest"
             >
               <div className="w-3.5 h-3.5 rounded-full bg-amber-400/20 flex items-center justify-center text-amber-500">
@@ -127,7 +127,7 @@ export default function Header() {
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               onClick={() => setShowChestModal(true)}
-              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1 rounded-full bg-white dark:bg-[#111328] border-2 border-indigo-200/90 dark:border-white/12 text-slate-700 dark:text-slate-200 hover:border-primary/40 cursor-pointer transition-all shadow-xs truncate"
+              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1 rounded-full bg-white/80 dark:bg-[#0C1226]/85 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:border-blue-500/40 cursor-pointer transition-all shadow-xs truncate"
               title="Daily status and rewards"
             >
               <GreetingIcon size={12} className={greeting.iconColor} />
@@ -145,15 +145,15 @@ export default function Header() {
             BAY 3: UNIFIED COCKPIT CONTROL TRAY (RIGHT)
             Sculpted outer tray enclosing HUD pill and circular action buttons
             ============================================================ */}
-        <div className="flex items-center gap-1 p-0.5 sm:p-1 rounded-full bg-indigo-50/70 dark:bg-[#161838]/70 backdrop-blur-xl border-2 border-indigo-200/90 dark:border-white/14 shadow-[0_4px_16px_rgba(0,0,0,0.12),inset_0_1px_1px_rgba(255,255,255,0.25)] flex-shrink-0">
+        <div className="flex items-center gap-1 p-0.5 sm:p-1 rounded-full bg-white/80 dark:bg-[#0C1226]/85 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 shadow-[0_4px_16px_rgba(0,0,0,0.35),inset_0_1px_1px_rgba(255,255,255,0.14)] flex-shrink-0">
           {/* Elongated Status HUD Inner Pill (Streak, Coins, XP) */}
-          <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 rounded-full bg-white/90 dark:bg-[#111328]/85 backdrop-blur-md border border-indigo-100 dark:border-white/10 shadow-2xs">
+          <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 rounded-full bg-slate-50/90 dark:bg-[#080D1D]/90 backdrop-blur-md border border-slate-200/60 dark:border-white/8 shadow-2xs">
             {/* Streak Counter */}
             {gamification && (
               <StreakCounter streak={gamification.streak} size="sm" />
             )}
 
-            <div className="h-2.5 w-[1px] bg-indigo-100 dark:bg-white/15 hidden sm:block" />
+            <div className="h-2.5 w-[1px] bg-slate-200 dark:bg-white/12 hidden sm:block" />
 
             {/* Coins Balance */}
             <motion.button
@@ -173,14 +173,14 @@ export default function Header() {
               </span>
             </motion.button>
 
-            <div className="h-2.5 w-[1px] bg-indigo-100 dark:bg-white/15 hidden sm:block" />
+            <div className="h-2.5 w-[1px] bg-slate-200 dark:bg-white/12 hidden sm:block" />
 
             {/* XP / Level Indicator */}
             {gamification && (
               <motion.div
                 onClick={() => router.push('/analytics')}
                 whileHover={{ scale: 1.05 }}
-                className="flex items-center gap-1 text-[10px] font-bold text-primary dark:text-primary-light font-mono tabular-nums cursor-pointer"
+                className="flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 font-mono tabular-nums cursor-pointer"
                 title={`Level ${gamification.level} (${gamification.xp?.toLocaleString() || 0} XP)`}
               >
                 <HiLightningBolt size={11} className="text-amber-400" />
@@ -199,7 +199,7 @@ export default function Header() {
             onClick={toggleTheme}
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
-            className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full bg-white/90 dark:bg-[#111328]/85 backdrop-blur-md hover:bg-indigo-50/70 dark:hover:bg-white/[0.08] border border-indigo-100 dark:border-white/10 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-primary transition-all cursor-pointer shadow-2xs"
+            className="w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full bg-slate-50/90 dark:bg-[#080D1D]/90 backdrop-blur-md hover:bg-slate-100 dark:hover:bg-white/[0.08] border border-slate-200/60 dark:border-white/8 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-blue-500 transition-all cursor-pointer shadow-2xs"
             title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             aria-label="Toggle theme"
           >
@@ -212,7 +212,7 @@ export default function Header() {
               onClick={toggleFullscreen}
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.92 }}
-              className="hidden md:flex w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full bg-white/90 dark:bg-[#111328]/85 backdrop-blur-md hover:bg-indigo-50/70 dark:hover:bg-white/[0.08] border border-indigo-100 dark:border-white/10 items-center justify-center text-slate-700 dark:text-slate-300 hover:text-primary transition-all cursor-pointer shadow-2xs"
+              className="hidden md:flex w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full bg-slate-50/90 dark:bg-[#080D1D]/90 backdrop-blur-md hover:bg-slate-100 dark:hover:bg-white/[0.08] border border-slate-200/60 dark:border-white/8 items-center justify-center text-slate-700 dark:text-slate-300 hover:text-blue-500 transition-all cursor-pointer shadow-2xs"
               title={isFullscreen ? 'Exit Immersion Mode' : 'Enter Immersion Mode'}
               aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
             >
@@ -225,13 +225,13 @@ export default function Header() {
             onClick={() => setShowNotifications(true)}
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
-            className="relative w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full bg-white/90 dark:bg-[#111328]/85 backdrop-blur-md hover:bg-indigo-50/70 dark:hover:bg-white/[0.08] border border-indigo-100 dark:border-white/10 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-primary transition-all cursor-pointer shadow-2xs"
+            className="relative w-6.5 h-6.5 sm:w-7 sm:h-7 rounded-full bg-slate-50/90 dark:bg-[#080D1D]/90 backdrop-blur-md hover:bg-slate-100 dark:hover:bg-white/[0.08] border border-slate-200/60 dark:border-white/8 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-blue-500 transition-all cursor-pointer shadow-2xs"
             title="Activity & Notifications"
             aria-label="Notifications"
           >
             <HiBell size={14} />
             {incomingRequests.length > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-coral text-white text-[8px] font-bold flex items-center justify-center shadow-xs">
+              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-rose-500 text-white text-[8px] font-bold flex items-center justify-center shadow-xs">
                 {incomingRequests.length}
               </span>
             )}
