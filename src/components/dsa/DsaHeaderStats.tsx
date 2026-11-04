@@ -31,7 +31,7 @@ export default function DsaHeaderStats({
   return (
     <div className="space-y-6">
       {/* Top Banner */}
-      <div className="bg-gradient-to-r from-primary/10 via-purple-500/5 to-cyan-500/10 border border-primary/20 p-6 rounded-2xl">
+      <div className="bg-gradient-to-r from-blue-600/10 via-primary/5 to-cyan-500/10 border border-primary/20 p-6 rounded-2xl">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-2xl">⚔️</span>
           <h1 className="text-2xl font-heading font-black tracking-tight text-[var(--foreground)]">
@@ -130,7 +130,7 @@ export default function DsaHeaderStats({
             <span className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
               Study Strategy
             </span>
-            <HiAcademicCap className="text-purple-400 text-xl" />
+            <HiAcademicCap className="text-blue-400 text-xl" />
           </div>
           <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
             Follow the <strong className="text-[var(--foreground)]">Two-Pointer & Sliding Window</strong> strategy for Array patterns before advancing to Graph DFS and Dynamic Programming.

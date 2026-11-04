@@ -260,7 +260,7 @@ export default function ZenMode({
             }}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               viewMode === 'defense'
-                ? 'bg-purple-500/20 border border-purple-500/30 text-purple-200 shadow-sm shadow-purple-500/20'
+                ? 'bg-blue-500/20 border border-blue-500/30 text-blue-200 shadow-sm shadow-blue-500/20'
                 : 'text-white/50 hover:text-white'
             }`}
           >
@@ -465,7 +465,7 @@ export default function ZenMode({
       >
         <button
           onClick={() => setIsPlayerOpen(true)}
-          className="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 hover:scale-105 active:scale-95 transition-all overflow-hidden flex-shrink-0 cursor-pointer"
+          className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-300 hover:scale-105 active:scale-95 transition-all overflow-hidden flex-shrink-0 cursor-pointer"
           title="Open Music Player"
         >
           {currentTrack?.image ? (
@@ -533,7 +533,7 @@ export default function ZenMode({
                 max="100"
                 value={isMuted ? 0 : volume}
                 onChange={(e) => setVolume(Number(e.target.value))}
-                className="w-20 accent-purple-500 cursor-pointer h-1.5 rounded-lg"
+                className="w-20 accent-blue-500 cursor-pointer h-1.5 rounded-lg"
               />
             </div>
           )}

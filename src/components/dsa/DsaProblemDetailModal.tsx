@@ -365,7 +365,7 @@ export default function DsaProblemDetailModal({
                     onClick={() => setActiveLeftTab('approaches')}
                     className={`px-3 py-2 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                       activeLeftTab === 'approaches'
-                        ? 'border-purple-500 text-purple-400'
+                        ? 'border-blue-500 text-blue-400'
                         : 'border-transparent text-slate-400 hover:text-slate-200'
                     }`}
                   >
@@ -533,7 +533,7 @@ export default function DsaProblemDetailModal({
                     onClick={() => setActiveLeftTab('approaches')}
                     className={`px-4 py-2 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
                       activeLeftTab === 'approaches'
-                        ? 'border-purple-500 text-purple-400'
+                        ? 'border-blue-500 text-blue-400'
                         : 'border-transparent text-slate-400 hover:text-slate-200'
                     }`}
                   >
@@ -774,7 +774,7 @@ function renderApproaches(
                 onClick={() => setApproachIdx(idx)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                   approachIdx === idx
-                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/40 border border-purple-400/30'
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40 border border-blue-400/30'
                     : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 border border-transparent'
                 }`}
               >
@@ -798,7 +798,7 @@ function renderApproaches(
           <button
             onClick={onRefreshSolutions}
             disabled={isRefreshing}
-            className="px-2.5 py-1 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
+            className="px-2.5 py-1 rounded-lg bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border border-blue-500/30 text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
             title="Fetch full working solutions from repository"
           >
             <HiSparkles className={isRefreshing ? 'animate-spin text-amber-300' : 'text-amber-300'} />
@@ -815,8 +815,8 @@ function renderApproaches(
 
       <div className="space-y-6">
         {/* Core Intuition & Strategy Card */}
-        <div className="bg-purple-500/10 border border-purple-500/20 p-5 rounded-2xl space-y-2">
-          <div className="flex items-center gap-2 text-[11px] font-bold text-purple-400 uppercase tracking-wider">
+        <div className="bg-blue-500/10 border border-blue-500/20 p-5 rounded-2xl space-y-2">
+          <div className="flex items-center gap-2 text-[11px] font-bold text-blue-400 uppercase tracking-wider">
             <HiLightBulb className="text-base" />
             Core Intuition & Algorithmic Strategy
           </div>

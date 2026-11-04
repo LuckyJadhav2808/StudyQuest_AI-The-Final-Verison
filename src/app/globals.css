@@ -89,12 +89,12 @@
   --background: #F0EDF8;
   --foreground: #181524;
   --card-bg: #ffffff;
-  --card-border: rgba(124, 58, 237, 0.11);
+  --card-border: rgba(37, 99, 235, 0.12);
   --muted: #E6E1F0;
   --muted-foreground: #5C5570;
   --outline: #897C9F;
-  --shadow-card: 0 1px 3px rgba(24, 21, 36, 0.04), 0 8px 24px -4px rgba(124, 58, 237, 0.08);
-  --shadow-card-hover: 0 4px 12px rgba(24, 21, 36, 0.06), 0 16px 36px -6px rgba(124, 58, 237, 0.14);
+  --shadow-card: 0 1px 3px rgba(24, 21, 36, 0.04), 0 8px 24px -4px rgba(37, 99, 235, 0.08);
+  --shadow-card-hover: 0 4px 12px rgba(24, 21, 36, 0.06), 0 16px 36px -6px rgba(37, 99, 235, 0.14);
 }
 
 .dark {
@@ -238,7 +238,7 @@ body::before {
   z-index: 0;
   pointer-events: none;
   background-image:
-    radial-gradient(at 0% 0%, rgba(124, 58, 237, 0.09) 0px, transparent 55%),
+    radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.09) 0px, transparent 55%),
     radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.07) 0px, transparent 50%),
     radial-gradient(at 50% 40%, rgba(99, 102, 241, 0.05) 0px, transparent 60%),
     radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%),
@@ -343,17 +343,17 @@ h4 { font-size: 1.125rem; }
 .btn-3d-primary {
   background: var(--color-primary);
   color: white;
-  box-shadow: 0 4px 0 var(--color-primary-dark), 0 6px 20px rgba(124, 58, 237, 0.25);
+  box-shadow: 0 4px 0 var(--color-primary-dark), 0 6px 20px rgba(37, 99, 235, 0.25);
 }
 
 .btn-3d-primary:hover {
   transform: translateY(-1px) scale(1.02);
-  box-shadow: 0 5px 0 var(--color-primary-dark), 0 8px 25px rgba(124, 58, 237, 0.35);
+  box-shadow: 0 5px 0 var(--color-primary-dark), 0 8px 25px rgba(37, 99, 235, 0.35);
 }
 
 .btn-3d-primary:active {
   transform: translateY(2px);
-  box-shadow: 0 2px 0 var(--color-primary-dark), 0 3px 10px rgba(124, 58, 237, 0.2);
+  box-shadow: 0 2px 0 var(--color-primary-dark), 0 3px 10px rgba(37, 99, 235, 0.2);
 }
 
 .btn-3d-coral {
@@ -419,15 +419,15 @@ h4 { font-size: 1.125rem; }
 }
 
 .dark .card-glass {
-  background: rgba(17, 19, 40, 0.7);
+  background: rgba(15, 23, 46, 0.75);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .card-glass:hover {
   border-color: var(--color-primary-light);
-  box-shadow: 0 4px 0 rgba(124, 58, 237, 0.15), 0 8px 32px rgba(124, 58, 237, 0.08);
+  box-shadow: 0 4px 0 rgba(37, 99, 235, 0.15), 0 8px 32px rgba(37, 99, 235, 0.08);
 }
 
 /* ============================================================
@@ -462,7 +462,7 @@ h4 { font-size: 1.125rem; }
   position: relative;
   border: 4px solid white;
   border-radius: var(--radius-full);
-  box-shadow: 0 0 12px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 0 12px rgba(37, 99, 235, 0.3);
 }
 
 /* ============================================================
@@ -497,7 +497,7 @@ h4 { font-size: 1.125rem; }
 /* Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(124, 58, 237, 0.3) transparent;
+  scrollbar-color: rgba(37, 99, 235, 0.3) transparent;
 }
 
 /* Code area scrollbar — always visible, neon accent */
@@ -565,7 +565,7 @@ h4 { font-size: 1.125rem; }
 
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 0 5px var(--color-primary-glow); }
-  50% { box-shadow: 0 0 20px var(--color-primary-glow), 0 0 40px rgba(124, 58, 237, 0.15); }
+  50% { box-shadow: 0 0 20px var(--color-primary-glow), 0 0 40px rgba(37, 99, 235, 0.15); }
 }
 
 @keyframes gradient-shift {
@@ -645,7 +645,7 @@ h4 { font-size: 1.125rem; }
 }
 
 .dark .xp-bar-track {
-  background: rgba(124, 58, 237, 0.15);
+  background: rgba(37, 99, 235, 0.15);
 }
 
 .xp-bar-fill {
@@ -923,7 +923,7 @@ h4 { font-size: 1.125rem; }
 }
 
 .quill-wrapper .ql-editor code {
-  background: rgba(124, 58, 237, 0.1);
+  background: rgba(37, 99, 235, 0.1);
   color: var(--color-primary);
   padding: 2px 6px;
   border-radius: 4px;
@@ -942,7 +942,7 @@ h4 { font-size: 1.125rem; }
   padding: 12px 16px;
   border-radius: 14px;
   border-left: 4px solid var(--color-primary);
-  background: rgba(124, 58, 237, 0.08);
+  background: rgba(37, 99, 235, 0.08);
 }
 .quill-wrapper .ql-editor .studyquest-callout-tip {
   border-left-color: #10b981;
@@ -989,7 +989,7 @@ h4 { font-size: 1.125rem; }
   padding: 8px 12px;
 }
 .quill-wrapper .ql-editor .studyquest-table th {
-  background: rgba(124, 58, 237, 0.15);
+  background: rgba(37, 99, 235, 0.15);
   font-weight: 700;
   text-align: left;
 }
@@ -1058,14 +1058,14 @@ h4 { font-size: 1.125rem; }
 
 /* 1. Inline Code */
 .studyquest-markdown code:not(pre code) {
-  background: rgba(124, 58, 237, 0.12);
+  background: rgba(37, 99, 235, 0.12);
   color: var(--color-primary);
   padding: 2px 7px;
   border-radius: 6px;
   font-family: 'Space Grotesk', 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 0.88em;
   font-weight: 600;
-  border: 1px solid rgba(124, 58, 237, 0.2);
+  border: 1px solid rgba(37, 99, 235, 0.2);
 }
 
 /* 2. Code Block with Language Badge & Copy Button */
@@ -1116,8 +1116,8 @@ h4 { font-size: 1.125rem; }
 
 .studyquest-copy-btn:hover {
   color: #ffffff;
-  background: rgba(124, 58, 237, 0.4);
-  border-color: rgba(124, 58, 237, 0.6);
+  background: rgba(37, 99, 235, 0.4);
+  border-color: rgba(37, 99, 235, 0.6);
 }
 
 .studyquest-code-pre {
@@ -1232,8 +1232,8 @@ h4 { font-size: 1.125rem; }
 /* Mindmap root node special highlight */
 .studyquest-mermaid-svg svg .mindmap-node.section-root circle,
 .studyquest-mermaid-svg svg .mindmap-node:first-child circle {
-  fill: #7c3aed !important;
-  stroke: #a78bfa !important;
+  fill: #2563EB !important;
+  stroke: #60A5FA !important;
   stroke-width: 2px !important;
 }
 
@@ -1329,7 +1329,7 @@ h4 { font-size: 1.125rem; }
   border-left: 4px solid var(--color-primary);
   padding: 0.6rem 1rem 0.6rem 1.25rem;
   margin: 1rem 0;
-  background: rgba(124, 58, 237, 0.05);
+  background: rgba(37, 99, 235, 0.05);
   border-radius: 0 12px 12px 0;
   color: var(--muted-foreground);
   font-style: italic;
@@ -1350,7 +1350,7 @@ h4 { font-size: 1.125rem; }
 }
 
 .studyquest-details:hover, .studyquest-markdown details:hover {
-  border-color: rgba(124, 58, 237, 0.4);
+  border-color: rgba(37, 99, 235, 0.4);
 }
 
 .studyquest-summary, .studyquest-markdown summary {
@@ -1359,7 +1359,7 @@ h4 { font-size: 1.125rem; }
   font-size: 0.9rem;
   color: var(--foreground);
   cursor: pointer;
-  background: rgba(124, 58, 237, 0.04);
+  background: rgba(37, 99, 235, 0.04);
   user-select: none;
   list-style: none;
   display: flex;
@@ -1471,7 +1471,7 @@ h4 { font-size: 1.125rem; }
   text-align: center;
   margin: 1.25rem 0;
   padding: 14px 10px;
-  background: rgba(124, 58, 237, 0.04);
+  background: rgba(37, 99, 235, 0.04);
   border-radius: 12px;
   border: 1px dashed var(--card-border);
   overflow-x: auto;
@@ -1535,7 +1535,7 @@ h4 { font-size: 1.125rem; }
 }
 
 .studyquest-table thead, .studyquest-markdown thead {
-  background: rgba(124, 58, 237, 0.08);
+  background: rgba(37, 99, 235, 0.08);
 }
 
 .studyquest-table th, .studyquest-markdown th {
@@ -1559,7 +1559,7 @@ h4 { font-size: 1.125rem; }
 }
 
 .studyquest-table tr:hover td, .studyquest-markdown tr:hover td {
-  background: rgba(124, 58, 237, 0.04);
+  background: rgba(37, 99, 235, 0.04);
 }
 
 /* 17. Links */
@@ -1606,7 +1606,7 @@ h4 { font-size: 1.125rem; }
   margin-left: 2px;
   padding: 1px 4px;
   border-radius: 4px;
-  background: rgba(124, 58, 237, 0.1);
+  background: rgba(37, 99, 235, 0.1);
   font-size: 0.72em;
 }
 
@@ -1755,7 +1755,7 @@ pre[contenteditable], code[contenteditable] {
   padding: 16px 20px;
   gap: 16px;
   border-bottom: 2px solid var(--card-border);
-  background: linear-gradient(135deg, rgba(124,58,237,0.03), rgba(236,72,153,0.03));
+  background: linear-gradient(135deg, rgba(37,99,235,0.03), rgba(59,130,246,0.03));
 }
 
 .music-player-art {
@@ -1766,7 +1766,7 @@ pre[contenteditable], code[contenteditable] {
   cursor: pointer;
   position: relative;
   flex-shrink: 0;
-  box-shadow: 0 4px 14px rgba(124,58,237,0.15);
+  box-shadow: 0 4px 14px rgba(37,99,235,0.15);
 }
 
 .music-player-art-placeholder {
@@ -1821,8 +1821,8 @@ pre[contenteditable], code[contenteditable] {
   align-items: center;
   justify-content: center;
   color: white;
-  background: linear-gradient(135deg, var(--color-primary), #EC4899);
-  box-shadow: 0 4px 14px rgba(124,58,237,0.3);
+  background: linear-gradient(135deg, var(--color-primary), #3B82F6);
+  box-shadow: 0 4px 14px rgba(37,99,235,0.3);
   border: none;
   cursor: pointer;
 }
@@ -1999,7 +1999,7 @@ pre[contenteditable], code[contenteditable] {
 }
 .music-search-add:hover:not(:disabled) {
   transform: scale(1.1);
-  box-shadow: 0 2px 8px rgba(124,58,237,0.3);
+  box-shadow: 0 2px 8px rgba(37,99,235,0.3);
 }
 .music-search-add:disabled {
   opacity: 0.5;
@@ -2042,8 +2042,8 @@ pre[contenteditable], code[contenteditable] {
   background: var(--card-bg);
 }
 .music-queue-item.active {
-  background: rgba(124,58,237,0.08);
-  border: 1px solid rgba(124,58,237,0.15);
+  background: rgba(37,99,235,0.08);
+  border: 1px solid rgba(37,99,235,0.15);
 }
 
 .music-queue-playing-indicator {
@@ -2094,7 +2094,7 @@ pre[contenteditable], code[contenteditable] {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  background: linear-gradient(180deg, rgba(124,58,237,0.03) 0%, transparent 100%);
+  background: linear-gradient(180deg, rgba(37,99,235,0.03) 0%, transparent 100%);
 }
 
 .music-widget-vinyl-wrapper {
@@ -2102,8 +2102,8 @@ pre[contenteditable], code[contenteditable] {
   height: 72px;
   border-radius: 50%;
   padding: 3px;
-  background: linear-gradient(135deg, var(--color-primary), #EC4899);
-  box-shadow: 0 4px 20px rgba(124,58,237,0.2);
+  background: linear-gradient(135deg, var(--color-primary), #3B82F6);
+  box-shadow: 0 4px 20px rgba(37,99,235,0.2);
 }
 
 .music-widget-vinyl {
@@ -2176,8 +2176,8 @@ pre[contenteditable], code[contenteditable] {
   align-items: center;
   justify-content: center;
   color: white;
-  background: linear-gradient(135deg, var(--color-primary), #EC4899);
-  box-shadow: 0 3px 12px rgba(124,58,237,0.3);
+  background: linear-gradient(135deg, var(--color-primary), #3B82F6);
+  box-shadow: 0 3px 12px rgba(37,99,235,0.3);
   border: none;
   cursor: pointer;
 }
@@ -2271,7 +2271,7 @@ pre[contenteditable], code[contenteditable] {
 
 .studyquest-markdown table thead th,
 .prose table thead th {
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(99, 102, 241, 0.1));
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.15), rgba(59, 130, 246, 0.1));
   padding: 10px 14px;
   text-align: left;
   font-weight: 700;
@@ -2292,12 +2292,12 @@ pre[contenteditable], code[contenteditable] {
 
 .studyquest-markdown table tbody tr:nth-child(even),
 .prose table tbody tr:nth-child(even) {
-  background: rgba(124, 58, 237, 0.03);
+  background: rgba(37, 99, 235, 0.03);
 }
 
 .studyquest-markdown table tbody tr:hover,
 .prose table tbody tr:hover {
-  background: rgba(124, 58, 237, 0.08);
+  background: rgba(37, 99, 235, 0.08);
   transition: background 0.15s ease;
 }
 
@@ -2328,7 +2328,7 @@ pre[contenteditable], code[contenteditable] {
 }
 
 .studyquest-math-embed:hover {
-  background: rgba(124, 58, 237, 0.08);
+  background: rgba(37, 99, 235, 0.08);
   border-color: var(--color-primary);
   box-shadow: 0 4px 12px var(--color-primary-glow);
   transform: translateY(-1px);
@@ -2363,25 +2363,25 @@ li .studyquest-math-embed {
 
 .modern-card {
   background: #FFFFFF;
-  border: 1px solid rgba(124, 58, 237, 0.1);
+  border: 1px solid rgba(37, 99, 235, 0.12);
   border-radius: 24px;
-  box-shadow: 0 2px 4px rgba(24, 21, 36, 0.03), 0 10px 28px -4px rgba(124, 58, 237, 0.08);
+  box-shadow: 0 2px 4px rgba(24, 21, 36, 0.03), 0 10px 28px -4px rgba(37, 99, 235, 0.08);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .dark .modern-card {
-  background: #111328;
+  background: #0F172E;
   border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.3);
 }
 
 .modern-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(24, 21, 36, 0.05), 0 16px 36px -6px rgba(124, 58, 237, 0.14);
+  box-shadow: 0 4px 10px rgba(24, 21, 36, 0.05), 0 16px 36px -6px rgba(37, 99, 235, 0.14);
 }
 
 .dark .modern-card:hover {
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
 }
 
 /* Horizontal Calendar Capsule Today Highlight */
@@ -2393,8 +2393,8 @@ li .studyquest-math-embed {
 }
 
 .dark .calendar-capsule-today {
-  background-color: #7C3AED;
-  box-shadow: 0 10px 15px -3px rgba(124, 58, 237, 0.3);
+  background-color: #2563EB;
+  box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.35);
 }
 
 /* Custom progress bar indicators */
@@ -2623,8 +2623,8 @@ li .studyquest-math-embed {
 }
 
 .dsa-markdown-body blockquote {
-  border-left: 3px solid #7c3aed;
-  background: rgba(124, 58, 237, 0.08);
+  border-left: 3px solid #2563EB;
+  background: rgba(37, 99, 235, 0.08);
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
   margin: 1rem 0;
@@ -2636,7 +2636,7 @@ li .studyquest-math-embed {
 
 .sq-sidebar-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(124, 58, 237, 0.5) rgba(255, 255, 255, 0.02);
+  scrollbar-color: rgba(37, 99, 235, 0.5) rgba(255, 255, 255, 0.02);
 }
 
 .sq-sidebar-scroll::-webkit-scrollbar {
@@ -2650,14 +2650,14 @@ li .studyquest-math-embed {
 }
 
 .sq-sidebar-scroll::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(124, 58, 237, 0.55), rgba(99, 102, 241, 0.55));
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.55), rgba(59, 130, 246, 0.55));
   border-radius: 9999px;
   transition: all 0.2s ease;
 }
 
 .sq-sidebar-scroll:hover::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(124, 58, 237, 0.9), rgba(99, 102, 241, 0.9));
-  box-shadow: 0 0 10px rgba(124, 58, 237, 0.6);
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.9), rgba(59, 130, 246, 0.9));
+  box-shadow: 0 0 10px rgba(37, 99, 235, 0.6);
 }
 
 /* ============================================================

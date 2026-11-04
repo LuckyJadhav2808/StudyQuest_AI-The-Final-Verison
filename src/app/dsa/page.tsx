@@ -232,7 +232,7 @@ function DsaPageContent() {
                 <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden py-0.5 max-w-full">
                   <button
                     onClick={() => setShowImportModal(true)}
-                    className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-500 text-white font-bold text-xs shadow-md shadow-primary/20 transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                    className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-primary to-indigo-600 hover:from-primary/90 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-primary/20 transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                   >
                     <HiSparkles className="text-amber-300" />
                     📥 Ingest Any LeetCode # / URL
@@ -245,7 +245,7 @@ function DsaPageContent() {
                   </button>
                   <button
                     onClick={() => setActiveCuratedSheet('striverA2Z')}
-                    className="px-3 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 text-purple-400 border border-purple-500/30 text-xs font-bold transition-all cursor-pointer whitespace-nowrap"
+                    className="px-3 py-1.5 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 border border-blue-500/30 text-xs font-bold transition-all cursor-pointer whitespace-nowrap"
                   >
                     🚀 Striver A2Z
                   </button>
@@ -367,7 +367,7 @@ function DsaPageContent() {
 
             {/* Main Content Area: Roadmap or Grid or Search-Miss Auto Fetch */}
             {filteredProblems.length === 0 && searchQuery.trim() ? (
-              <div className="p-8 rounded-2xl bg-gradient-to-r from-primary/10 via-purple-500/10 to-teal/10 border border-primary/25 text-center space-y-4 shadow-lg my-6">
+              <div className="p-8 rounded-2xl bg-gradient-to-r from-primary/10 via-blue-500/10 to-teal/10 border border-primary/25 text-center space-y-4 shadow-lg my-6">
                 <div className="w-12 h-12 rounded-2xl bg-primary/20 border border-primary/30 flex items-center justify-center mx-auto text-2xl">
                   ✨
                 </div>
@@ -466,7 +466,7 @@ function DsaPageContent() {
                             {problem.difficulty}
                           </Badge>
                           {optimalTime && (
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-500/20 text-[10px] font-mono font-bold text-purple-300">
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-[10px] font-mono font-bold text-blue-300">
                               ⏱️ {optimalTime}
                             </span>
                           )}

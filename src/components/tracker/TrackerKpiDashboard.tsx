@@ -19,7 +19,7 @@ export default function TrackerKpiDashboard({ kpis, trackTitle }: TrackerKpiDash
   return (
     <div className="space-y-4">
       {/* 1. Hero Readiness Card */}
-      <Card hover={false} className="relative overflow-hidden border-2 border-primary/20 bg-gradient-to-br from-[var(--card-bg)] via-[#0B0F19] to-purple-950/20 shadow-xl p-4 sm:p-6">
+      <Card hover={false} className="relative overflow-hidden border-2 border-primary/20 bg-gradient-to-br from-[var(--card-bg)] via-[#0B0F19] to-blue-950/20 shadow-xl p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
           
           <div className="flex items-center gap-5 min-w-0 w-full sm:w-auto">
@@ -70,7 +70,7 @@ export default function TrackerKpiDashboard({ kpis, trackTitle }: TrackerKpiDash
               </p>
               <div className="w-full max-w-lg bg-slate-800/80 h-2.5 rounded-full overflow-hidden mt-1.5">
                 <motion.div
-                  className="h-full bg-gradient-to-r from-purple-500 via-primary to-sky-400 rounded-full"
+                  className="h-full bg-gradient-to-r from-blue-600 via-primary to-sky-400 rounded-full"
                   initial={{ width: 0 }}
                   animate={{ width: `${kpis.overallCompletionPct}%` }}
                   transition={{ duration: 0.8 }}

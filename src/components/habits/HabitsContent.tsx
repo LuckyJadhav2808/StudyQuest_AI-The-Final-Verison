@@ -187,7 +187,7 @@ export default function HabitsContent() {
             {/* Glowing Custom Progress Bar */}
             <div className="h-3 w-full rounded-full bg-slate-800/60 dark:bg-black/40 overflow-hidden p-0.5 border border-white/5">
               <motion.div
-                className="h-full rounded-full bg-gradient-to-r from-violet-600 via-indigo-500 to-teal-400 shadow-md shadow-indigo-500/40"
+                className="h-full rounded-full bg-gradient-to-r from-blue-600 via-indigo-500 to-teal-400 shadow-md shadow-blue-500/40"
                 initial={{ width: 0 }}
                 animate={{ width: `${progressPercent}%` }}
                 transition={{ type: 'spring', stiffness: 200, damping: 25 }}
@@ -318,7 +318,7 @@ export default function HabitsContent() {
                           <div
                             className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border transition-all ${
                               streak >= 30
-                                ? 'bg-purple-500/15 border-purple-500/30 text-purple-400 shadow-sm shadow-purple-500/20'
+                                ? 'bg-blue-500/15 border-blue-500/30 text-blue-400 shadow-sm shadow-blue-500/20'
                                 : streak >= 7
                                 ? 'bg-amber-500/15 border-amber-500/30 text-amber-400 shadow-sm shadow-amber-500/20'
                                 : 'bg-orange-500/10 border-orange-500/20 text-orange-400'

@@ -108,7 +108,7 @@ export default function DsaRoadmapView({
             onClick={() => setMode('patterns')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
               mode === 'patterns'
-                ? 'bg-purple-600 text-white shadow-md'
+                ? 'bg-blue-600 text-white shadow-md'
                 : 'bg-surface-hover/80 text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
             }`}
           >
@@ -259,7 +259,7 @@ export default function DsaRoadmapView({
                                 </span>
 
                                 {optimalTime && (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-purple-500/10 border border-purple-500/20 text-[9px] sm:text-[10px] font-mono font-bold text-purple-300">
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-blue-500/10 border border-blue-500/20 text-[9px] sm:text-[10px] font-mono font-bold text-blue-300">
                                     ⏱️ {optimalTime}
                                   </span>
                                 )}

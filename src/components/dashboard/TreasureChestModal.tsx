@@ -142,7 +142,7 @@ export default function TreasureChestModal({ isOpen, onClose }: TreasureChestMod
                 fontWeight: 800,
                 letterSpacing: '1px',
                 textTransform: 'uppercase',
-                background: 'linear-gradient(135deg, #c4b5fd, #a78bfa, #7c3aed)',
+                background: 'linear-gradient(135deg, #93c5fd, #60a5fa, #2563eb)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 margin: 0,
@@ -332,11 +332,11 @@ export default function TreasureChestModal({ isOpen, onClose }: TreasureChestMod
                   ? 'rgba(100, 100, 120, 0.3)'
                   : phase === 'reveal'
                   ? `linear-gradient(135deg, ${colors.glow}, ${colors.glow}cc)`
-                  : 'linear-gradient(135deg, #7c3aed, #a78bfa)',
+                  : 'linear-gradient(135deg, #2563eb, #60a5fa)',
                 color: loading || (!canClaim && phase === 'ready') || phase === 'claimed' ? 'rgba(255,255,255,0.4)' : '#fff',
                 boxShadow: loading || (!canClaim && phase === 'ready') || phase === 'claimed'
                   ? 'none'
-                  : '0 4px 20px rgba(124, 58, 237, 0.4)',
+                  : '0 4px 20px rgba(37, 99, 235, 0.4)',
                 letterSpacing: '0.5px',
                 transition: 'all 0.3s ease',
               }}

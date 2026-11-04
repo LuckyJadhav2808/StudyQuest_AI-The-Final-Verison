@@ -79,7 +79,7 @@ export const PRESET_SYLLABUS_TEMPLATES: Omit<SyllabusTrack, 'id' | 'createdAt' |
         id: 'sppu-ai',
         name: 'Artificial Intelligence',
         code: 'PCC301COM',
-        color: '#7C3AED',
+        color: '#2563EB',
         icon: '🤖',
         weightage: 25,
         units: [
@@ -1440,7 +1440,7 @@ export function useStudyTracker() {
   }, [tracks, saveTracks]);
 
   // Subject CRUD Actions
-  const addSubject = useCallback((name: string, icon: string = '📚', color: string = '#7C3AED', code?: string, weightage?: number) => {
+  const addSubject = useCallback((name: string, icon: string = '📚', color: string = '#2563EB', code?: string, weightage?: number) => {
     if (!activeTrack) return;
 
     const newSubject: TrackerSubject = {

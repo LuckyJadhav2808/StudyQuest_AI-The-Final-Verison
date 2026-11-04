@@ -1559,7 +1559,7 @@ Rules:
                       }}
                       className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                         multitaskPanel === 'whiteboard'
-                          ? 'bg-purple-500 text-white shadow-[0_0_12px_rgba(168,85,247,0.4)]'
+                          ? 'bg-blue-600 text-white shadow-[0_0_12px_rgba(37,99,235,0.4)]'
                           : 'text-[var(--muted-foreground)] hover:text-white hover:bg-white/5'
                       }`}
                       title="Whiteboard Sketch side-by-side"
@@ -1667,12 +1667,12 @@ Rules:
                       onClick={toggleZenMode}
                       className={`p-1.5 rounded-xl border transition-all text-xs font-bold cursor-pointer ${
                         isZenMode
-                          ? 'border-purple-500 bg-purple-500/25 text-purple-300 ring-2 ring-purple-500/40 shadow-md shadow-purple-500/20'
+                          ? 'border-blue-500 bg-blue-500/25 text-blue-300 ring-2 ring-blue-500/40 shadow-md shadow-blue-500/20'
                           : 'border-[var(--card-border)] text-[var(--muted-foreground)] hover:text-white hover:border-primary/40'
                       }`}
                       title={isZenMode ? "Exit Zen Focus Mode (Esc)" : "Zen Focus Mode (Hide sidebar & headers)"}
                     >
-                      <HiArrowsExpand size={15} className={isZenMode ? 'rotate-45 text-purple-400' : ''} />
+                      <HiArrowsExpand size={15} className={isZenMode ? 'rotate-45 text-blue-400' : ''} />
                     </button>
 
                     {/* Interactive Questie Mascot Companion */}
@@ -1752,7 +1752,7 @@ Rules:
                             </button>
                             <button
                               onClick={() => { setShowMoreDropdown(false); setMultitaskPanel('whiteboard'); }}
-                              className="w-full px-3 py-1.5 text-xs text-left hover:bg-purple-500/15 text-[var(--foreground)] flex items-center gap-2 transition-colors"
+                              className="w-full px-3 py-1.5 text-xs text-left hover:bg-blue-500/15 text-[var(--foreground)] flex items-center gap-2 transition-colors"
                             >
                               <span>🎨</span> Whiteboard Sketch
                             </button>
@@ -1928,12 +1928,12 @@ Rules:
                               <span className="text-xs">🔮</span>
                               <div className="w-24 h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
                                 <motion.div
-                                  className="h-full bg-gradient-to-r from-purple-500 to-indigo-500"
+                                  className="h-full bg-gradient-to-r from-blue-600 to-indigo-500"
                                   animate={{ width: `${wordsWrittenSession}%` }}
                                   transition={{ type: 'spring', stiffness: 80 }}
                                 />
                               </div>
-                              <span className="text-[10px] font-bold text-purple-400">{wordsWrittenSession}% Mana</span>
+                              <span className="text-[10px] font-bold text-blue-400">{wordsWrittenSession}% Mana</span>
                             </div>
                           </div>
                         </>

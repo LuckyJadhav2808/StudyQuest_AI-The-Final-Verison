@@ -134,7 +134,7 @@ export default function SessionCompleteOverlay({ data, onDismiss }: SessionCompl
             {isLongBreak ? '✨' : '🍅'}
           </motion.div>
 
-          <h2 className="font-heading text-xl font-bold bg-gradient-to-r from-amber-400 to-purple-400 bg-clip-text text-transparent">
+          <h2 className="font-heading text-xl font-bold bg-gradient-to-r from-amber-400 to-blue-400 bg-clip-text text-transparent">
             {isLongBreak ? '4-Session Milestone!' : 'Session Complete!'}
           </h2>
 

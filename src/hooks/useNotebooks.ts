@@ -50,7 +50,7 @@ export const DEFAULT_STARTER_NOTEBOOK: Notebook = {
     {
       id: 'cell_demo_plot',
       cell_type: 'code',
-      source: `# 2. Rich Matplotlib Visualizations\nimport matplotlib.pyplot as plt\n\nplt.figure(figsize=(9, 4))\nplt.plot(x, y, color='#7C3AED', linewidth=2.5, label='Damped Oscillation')\nplt.title('StudyQuest Wave Analysis', fontsize=14, fontweight='bold', color='#4F46E5')\nplt.xlabel('Time (seconds)')\nplt.ylabel('Amplitude')\nplt.grid(True, linestyle='--', alpha=0.5)\nplt.legend()\nplt.show()`,
+      source: `# 2. Rich Matplotlib Visualizations\nimport matplotlib.pyplot as plt\n\nplt.figure(figsize=(9, 4))\nplt.plot(x, y, color='#2563EB', linewidth=2.5, label='Damped Oscillation')\nplt.title('StudyQuest Wave Analysis', fontsize=14, fontweight='bold', color='#1D4ED8')\nplt.xlabel('Time (seconds)')\nplt.ylabel('Amplitude')\nplt.grid(True, linestyle='--', alpha=0.5)\nplt.legend()\nplt.show()`,
       execution_count: 2,
       outputs: [],
       status: 'idle',
@@ -654,12 +654,12 @@ export function useNotebooks() {
 
   // ----- Folder Actions -----
   const createFolder = useCallback(
-    async (name: string, color = '#7C3AED') => {
+    async (name: string, color = '#2563EB') => {
       const id = `fld_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
       const newFolder: NotebookFolder = {
         id,
         name,
-        color: color || '#7C3AED',
+        color: color || '#2563EB',
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };

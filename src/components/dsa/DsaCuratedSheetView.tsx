@@ -281,7 +281,7 @@ export default function DsaCuratedSheetView({
           onClick={() => onSelectSheet('striverA2Z')}
           className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer border ${
             activeSheetId === 'striverA2Z'
-              ? 'bg-purple-600 text-white border-purple-400 shadow-lg shadow-purple-500/25 scale-[1.02]'
+              ? 'bg-blue-600 text-white border-blue-400 shadow-lg shadow-blue-500/25 scale-[1.02]'
               : 'bg-slate-900/60 text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-700'
           }`}
         >

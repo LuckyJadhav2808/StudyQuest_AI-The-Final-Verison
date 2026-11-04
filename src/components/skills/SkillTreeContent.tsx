@@ -16,7 +16,7 @@ import PageTransition from '@/components/layout/PageTransition';
 import { playSuccess, playClick } from '@/lib/sounds';
 
 const BRANCHES: { id: SkillBranch; name: string; emoji: string; color: string; gradient: string; description: string }[] = [
-  { id: 'focus', name: 'Focus Mage', emoji: '🧠', color: '#7C3AED', gradient: 'from-violet-500 to-purple-600', description: 'Boost XP and coins from Pomodoro focus sessions' },
+  { id: 'focus', name: 'Focus Mage', emoji: '🧠', color: '#2563EB', gradient: 'from-blue-600 to-indigo-600', description: 'Boost XP and coins from Pomodoro focus sessions' },
   { id: 'combat', name: 'Task Slayer', emoji: '⚔️', color: '#EF4444', gradient: 'from-red-500 to-orange-600', description: 'Critical hits and bonus rewards from completing tasks' },
   { id: 'beast', name: 'Beastmaster', emoji: '🐾', color: '#10B981', gradient: 'from-emerald-500 to-teal-600', description: 'Keep your pet happy and strong with slower decay' },
 ];

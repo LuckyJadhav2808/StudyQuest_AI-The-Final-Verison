@@ -134,7 +134,7 @@ Guidelines:
           {/* Header Bar */}
           <div className="px-6 py-4 border-b border-[var(--card-border)] flex items-center justify-between bg-surface-hover/30">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
+              <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400">
                 <HiSparkles className="text-xl" />
               </div>
               <div>
@@ -168,7 +168,7 @@ Guidelines:
                   onClick={() => setEngineMode('cloud')}
                   className={`px-2.5 py-1 rounded-md transition-all ${
                     engineMode === 'cloud'
-                      ? 'bg-purple-600 text-white'
+                      ? 'bg-blue-600 text-white'
                       : 'text-[var(--muted-foreground)]'
                   }`}
                 >
@@ -212,7 +212,7 @@ Guidelines:
               onClick={() => sendMessage('Can you review my current code and give me feedback on any potential bugs?')}
               className="px-3 py-1.5 rounded-lg bg-surface-hover hover:bg-primary/20 hover:text-primary transition-colors flex items-center gap-1.5 whitespace-nowrap font-medium text-[var(--foreground)]"
             >
-              <HiCode className="text-purple-400" />
+              <HiCode className="text-blue-400" />
               Debug My Code
             </button>
           </div>
@@ -239,7 +239,7 @@ Guidelines:
             ))}
             {loading && (
               <div className="flex items-center gap-2 text-xs text-[var(--muted-foreground)] animate-pulse">
-                <HiSparkles className="text-purple-400 text-sm" />
+                <HiSparkles className="text-blue-400 text-sm" />
                 AI Tutor is generating guidance...
               </div>
             )}

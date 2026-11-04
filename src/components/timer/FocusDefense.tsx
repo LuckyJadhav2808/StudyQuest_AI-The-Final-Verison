@@ -456,16 +456,16 @@ export default function FocusDefense({ isRunning, timeLeft, totalTime, phase }: 
     <div className="w-full flex flex-col gap-4 relative z-10 px-4 md:px-0">
       {/* HUD Header stats */}
       <div className="grid grid-cols-3 gap-3">
-        <Card padding="sm" className="bg-slate-900/60 backdrop-blur-md border border-purple-500/10 flex items-center justify-between">
+        <Card padding="sm" className="bg-slate-900/60 backdrop-blur-md border border-blue-500/15 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xl">🛡️</span>
             <div className="text-left">
               <p className="text-[9px] uppercase tracking-wider font-bold text-slate-400">Shield Health</p>
-              <p className="text-sm font-heading font-black text-purple-400">{baseHp}%</p>
+              <p className="text-sm font-heading font-black text-blue-400">{baseHp}%</p>
             </div>
           </div>
           <div className="flex-1 max-w-[60px] h-2 bg-slate-800 rounded-full overflow-hidden ml-2">
-            <div className="h-full bg-purple-500" style={{ width: `${baseHp}%` }} />
+            <div className="h-full bg-blue-500" style={{ width: `${baseHp}%` }} />
           </div>
         </Card>
 
@@ -567,8 +567,8 @@ export default function FocusDefense({ isRunning, timeLeft, totalTime, phase }: 
       </AnimatePresence>
 
       {/* Floating Info Guide */}
-      <div className="flex items-center gap-2 p-3 bg-purple-500/5 rounded-xl border border-purple-500/10 text-slate-400 text-[10px] leading-relaxed">
-        <HiShieldCheck className="text-purple-400 shrink-0" size={14} />
+      <div className="flex items-center gap-2 p-3 bg-blue-500/5 rounded-xl border border-blue-500/15 text-slate-400 text-[10px] leading-relaxed">
+        <HiShieldCheck className="text-blue-400 shrink-0" size={14} />
         <p>
           💡 <strong>Focus Defense:</strong> Complete study minutes to accumulate <strong>Focus Points (FP)</strong>. Click empty circles ➕ to construct defensive units and guard your base from incoming alerts!
         </p>

@@ -38,7 +38,7 @@ function getGreeting() {
   if (hour >= 5 && hour < 12) return { text: 'Good Morning', icon: HiSun, iconColor: 'text-amber-500' };
   if (hour >= 12 && hour < 17) return { text: 'Good Afternoon', icon: HiSun, iconColor: 'text-amber-400' };
   if (hour >= 17 && hour < 21) return { text: 'Good Evening', icon: HiMoon, iconColor: 'text-indigo-400' };
-  return { text: 'Night Owl Mode', icon: HiMoon, iconColor: 'text-violet-400' };
+  return { text: 'Night Owl Mode', icon: HiMoon, iconColor: 'text-blue-400' };
 }
 
 export default function Header() {

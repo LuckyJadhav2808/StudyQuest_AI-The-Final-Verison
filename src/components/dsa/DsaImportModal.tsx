@@ -90,7 +90,7 @@ export default function DsaImportModal({
     <Modal isOpen={isOpen} onClose={onClose} title="📥 Ingest Any LeetCode Problem" maxWidth="max-w-xl">
       <div className="space-y-5">
         {/* Header explanation banner */}
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-primary/10 via-purple-500/10 to-teal/10 border border-primary/20 space-y-1.5">
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-primary/10 via-blue-500/10 to-teal/10 border border-primary/20 space-y-1.5">
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
             <HiSparkles className="text-base animate-pulse text-amber-400" />
             Universal On-Demand Ingestion Engine
@@ -158,9 +158,9 @@ export default function DsaImportModal({
               initial={{ opacity: 0, y: -5 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -5 }}
-              className="p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center gap-3 text-xs text-purple-300"
+              className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center gap-3 text-xs text-blue-300"
             >
-              <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+              <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
               <span className="font-medium animate-pulse">{statusMessage}</span>
             </motion.div>
           )}

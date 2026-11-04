@@ -257,7 +257,7 @@ export default function GlobalMusicPlayer() {
                         className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${isPlaying ? 'brightness-105' : 'brightness-90'}`}
                       />
                     ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-primary/30 to-purple-800/30 text-white">
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-primary/30 to-indigo-800/30 text-white">
                         <span className="text-5xl mb-2">🎧</span>
                         <span className="text-xs text-white/60">StudyQuest Music</span>
                       </div>

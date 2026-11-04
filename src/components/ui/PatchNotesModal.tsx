@@ -175,7 +175,7 @@ export default function PatchNotesModal() {
             {/* Header with gradient */}
             <div
               className="px-6 py-5 text-center"
-              style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.15), rgba(236,72,153,0.1))' }}
+              style={{ background: 'linear-gradient(135deg, rgba(37,99,235,0.2), rgba(59,130,246,0.1))' }}
             >
               <motion.div
                 className="text-4xl mb-2"

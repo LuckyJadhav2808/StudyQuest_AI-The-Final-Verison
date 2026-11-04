@@ -135,10 +135,10 @@ export default function AllPagesModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.94, y: 12 }}
           transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-          className="relative w-full max-w-2xl max-h-[85vh] rounded-[30px] sm:rounded-[36px] bg-white dark:bg-[#111328] border-2 border-indigo-200/90 dark:border-white/15 shadow-[0_24px_64px_-12px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden z-10"
+          className="relative w-full max-w-2xl max-h-[85vh] rounded-[30px] sm:rounded-[36px] bg-white dark:bg-[#0B1021] border border-slate-200 dark:border-white/12 shadow-[0_24px_64px_-12px_rgba(0,0,0,0.6)] flex flex-col overflow-hidden z-10"
         >
           {/* Header Bar */}
-          <div className="px-5 sm:px-7 pt-5 sm:pt-6 pb-4 border-b border-indigo-100 dark:border-white/10 flex items-center justify-between gap-3">
+          <div className="px-5 sm:px-7 pt-5 sm:pt-6 pb-4 border-b border-slate-200 dark:border-white/10 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-base sm:text-lg font-heading font-black tracking-wide text-slate-900 dark:text-white flex items-center gap-2">
                 <span>All Pages & Apps</span>
@@ -158,7 +158,7 @@ export default function AllPagesModal({
           </div>
 
           {/* Search & Category Filter */}
-          <div className="px-5 sm:px-7 py-3 border-b border-indigo-100/80 dark:border-white/10 space-y-2.5 bg-indigo-50/30 dark:bg-white/[0.02]">
+          <div className="px-5 sm:px-7 py-3 border-b border-slate-200 dark:border-white/10 space-y-2.5 bg-slate-50/50 dark:bg-white/[0.02]">
             {/* Search Input */}
             <div className="relative flex items-center">
               <HiSearch className="absolute left-3.5 text-slate-400" size={17} />
@@ -168,7 +168,7 @@ export default function AllPagesModal({
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search all pages, study tools & workspaces..."
                 autoFocus
-                className="w-full pl-10 pr-4 py-2 rounded-2xl bg-white dark:bg-[#161936] border border-indigo-100 dark:border-white/12 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-primary shadow-2xs"
+                className="w-full pl-10 pr-4 py-2 rounded-2xl bg-white dark:bg-[#0F172E] border border-slate-200 dark:border-white/12 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-primary shadow-2xs"
               />
             </div>
 
@@ -181,7 +181,7 @@ export default function AllPagesModal({
                   className={`px-3 py-1 rounded-xl text-[11px] font-bold tracking-wide transition-all cursor-pointer shrink-0 ${
                     selectedCategory === cat
                       ? 'bg-primary text-white shadow-xs'
-                      : 'bg-white dark:bg-white/[0.04] text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-white border border-indigo-100 dark:border-white/10'
+                      : 'bg-white dark:bg-white/[0.04] text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-white border border-slate-200 dark:border-white/10'
                   }`}
                 >
                   {cat}
@@ -202,7 +202,7 @@ export default function AllPagesModal({
                     <div
                       key={page.key}
                       onClick={() => handleNavigate(page.href)}
-                      className="group p-3 rounded-2xl bg-white dark:bg-[#161936] border border-indigo-100 dark:border-white/10 hover:border-primary/50 transition-all cursor-pointer flex items-center justify-between gap-3 shadow-xs hover:shadow-md"
+                      className="group p-3 rounded-2xl bg-white dark:bg-[#0F172E] border border-slate-200/80 dark:border-white/8 hover:border-primary/50 transition-all cursor-pointer flex items-center justify-between gap-3 shadow-xs hover:shadow-md"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
@@ -224,7 +224,7 @@ export default function AllPagesModal({
                         className={`p-2 rounded-xl transition-all cursor-pointer shrink-0 ${
                           isPinned
                             ? 'bg-primary text-white shadow-xs'
-                            : 'bg-indigo-50 dark:bg-white/5 text-slate-400 hover:text-primary hover:bg-primary/10'
+                            : 'bg-slate-100 dark:bg-white/5 text-slate-400 hover:text-primary hover:bg-primary/10'
                         }`}
                         title={isPinned ? 'Unpin from sidebar' : 'Pin to sidebar'}
                         aria-label={isPinned ? `Unpin ${page.label}` : `Pin ${page.label}`}

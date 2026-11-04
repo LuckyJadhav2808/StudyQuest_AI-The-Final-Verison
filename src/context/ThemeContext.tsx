@@ -29,7 +29,7 @@ export const THEMES: ThemeInfo[] = [
     emoji: '☀️',
     description: 'Clean and bright — classic StudyQuest',
     requiredLevel: 0,
-    previewColors: ['#F0EDF8', '#FFFFFF', '#7C3AED'],
+    previewColors: ['#F0EDF8', '#FFFFFF', '#2563EB'],
   },
   {
     id: 'dark',
@@ -37,7 +37,7 @@ export const THEMES: ThemeInfo[] = [
     emoji: '🌙',
     description: 'Easy on the eyes — perfect for late-night study',
     requiredLevel: 0,
-    previewColors: ['#0B0D17', '#111328', '#7C3AED'],
+    previewColors: ['#050811', '#0F172E', '#2563EB'],
   },
   {
     id: 'ocean',

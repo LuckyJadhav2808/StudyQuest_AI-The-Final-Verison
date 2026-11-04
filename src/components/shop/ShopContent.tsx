@@ -252,11 +252,11 @@ export default function ShopContent() {
         {/* 2-Column Bento Hero Section: Featured Spotlight & 3D Mystery Vault */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           {/* Bento Item 1: Daily Legendary Spotlight (7 cols on lg) */}
-          <div className="lg:col-span-7 rounded-3xl p-0.5 bg-gradient-to-br from-amber-400/40 via-purple-500/30 to-teal/30 relative overflow-hidden shadow-xl">
+          <div className="lg:col-span-7 rounded-3xl p-0.5 bg-gradient-to-br from-amber-400/40 via-blue-600/30 to-teal/30 relative overflow-hidden shadow-xl">
             <div className="bg-[var(--card-bg)] rounded-[22px] p-5 sm:p-6 h-full flex flex-col justify-between relative overflow-hidden">
               {/* Subtle ambient spotlight radial glow */}
               <div className="absolute -top-24 -right-24 w-72 h-72 bg-amber-400/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
 
               <div>
                 {/* Top Badge & Timer */}
@@ -275,7 +275,7 @@ export default function ShopContent() {
                   <motion.div
                     animate={{ y: [0, -6, 0] }}
                     transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-gradient-to-br from-amber-400/20 via-purple-500/20 to-transparent border-2 border-amber-400/40 flex items-center justify-center text-5xl sm:text-6xl flex-shrink-0 shadow-[0_0_25px_rgba(245,158,11,0.25)]"
+                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-gradient-to-br from-amber-400/20 via-blue-600/20 to-transparent border-2 border-amber-400/40 flex items-center justify-center text-5xl sm:text-6xl flex-shrink-0 shadow-[0_0_25px_rgba(245,158,11,0.25)]"
                   >
                     {featuredItem.emoji}
                   </motion.div>
@@ -342,7 +342,7 @@ export default function ShopContent() {
           </div>
 
           {/* Bento Item 2: The Gacha Mystery Vault (5 cols on lg) */}
-          <div className="lg:col-span-5 rounded-3xl p-0.5 bg-gradient-to-br from-purple-500/40 via-primary/30 to-amber-400/30 shadow-xl">
+          <div className="lg:col-span-5 rounded-3xl p-0.5 bg-gradient-to-br from-blue-600/40 via-primary/30 to-amber-400/30 shadow-xl">
             <div className="bg-[var(--card-bg)] rounded-[22px] p-5 sm:p-6 h-full flex flex-col justify-between relative overflow-hidden">
               <div className="flex items-center justify-between gap-2 mb-3">
                 <div className="flex items-center gap-2">
@@ -362,7 +362,7 @@ export default function ShopContent() {
                       whileHover={{ scale: 1.08 }}
                       whileTap={{ scale: 0.94 }}
                       onClick={handleOpenVault}
-                      className="cursor-pointer mx-auto w-24 h-24 rounded-3xl bg-gradient-to-br from-purple-500/20 via-primary/25 to-amber-400/20 border-2 border-primary/40 flex items-center justify-center text-5xl shadow-[0_0_30px_rgba(124,58,237,0.25)] relative group"
+                      className="cursor-pointer mx-auto w-24 h-24 rounded-3xl bg-gradient-to-br from-blue-600/20 via-primary/25 to-amber-400/20 border-2 border-primary/40 flex items-center justify-center text-5xl shadow-[0_0_30px_rgba(37,99,235,0.25)] relative group"
                     >
                       <motion.span
                         animate={{ y: [0, -4, 0] }}
@@ -504,12 +504,12 @@ export default function ShopContent() {
           </div>
 
           <div className="p-3.5 rounded-2xl border-2 border-[var(--card-border)] bg-[var(--card-bg)] flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-xl">
+            <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-xl">
               ⚡
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-wider font-bold text-[var(--muted-foreground)]">Equipped</div>
-              <div className="text-sm font-heading font-black text-purple-400">
+              <div className="text-sm font-heading font-black text-blue-400">
                 {Object.keys(inventory.equippedItems || {}).length} active styles
               </div>
             </div>

@@ -15,7 +15,7 @@ const PARTICLE_COUNT = 8;
 
 // Hardcoded hex colors so they work reliably in inline styles
 const COLORS = [
-  '#7C3AED', // primary purple
+  '#2563EB', // primary sapphire
   '#EC4899', // secondary pink
   '#10B981', // tertiary green
   '#06D6A0', // teal

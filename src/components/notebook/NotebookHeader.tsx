@@ -124,7 +124,7 @@ export default function NotebookHeader({
       {/* Upper Row: Title & Kernel Status */}
       <div className="px-5 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-[var(--card-border)]/50">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-md">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-600/30">
             <HiTerminal size={20} />
           </div>
 

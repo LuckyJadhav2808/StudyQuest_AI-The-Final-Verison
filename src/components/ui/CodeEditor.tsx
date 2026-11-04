@@ -58,7 +58,7 @@ export const THEME_STYLES: Record<string, ThemeStyle> = {
     bg: '#0b0f19',
     text: '#f1f5f9',
     gutterBg: 'rgba(15, 23, 42, 0.7)',
-    gutterBorder: 'rgba(124, 58, 237, 0.25)',
+    gutterBorder: 'rgba(37, 99, 235, 0.25)',
     gutterText: '#64748b',
   },
 };
@@ -194,18 +194,18 @@ export default function CodeEditor({
           paddingRight: '4px',
         },
         '.cm-activeLineGutter': {
-          backgroundColor: 'rgba(124, 58, 237, 0.15)',
-          color: '#c4b5fd',
+          backgroundColor: 'rgba(37, 99, 235, 0.15)',
+          color: '#93c5fd',
         },
         '.cm-activeLine': {
-          backgroundColor: 'rgba(124, 58, 237, 0.05)',
+          backgroundColor: 'rgba(37, 99, 235, 0.05)',
         },
         '&.cm-focused .cm-cursor': {
-          borderLeftColor: '#a78bfa',
+          borderLeftColor: '#60a5fa',
           borderLeftWidth: '2px',
         },
         '&.cm-focused .cm-selectionBackground, ::selection': {
-          backgroundColor: 'rgba(124, 58, 237, 0.35) !important',
+          backgroundColor: 'rgba(37, 99, 235, 0.35) !important',
         },
       }),
     ];

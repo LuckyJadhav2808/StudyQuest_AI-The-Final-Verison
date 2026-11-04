@@ -284,7 +284,7 @@ export default function CompanionDrawer({ open, onOpenChange, trigger }: Compani
                 </div>
                 <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden border border-white/5">
                   <motion.div
-                    className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
+                    className="h-full bg-gradient-to-r from-blue-600 to-indigo-500 rounded-full"
                     initial={{ width: 0 }}
                     animate={{ width: `${Math.min(100, (exp / 100) * 100)}%` }}
                     transition={{ duration: 0.5, ease: 'easeOut' }}

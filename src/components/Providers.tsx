@@ -294,7 +294,7 @@ function QueueToaster() {
           fontSize: '13px',
           fontWeight: 700,
           fontFamily: 'var(--font-heading)',
-          boxShadow: '0 12px 30px rgba(124, 58, 237, 0.15)',
+          boxShadow: '0 12px 30px rgba(37, 99, 235, 0.15)',
           padding: '12px 18px',
           maxWidth: 'min(460px, calc(100vw - 32px))',
           wordBreak: 'break-word',

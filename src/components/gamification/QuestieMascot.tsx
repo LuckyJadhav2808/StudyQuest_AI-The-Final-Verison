@@ -424,7 +424,7 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="relative overflow-hidden rounded-xl p-2 px-2.5 bg-gradient-to-r from-indigo-50/90 via-white to-purple-50/80 dark:from-indigo-950/40 dark:via-slate-900/60 dark:to-purple-950/40 border border-indigo-200/70 dark:border-white/10 hover:border-indigo-400/60 transition-all flex items-center justify-between gap-2 shadow-sm group"
+          className="relative overflow-hidden rounded-xl p-2 px-2.5 bg-gradient-to-r from-blue-50/90 via-white to-indigo-50/80 dark:from-blue-950/40 dark:via-slate-900/60 dark:to-indigo-950/40 border border-slate-200/70 dark:border-white/10 hover:border-blue-400/60 transition-all flex items-center justify-between gap-2 shadow-sm group"
         >
           <div
             onClick={handleMascotClick}
@@ -474,7 +474,7 @@ export default function QuestieMascot({ collapsed = false }: QuestieMascotProps)
   return (
     <div className="relative py-1 select-none">
       {/* Container Card */}
-      <div className="relative overflow-hidden rounded-2xl p-3 bg-gradient-to-br from-indigo-50/95 via-purple-50/90 to-pink-50/70 dark:from-indigo-950/40 dark:via-slate-950/70 dark:to-purple-950/40 border border-indigo-200/70 dark:border-white/10 hover:border-indigo-400/60 transition-all shadow-sm group">
+      <div className="relative overflow-hidden rounded-2xl p-3 bg-gradient-to-br from-blue-50/95 via-indigo-50/90 to-sky-50/70 dark:from-blue-950/40 dark:via-slate-950/70 dark:to-indigo-950/40 border border-slate-200/70 dark:border-white/10 hover:border-blue-400/60 transition-all shadow-sm group">
         {/* Ambient Mood Glow */}
         <div className={`absolute -top-6 -right-6 w-24 h-24 rounded-full ${auraGlow} pointer-events-none opacity-60`} />
 

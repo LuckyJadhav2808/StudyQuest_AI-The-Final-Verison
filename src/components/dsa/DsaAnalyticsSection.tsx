@@ -79,10 +79,10 @@ export default function DsaAnalyticsSection({ stats }: DsaAnalyticsSectionProps)
       {/* Analytics Collapsible Header (Fully readable and clickable on all screen sizes) */}
       <div
         onClick={() => setIsOpen(!isOpen)}
-        className="p-3.5 sm:p-5 flex items-center justify-between gap-3 border-b border-[var(--card-border)] bg-gradient-to-r from-purple-500/10 via-primary/5 to-cyan-500/10 cursor-pointer select-none hover:bg-slate-800/30 transition-colors"
+        className="p-3.5 sm:p-5 flex items-center justify-between gap-3 border-b border-[var(--card-border)] bg-gradient-to-r from-blue-600/10 via-primary/5 to-cyan-500/10 cursor-pointer select-none hover:bg-slate-800/30 transition-colors"
       >
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <div className="p-2 sm:p-2.5 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30 flex-shrink-0">
+          <div className="p-2 sm:p-2.5 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30 flex-shrink-0">
             <HiTrendingUp className="text-lg sm:text-xl" />
           </div>
           <div className="min-w-0 flex-1">
@@ -104,7 +104,7 @@ export default function DsaAnalyticsSection({ stats }: DsaAnalyticsSectionProps)
                   ? 'text-emerald-400'
                   : readinessScore >= 40
                   ? 'text-amber-400'
-                  : 'text-purple-400'
+                  : 'text-blue-400'
               }`}
             >
               {readinessScore}/100
@@ -203,10 +203,10 @@ export default function DsaAnalyticsSection({ stats }: DsaAnalyticsSectionProps)
               <Card className="p-4 bg-slate-900/40 border border-slate-800/80 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                    <HiExclamationCircle className="text-purple-400 text-sm" />
+                    <HiExclamationCircle className="text-blue-400 text-sm" />
                     Recommended Focus
                   </span>
-                  <span className="text-[10px] text-purple-400 font-bold font-mono">Next Up</span>
+                  <span className="text-[10px] text-blue-400 font-bold font-mono">Next Up</span>
                 </div>
                 <div className="space-y-1.5 pt-1">
                   {focusPatterns.map((p) => {
@@ -231,7 +231,7 @@ export default function DsaAnalyticsSection({ stats }: DsaAnalyticsSectionProps)
                   onClick={() => setActiveTab('patterns')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     activeTab === 'patterns'
-                      ? 'bg-purple-600 text-white shadow-sm'
+                      ? 'bg-blue-600 text-white shadow-sm'
                       : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-surface-hover'
                   }`}
                 >
@@ -266,13 +266,13 @@ export default function DsaAnalyticsSection({ stats }: DsaAnalyticsSectionProps)
                     >
                       <div className="flex items-center justify-between text-xs font-semibold">
                         <span className="text-slate-200 truncate pr-2">{p.pattern}</span>
-                        <span className="font-mono text-[11px] text-purple-400 font-bold">
+                        <span className="font-mono text-[11px] text-blue-400 font-bold">
                           {p.solved}/{p.total} ({pct}%)
                         </span>
                       </div>
                       <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
                         <div
-                          className="bg-purple-500 h-full rounded-full transition-all duration-500"
+                          className="bg-blue-500 h-full rounded-full transition-all duration-500"
                           style={{ width: `${pct}%` }}
                         />
                       </div>

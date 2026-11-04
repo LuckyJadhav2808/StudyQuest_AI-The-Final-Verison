@@ -158,19 +158,19 @@ export default function NotificationDrawer({
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="relative w-full max-w-md h-full bg-white/95 dark:bg-[#0B0D1E]/95 backdrop-blur-2xl border-l border-indigo-100 dark:border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.6)] flex flex-col z-10 overflow-hidden select-none"
+            className="relative w-full max-w-md h-full bg-white/95 dark:bg-[#0B1021]/95 backdrop-blur-2xl border-l border-slate-200 dark:border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.6)] flex flex-col z-10 overflow-hidden select-none"
             role="dialog"
             aria-modal="true"
             aria-label="Activity & Notification Center"
           >
             {/* Ambient Lighting Sheen */}
-            <div className="absolute top-0 right-0 w-72 h-72 bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute top-0 right-0 w-72 h-72 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute bottom-0 left-0 w-72 h-72 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none" />
 
             {/* ── Drawer Header ── */}
-            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-indigo-100/80 dark:border-white/10 relative z-10 shrink-0">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-200/80 dark:border-white/10 relative z-10 shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-violet-500 shadow-2xs">
+                <div className="w-8 h-8 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-500 shadow-2xs">
                   <HiBell size={18} />
                 </div>
                 <div>
@@ -179,7 +179,7 @@ export default function NotificationDrawer({
                       Activity Center
                     </h2>
                     {totalCount > 0 && (
-                      <span className="px-2 py-0.5 rounded-full bg-violet-600 text-white font-mono text-[9px] font-black shadow-xs">
+                      <span className="px-2 py-0.5 rounded-full bg-blue-600 text-white font-mono text-[9px] font-black shadow-xs">
                         {totalCount} New
                       </span>
                     )}
@@ -205,13 +205,13 @@ export default function NotificationDrawer({
             </div>
 
             {/* ── Tabs Segmented Control ── */}
-            <div className="px-4 pt-3 pb-2 border-b border-indigo-100/60 dark:border-white/10 relative z-10 shrink-0">
-              <div className="grid grid-cols-2 p-1 rounded-xl bg-indigo-50/70 dark:bg-black/30 border border-indigo-100 dark:border-white/10">
+            <div className="px-4 pt-3 pb-2 border-b border-slate-200/60 dark:border-white/10 relative z-10 shrink-0">
+              <div className="grid grid-cols-2 p-1 rounded-xl bg-slate-100/70 dark:bg-black/40 border border-slate-200/80 dark:border-white/10">
                 <button
                   onClick={() => setActiveTab('activity')}
                   className={`py-1.5 px-3 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                     activeTab === 'activity'
-                      ? 'bg-white dark:bg-violet-600 text-slate-900 dark:text-white shadow-xs'
+                      ? 'bg-white dark:bg-blue-600 text-slate-900 dark:text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
@@ -223,7 +223,7 @@ export default function NotificationDrawer({
                   onClick={() => setActiveTab('requests')}
                   className={`relative py-1.5 px-3 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                     activeTab === 'requests'
-                      ? 'bg-white dark:bg-violet-600 text-slate-900 dark:text-white shadow-xs'
+                      ? 'bg-white dark:bg-blue-600 text-slate-900 dark:text-white shadow-xs'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
@@ -438,7 +438,7 @@ export default function NotificationDrawer({
                           <img
                             src={getAvatarUrl(req.fromAvatar, req.fromAvatarStyle)}
                             alt={req.fromName}
-                            className="w-9 h-9 rounded-full ring-2 ring-violet-500/30 object-cover shrink-0"
+                            className="w-9 h-9 rounded-full ring-2 ring-blue-500/30 object-cover shrink-0"
                           />
                           <div className="flex-1 min-w-0">
                             <h4 className="text-xs font-heading font-black text-slate-900 dark:text-white truncate">

@@ -229,7 +229,7 @@ export default function CommandPalette() {
           id: `dsa-${problem.id}`,
           label: `${problem.leetcodeId ? `#${problem.leetcodeId} ` : ''}${problem.title}`,
           description: `⚔️ ${problem.difficulty.toUpperCase()} • ${problem.category} (${problem.pattern})`,
-          icon: <HiCubeTransparent className="text-purple-400" size={18} />,
+          icon: <HiCubeTransparent className="text-blue-400" size={18} />,
           category: 'dsa',
           keywords: [problem.title, idStr, problem.category, problem.pattern],
           action: () => router.push(`/dsa?problem=${problem.id}`),

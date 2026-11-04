@@ -199,12 +199,12 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col justify-center bg-[#F0EDF8] dark:bg-[#070913] text-slate-900 dark:text-white selection:bg-indigo-500/30 selection:text-indigo-200 relative overflow-x-hidden">
+    <div className="min-h-screen w-full flex flex-col justify-center bg-[#F0EDF8] dark:bg-[#050811] text-slate-900 dark:text-white selection:bg-blue-500/30 selection:text-blue-200 relative overflow-x-hidden">
       {/* ============================================================
           LIVING ATMOSPHERIC AURORA MESH CANVAS (Unified with Dashboard)
           ============================================================ */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
-        <div className="absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-indigo-500/15 via-purple-500/10 to-transparent blur-[140px] animate-pulse [animation-duration:9s]" />
+        <div className="absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-blue-600/20 via-indigo-600/10 to-transparent blur-[140px] animate-pulse [animation-duration:9s]" />
         <div className="absolute top-1/3 -right-32 w-[520px] h-[520px] rounded-full bg-gradient-to-bl from-cyan-500/12 via-blue-500/8 to-transparent blur-[130px] animate-pulse [animation-duration:11s]" />
         <div className="absolute -bottom-40 left-1/4 w-[650px] h-[450px] rounded-full bg-gradient-to-t from-emerald-500/10 via-teal-500/5 to-transparent blur-[150px] animate-pulse [animation-duration:13s]" />
         {/* Subtle Precision Grid Matrix */}
@@ -212,7 +212,7 @@ export default function LoginPage() {
           className="absolute inset-0 opacity-[0.035] dark:opacity-[0.02]"
           style={{
             backgroundImage:
-              'linear-gradient(to right, #7C3AED 1px, transparent 1px), linear-gradient(to bottom, #7C3AED 1px, transparent 1px)',
+              'linear-gradient(to right, #2563EB 1px, transparent 1px), linear-gradient(to bottom, #2563EB 1px, transparent 1px)',
             backgroundSize: '40px 40px',
           }}
         />
@@ -227,7 +227,7 @@ export default function LoginPage() {
           {/* Brand Anchor & Operational Status */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-primary via-indigo-600 to-secondary flex items-center justify-center text-white shadow-[0_0_24px_rgba(124,58,237,0.45)] border border-white/30">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-primary via-indigo-600 to-secondary flex items-center justify-center text-white shadow-[0_0_24px_rgba(37,99,235,0.45)] border border-white/30">
                 <HiSparkles size={20} className="animate-pulse" />
               </div>
               <div>
@@ -267,11 +267,11 @@ export default function LoginPage() {
               INTERACTIVE MINI-COCKPIT PREVIEW (Linear & Raycast Benchmark)
               A real, high-density teaser of the active 2x2 Bento Dashboard!
               ============================================================ */}
-          <div className="rounded-[24px] sm:rounded-[28px] bg-white/80 dark:bg-[#0B0D1E]/80 backdrop-blur-2xl border border-indigo-500/25 dark:border-white/[0.10] shadow-[0_16px_48px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.20)] p-4 sm:p-5 space-y-3.5 relative overflow-hidden group">
+          <div className="rounded-[24px] sm:rounded-[28px] bg-white/80 dark:bg-[#0F172E]/90 backdrop-blur-2xl border border-slate-200/80 dark:border-white/[0.10] shadow-[0_16px_48px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.20)] p-4 sm:p-5 space-y-3.5 relative overflow-hidden group">
             {/* Specular Ambient Jewel Glow */}
-            <div className="absolute -top-16 -left-16 w-44 h-44 bg-indigo-500/12 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -top-16 -left-16 w-44 h-44 bg-blue-600/15 rounded-full blur-3xl pointer-events-none" />
 
-            <div className="flex items-center justify-between pb-2 border-b border-indigo-500/15 dark:border-white/10">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-white/10">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 inline-block" />
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 inline-block" />
@@ -280,7 +280,7 @@ export default function LoginPage() {
                   Live Cockpit Preview
                 </span>
               </div>
-              <span className="text-[10px] font-mono font-bold text-indigo-500 dark:text-indigo-400">
+              <span className="text-[10px] font-mono font-bold text-blue-500 dark:text-blue-400">
                 100vh Modular Bento
               </span>
             </div>
@@ -288,14 +288,14 @@ export default function LoginPage() {
             {/* Mini Bento Grid: 2 Columns */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Mini Card A: Flow Station */}
-              <div className="p-3 rounded-2xl bg-white/60 dark:bg-black/35 border border-indigo-500/20 dark:border-white/10 flex items-center justify-between gap-3 shadow-2xs">
+              <div className="p-3 rounded-2xl bg-white/60 dark:bg-black/35 border border-slate-200/80 dark:border-white/10 flex items-center justify-between gap-3 shadow-2xs">
                 <div className="flex items-center gap-2.5">
                   <div
                     onClick={() => {
                       playClick();
                       setDemoTimerPlaying(!demoTimerPlaying);
                     }}
-                    className="w-10 h-10 rounded-full bg-indigo-500/20 dark:bg-[#7C3AED]/25 border border-indigo-500/40 flex items-center justify-center text-indigo-500 dark:text-purple-300 cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+                    className="w-10 h-10 rounded-full bg-blue-500/20 dark:bg-blue-600/25 border border-blue-500/40 flex items-center justify-center text-blue-600 dark:text-blue-300 cursor-pointer hover:scale-105 active:scale-95 transition-transform"
                     title="Click to preview timer"
                   >
                     <HiClock size={18} />
@@ -424,9 +424,9 @@ export default function LoginPage() {
             RIGHT COLUMN: PRODUCTION AUTH TERMINAL (Smoked Obsidian Glass)
             ============================================================ */}
         <div className="w-full lg:w-[45%] flex flex-col items-center">
-          <div className="w-full max-w-md rounded-[28px] sm:rounded-[32px] bg-white/85 dark:bg-[#0B0D1E]/85 backdrop-blur-2xl border border-indigo-500/30 dark:border-white/[0.10] shadow-[0_20px_60px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.20)] p-6 sm:p-8 xl:p-9 relative overflow-hidden transition-all group">
+          <div className="w-full max-w-md rounded-[28px] sm:rounded-[32px] bg-white/85 dark:bg-[#0F172E]/90 backdrop-blur-2xl border border-slate-200/80 dark:border-white/[0.10] shadow-[0_20px_60px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.20)] p-6 sm:p-8 xl:p-9 relative overflow-hidden transition-all group">
             {/* Specular Jewel Bloom */}
-            <div className="absolute -top-16 -right-16 w-44 h-44 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -top-16 -right-16 w-44 h-44 bg-blue-600/15 rounded-full blur-3xl pointer-events-none" />
 
             {/* Header: Title + Reactive Companion Avatar */}
             <div className="flex items-center justify-between mb-6">
@@ -444,7 +444,7 @@ export default function LoginPage() {
               {/* Reactive Interactive Questie Companion Avatar */}
               <div
                 onClick={handleMascotClick}
-                className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500/20 via-purple-500/20 to-pink-500/20 border border-indigo-500/30 flex items-center justify-center cursor-pointer active:scale-95 transition-transform shadow-xs overflow-hidden p-1 shrink-0"
+                className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-500/20 via-indigo-500/20 to-teal-500/20 border border-blue-500/30 flex items-center justify-center cursor-pointer active:scale-95 transition-transform shadow-xs overflow-hidden p-1 shrink-0"
                 title="Questie Companion • Ready for work"
               >
                 <ExpressiveOwlMascot mood={mascotMood} isSquishing={mascotSquish} size={40} />
@@ -471,7 +471,7 @@ export default function LoginPage() {
                     {isActive && (
                       <motion.div
                         layoutId="login-tab-indicator"
-                        className="absolute inset-0 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 shadow-[0_4px_16px_rgba(99,102,241,0.4)]"
+                        className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 shadow-[0_4px_16px_rgba(37,99,235,0.4)]"
                         transition={{ type: 'spring', stiffness: 450, damping: 30 }}
                       />
                     )}
@@ -821,7 +821,7 @@ export default function LoginPage() {
                     <button
                       type="submit"
                       disabled={resetLoading}
-                      className="flex-1 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-heading font-bold uppercase tracking-wider shadow-lg transition-all min-h-[44px] disabled:opacity-50 cursor-pointer"
+                      className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-heading font-bold uppercase tracking-wider shadow-lg shadow-blue-600/30 transition-all min-h-[44px] disabled:opacity-50 cursor-pointer"
                     >
                       {resetLoading ? 'Sending...' : 'Send Link'}
                     </button>
