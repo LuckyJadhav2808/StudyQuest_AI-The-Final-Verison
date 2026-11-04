@@ -88,11 +88,15 @@ export function PanelHeader({
       <div className="flex items-center gap-2 min-w-0">
         <IconTile icon={icon} tone={tone} size={size} />
         <div className="min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1.5">
             <h2 className="font-heading whitespace-nowrap text-xs sm:text-sm font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
               {title}
             </h2>
-            {tag && <span className={`chip tone-${tone} shrink-0 text-[8px] py-0 px-1.5 ${tagAlways ? "inline-flex" : "hidden sm:inline-flex"}`}>{tag}</span>}
+            {tag && (
+              <span className={`chip tone-${tone} shrink-0 text-[8px] py-0 px-1.5 ${tagAlways ? "inline-flex" : "hidden 2xl:inline-flex"}`}>
+                {tag}
+              </span>
+            )}
           </div>
           {sub && <p className="truncate text-[9px] sm:text-[10px] font-medium text-[var(--tone-text)] opacity-90 leading-none mt-0.5">{sub}</p>}
         </div>

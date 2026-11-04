@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { Flame, Gift, Sparkles, TrendingUp } from 'lucide-react';
+import { Check, Flame, Gift, Sparkles, TrendingUp } from 'lucide-react';
 import { Btn, Chip, Panel, PanelHeader } from './ui';
 import { useGamification } from '@/hooks/useGamification';
 import { useTimerContext } from '@/context/TimerContext';
@@ -163,19 +163,26 @@ export function DailyChest() {
             >
               <Gift size={22} strokeWidth={2.2} />
             </div>
+            {!canClaim && (
+              <span className="absolute -right-1 -bottom-1 grid h-4 w-4 sm:h-5 sm:w-5 place-items-center rounded-full bg-emerald-500 text-slate-950 shadow-[0_0_10px_#10b981]">
+                <Check size={11} strokeWidth={4} />
+              </span>
+            )}
           </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              <h2 className="font-heading text-xs sm:text-sm font-bold text-white leading-tight">
+              <h2 className="font-heading text-xs sm:text-sm font-bold text-white whitespace-nowrap leading-tight">
                 Daily Chest
               </h2>
-              <Chip tone={canClaim ? 'solar' : 'mint'}>
-                {canClaim ? 'READY' : 'CLAIMED'}
-              </Chip>
+              {canClaim && (
+                <Chip tone="solar" className="text-[8px] py-0 px-1.5">
+                  READY
+                </Chip>
+              )}
             </div>
-            <p className="truncate text-[10px] font-mono font-semibold text-amber-400 mt-0.5">
-              {canClaim ? 'Open for XP + coin loot ✨' : 'Resets in 23:02:25'}
+            <p className="whitespace-nowrap text-[10px] font-mono font-semibold text-amber-400 mt-0.5">
+              {canClaim ? 'Open for XP + coins ✨' : 'Resets at midnight'}
             </p>
           </div>
 
@@ -184,7 +191,7 @@ export function DailyChest() {
             onClick={() => setShowModal(true)}
             className="!px-3.5 !py-1 text-xs shrink-0"
           >
-            {canClaim ? 'Loot' : <><Sparkles size={13} /> Done</>}
+            {canClaim ? 'Loot' : <><Check size={12} strokeWidth={3.5} /> Done</>}
           </Btn>
         </div>
       </Panel>

@@ -259,21 +259,20 @@ function AppShell({ children }: { children: React.ReactNode }) {
           {/* Cinematic Level-Up Overlay */}
           <LevelUpOverlay />
 
-          {/* Global Sticky Notes */}
-          <StickyNotesOverlay />
+          {/* Global Sticky Notes (omitted on dashboard bento grid to avoid covering Daily Chest) */}
+          {pathname !== '/' && <StickyNotesOverlay />}
 
           {/* Offline Deep Work Mode Indicator */}
           <OfflineIndicator />
 
-
           {/* Patch Notes Modal (shows on new version) */}
           <PatchNotesModal />
 
-          {/* Global Pixel Pet Companion */}
-          <PixelPet coins={coins} addCoins={addCoins} />
+          {/* Global Pixel Pet Companion (on dashboard, launcher is already docked in Sidebar) */}
+          {pathname !== '/' && <PixelPet coins={coins} addCoins={addCoins} />}
 
-          {/* Scroll to Top FAB (omitted on fixed workstation apps) */}
-          {!isWorkstationPage && <ScrollToTop />}
+          {/* Scroll to Top FAB (omitted on fixed workstation apps and zero-scroll dashboard) */}
+          {!isWorkstationPage && pathname !== '/' && <ScrollToTop />}
 
           {/* First Time User Onboarding Tour */}
           <OnboardingTour />

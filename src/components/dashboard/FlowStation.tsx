@@ -93,121 +93,104 @@ export function FlowStation() {
         }
       />
 
-      {/* 3D Orb Timer Section with Responsive Container Query Scale */}
-      <div className="min-h-0 flex-1 flex items-center justify-center py-1 sm:py-2 relative" style={{ containerType: 'size' }}>
-        <div className="grid h-full w-full place-items-center">
+      {/* 3D Orb Timer Section with Responsive Proportional Aspect */}
+      <div className="min-h-0 flex-1 flex items-center justify-center py-0.5 sm:py-1 relative overflow-visible">
+        <div className="relative aspect-square h-full max-h-[225px] sm:max-h-[265px] xl:max-h-[295px] w-auto flex items-center justify-center mx-auto">
+          {/* Soft Purple Aurora Glow behind ring */}
           <div
-            className="relative flex items-center justify-center"
+            className={`absolute inset-4 rounded-full bg-[#8b5cf6]/25 blur-3xl transition-opacity duration-700 pointer-events-none ${
+              isRunning ? 'opacity-100' : 'opacity-50'
+            }`}
+          />
+
+          {/* SVG Ring with 60 Ticks & Gradient Progress */}
+          <svg viewBox="0 0 300 300" className="absolute inset-0 h-full w-full -rotate-90 overflow-visible">
+            <defs>
+              <linearGradient id="sqRingGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor={isFocus ? '#8b5cf6' : '#10b981'} />
+                <stop offset="55%" stopColor={isFocus ? '#ec4899' : '#22d3ee'} />
+                <stop offset="100%" stopColor={isFocus ? '#22d3ee' : '#34d399'} />
+              </linearGradient>
+              <filter id="sqRingGlow" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="5" result="b" />
+                <feMerge>
+                  <feMergeNode in="b" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+
+            {/* 60 Ticks radiating outward */}
+            {Array.from({ length: 60 }).map((_, i) => {
+              const a = (i / 60) * Math.PI * 2;
+              const long = i % 5 === 0;
+              const r1 = 138;
+              const r2 = long ? 147 : 143;
+              const lit = i / 60 <= progress;
+              return (
+                <line
+                  key={i}
+                  x1={150 + Math.cos(a) * r1}
+                  y1={150 + Math.sin(a) * r1}
+                  x2={150 + Math.cos(a) * r2}
+                  y2={150 + Math.sin(a) * r2}
+                  stroke={lit ? 'url(#sqRingGrad)' : 'rgba(196, 181, 253, 0.26)'}
+                  strokeWidth={long ? 2.4 : 1.4}
+                  strokeLinecap="round"
+                />
+              );
+            })}
+
+            {/* Background Track */}
+            <circle cx="150" cy="150" r={R} fill="none" stroke="rgba(4, 5, 18, 0.65)" strokeWidth="15" />
+            <circle cx="150" cy="150" r={R} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="15" />
+
+            {/* Progress Sweep */}
+            <circle
+              cx="150"
+              cy="150"
+              r={R}
+              fill="none"
+              stroke="url(#sqRingGrad)"
+              strokeWidth="13"
+              strokeLinecap="round"
+              strokeDasharray={C}
+              strokeDashoffset={C * (1 - Math.max(progress, 0.002))}
+              filter="url(#sqRingGlow)"
+              style={{ transition: 'stroke-dashoffset 0.8s linear' }}
+            />
+          </svg>
+
+          {/* Glowing Floating Thumb Indicator */}
+          <div
+            className="absolute h-[6%] w-[6%] rounded-full bg-white shadow-[0_0_16px_5px_rgba(167,139,250,0.95)] pointer-events-none"
             style={{
-              width: 'min(100cqw, 100cqh)',
-              height: 'min(100cqw, 100cqh)',
-              maxWidth: '280px',
-              maxHeight: '280px',
+              left: `${((150 + Math.cos(ang) * R) / 300) * 100}%`,
+              top: `${((150 + Math.sin(ang) * R) / 300) * 100}%`,
+              transform: 'translate(-50%,-50%)',
+              transition: 'all 0.8s linear',
             }}
-          >
-            {/* Soft Purple Aurora Glow behind ring */}
-            <div
-              className={`absolute inset-4 rounded-full bg-[#8b5cf6]/25 blur-3xl transition-opacity duration-700 pointer-events-none ${
-                isRunning ? 'opacity-100' : 'opacity-50'
-              }`}
-            />
+          />
 
-            {/* SVG Ring with 60 Ticks & Gradient Progress */}
-            <svg viewBox="0 0 300 300" className="absolute inset-0 h-full w-full -rotate-90 overflow-visible">
-              <defs>
-                <linearGradient id="sqRingGrad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor={isFocus ? '#8b5cf6' : '#10b981'} />
-                  <stop offset="55%" stopColor={isFocus ? '#ec4899' : '#22d3ee'} />
-                  <stop offset="100%" stopColor={isFocus ? '#22d3ee' : '#34d399'} />
-                </linearGradient>
-                <filter id="sqRingGlow" x="-30%" y="-30%" width="160%" height="160%">
-                  <feGaussianBlur stdDeviation="5" result="b" />
-                  <feMerge>
-                    <feMergeNode in="b" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              </defs>
-
-              {/* 60 Ticks radiating outward */}
-              {Array.from({ length: 60 }).map((_, i) => {
-                const a = (i / 60) * Math.PI * 2;
-                const long = i % 5 === 0;
-                const r1 = 138;
-                const r2 = long ? 147 : 143;
-                const lit = i / 60 <= progress;
-                return (
-                  <line
-                    key={i}
-                    x1={150 + Math.cos(a) * r1}
-                    y1={150 + Math.sin(a) * r1}
-                    x2={150 + Math.cos(a) * r2}
-                    y2={150 + Math.sin(a) * r2}
-                    stroke={lit ? 'url(#sqRingGrad)' : 'rgba(196, 181, 253, 0.26)'}
-                    strokeWidth={long ? 2.4 : 1.4}
-                    strokeLinecap="round"
-                  />
-                );
-              })}
-
-              {/* Background Track */}
-              <circle cx="150" cy="150" r={R} fill="none" stroke="rgba(4, 5, 18, 0.65)" strokeWidth="15" />
-              <circle cx="150" cy="150" r={R} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="15" />
-
-              {/* Progress Sweep */}
-              <circle
-                cx="150"
-                cy="150"
-                r={R}
-                fill="none"
-                stroke="url(#sqRingGrad)"
-                strokeWidth="13"
-                strokeLinecap="round"
-                strokeDasharray={C}
-                strokeDashoffset={C * (1 - Math.max(progress, 0.002))}
-                filter="url(#sqRingGlow)"
-                style={{ transition: 'stroke-dashoffset 0.8s linear' }}
-              />
-            </svg>
-
-            {/* Glowing Floating Thumb Indicator */}
-            <div
-              className="absolute h-[6%] w-[6%] rounded-full bg-white shadow-[0_0_16px_5px_rgba(167,139,250,0.95)] pointer-events-none"
-              style={{
-                left: `${((150 + Math.cos(ang) * R) / 300) * 100}%`,
-                top: `${((150 + Math.sin(ang) * R) / 300) * 100}%`,
-                transform: 'translate(-50%,-50%)',
-                transition: 'all 0.8s linear',
-              }}
-            />
-
-            {/* Central 3D Spherical Orb */}
-            <div className="orb absolute inset-[16%] grid place-items-center text-center select-none shadow-[inset_0_2px_0_rgba(255,255,255,0.2),inset_0_-18px_40px_-16px_rgba(139,92,246,0.5),0_24px_50px_-18px_rgba(139,92,246,0.6)]">
-              <div className="flex flex-col items-center justify-center">
-                <div
-                  className="flex items-center justify-center gap-1.5 font-bold tracking-[0.2em] text-[#c4b5fd] uppercase"
-                  style={{ fontSize: 'clamp(9px, 3.2cqmin, 13px)' }}
-                >
-                  {isFocus ? <Brain size={13} className="text-[#c4b5fd]" /> : <Coffee size={13} className="text-[#34d399]" />}
-                  <span>{isFocus ? 'Deep focus' : 'Break time'}</span>
-                </div>
-                <div
-                  className="font-mono tabular font-black leading-none text-white mt-1 tracking-tight"
-                  style={{
-                    fontSize: 'min(15cqmin, 72px)',
-                    textShadow: '0 0 32px rgba(139,92,246,0.65)',
-                  }}
-                >
-                  {mm}
-                  <span className={isRunning ? 'animate-pulse text-[#a78bfa]' : ''}>:</span>
-                  {ss}
-                </div>
-                <div
-                  className="mt-1 text-slate-400 font-mono font-medium"
-                  style={{ fontSize: 'clamp(9px, 3cqmin, 12px)' }}
-                >
-                  {Math.round(progress * 100)}% complete
-                </div>
+          {/* Central 3D Spherical Orb */}
+          <div className="orb absolute inset-[13%] grid place-items-center text-center select-none shadow-[inset_0_2px_0_rgba(255,255,255,0.2),inset_0_-18px_40px_-16px_rgba(139,92,246,0.5),0_24px_50px_-18px_rgba(139,92,246,0.6)]">
+            <div className="flex flex-col items-center justify-center">
+              <div className="flex items-center justify-center gap-1.5 font-bold tracking-[0.2em] text-[#c4b5fd] uppercase text-[10px] sm:text-xs">
+                {isFocus ? <Brain size={13} className="text-[#c4b5fd]" /> : <Coffee size={13} className="text-[#34d399]" />}
+                <span>{isFocus ? 'Deep focus' : 'Break time'}</span>
+              </div>
+              <div
+                className="font-mono tabular font-black leading-none text-white mt-0.5 sm:mt-1 tracking-tight text-3xl sm:text-4xl xl:text-5xl"
+                style={{
+                  textShadow: '0 0 32px rgba(139,92,246,0.65)',
+                }}
+              >
+                {mm}
+                <span className={isRunning ? 'animate-pulse text-[#a78bfa]' : ''}>:</span>
+                {ss}
+              </div>
+              <div className="mt-1 text-slate-400 font-mono font-medium text-[10px] sm:text-xs">
+                {Math.round(progress * 100)}% complete
               </div>
             </div>
           </div>
@@ -215,32 +198,32 @@ export function FlowStation() {
       </div>
 
       {/* Tactile Controls: Reset, 3D Candy Play/Pause, Swap Mode */}
-      <div className="flex shrink-0 items-center justify-center gap-4 py-1">
+      <div className="flex shrink-0 items-center justify-center gap-3 sm:gap-4 py-0.5 sm:py-1">
         <button
           onClick={handleReset}
           aria-label="Reset Timer"
-          className="raised tone-iris grid h-10 w-10 place-items-center rounded-2xl text-slate-300 hover:text-white cursor-pointer"
+          className="raised tone-iris grid h-9 w-9 sm:h-10 sm:w-10 place-items-center rounded-2xl text-slate-300 hover:text-white cursor-pointer"
           title="Reset Session"
         >
-          <RotateCcw size={17} />
+          <RotateCcw size={16} />
         </button>
 
         <button
           onClick={handleTogglePlay}
           aria-label={isRunning ? 'Pause Flow' : 'Start Flow'}
-          className="btn tone-iris !h-14 !w-14 !rounded-full !p-0 shadow-[0_4px_0_#4c1d95,0_14px_26px_-6px_rgba(139,92,246,0.85)] cursor-pointer"
+          className="btn tone-iris !h-12 !w-12 sm:!h-14 sm:!w-14 !rounded-full !p-0 shadow-[0_4px_0_#4c1d95,0_14px_26px_-6px_rgba(139,92,246,0.85)] cursor-pointer"
           title={isRunning ? 'Pause' : 'Start'}
         >
-          {isRunning ? <Pause size={22} fill="currentColor" /> : <Play size={22} fill="currentColor" className="ml-1" />}
+          {isRunning ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}
         </button>
 
         <button
           onClick={handleSwapMode}
           aria-label="Switch Mode"
-          className="raised tone-mint grid h-10 w-10 place-items-center rounded-2xl text-slate-300 hover:text-[#34d399] cursor-pointer"
+          className="raised tone-mint grid h-9 w-9 sm:h-10 sm:w-10 place-items-center rounded-2xl text-slate-300 hover:text-[#34d399] cursor-pointer"
           title={isFocus ? 'Switch to Break' : 'Switch to Focus'}
         >
-          {isFocus ? <Coffee size={17} /> : <Brain size={17} />}
+          {isFocus ? <Coffee size={16} /> : <Brain size={16} />}
         </button>
       </div>
 
@@ -252,7 +235,7 @@ export function FlowStation() {
             <button
               key={p.label}
               onClick={() => handleChoosePreset(p.f, p.label)}
-              className={`raised tone-iris rounded-2xl p-2.5 text-left cursor-pointer transition-all ${
+              className={`raised tone-iris rounded-2xl p-2 sm:p-2.5 text-left cursor-pointer transition-all ${
                 isActive ? 'is-active !border-[#a78bfa]/80 shadow-[0_0_16px_rgba(139,92,246,0.4)]' : ''
               }`}
             >

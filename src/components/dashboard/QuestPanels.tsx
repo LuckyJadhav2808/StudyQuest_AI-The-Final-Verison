@@ -77,7 +77,7 @@ export function DailyQuests({ onOpenAddModal }: { onOpenAddModal?: () => void })
         }
       />
 
-      <div className="thin-scroll flex min-h-0 flex-1 flex-col justify-center gap-1.5 overflow-y-auto pr-0.5">
+      <div className="no-scrollbar flex min-h-0 flex-1 flex-col justify-center gap-1.5 overflow-hidden">
         {quickInput && (
           <form onSubmit={handleAddSubmit} className="flex items-center gap-1.5 p-1">
             <input
@@ -155,7 +155,7 @@ export function DailyQuests({ onOpenAddModal }: { onOpenAddModal?: () => void })
 }
 
 const DEFAULT_SPRINTS = [
-  { id: 'sp-1', name: 'Physics Ch.4 pro...', progress: 40, grad: 'from-[#06b6d4] to-[#8b5cf6]' },
+  { id: 'sp-1', name: 'Physics Problem Set', progress: 40, grad: 'from-[#06b6d4] to-[#8b5cf6]' },
   { id: 'sp-2', name: 'Essay outline draft', progress: 60, grad: 'from-[#8b5cf6] to-[#ec4899]' },
 ];
 
@@ -174,14 +174,13 @@ export function ActiveQuests() {
     : DEFAULT_SPRINTS;
 
   return (
-    <Panel area="aq" tone="iris" delay={180} className="gap-2 justify-between h-full">
+    <Panel area="aq" tone="iris" delay={180} className="gap-1.5 sm:gap-2 justify-between h-full !py-2 sm:!py-2.5">
       <PanelHeader
         icon={ClipboardList}
         tone="iris"
         title="Active Quests"
-        tag="SPRINTS"
         sub={`${displaySprints.length} Active · +50 XP per bounty`}
-        size={34}
+        size={32}
         right={
           <Btn
             tone="iris"
@@ -194,12 +193,12 @@ export function ActiveQuests() {
         }
       />
 
-      <div className="grid min-h-0 flex-1 grid-cols-2 gap-2.5 items-center">
+      <div className="grid min-h-0 flex-1 grid-cols-2 gap-2 sm:gap-2.5 items-center">
         {displaySprints.map((s) => (
           <div
             key={s.id}
             onClick={() => router.push('/tasks')}
-            className="well flex min-w-0 flex-col justify-center gap-1.5 rounded-2xl p-2.5 cursor-pointer hover:border-[#a78bfa]/50 transition-colors"
+            className="well flex min-w-0 flex-col justify-center gap-1 rounded-2xl p-2 sm:p-2.5 cursor-pointer hover:border-[#a78bfa]/50 transition-colors"
           >
             <div className="flex items-center justify-between gap-1 text-xs font-bold">
               <span className="truncate text-slate-100">{s.name}</span>
@@ -252,10 +251,20 @@ export function TargetMilestone() {
         icon={Crosshair}
         tone="aqua"
         title="Target Milestone"
-        sub="Exam & Horizon Radar"
+        sub={nextExam ? "Target locked · radar active" : "Exam & Horizon Radar"}
         size={32}
+        right={
+          <Btn
+            tone="aqua"
+            onClick={() => router.push('/exams')}
+            className="!px-2.5 !py-1 text-xs shrink-0"
+          >
+            {nextExam ? <Radar size={13} /> : <Plus size={13} strokeWidth={3} />}
+            <span>{nextExam ? 'Edit' : 'Exam'}</span>
+          </Btn>
+        }
       />
-      <div className="flex min-h-0 flex-1 items-center gap-2.5">
+      <div className="flex min-h-0 flex-1 items-center gap-3">
         {/* Radar scope animation matching Image 2 */}
         <div className="relative aspect-square h-full max-h-10 sm:max-h-11 shrink-0 overflow-hidden rounded-full border border-[#22d3ee]/40 bg-[radial-gradient(circle,rgba(34,211,238,0.18),transparent_70%)] shadow-[0_0_18px_-2px_rgba(34,211,238,0.5)]">
           <div className="absolute inset-[22%] rounded-full border border-[#22d3ee]/30" />
@@ -277,28 +286,19 @@ export function TargetMilestone() {
               <div className="font-heading truncate text-xs sm:text-sm font-bold text-white leading-tight">
                 {nextExam.subject || nextExam.title}
               </div>
-              <div className="text-[10px] text-[#67e8f9] font-mono mt-0.5">
+              <div className="text-[10px] text-[#67e8f9] font-mono mt-0.5 whitespace-nowrap">
                 <b className="text-xs font-black text-white">{days}</b> days to go
               </div>
             </>
           ) : (
             <>
-              <div className="font-heading text-xs sm:text-sm font-bold text-white truncate leading-tight">
+              <div className="font-heading text-xs sm:text-sm font-bold text-white whitespace-nowrap leading-tight">
                 All Targets Clear
               </div>
-              <div className="truncate text-[10px] text-slate-400 mt-0.5">No exams on the horizon</div>
+              <div className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">No exams on the horizon</div>
             </>
           )}
         </div>
-
-        <Btn
-          tone="aqua"
-          onClick={() => router.push('/exams')}
-          className="!px-3 !py-1 text-xs shrink-0"
-        >
-          {nextExam ? <Radar size={13} /> : <Plus size={13} strokeWidth={3} />}
-          <span>{nextExam ? 'Edit' : 'Exam'}</span>
-        </Btn>
       </div>
     </Panel>
   );

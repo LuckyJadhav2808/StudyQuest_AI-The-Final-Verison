@@ -19,7 +19,7 @@ export function NotesDeck() {
   const [hover, setHover] = useState(false);
   const [cards, setCards] = useState(BENCHMARK_CARDS);
 
-  // If real notes exist, blend them into the cards while preserving the benchmark look
+  // Blend real notes if meaningful, while preserving the benchmark look from Image 2
   const visibleCards = React.useMemo(() => {
     if (!notes || notes.length === 0) return cards;
     return cards.map((c, i) => {
@@ -27,9 +27,9 @@ export function NotesDeck() {
       if (!real) return c;
       return {
         ...c,
-        title: real.title || c.title,
-        tag: real.folder || c.tag,
-        sub: new Date(real.updatedAt || Date.now()).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        title: real.title && real.title.trim().length > 7 ? real.title : c.title,
+        tag: real.folder && real.folder !== 'GENERAL' ? real.folder : c.tag,
+        sub: c.sub,
       };
     });
   }, [notes, cards]);
@@ -68,7 +68,7 @@ export function NotesDeck() {
 
       {/* 3D Diagonally Stacked Holographic Deck matching Image 2 & 3 */}
       <div
-        className="relative min-h-0 flex-1 overflow-hidden"
+        className="relative min-h-0 flex-1"
         style={{ perspective: 900 }}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}

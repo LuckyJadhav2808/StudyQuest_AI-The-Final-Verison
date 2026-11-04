@@ -7,9 +7,9 @@ import { useMusic } from '@/context/MusicContext';
 import { playAmbient, stopAmbient, setAmbientVolume, type ScapeKind } from '@/lib/ambientAudio';
 
 const AMBIENT_TRACKS: { title: string; sub: string; kind: ScapeKind; chip: string; grad: string }[] = [
-  { title: 'Lo-Fi Sanctuary', sub: 'Binaural Lo-Fi Beats', kind: 'binaural', chip: 'ALPHA', grad: 'from-[#8b5cf6] via-[#ec4899] to-[#f59e0b]' },
+  { title: 'Lo-Fi Beats', sub: 'Binaural Lo-Fi Beats', kind: 'binaural', chip: 'ALPHA', grad: 'from-[#8b5cf6] via-[#ec4899] to-[#f59e0b]' },
   { title: 'Ocean Drift', sub: 'Soft Wave Ambience', kind: 'waves', chip: 'WAVES', grad: 'from-[#22d3ee] via-[#8b5cf6] to-[#0A1024]' },
-  { title: 'Midnight Drizzle', sub: 'Rain On The Window', kind: 'rain', chip: 'RAIN', grad: 'from-[#10b981] via-[#22d3ee] to-[#7c3aed]' },
+  { title: 'Midnight Rain', sub: 'Rain On The Window', kind: 'rain', chip: 'RAIN', grad: 'from-[#10b981] via-[#22d3ee] to-[#7c3aed]' },
 ];
 
 const fmt = (s: number) => {
