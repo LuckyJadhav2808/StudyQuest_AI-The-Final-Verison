@@ -11,7 +11,7 @@ import {
   HiChevronLeft, HiChevronRight, HiClock, HiDownload, HiSparkles,
   HiLightningBolt, HiRefresh, HiInformationCircle, HiShare,
   HiClipboardCopy, HiX, HiReply, HiCheck, HiAcademicCap,
-  HiBeaker, HiMicrophone, HiArrowsExpand,
+  HiBeaker, HiMicrophone, HiArrowsExpand, HiUpload,
 } from 'react-icons/hi';
 import { marked } from 'marked';
 import { callAiCompletion, resolveOpenRouterKey, parseAiJsonResponse } from '@/lib/ai';
@@ -399,6 +399,8 @@ export default function NotesContent() {
   const [showMarkdownImport, setShowMarkdownImport] = useState(false);
   const [markdownInput, setMarkdownInput] = useState('');
   const [isEditingMarkdown, setIsEditingMarkdown] = useState(false);
+  const mdFileInputRef = useRef<HTMLInputElement>(null);
+  const [isDraggingMdFile, setIsDraggingMdFile] = useState(false);
 
   // AI states
   const [aiLoading, setAiLoading] = useState(false);
@@ -665,6 +667,78 @@ export default function NotesContent() {
       window.history.replaceState(null, '', '/notes');
     }
   }, [flushAutosave, router]);
+
+  // Import .md files directly into notes system
+  const handleImportMdFiles = useCallback(async (files: FileList | File[]) => {
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files).filter((f) =>
+      f.name.toLowerCase().endsWith('.md') ||
+      f.name.toLowerCase().endsWith('.markdown') ||
+      f.name.toLowerCase().endsWith('.txt') ||
+      f.type === 'text/markdown' ||
+      f.type === 'text/plain'
+    );
+
+    if (fileArray.length === 0) {
+      toast.error('Please select valid .md or .markdown files.');
+      return;
+    }
+
+    const toastId = toast.loading(`Importing ${fileArray.length} markdown ${fileArray.length > 1 ? 'files' : 'file'}...`);
+
+    try {
+      let lastCreatedNote: Note | null = null;
+      for (const file of fileArray) {
+        const rawMarkdown = await file.text();
+
+        // Extract title: from first markdown # Heading if present, or fallback to cleaned filename
+        let noteTitle = file.name.replace(/\.(md|markdown|txt)$/i, '').replace(/[-_]/g, ' ').trim();
+        const headingMatch = rawMarkdown.match(/^#\s+(.+)$/m);
+        if (headingMatch && headingMatch[1].trim()) {
+          noteTitle = headingMatch[1].replace(/[*`_#]/g, '').trim();
+        }
+
+        const compiledHtml = await compileStudyQuestMarkdown(rawMarkdown, rawMarkdown);
+        const targetFolder = selectedFolder !== 'all' ? selectedFolder : (selectedNote?.folder || 'General');
+
+        const id = await addNote({
+          title: noteTitle,
+          content: compiledHtml,
+          markdownSource: rawMarkdown,
+          folder: targetFolder,
+          tags: ['markdown', 'imported'],
+        });
+
+        if (id) {
+          lastCreatedNote = {
+            id,
+            title: noteTitle,
+            content: compiledHtml,
+            markdownSource: rawMarkdown,
+            folder: targetFolder,
+            tags: ['markdown', 'imported'],
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          };
+        }
+      }
+
+      if (lastCreatedNote) {
+        awardXP(XP_AWARDS.NOTE_CREATED, 'Imported markdown note').catch(() => {});
+        await openNote(lastCreatedNote);
+        setIsEditing(true);
+        toast.success(
+          fileArray.length === 1
+            ? `Imported "${lastCreatedNote.title}"! 📄 +10 XP`
+            : `Imported ${fileArray.length} markdown scrolls! 📄 +${fileArray.length * 10} XP`,
+          { id: toastId }
+        );
+      }
+    } catch (err: any) {
+      console.error('Markdown file import failed:', err);
+      toast.error('Failed to import markdown file. Please try again.', { id: toastId });
+    }
+  }, [selectedFolder, selectedNote?.folder, addNote, awardXP, openNote]);
 
   // Hydrate selectedNote from ?id=... URL query parameter or auto-select latest note
   const noteIdParam = searchParams.get('id');
@@ -1399,7 +1473,55 @@ Rules:
 
   return (
     <PageTransition className="h-full flex flex-col min-h-0">
-      <div className="w-full h-full flex flex-col min-h-0 space-y-2 relative">
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDraggingMdFile(true);
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setIsDraggingMdFile(false);
+          }
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDraggingMdFile(false);
+          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            handleImportMdFiles(e.dataTransfer.files);
+          }
+        }}
+        className="w-full h-full flex flex-col min-h-0 space-y-2 relative"
+      >
+        {/* Hidden File Input for .md Import */}
+        <input
+          type="file"
+          ref={mdFileInputRef}
+          accept=".md,.markdown,.txt"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files && e.target.files.length > 0) {
+              handleImportMdFiles(e.target.files);
+              e.target.value = '';
+            }
+          }}
+        />
+
+        {/* Drag & Drop Visual Overlay */}
+        {isDraggingMdFile && (
+          <div className="absolute inset-0 z-50 rounded-2xl bg-primary/20 backdrop-blur-md border-2 border-dashed border-primary flex flex-col items-center justify-center pointer-events-none p-6 text-center animate-in fade-in duration-150">
+            <div className="w-16 h-16 rounded-2xl bg-primary/30 border border-primary/50 flex items-center justify-center text-3xl mb-3 shadow-xl">
+              📄
+            </div>
+            <h3 className="text-base sm:text-lg font-heading font-black text-white">
+              Drop .md File to Import as Scroll
+            </h3>
+            <p className="text-xs text-primary-light mt-1">
+              Markdown will be compiled, saved into your vault, and opened for immediate editing
+            </p>
+          </div>
+        )}
+
         {/* ═══ Off-Canvas Slide-Out Scrolls Drawer ═══ */}
         <NotesCatalogDrawer
           isOpen={isScrollsDrawerOpen}
@@ -1414,6 +1536,7 @@ Rules:
             setShowNewModal(true);
             setIsScrollsDrawerOpen(false);
           }}
+          onImportMdFile={() => mdFileInputRef.current?.click()}
           onRenameNote={(note) => setRenameNoteObj(note)}
           onDeleteNote={(note) => setConfirmDelete(note.id)}
           loading={loading}
@@ -1448,6 +1571,16 @@ Rules:
                     title="Forge New Scroll"
                   >
                     <HiPlus size={15} />
+                  </button>
+
+                  {/* Quick Import .md file button */}
+                  <button
+                    type="button"
+                    onClick={() => mdFileInputRef.current?.click()}
+                    className="p-1.5 rounded-xl border border-[var(--card-border)] hover:border-primary/40 text-[var(--muted-foreground)] hover:text-primary transition-colors shrink-0 cursor-pointer"
+                    title="Import .md File as Scroll"
+                  >
+                    <HiUpload size={15} />
                   </button>
 
                     <Badge variant="primary" size="sm" className="hidden sm:inline-flex shrink-0">
@@ -1758,18 +1891,30 @@ Rules:
                             </button>
                           </div>
                           <button
+                            type="button"
                             onClick={() => { setShowMoreDropdown(false); setShowPdfModal(true); }}
                             className="w-full px-3 py-1.5 text-xs text-left hover:bg-primary/15 text-[var(--foreground)] flex items-center gap-2 transition-colors"
                           >
                             <HiDownload size={14} /> Export PDF
                           </button>
                           <button
-                            onClick={() => { setShowMoreDropdown(false); setIsEditingMarkdown(false); setMarkdownInput(''); setShowMarkdownImport(true); }}
-                            className="w-full px-3 py-1.5 text-xs text-left hover:bg-primary/15 text-[var(--foreground)] flex items-center gap-2 transition-colors"
+                            type="button"
+                            onClick={() => { setShowMoreDropdown(false); mdFileInputRef.current?.click(); }}
+                            className="w-full px-3 py-1.5 text-xs text-left hover:bg-primary/15 text-[var(--foreground)] flex items-center gap-2 transition-colors font-semibold text-primary"
+                            title="Import .md file from your computer"
                           >
-                            <HiClipboardCopy size={14} /> Import Markdown
+                            <HiUpload size={14} /> Import .md File
                           </button>
                           <button
+                            type="button"
+                            onClick={() => { setShowMoreDropdown(false); setIsEditingMarkdown(false); setMarkdownInput(''); setShowMarkdownImport(true); }}
+                            className="w-full px-3 py-1.5 text-xs text-left hover:bg-primary/15 text-[var(--foreground)] flex items-center gap-2 transition-colors"
+                            title="Paste raw Markdown code"
+                          >
+                            <HiClipboardCopy size={14} /> Paste Markdown Code
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => {
                               setShowMoreDropdown(false);
                               setIsEditingMarkdown(true);
@@ -1780,6 +1925,7 @@ Rules:
                               setShowMarkdownImport(true);
                             }}
                             className="w-full px-3 py-1.5 text-xs text-left hover:bg-primary/15 text-[var(--foreground)] flex items-center gap-2 transition-colors"
+                            title="Edit raw Markdown source"
                           >
                             <HiCode size={14} /> Edit MD Source
                           </button>
@@ -2155,7 +2301,7 @@ Rules:
                       Choose any study note from the catalog on the left to read, annotate, or transmute with AI. Or forge a brand-new parchment to begin capturing knowledge.
                     </p>
                   </div>
-                  <div className="pt-1 flex justify-center gap-3 flex-wrap">
+                  <div className="pt-1 flex justify-center gap-2.5 flex-wrap">
                     {notes.length > 0 && (
                       <Button variant="outline" icon={<HiDocumentText size={16} />} onClick={() => setIsScrollsDrawerOpen(true)}>
                         Browse Scrolls ({notes.length})
@@ -2163,6 +2309,14 @@ Rules:
                     )}
                     <Button variant="primary" icon={<HiPlus size={16} />} onClick={() => setShowNewModal(true)}>
                       Create New Scroll
+                    </Button>
+                    <Button
+                      variant="outline"
+                      icon={<HiUpload size={15} />}
+                      onClick={() => mdFileInputRef.current?.click()}
+                      title="Import .md or markdown file as a note"
+                    >
+                      Import .md File
                     </Button>
                     <Button variant="ghost" icon={<HiPencil size={14} />} onClick={() => window.location.href = '/whiteboard'}>
                       Open Whiteboard Studio
@@ -2313,9 +2467,10 @@ Rules:
           }}
           isEditingSource={isEditingMarkdown}
           initialValue={isEditingMarkdown ? (selectedNote?.markdownSource || markdownInput || '') : ''}
-          onImport={async (compiledHtml, rawMarkdown) => {
+          onImport={async (compiledHtml, rawMarkdown, suggestedTitle) => {
             if (!selectedNote) return;
             const quill = quillRef.current?.getEditor();
+            const titleUpdate = suggestedTitle && (selectedNote.title.startsWith('Untitled') || selectedNote.title === 'New Note') ? { title: suggestedTitle } : {};
             if (isEditingMarkdown) {
               if (quill) {
                 quill.root.innerHTML = compiledHtml;
@@ -2323,20 +2478,23 @@ Rules:
               } else {
                 setEditContent(compiledHtml);
               }
-              await updateNote(selectedNote.id, { content: compiledHtml, markdownSource: rawMarkdown });
-              setSelectedNote({ ...selectedNote, content: compiledHtml, markdownSource: rawMarkdown, updatedAt: Date.now() });
+              await updateNote(selectedNote.id, { content: compiledHtml, markdownSource: rawMarkdown, ...titleUpdate });
+              setSelectedNote({ ...selectedNote, content: compiledHtml, markdownSource: rawMarkdown, ...titleUpdate, updatedAt: Date.now() });
+              if (titleUpdate.title) setEditTitle(titleUpdate.title);
             } else {
               if (quill) {
                 const len = quill.getLength();
                 quill.clipboard.dangerouslyPasteHTML(len - 1, compiledHtml);
                 setEditContent(quill.root.innerHTML);
-                await updateNote(selectedNote.id, { content: quill.root.innerHTML, markdownSource: rawMarkdown });
-                setSelectedNote({ ...selectedNote, content: quill.root.innerHTML, markdownSource: rawMarkdown, updatedAt: Date.now() });
+                await updateNote(selectedNote.id, { content: quill.root.innerHTML, markdownSource: rawMarkdown, ...titleUpdate });
+                setSelectedNote({ ...selectedNote, content: quill.root.innerHTML, markdownSource: rawMarkdown, ...titleUpdate, updatedAt: Date.now() });
+                if (titleUpdate.title) setEditTitle(titleUpdate.title);
               } else {
                 const updated = (editContent || '') + compiledHtml;
                 setEditContent(updated);
-                await updateNote(selectedNote.id, { content: updated, markdownSource: rawMarkdown });
-                setSelectedNote({ ...selectedNote, content: updated, markdownSource: rawMarkdown, updatedAt: Date.now() });
+                await updateNote(selectedNote.id, { content: updated, markdownSource: rawMarkdown, ...titleUpdate });
+                setSelectedNote({ ...selectedNote, content: updated, markdownSource: rawMarkdown, ...titleUpdate, updatedAt: Date.now() });
+                if (titleUpdate.title) setEditTitle(titleUpdate.title);
               }
             }
           }}
@@ -2396,6 +2554,7 @@ Rules:
         <CreateNoteModal
           isOpen={showNewModal}
           onClose={() => setShowNewModal(false)}
+          onImportMdFile={() => mdFileInputRef.current?.click()}
           onCreate={async (title, folder) => {
             const id = await addNote({ title, content: '', folder, tags: [] });
             // Award XP asynchronously in background without blocking modal close or editor open

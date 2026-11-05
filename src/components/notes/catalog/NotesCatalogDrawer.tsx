@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HiPlus, HiX, HiSearch, HiClock, HiDocumentText, HiPencil, HiTrash } from 'react-icons/hi';
+import { HiPlus, HiX, HiSearch, HiClock, HiDocumentText, HiPencil, HiTrash, HiUpload } from 'react-icons/hi';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -18,6 +18,7 @@ interface NotesCatalogDrawerProps {
   selectedNoteId: string | null;
   onSelectNote: (note: Note) => void;
   onNewNote: () => void;
+  onImportMdFile?: () => void;
   onRenameNote: (note: Note) => void;
   onDeleteNote?: (note: Note) => void;
   loading?: boolean;
@@ -41,6 +42,7 @@ export default function NotesCatalogDrawer({
   selectedNoteId,
   onSelectNote,
   onNewNote,
+  onImportMdFile,
   onRenameNote,
   onDeleteNote,
   loading = false,
@@ -156,6 +158,20 @@ export default function NotesCatalogDrawer({
                 >
                   New
                 </Button>
+                {onImportMdFile && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<HiUpload size={13} />}
+                    onClick={() => {
+                      onImportMdFile();
+                      onClose();
+                    }}
+                    title="Import .md file as note"
+                  >
+                    Import .md
+                  </Button>
+                )}
                 <button
                   type="button"
                   onClick={onClose}

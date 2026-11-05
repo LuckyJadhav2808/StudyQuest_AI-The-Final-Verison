@@ -4,12 +4,13 @@ import React, { useState, useEffect } from 'react';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import { HiFolder } from 'react-icons/hi';
+import { HiFolder, HiUpload } from 'react-icons/hi';
 
 interface CreateNoteModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreate: (title: string, folder: string) => Promise<void>;
+  onImportMdFile?: () => void;
   defaultFolder?: string;
 }
 
@@ -17,6 +18,7 @@ export function CreateNoteModal({
   isOpen,
   onClose,
   onCreate,
+  onImportMdFile,
   defaultFolder = 'General',
 }: CreateNoteModalProps) {
   const [title, setTitle] = useState('');
@@ -75,6 +77,20 @@ export function CreateNoteModal({
             Create Scroll
           </Button>
         </div>
+        {onImportMdFile && (
+          <div className="pt-2 border-t border-[var(--card-border)] flex items-center justify-center">
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onImportMdFile();
+              }}
+              className="text-xs text-primary hover:underline flex items-center gap-1.5 font-medium transition-colors cursor-pointer"
+            >
+              <HiUpload size={14} /> Or import a .md file directly
+            </button>
+          </div>
+        )}
       </form>
     </Modal>
   );
