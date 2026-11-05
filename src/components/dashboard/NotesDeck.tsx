@@ -1,38 +1,64 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUpRight, Plus, SquarePen } from 'lucide-react';
+import { ArrowUpRight, Plus, Sparkles, SquarePen } from 'lucide-react';
 import { Btn, Chip, Panel, PanelHeader } from './ui';
 import { useNotes } from '@/hooks/useNotes';
 import { playClick } from '@/lib/sounds';
 
-const BENCHMARK_CARDS = [
-  { id: 'deck-1', tag: 'AI', score: '10/10', title: 'AI Unit Test QB', sub: 'Scroll Vault', grad: 'from-[#5b21b6] via-[#4338ca] to-[#1e1b4b]' },
-  { id: 'deck-2', tag: 'GENERAL', score: '10/13', title: 'Thermodynamics Sheet', sub: 'Physics · Ch.6', grad: 'from-[#0d9488] via-[#0f766e] to-[#115e59]' },
-  { id: 'deck-3', tag: 'CHEM', score: '9/12', title: 'Organic Reactions Map', sub: 'Reaction Lab', grad: 'from-[#b91c1c] via-[#991b1b] to-[#7f1d1d]' },
+const SLOT_GRADIENTS = [
+  'from-[#6366f1]/90 via-[#4f46e5]/80 to-[#1e1b4b]/95',
+  'from-[#0d9488]/90 via-[#0f766e]/80 to-[#115e59]/95',
+  'from-[#be185d]/90 via-[#9d174d]/80 to-[#4c0519]/95',
 ];
+
+function formatWordCount(count: number): string {
+  if (count <= 0) return 'Draft';
+  if (count >= 1000) {
+    return `${(count / 1000).toFixed(1).replace(/\.0$/, '')}k words`;
+  }
+  return `${count.toLocaleString()} words`;
+}
 
 export function NotesDeck() {
   const router = useRouter();
   const { notes } = useNotes();
   const [hover, setHover] = useState(false);
-  const [cards, setCards] = useState(BENCHMARK_CARDS);
+  const [deckOrder, setDeckOrder] = useState<number[]>([0, 1, 2]);
 
-  // Blend real notes if meaningful, while preserving the benchmark look from Image 2
-  const visibleCards = React.useMemo(() => {
-    if (!notes || notes.length === 0) return cards;
-    return cards.map((c, i) => {
-      const real = notes[i];
-      if (!real) return c;
+  // Dynamically map real user notes (up to 3)
+  const deckNotes = useMemo(() => {
+    if (!notes || notes.length === 0) return [];
+    
+    // Sort by latest updatedAt or createdAt
+    const sorted = [...notes].sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+    return sorted.slice(0, 3).map((n, idx) => {
+      const wordCount = (n.content || '').trim().split(/\s+/).filter(Boolean).length;
+      const tag = (n.folder && n.folder !== 'GENERAL' ? n.folder : (n.tags?.[0] || 'VAULT')).toUpperCase();
+      const score = formatWordCount(wordCount);
+      const dateStr = n.updatedAt
+        ? new Date(n.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+        : 'Recent';
+
       return {
-        ...c,
-        title: real.title && real.title.trim().length > 7 ? real.title : c.title,
-        tag: real.folder && real.folder !== 'GENERAL' ? real.folder : c.tag,
-        sub: c.sub,
+        id: n.id,
+        title: n.title?.trim() || 'Untitled Scroll',
+        tag,
+        score,
+        sub: n.folder && n.folder !== 'GENERAL' ? `${n.folder} · ${dateStr}` : `Scroll Vault · ${dateStr}`,
+        grad: SLOT_GRADIENTS[idx % SLOT_GRADIENTS.length],
       };
     });
-  }, [notes, cards]);
+  }, [notes]);
+
+  // Reorder deck upon picking non-front cards
+  const orderedCards = useMemo(() => {
+    if (deckNotes.length === 0) return [];
+    return deckOrder
+      .filter((i) => i < deckNotes.length)
+      .map((i) => deckNotes[i]);
+  }, [deckNotes, deckOrder]);
 
   const handlePick = (index: number) => {
     playClick();
@@ -40,97 +66,130 @@ export function NotesDeck() {
       router.push('/notes');
       return;
     }
-    setCards((prev) => {
+    setDeckOrder((prev) => {
       const copy = [...prev];
       const [picked] = copy.splice(index, 1);
       return [picked, ...copy];
     });
   };
 
+  const totalScrolls = notes?.length || 0;
+
   return (
     <Panel area="notes" tone="plasma" delay={420} className="gap-2 sm:gap-2.5 justify-between h-full">
-      <PanelHeader
-        icon={SquarePen}
-        tone="plasma"
-        title="Top 3 Notes"
-        sub="Diagonally stacked deck"
-        right={
-          <button
-            onClick={() => router.push('/notes')}
-            aria-label="Add note"
-            className="btn tone-plasma !h-8 !w-8 !rounded-full !p-0 shadow-md cursor-pointer"
-            title="Create Note"
-          >
-            <Plus size={16} strokeWidth={3} />
-          </button>
-        }
-      />
-
-      {/* 3D Diagonally Stacked Holographic Deck matching Image 2 & 3 */}
-      <div
-        className="relative min-h-0 flex-1 pb-2 sm:pb-3"
-        style={{ perspective: 900 }}
-        onMouseEnter={() => setHover(true)}
-        onMouseLeave={() => setHover(false)}
-      >
-        {[...visibleCards].reverse().map((item, ri) => {
-          const i = visibleCards.length - 1 - ri; // 0 = front card
-          const y = -i * (hover ? 64 : 52);
-          const rot = -i * (hover ? 4.6 : 3.2);
-          const x = i * (hover ? 12 : 7);
-          const front = i === 0;
-
-          return (
+      <div className="relative z-20 shrink-0">
+        <PanelHeader
+          icon={SquarePen}
+          tone="plasma"
+          title="Top 3 Notes"
+          sub={totalScrolls > 0 ? `${totalScrolls} scrolls in vault` : 'Diagonally stacked deck'}
+          right={
             <button
-              key={item.id}
-              onClick={() => handlePick(i)}
-              className={`absolute inset-x-1 bottom-2 sm:bottom-3 flex h-[min(54%,165px)] min-h-[105px] flex-col justify-between overflow-hidden rounded-[20px] border bg-gradient-to-br p-3 sm:p-3.5 text-left transition-all ${
-                item.grad
-              } ${
-                front
-                  ? 'cursor-pointer border-white/35 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.75),inset_0_1px_0_rgba(255,255,255,0.45)]'
-                  : 'cursor-pointer border-white/20 hover:border-white/40 shadow-[0_12px_24px_-6px_rgba(0,0,0,0.6)]'
-              }`}
-              style={{
-                transform: `translate3d(${x}px, ${y}px, ${-i * 35}px) rotateX(14deg) rotateZ(${rot}deg) scale(${
-                  1 - i * 0.04
-                })`,
-                transformOrigin: '50% 100%',
-                transition: 'transform .55s cubic-bezier(.2,.9,.25,1.1), filter .3s, border-color .2s',
-                filter: front ? 'none' : 'brightness(0.96) contrast(1.04)',
-                zIndex: 10 - i,
-                backgroundColor: '#07091B',
-              }}
+              onClick={() => router.push('/notes')}
+              aria-label="Add note"
+              className="btn tone-plasma !h-8 !w-8 !rounded-full !p-0 shadow-md cursor-pointer"
+              title="Create Note"
             >
-              <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_0%,rgba(255,255,255,0.25),transparent_55%)]" />
-
-              <div className="relative flex items-center justify-between">
-                <span className="rounded-md border border-white/30 bg-black/60 px-2 py-0.5 text-[clamp(8.5px,0.75vw,10px)] font-bold tracking-wider text-white uppercase font-mono shadow-xs">
-                  {item.tag}
-                </span>
-                <span className="text-[clamp(9.5px,0.8vw,11px)] font-mono tabular-nums font-bold text-white drop-shadow-sm">{item.score}</span>
-              </div>
-
-              <div className="relative">
-                <div className="font-heading text-[clamp(11px,0.9vw,13.5px)] font-bold text-white drop-shadow leading-tight truncate">
-                  {item.title}
-                </div>
-                <div className="mt-0.5 flex items-center justify-between text-[clamp(9px,0.78vw,10.5px)] font-semibold text-white/80">
-                  <span>{item.sub}</span>
-                  {front && <ArrowUpRight size={13} className="text-white shrink-0 ml-1" />}
-                </div>
-              </div>
+              <Plus size={16} strokeWidth={3} />
             </button>
-          );
-        })}
+          }
+        />
       </div>
 
-      <footer className="flex shrink-0 items-center justify-between border-t border-white/8 pt-2">
-        <Chip tone="plasma" className="text-[clamp(8px,0.75vw,10px)]">{notes.length > 0 ? `${notes.length} SCROLLS AVAILABLE` : '6 SCROLLS AVAILABLE'}</Chip>
+      {/* Dynamic Notes Deck or Elegant Empty State */}
+      {orderedCards.length === 0 ? (
+        <div className="relative z-0 min-h-0 flex-1 flex flex-col items-center justify-center p-3 sm:p-4 text-center">
+          <div className="well relative flex flex-col items-center justify-center w-full h-full max-h-[160px] rounded-2xl border border-dashed border-[#ec4899]/30 bg-[#ec4899]/5 p-3">
+            <div className="tile tone-plasma h-10 w-10 rounded-2xl mb-2">
+              <SquarePen size={18} strokeWidth={2.3} />
+            </div>
+            <div className="font-heading text-xs sm:text-sm font-bold text-white mb-0.5">
+              Vault Awaiting Scrolls
+            </div>
+            <p className="text-[11px] text-slate-400 mb-2 max-w-[200px]">
+              No notes forged yet. Create notes to pin them in your 3D deck.
+            </p>
+            <Btn
+              tone="plasma"
+              onClick={() => router.push('/notes')}
+              className="!px-3 !py-1 text-xs whitespace-nowrap"
+            >
+              <Plus size={12} strokeWidth={3} />
+              <span>Forge Note</span>
+            </Btn>
+          </div>
+        </div>
+      ) : (
+        <div
+          className="relative z-0 min-h-0 flex-1 pt-3 sm:pt-4 pb-1 sm:pb-1.5 overflow-hidden"
+          style={{ perspective: 900 }}
+          onMouseEnter={() => setHover(true)}
+          onMouseLeave={() => setHover(false)}
+        >
+          {[...orderedCards].reverse().map((item, ri) => {
+            const i = orderedCards.length - 1 - ri; // 0 = front card
+            const y = -i * (hover ? 40 : 34);
+            const rot = -i * (hover ? 2 : 1.5);
+            const x = 0;
+            const front = i === 0;
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => handlePick(i)}
+                className={`absolute inset-x-2 sm:inset-x-2.5 bottom-7 sm:bottom-8 flex h-[96px] sm:h-[102px] min-h-[88px] flex-col justify-between overflow-hidden rounded-[18px] border bg-gradient-to-br p-2 sm:p-2.5 text-left transition-all ${
+                  item.grad
+                } ${
+                  front
+                    ? 'cursor-pointer border-white/35 shadow-[0_18px_36px_-10px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.45)]'
+                    : 'cursor-pointer border-white/20 hover:border-white/40 shadow-[0_10px_20px_-6px_rgba(0,0,0,0.6)]'
+                }`}
+                style={{
+                  transform: `translate3d(${x}px, ${y}px, ${-i * 40}px) rotateX(14deg) rotateZ(${rot}deg) scale(${
+                    1 - i * 0.045
+                  })`,
+                  transformOrigin: '50% 100%',
+                  transition: 'transform .55s cubic-bezier(.2,.9,.25,1.1), filter .3s, border-color .2s',
+                  filter: front ? 'none' : `brightness(${1 - i * 0.05}) contrast(1.02)`,
+                  zIndex: 10 - i,
+                  backgroundColor: front ? 'rgba(9, 12, 30, 0.98)' : 'rgba(11, 15, 36, 0.92)',
+                }}
+              >
+                <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_0%,rgba(255,255,255,0.22),transparent_55%)]" />
+
+                <div className="relative flex items-center justify-between">
+                  <span className="rounded-md border border-white/35 bg-black/75 px-2 py-0.5 text-[9.5px] sm:text-[10px] font-bold tracking-wider text-white uppercase font-mono shadow-xs truncate max-w-[110px]">
+                    {item.tag}
+                  </span>
+                  <span className="rounded-md border border-white/20 bg-black/50 px-2 py-0.5 text-[9.5px] sm:text-[10px] font-mono tabular-nums font-bold text-white/95 shadow-xs">
+                    {item.score}
+                  </span>
+                </div>
+
+                {/* Bottom title & sub: only visible on front card to eliminate ghosting through translucent back cards */}
+                <div className={`relative ${front ? 'opacity-100' : 'opacity-0 select-none pointer-events-none'}`}>
+                  <div className="font-heading text-xs sm:text-[13px] font-bold text-white leading-snug truncate">
+                    {item.title}
+                  </div>
+                  <div className="mt-0.5 flex items-center justify-between text-[10px] sm:text-[10.5px] font-semibold text-white/80">
+                    <span className="truncate mr-2">{item.sub}</span>
+                    {front && <ArrowUpRight size={13} className="text-white shrink-0" />}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <footer className="flex shrink-0 items-center justify-between border-t border-white/8 pt-2 pr-1.5 sm:pr-2">
+        <Chip tone="plasma" className="text-[clamp(8px,0.75vw,10px)]">
+          {totalScrolls} {totalScrolls === 1 ? 'SCROLL' : 'SCROLLS'} AVAILABLE
+        </Chip>
         <Btn
           tone="plasma"
           onClick={() => router.push('/notes')}
-          className="!px-3 !py-1 text-xs whitespace-nowrap shrink-0"
+          className="!px-3 !py-1 text-xs whitespace-nowrap shrink-0 shadow-[0_0_12px_rgba(236,72,153,0.35)]"
         >
           <span>View All</span>
           <ArrowUpRight size={13} strokeWidth={3} />

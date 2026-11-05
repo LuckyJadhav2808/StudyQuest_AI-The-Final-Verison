@@ -40,20 +40,20 @@ export default function Header() {
   const username =
     profile?.displayName?.trim()?.split(' ')[0] ||
     user?.displayName?.trim()?.split(' ')[0] ||
-    (user?.email ? user.email.split('@')[0] : 'Luckx2808');
+    (user?.email ? user.email.split('@')[0] : 'Scholar');
 
   const greeting = getGreeting();
   const GreetingIcon = greeting.Icon;
 
-  const streak = gamification?.streak || 3;
+  const streak = typeof gamification?.streak === 'number' ? gamification.streak : 0;
   const rawCoins = typeof coins === 'number'
     ? coins
     : typeof coins === 'object' && coins && 'bc' in (coins as any)
-    ? Number((coins as any).bc) || 1872
-    : 1872;
-  const coinsCount = rawCoins || 1872;
-  const xpCount = gamification?.xp || 4699;
-  const level = gamification?.level || 9;
+    ? Number((coins as any).bc) || 0
+    : 0;
+  const coinsCount = rawCoins || 0;
+  const xpCount = typeof gamification?.xp === 'number' ? gamification.xp : 0;
+  const level = typeof gamification?.level === 'number' && gamification.level > 0 ? gamification.level : 1;
   const levelProgress = (xpCount % 1000) / 1000;
 
   const openCommandPalette = () => {
@@ -80,10 +80,11 @@ export default function Header() {
 
           <label
             onClick={openCommandPalette}
-            className="well hidden md:flex h-9 w-32 lg:w-44 xl:w-52 items-center gap-2 rounded-xl px-2.5 sm:px-3 text-slate-400 focus-within:border-purple-500/60 cursor-pointer shrink-0"
+            className="well hidden md:flex h-9 w-36 lg:w-48 xl:w-56 items-center gap-2 rounded-xl px-2.5 sm:px-3 text-slate-400 focus-within:border-purple-500/60 cursor-pointer shrink-0"
           >
             <Search size={14} className="shrink-0 text-slate-400" />
-            <span className="min-w-0 flex-1 text-xs text-slate-400 truncate whitespace-nowrap">Search quests...</span>
+            <span className="min-w-0 flex-1 text-xs text-slate-400 truncate whitespace-nowrap hidden lg:inline">Search quests, notes...</span>
+            <span className="min-w-0 flex-1 text-xs text-slate-400 truncate whitespace-nowrap lg:hidden">Search...</span>
             <kbd className="rounded-md border border-white/10 px-1.5 py-0.5 text-[9px] font-semibold text-slate-400 font-mono shrink-0">Ctrl K</kbd>
           </label>
         </div>
@@ -93,16 +94,16 @@ export default function Header() {
             ============================================================ */}
         <div
           onClick={() => setShowChestModal(true)}
-          className="well hidden xl:flex items-center gap-2 rounded-2xl px-3.5 py-1.5 cursor-pointer hover:border-purple-500/40 transition-colors shrink-0 whitespace-nowrap flex-nowrap"
-          title="Daily status & chest"
+          className="well hidden xl:flex items-center gap-2 rounded-2xl px-3.5 py-1.5 cursor-pointer hover:border-purple-500/40 transition-colors shrink-0"
+          title={`Daily status & chest · ${username}`}
         >
           <GreetingIcon size={15} className={`${greeting.color} shrink-0`} />
-          <span className="font-heading text-xs sm:text-sm font-semibold text-white whitespace-nowrap flex-nowrap inline-flex items-center gap-1">
-            <span>{greeting.text},</span>
-            <span className="text-gradient font-bold">{username}</span>
+          <span className="font-heading text-xs sm:text-sm font-semibold text-white whitespace-nowrap inline-flex items-center gap-1">
+            <span className="shrink-0">{greeting.text},</span>
+            <span className="text-gradient font-bold truncate max-w-[240px] 2xl:max-w-[320px] inline-block">{username}</span>
           </span>
           <span className="h-1 w-1 rounded-full bg-slate-500 shrink-0 mx-0.5" />
-          <span className="text-xs text-slate-400 whitespace-nowrap">Stay focused</span>
+          <span className="text-xs text-slate-400 shrink-0 whitespace-nowrap">Stay focused</span>
         </div>
 
         {/* ============================================================

@@ -43,7 +43,7 @@ export function FlowStation() {
 
   // Angle for the floating glowing thumb dot
   const ang = progress * 2 * Math.PI - Math.PI / 2;
-  const goalMinutes = totalFocusToday || 0;
+  const goalMinutes = Math.floor((totalFocusToday || 0) / 60);
   const goalPct = Math.min(100, Math.round((goalMinutes / DAILY_GOAL_MIN) * 100));
 
   const stateLabel = isRunning
@@ -94,9 +94,9 @@ export function FlowStation() {
         }
       />
 
-      {/* 3D Orb Timer Section with Responsive Proportional Aspect */}
-      <div className="min-h-0 flex-1 flex items-center justify-center py-0.5 sm:py-1 relative overflow-visible" style={{ containerType: 'inline-size' }}>
-        <div className="relative aspect-square w-full max-w-[clamp(200px,32vh,320px)] max-h-[clamp(200px,32vh,320px)] flex items-center justify-center mx-auto" style={{ containerType: 'inline-size' }}>
+      {/* 3D Orb Timer Section with Responsive Proportional Aspect & ~12px Extra Header Breathing Room */}
+      <div className="min-h-0 flex-1 flex items-center justify-center mt-6 sm:mt-7 pt-2.5 pb-1 relative overflow-visible" style={{ containerType: 'inline-size' }}>
+        <div className="relative aspect-square w-full max-w-[clamp(180px,28vh,290px)] max-h-[clamp(180px,28vh,290px)] flex items-center justify-center mx-auto" style={{ containerType: 'inline-size' }}>
           {/* Soft Purple Aurora Glow behind ring */}
           <div
             className={`absolute inset-4 rounded-full bg-[#8b5cf6]/25 blur-3xl transition-opacity duration-700 pointer-events-none ${
@@ -198,8 +198,8 @@ export function FlowStation() {
         </div>
       </div>
 
-      {/* Tactile Controls: Reset, 3D Candy Play/Pause, Swap Mode */}
-      <div className="flex shrink-0 items-center justify-center gap-2.5 sm:gap-3.5 py-0.5 sm:py-1">
+      {/* Tactile Controls: Reset, 3D Candy Play/Pause, Swap Mode with ~10px extra lower clearance */}
+      <div className="flex shrink-0 items-center justify-center gap-2.5 sm:gap-3.5 mt-6 sm:mt-6.5 py-0.5 sm:py-1">
         <button
           onClick={handleReset}
           aria-label="Reset Timer"

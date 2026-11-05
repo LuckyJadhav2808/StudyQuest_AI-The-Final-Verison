@@ -49,6 +49,9 @@ src/data/datasets/ML dataset/*.pdf
 src/data/datasets/ML dataset/*.parquet
 src/data/datasets/ML dataset/*.jsonl
 
+# Temporary experiments and scaffolds
+modernize-dashboard-ui-and-ux/
+
 # Testing artifacts
 .playwright-mcp/
 

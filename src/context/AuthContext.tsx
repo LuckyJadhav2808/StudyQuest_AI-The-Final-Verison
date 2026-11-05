@@ -408,13 +408,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           try {
             if (typeof window !== 'undefined' && localStorage.getItem('sq_dev_guest') === 'true') {
-              const guestUser = { uid: 'guest-scholar', email: 'scholar@studyquest.ai', displayName: 'Luckx2808' } as unknown as User;
+              const guestUser = { uid: 'guest-scholar', email: 'scholar@studyquest.ai', displayName: 'Scholar' } as unknown as User;
               setUser(guestUser);
               setProfile({
                 uid: 'guest-scholar',
-                displayName: 'Luckx2808',
+                displayName: 'Scholar',
                 email: 'scholar@studyquest.ai',
-                avatarSeed: 'Luckx2808',
+                avatarSeed: 'Scholar',
                 avatarStyle: 'adventurer',
                 friendCode: 'SQ2026',
                 lastSeen: Date.now(),

@@ -102,9 +102,11 @@ export function LoFiStation() {
   const totalDisplayTime = isMusicPlaying ? fmt(musicDuration) : fmt(240);
 
   return (
-    <Panel area="lofi" tone="iris" delay={480} className="!justify-center !py-2 sm:!py-2.5 overflow-hidden h-full relative">
-      {/* 56-Bar Animated Equalizer Backdrop - safely contained inside padding */}
-      <div className="pointer-events-none absolute inset-x-5 bottom-1 flex h-6 items-end gap-[2px] opacity-25 overflow-hidden">
+    <Panel area="lofi" tone="iris" delay={480} className="!justify-center !pt-2.5 !pb-4 sm:!pb-4.5 overflow-hidden h-full relative">
+      {/* 56-Bar Animated Equalizer Audio Waves - fixed 16px height inside card padding with ~0.5 playback opacity */}
+      <div className={`pointer-events-none absolute inset-x-4 sm:inset-x-6 bottom-3 flex h-4 items-end gap-[2px] overflow-hidden rounded-b-xl z-0 transition-opacity duration-300 ${
+        isPlaying ? 'opacity-50' : 'opacity-0'
+      }`}>
         {Array.from({ length: 56 }).map((_, k) => (
           <span
             key={k}
@@ -112,16 +114,16 @@ export function LoFiStation() {
               isPlaying ? 'animate-eq' : ''
             }`}
             style={{
-              height: `${28 + ((k * 37) % 68)}%`,
+              height: `${35 + ((k * 37) % 65)}%`,
               animationDelay: `${(k % 9) * -0.17}s`,
               animationDuration: `${0.7 + (k % 5) * 0.18}s`,
-              transform: isPlaying ? undefined : 'scaleY(0.25)',
+              animationPlayState: isPlaying ? 'running' : 'paused',
             }}
           />
         ))}
       </div>
 
-      <div className="relative flex items-center gap-2.5 sm:gap-3 w-full min-w-0">
+      <div className="relative z-10 flex items-center gap-2.5 sm:gap-3 w-full min-w-0">
         {/* Spinning Vinyl Record Disc */}
         <div
           onClick={() => setIsPlayerOpen(true)}
@@ -150,15 +152,15 @@ export function LoFiStation() {
         {/* Track Info & Scrubber Bar */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 min-w-0">
-            <h3
+            <h2
               onClick={() => setIsPlayerOpen(true)}
-              className="font-heading truncate text-[clamp(11px,0.92vw,13.5px)] font-bold text-white cursor-pointer hover:text-[#c4b5fd] transition-colors"
+              className="font-heading truncate text-sm sm:text-base font-bold text-white cursor-pointer hover:text-[#c4b5fd] transition-colors leading-tight"
             >
               {trackTitle}
-            </h3>
-            <Chip tone="iris" className="shrink-0 text-[8px] py-0 px-1.5">
+            </h2>
+            <span className="chip tone-iris shrink-0 text-[8.5px] py-0.5 px-1.5 font-mono">
               {trackChip}
-            </Chip>
+            </span>
           </div>
           <p className="truncate text-[clamp(9px,0.8vw,10.5px)] font-medium text-[#c4b5fd] mt-0.5">
             {trackSub}

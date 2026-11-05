@@ -31,8 +31,8 @@ export function Panel({
     const y = (e.clientY - r.top) / r.height;
     el.style.setProperty("--mx", `${x * 100}%`);
     el.style.setProperty("--my", `${y * 100}%`);
-    el.style.setProperty("--rx", `${(0.5 - y) * 2.6}deg`);
-    el.style.setProperty("--ry", `${(x - 0.5) * 3.4}deg`);
+    el.style.setProperty("--rx", `${(0.5 - y) * 1.0}deg`);
+    el.style.setProperty("--ry", `${(x - 0.5) * 1.2}deg`);
   };
 
   const leave = () => {
@@ -71,7 +71,7 @@ export function PanelHeader({
   tag,
   sub,
   right,
-  size = 30,
+  size = 32,
   tagAlways,
 }: {
   icon: LucideIcon | React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
@@ -84,21 +84,21 @@ export function PanelHeader({
   tagAlways?: boolean;
 }) {
   return (
-    <header className="flex shrink-0 items-center justify-between gap-1.5 sm:gap-2 w-full min-w-0">
-      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+    <header className="flex shrink-0 items-center justify-between gap-2 w-full min-w-0">
+      <div className="flex items-center gap-2 min-w-0 flex-1">
         <IconTile icon={icon} tone={tone} size={size} />
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
-            <h2 className="font-heading text-[clamp(0.75rem,0.95vw,1.15rem)] font-bold tracking-tight text-slate-900 dark:text-white leading-tight truncate">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <h2 className="font-heading text-[clamp(0.82rem,1.02vw,1.2rem)] font-bold tracking-tight text-slate-900 dark:text-white leading-tight truncate">
               {title}
             </h2>
             {tag && (
-              <span className={`chip tone-${tone} shrink-0 text-[8px] py-0 px-1.5 ${tagAlways ? "inline-flex" : "hidden 2xl:inline-flex"}`}>
+              <span className={`chip tone-${tone} shrink-0 text-[8.5px] py-0.5 px-1.5 ${tagAlways ? "inline-flex" : "hidden 2xl:inline-flex"}`}>
                 {tag}
               </span>
             )}
           </div>
-          {sub && <p className="truncate text-[clamp(8px,0.72vw,10.5px)] font-normal text-slate-400 dark:text-slate-400/80 leading-none mt-0.5">{sub}</p>}
+          {sub && <p className="truncate text-[clamp(8.5px,0.75vw,11px)] font-medium text-slate-400 dark:text-slate-400/80 leading-none mt-0.5">{sub}</p>}
         </div>
       </div>
       {right && <div className="shrink-0 flex items-center ml-auto">{right}</div>}

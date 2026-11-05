@@ -82,14 +82,14 @@ function MainContent({ children }: { children: React.ReactNode }) {
 
   if (pathname === '/') {
     return (
-      <div className="w-screen h-screen max-h-screen overflow-hidden relative flex flex-col p-2 sm:p-2.5 md:p-3 bg-gradient-to-b from-[#F0F4F8] via-[#E2E8F0] to-[#CBD5E1] dark:from-[#05060d] dark:via-[#090a18] dark:to-[#0f1126] select-none">
+      <div className="w-full max-w-full h-screen max-h-screen overflow-hidden relative flex flex-col p-2 sm:p-2.5 md:p-3 pb-6 sm:pb-6 md:pb-6 bg-gradient-to-b from-[#F0F4F8] via-[#E2E8F0] to-[#CBD5E1] dark:from-[#05060d] dark:via-[#090a18] dark:to-[#0f1126] select-none">
         {/* Living atmospheric nebula blobs */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+        <div className="absolute inset-0 pointer-events-none overflow-hidden max-w-full z-0">
           <div className="absolute -top-32 -left-20 h-[560px] w-[560px] rounded-full bg-[#8b5cf6]/28 blur-[95px] animate-pulse [animation-duration:9s]" />
           <div className="absolute -top-24 left-[40%] h-[440px] w-[440px] rounded-full bg-[#f59e0b]/20 blur-[105px] animate-pulse [animation-duration:11s]" />
           <div className="absolute -bottom-24 left-[35%] h-[480px] w-[480px] rounded-full bg-[#10b981]/22 blur-[105px] animate-pulse [animation-duration:8s]" />
-          <div className="absolute -top-16 -right-20 h-[520px] w-[520px] rounded-full bg-[#ec4899]/26 blur-[95px] animate-pulse [animation-duration:10s]" />
-          <div className="absolute -bottom-24 -right-20 h-[480px] w-[480px] rounded-full bg-[#22d3ee]/22 blur-[105px] animate-pulse [animation-duration:12s]" />
+          <div className="absolute -top-16 right-0 translate-x-12 h-[520px] w-[520px] rounded-full bg-[#ec4899]/26 blur-[95px] animate-pulse [animation-duration:10s]" />
+          <div className="absolute -bottom-24 right-0 translate-x-12 h-[480px] w-[480px] rounded-full bg-[#22d3ee]/22 blur-[105px] animate-pulse [animation-duration:12s]" />
         </div>
 
         {/* Persistent Floating Top Header */}
@@ -103,7 +103,7 @@ function MainContent({ children }: { children: React.ReactNode }) {
             </div>
           )}
 
-          <main className="flex-1 min-w-0 h-full overflow-y-auto thin-scroll flex flex-col min-h-0 relative pb-6 sm:pb-8 pr-1">
+          <main className="flex-1 min-w-0 h-full overflow-y-auto overflow-x-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden flex flex-col min-h-0 relative pb-0 pr-0">
             {children}
           </main>
         </div>
@@ -112,7 +112,7 @@ function MainContent({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="w-screen h-screen max-h-screen overflow-hidden relative flex flex-col items-center justify-center p-1.5 sm:p-2.5 md:p-3 bg-gradient-to-b from-[#F0F4F8] via-[#E2E8F0] to-[#CBD5E1] dark:from-[#050811] dark:via-[#091124] dark:to-[#12162A]">
+    <div className="w-full max-w-full h-screen max-h-screen overflow-hidden relative flex flex-col items-center justify-center p-1.5 sm:p-2.5 md:p-3 bg-gradient-to-b from-[#F0F4F8] via-[#E2E8F0] to-[#CBD5E1] dark:from-[#050811] dark:via-[#091124] dark:to-[#12162A]">
       {/* Twilight Horizon & Atmospheric Refraction (Reference Image Visual Canvas) */}
       <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#EA580C]/8 via-[#3B82F6]/6 to-transparent pointer-events-none z-0" />
       <div className="absolute -top-24 -left-24 w-[540px] h-[540px] rounded-full bg-blue-600/12 blur-[100px] pointer-events-none z-0" />
